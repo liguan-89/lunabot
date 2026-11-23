@@ -1,6 +1,6 @@
 // A Team Cloud with its own Composio project key: each person's own apps go to that project as their own Composio user,
 // and nothing reaches the managed connected-apps service. The real Composio client code (server/composio.ts) runs against
-// a loopback project (OMB_COMPOSIO_API) beside a loopback service that records whatever reaches it.
+// a loopback project (LUNABOT_COMPOSIO_API) beside a loopback service that records whatever reaches it.
 import { mkdtempSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -58,7 +58,7 @@ beforeEach(() => {
   fetched = [];
   service.requests.length = 0;
   project.requests.length = 0; project.toolCalls.length = 0; project.links.length = 0; project.accounts.length = 0; project.down = false;
-  vi.stubEnv("OMB_COMPOSIO_API", project.api);
+  vi.stubEnv("LUNABOT_COMPOSIO_API", project.api);
   vi.stubGlobal("fetch", (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     fetched.push(input instanceof Request ? input.url : String(input));
     return realFetch(input, init);
@@ -282,7 +282,7 @@ describe("a team that changes where its apps connect", () => {
   });
 
   it("works with the service switched off and a key, and says an admin must add a key without one", async () => {
-    vi.stubEnv("OMB_COMPOSIO_BROKER", "off");
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER", "off");
     const keyed = setup();
     await keyed.connect(EMAILS.ada, ADA_USER);
     expect(await keyed.myGmail(EMAILS.ada)).toMatchObject({ connected: true });

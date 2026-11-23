@@ -162,7 +162,7 @@ describe("doctor --host", () => {
     const seen: string[] = [];
     const watching = probe({ freeBytes: (path) => { seen.push(path); return 412 * GB; } });
     const ctx = (flags: Record<string, string | boolean>, env: NodeJS.ProcessEnv = {}) => ({ flags, env }) as unknown as VerbContext;
-    await hostDoctor(ctx({ host: true }, { OMB_DATA_DIR: "/srv/from-env" }), watching);
+    await hostDoctor(ctx({ host: true }, { LUNABOT_DATA_DIR: "/srv/from-env" }), watching);
     const flagged = await hostDoctor(ctx({ host: true, "data-dir": "/srv/mausbot", port: "9000", domain: "Maus.Example.com" }), probe({
       freeBytes: (path) => { seen.push(path); return 412 * GB; }, files: { "/proc/net/tcp": tcp(443, 9000) } }));
     expect(seen).toEqual(["/srv/from-env", "/srv/mausbot"]);

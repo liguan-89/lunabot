@@ -32,7 +32,7 @@ curl -X POST "https://your.domain/hooks/api/bots/<botId>/messages" \
 The address lives under the webhook receiver's `/hooks` path, so wherever this
 bot's webhooks are reachable (a Cloud's public name, a self-hosted edge that
 forwards `/hooks/*` as [deploy/Caddyfile](../deploy/Caddyfile) does, or
-`OMB_WEBHOOK_PUBLIC_URL`) the API is too; nothing new to open.
+`LUNABOT_WEBHOOK_PUBLIC_URL`) the API is too; nothing new to open.
 
 The JSON body takes:
 

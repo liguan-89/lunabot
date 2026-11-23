@@ -111,7 +111,7 @@ const start = async () => {
   const log = openSync(fixture.info.logPath, "a", 0o600);
   child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: { ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, fixture.info.dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: key },
+    env: { ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, fixture.info.dataDir, Number(new URL(url).port)), LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: key },
     stdio: ["ignore", log, log],
   });
   closeSync(log);

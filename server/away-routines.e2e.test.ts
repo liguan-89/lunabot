@@ -25,7 +25,7 @@ describe("routines pause while the person is away", () => {
 
   beforeAll(async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    fixture = await launchVerificationServer({ ...process.env, OMB_AWAY_ROUTINES_MS: "300", OMB_AWAY_REVIEW_MS: "100" });
+    fixture = await launchVerificationServer({ ...process.env, LUNABOT_AWAY_ROUTINES_MS: "300", LUNABOT_AWAY_REVIEW_MS: "100" });
     api = client(fixture);
     const bots = (await api("GET", "/api/bots")).bots as any[];
     const found = bots.find((bot) => bot.defaultBot && !bot.defaultBot.person);

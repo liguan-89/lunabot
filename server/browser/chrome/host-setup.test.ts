@@ -12,10 +12,10 @@ afterAll(async () => { for (const folder of folders) await removeTempDir(folder)
 describe("host setup", () => {
   it("pins the AppArmor exemption to one root-owned executable", () => {
     const profile = appArmorProfile("/opt/DEX BOT/resources/chrome/chrome");
-    expect(profile).toContain('profile dexbot-chrome "/opt/DEX BOT/resources/chrome/chrome" flags=(unconfined)');
+    expect(profile).toContain('profile lunabot-chrome "/opt/DEX BOT/resources/chrome/chrome" flags=(unconfined)');
     expect(profile).toContain("userns,");
     for (const path of ["/opt/**/chrome", "/home/a/chrome", "relative/chrome"]) expect(() => appArmorProfile(path)).toThrow();
-    expect(appArmorProfile("/opt/a b/chrome")).toContain('profile dexbot-chrome "/opt/a b/chrome" flags=(unconfined)');
+    expect(appArmorProfile("/opt/a b/chrome")).toContain('profile lunabot-chrome "/opt/a b/chrome" flags=(unconfined)');
   });
 
   it("names the sandbox when Chrome says it has none, and never turns it off by itself", async () => {
@@ -33,7 +33,7 @@ describe("host setup", () => {
     expect(new BrowserHostError("libraries", ["libnss3.so"]).message).toContain(LIBRARIES_COMMAND);
     expect(await diagnoseLaunchFailure({ executable: "/opt/chrome", output: "something else", platform: "darwin" })).toBeNull();
     expect(sandboxDisabled({})).toBe(false);
-    expect(sandboxDisabled({ OMB_BROWSER_SANDBOX: "0" })).toBe(true);
+    expect(sandboxDisabled({ LUNABOT_BROWSER_SANDBOX: "0" })).toBe(true);
   });
 
   it.skipIf(process.platform === "win32")("asks the browser's own loader which libraries are missing, in the environment the browser launched with", async () => {

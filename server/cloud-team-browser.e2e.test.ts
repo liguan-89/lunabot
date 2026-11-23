@@ -1,9 +1,9 @@
-// A real Team Cloud (OMB_CLOUD_ROLE=team) for the two things one member must never get from another: their browser and
+// A real Team Cloud (LUNABOT_CLOUD_ROLE=team) for the two things one member must never get from another: their browser and
 // their phone's view. Each member's private chat with a team bot drives a browser of its own, a group chat its own, and a
 // live view shows the browser of the conversation it is opened from, to whoever may read that conversation. A member's
 // phone pairs with a code the member made, and gets their role and their chats. The engine is the synthetic pi CLI.
 // The sign-in part needs a real browser (agent-browser and its Chrome, on Linux): it runs where one resolves or
-// OMB_TEAM_BROWSER_E2E=1 asks for it, and says why it is skipped otherwise.
+// LUNABOT_TEAM_BROWSER_E2E=1 asks for it, and says why it is skipped otherwise.
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,8 +25,8 @@ const MEMBER_C = { email: "cleo@acme.test", role: "member" as const };
 const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";
 `;
-const REAL_BROWSER = process.env.OMB_TEAM_BROWSER_E2E === "1" || (process.platform === "linux" && Boolean(resolveAgentBrowserBinary({ env: process.env })));
-if (!REAL_BROWSER) console.log("skipping the Team Cloud sign-in check: it needs agent-browser and its Chrome on Linux (or OMB_TEAM_BROWSER_E2E=1)");
+const REAL_BROWSER = process.env.LUNABOT_TEAM_BROWSER_E2E === "1" || (process.platform === "linux" && Boolean(resolveAgentBrowserBinary({ env: process.env })));
+if (!REAL_BROWSER) console.log("skipping the Team Cloud sign-in check: it needs agent-browser and its Chrome on Linux (or LUNABOT_TEAM_BROWSER_E2E=1)");
 
 /** Without a real browser, an agent-browser stand-in that logs each command with the session it is for, so the browser
  * each turn and each view reaches is visible by name. A shell script starts a Node helper (the engine is spawned as a
@@ -74,7 +74,7 @@ let bot: { id: string; mainThreadId: string };
 let adaThread = "", cleoThread = "", roomId = "", roomThread = "";
 
 beforeAll(async () => {
-  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, ...(stub ? { env: { OMB_AGENT_BROWSER_PATH: stub.engine } } : {}) } });
+  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, ...(stub ? { env: { LUNABOT_AGENT_BROWSER_PATH: stub.engine } } : {}) } });
   team = fx.team!;
   owner = (await team.pair(OWNER)).token!;
   admin = (await team.pair(ADMIN)).token!;

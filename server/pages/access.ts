@@ -23,10 +23,10 @@ export function pagesAuthHeaders(access: PagesAccess, body: string, now = Date.n
   if (access.kind === "desktop") return { authorization: `Bearer ${access.token}` };
   const timestamp = String(Math.floor(now / 1000)), nonce = randomBytes(18).toString("base64url");
   return {
-    "x-omb-cloud-machine": access.machineId,
-    "x-omb-cloud-timestamp": timestamp,
-    "x-omb-cloud-nonce": nonce,
-    "x-omb-cloud-signature": `v1=${pagesHomeSignature(access.secret, access.machineId, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-machine": access.machineId,
+    "x-lunabot-cloud-timestamp": timestamp,
+    "x-lunabot-cloud-nonce": nonce,
+    "x-lunabot-cloud-signature": `v1=${pagesHomeSignature(access.secret, access.machineId, timestamp, nonce, body)}`,
   };
 }
 

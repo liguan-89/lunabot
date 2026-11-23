@@ -64,10 +64,10 @@ app.whenReady().then(async () => {
     cwd: root,
     execArgv: ["--experimental-strip-types"],
     env: {
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: home, PATH: "",
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: home, PATH: "",
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(webhookPort),
-      OMB_TEST_INTERNAL_CAPABILITY_KEY: testCapabilityKey,
+      LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(webhookPort),
+      LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: testCapabilityKey,
     },
     stdio: "pipe",
   });
@@ -96,7 +96,7 @@ app.whenReady().then(async () => {
   };
   /** The launch a thread's newest child booted from: the MCP config names the thread and the level. */
   const launchOf = (threadId) => piRows()
-    .filter((row) => Array.isArray(row.argv) && row.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId)
+    .filter((row) => Array.isArray(row.argv) && row.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === threadId)
     .at(-1);
   /** The approval level that thread's newest turn really ran under, from the fake pi's own launch record. */
   const levelOf = (threadId) => launchOf(threadId)?.mcpConfig?.approvalMode ?? null;
@@ -354,7 +354,7 @@ app.whenReady().then(async () => {
   assert.equal(customCard.held, "The provider requires your approval for this action.");
   assert.equal((await api(`/api/threads/${customThreadId}/respond`, "POST", { requestId: customCard.requestId, behavior: "allow" })).status, 200);
   await until(async () => !(await taskOf(customTarget.id, customThreadId))?.busy);
-  const customCalls = piRows().filter((row) => row.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === customThreadId);
+  const customCalls = piRows().filter((row) => row.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === customThreadId);
   assert.ok(customCalls.length > 0, "the delegated Custom turn really ran on the pi engine");
 
   if (process.argv.includes("--ui")) {

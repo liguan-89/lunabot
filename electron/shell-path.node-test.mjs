@@ -16,7 +16,7 @@ test("a lent command finds the tools on the person's shell PATH though the app w
   await writeFile(path.join(bin, "fixture-gh"), "#!/bin/sh\necho fixture-gh-ran\n");
   await chmod(path.join(bin, "fixture-gh"), 0o755);
   const shell = path.join(dir, "login-shell");
-  await writeFile(shell, `#!/bin/sh\necho "Last login: rc noise"\nprintf '__OMB_PATH__%s' '${bin}:/usr/bin:/bin'\n`);
+  await writeFile(shell, `#!/bin/sh\necho "Last login: rc noise"\nprintf '__LUNABOT_PATH__%s' '${bin}:/usr/bin:/bin'\n`);
   await chmod(shell, 0o755);
   const saved = { PATH: process.env.PATH, SHELL: process.env.SHELL };
   t.after(() => Object.assign(process.env, saved));

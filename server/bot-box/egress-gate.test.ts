@@ -17,7 +17,7 @@ function connectVia(socketPath: string, target: string): Promise<{ status: strin
       buffer += chunk.toString("latin1");
       if (!buffer.includes("\r\n\r\n")) return;
       socket.destroy();
-      resolve({ status: /^HTTP\/1\.1 (\d{3})/.exec(buffer)?.[1] ?? "malformed", blocked: /X-Omb-Blocked: (\S+)/.exec(buffer)?.[1] ?? null });
+      resolve({ status: /^HTTP\/1\.1 (\d{3})/.exec(buffer)?.[1] ?? "malformed", blocked: /X-Lunabot-Blocked: (\S+)/.exec(buffer)?.[1] ?? null });
     });
     socket.once("error", reject);
   });

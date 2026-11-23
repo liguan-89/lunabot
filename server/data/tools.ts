@@ -15,7 +15,7 @@ import {
   type DataExportFormat,
   type DataReduction,
   type DataSource,
-  type OmbChartSpec,
+  type LunabotChartSpec,
 } from "../../shared/data-surface.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
@@ -707,7 +707,7 @@ export interface ShowInput {
   sql?: string;
   table?: string;
   kind?: "table" | "chart";
-  chart?: OmbChartSpec;
+  chart?: LunabotChartSpec;
   vegaLite?: Record<string, unknown>;
   limit?: number;
   live?: boolean;

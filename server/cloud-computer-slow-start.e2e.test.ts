@@ -69,7 +69,7 @@ describe("a slow cloud computer start", () => {
     await until(() => {
       for (const turn of piTurns(dumpFile).slice(before)) {
         if (!turn.prompt.includes(text)) continue;
-        if (turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID !== botId) continue;
+        if (turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_BOT_ID !== botId) continue;
         launch = turn.launch;
         return Boolean(launch?.mcpConfig);
       }
@@ -79,9 +79,9 @@ describe("a slow cloud computer start", () => {
   };
   const screenshot = async (sent: { mcpConfig: NonNullable<PiLaunch["mcpConfig"]> }) => {
     const env = sent.mcpConfig.mcpServers!.computer!.env!;
-    const response = await fetch(new URL("/api/internal/computer/mcp", env.OMB_HARNESS_URL), {
+    const response = await fetch(new URL("/api/internal/computer/mcp", env.LUNABOT_HARNESS_URL), {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${env.OMB_MCP_TOKEN_COMPUTER}` },
+      headers: { "content-type": "application/json", authorization: `Bearer ${env.LUNABOT_MCP_TOKEN_COMPUTER}` },
       body: JSON.stringify({ method: "tools/call", params: { name: "screenshot", arguments: {} } }),
     });
     const body = await response.json() as any;
@@ -163,13 +163,13 @@ describe("a slow cloud computer start", () => {
       cwd: ROOT,
       env: {
         PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data, TEMP: home, TMP: home, TMPDIR: home,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-        OMB_BOAT_API: `${relayBase}/own-key-must-not-be-used`,
-        OMB_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`,
-        OMB_CLOUD_BOAT_TOKEN: INCLUDED,
-        OMB_COMPUTER_CALL_WAIT_MS: String(CALL_WAIT_MS),
-        OMB_CLOUD_COMPUTER_START_BUDGET_MS: String(START_BUDGET_MS),
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data, TEMP: home, TMP: home, TMPDIR: home,
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
+        LUNABOT_BOAT_API: `${relayBase}/own-key-must-not-be-used`,
+        LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`,
+        LUNABOT_CLOUD_BOAT_TOKEN: INCLUDED,
+        LUNABOT_COMPUTER_CALL_WAIT_MS: String(CALL_WAIT_MS),
+        LUNABOT_CLOUD_COMPUTER_START_BUDGET_MS: String(START_BUDGET_MS),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

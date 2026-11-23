@@ -858,7 +858,7 @@ describe("steer-queue e2e (fake pi fleet)", () => {
     const env: NodeJS.ProcessEnv = {
       HOME: home,
       USERPROFILE: home,
-      OMB_PORT: String(port),
+      LUNABOT_PORT: String(port),
     };
     if (process.env.PATH) env.PATH = process.env.PATH;
     // Without SystemRoot, winsock fails to initialize in the child.

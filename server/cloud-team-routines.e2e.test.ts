@@ -1,4 +1,4 @@
-// A routine is where it lives (docs/team-cloud.md "Routines"). A real Team Cloud (OMB_CLOUD_ROLE=team) with the Owner,
+// A routine is where it lives (docs/team-cloud.md "Routines"). A real Team Cloud (LUNABOT_CLOUD_ROLE=team) with the Owner,
 // an Admin and two members, Bob and Ben: a routine Bob makes from his private chat, or points at it, is his alone in
 // every list, stream, file, export and bot tool, and its runs land in his audience; one he makes for the shared chat
 // stays the team's. When Bob leaves, his private routines go with his chats, the shared ones he wrote are handed to whoever

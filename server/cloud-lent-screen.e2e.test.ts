@@ -52,7 +52,7 @@ async function adminPairing(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   return (await api("POST", "/api/auth/pair", { body: { code: granted.code } })).body.token;
@@ -62,7 +62,7 @@ async function adminPairing(): Promise<string> {
  * registers it; it answers computer_tools with its own tool list, as cua-driver there would. */
 async function lendPc(): Promise<void> {
   const environmentId = (await api("GET", "/.well-known/lunabot/environment")).body.environmentId as string;
-  const headers = { "x-omb-computer-secret": PC.secret };
+  const headers = { "x-lunabot-computer-secret": PC.secret };
   const connected = await api("POST", "/api/shared-computers/connect", { token: owner, headers, body: {
     id: PC.id, name: "OFFICE-PC", environmentId, folders: [], terminal: false, computer: true, platform: "win32", chrome: true,
     commandTimeouts: true, longCommands: true, fileEdits: true,
@@ -101,14 +101,14 @@ beforeAll(async () => {
   boot = async () => {
     child = spawnWithSecrets(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
       // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
-      OMB_BOT_BOX: "0",
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_PUBLIC_URL: `https://${HOST}`, OMB_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
-      OMB_CLOUD_SECRETS_FD: "3",
-    }, { OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_CLOUD_BOAT_TOKEN: `box_omb_${randomBytes(32).toString("base64url")}` }, undefined, true);
+      LUNABOT_BOT_BOX: "0",
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
+      LUNABOT_CLOUD_SECRETS_FD: "3",
+    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${randomBytes(32).toString("base64url")}` }, undefined, true);
     for (const stream of [child.stdout, child.stderr]) stream?.on("data", (chunk) => { log += chunk; });
     const deadline = Date.now() + 20_000;
     for (;;) {
@@ -143,7 +143,7 @@ async function ownerAsks(botId: string, threadId: string, text: string): Promise
     for (let index = before; index < turns.length; index++) {
       const turn = turns[index]!;
       if (!piTurnText(turn).includes(text)) continue;
-      if (turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID !== threadId) continue;
+      if (turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID !== threadId) continue;
       const session = turns.slice(0, index + 1).filter((candidate) => candidate.launch === turn.launch);
       found = { systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: turn.launch?.mcpConfig ?? {} };
       return true;

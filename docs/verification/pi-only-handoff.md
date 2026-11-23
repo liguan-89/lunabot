@@ -7,7 +7,7 @@
 
 产品只剩一个 agent：pi（`server/drivers/pi.ts`），所有内置 AI 提供方都不再是引擎实例，
 唯一提供方是自定义 provider（配置仍在 `cfg.openaiCompat`，通过
-`DEXBOT_PI_CUSTOM_*` 和 pi 的 `models.json` 落地）。Claude/Codex/OpenCode/ACP/Cline/
+`LUNABOT_PI_CUSTOM_*` 和 pi 的 `models.json` 落地）。Claude/Codex/OpenCode/ACP/Cline/
 Grok/Copilot 等驱动已删除。
 
 本阶段完成的收尾：

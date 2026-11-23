@@ -35,7 +35,7 @@ Everything a Node, Swift or Kotlin implementer needs. MUST and NEVER are binding
 
 | Name | What | Where it lives |
 |---|---|---|
-| `T` | The computer's **transport key**, a long-lived P-256 key pair separate from the HPKE credential key | Private half: Electron secure credential document field `e2eTransportKey` (same pattern as `phoneSecretHpke`, `electron/phone-secret-identity.mjs`), handed to the sidecar in memory. Standalone sidecar: `$OMB_COMPANION_DIR/e2e-key.json`, mode 0600 |
+| `T` | The computer's **transport key**, a long-lived P-256 key pair separate from the HPKE credential key | Private half: Electron secure credential document field `e2eTransportKey` (same pattern as `phoneSecretHpke`, `electron/phone-secret-identity.mjs`), handed to the sidecar in memory. Standalone sidecar: `$LUNABOT_COMPANION_DIR/e2e-key.json`, mode 0600 |
 | `keyId` | `SHA256(T.pub)[0:16]` (16 bytes) | Derived |
 | `hostId` | 16 random bytes, made by the control plane once per installation | D1 `installations.relay_host_id`; Electron credential document |
 | `cred` | A device token `omb_…` (`electron/desktop-companion-client.mjs:11`), or the pairing token `omb_pair_…` while a window is open | Phone keychain; desktop stores only `SHA256(cred)` hex (`companion/src/devices.ts:54`) |

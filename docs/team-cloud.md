@@ -30,7 +30,7 @@ keeps people apart on it. The bot box ([bot-box.md](bot-box.md)) is what makes t
   device also says it as a sentence: *"Your chats in Acme are private. Only you can see them: not other members, not
   Acme's admins."* The server marks such a conversation `private: true` on the wire (`WireTask.private`). When you leave
   the team (or are removed), your private chats and everything only yours there are deleted, never handed to an admin
-  (below). The Owner's export of the team's machine (the workspace backup, `OMB_CLOUD_EXPORT_ONLY`) leaves them out too
+  (below). The Owner's export of the team's machine (the workspace backup, `LUNABOT_CLOUD_EXPORT_ONLY`) leaves them out too
   (`server/workspace-backup-team-private.ts`): no private conversation, none of its work folders or files only it used, no
   routine that lives in one nor any run that names one, no member's memory layer, no member's own Luna Bot, their inbox
   or anything under `people/`. Restoring such an export gives a team back everything but those.
@@ -188,17 +188,17 @@ process restarts without what is now blocked.
 
 ## The role
 
-`OMB_CLOUD_ROLE=team` with `OMB_CLOUD_TEAM_ID` (the Admin's id) and `OMB_CLOUD_TEAM_NAME` (1 to 80 characters), beside
-the usual Cloud home contract (`OMB_CLOUD_MACHINE_ID`, `OMB_CLOUD_ADMIN_URL`, `OMB_CLOUD_BOOTSTRAP_SECRET`,
-`OMB_PUBLIC_URL`). Everything else is a Cloud home: the signed routes (`/api/cloud/pairing`, `/api/cloud/health`,
-`/api/cloud/power`, `/api/cloud/box`), the launcher, the box, the broker, `OMB_CLOUD_EXPORT_ONLY=1`.
+`LUNABOT_CLOUD_ROLE=team` with `LUNABOT_CLOUD_TEAM_ID` (the Admin's id) and `LUNABOT_CLOUD_TEAM_NAME` (1 to 80 characters), beside
+the usual Cloud home contract (`LUNABOT_CLOUD_MACHINE_ID`, `LUNABOT_CLOUD_ADMIN_URL`, `LUNABOT_CLOUD_BOOTSTRAP_SECRET`,
+`LUNABOT_PUBLIC_URL`). Everything else is a Cloud home: the signed routes (`/api/cloud/pairing`, `/api/cloud/health`,
+`/api/cloud/power`, `/api/cloud/box`), the launcher, the box, the broker, `LUNABOT_CLOUD_EXPORT_ONLY=1`.
 
 What the role turns off: the personal settlement (`cloud-owner.ts`: no session is revoked at boot, no owner key, no
 earlier-owner adoption), lending a Mac (nobody's Mac serves a team), the guest confinement of a My Cloud (a member's turn
 runs at the bot's own level inside the box; only what came in from outside, a webhook, runs confined), and the "only the
 owner" card rule (whoever started a conversation, or an Admin, answers its cards, as on a hosted workspace).
 
-`OMB_CLOUD_TEAM_LANGUAGE` (optional, one of the app's locales: `de`, `pt-br`…) is the team's default language, set on
+`LUNABOT_CLOUD_TEAM_LANGUAGE` (optional, one of the app's locales: `de`, `pt-br`…) is the team's default language, set on
 the Admin's Team admin → Settings. It is this server's language while its own settings set none (the app's words and the
 language new bots start in); a value that isn't a locale is ignored, never refused.
 

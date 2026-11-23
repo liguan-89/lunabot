@@ -9,7 +9,7 @@ import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
 
 it("boots, starts an interrupted routine once more, and reports it back to its source room", async () => {
-  const fixture = await launchVerificationServer({ OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir, logPath } = fixture.info;
   let restarted: ChildProcess | undefined;
   try {
@@ -28,13 +28,13 @@ it("boots, starts an interrupted routine once more, and reports it back to its s
       if (process.env[key]) env[key] = process.env[key];
     }
     Object.assign(env, {
-      HOME: dataDir, USERPROFILE: dataDir, OMB_DATA_DIR: dataDir,
+      HOME: dataDir, USERPROFILE: dataDir, LUNABOT_DATA_DIR: dataDir,
       APPDATA: join(dataDir, "AppData", "Roaming"), LOCALAPPDATA: join(dataDir, "AppData", "Local"),
       XDG_CONFIG_HOME: join(dataDir, ".config"), XDG_CACHE_HOME: join(dataDir, ".cache"),
       XDG_DATA_HOME: join(dataDir, ".local", "share"), HERMES_HOME: join(dataDir, ".hermes"),
       TEMP: join(dataDir, "tmp"), TMP: join(dataDir, "tmp"), TMPDIR: join(dataDir, "tmp"),
-      OMB_PORT: new URL(url).port, OMB_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
-      PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy", OMB_TEST_FIXTURE_ENGINE: "pi",
+      LUNABOT_PORT: new URL(url).port, LUNABOT_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
+      PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy", LUNABOT_TEST_FIXTURE_ENGINE: "pi",
     });
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
@@ -63,7 +63,7 @@ it("boots, starts an interrupted routine once more, and reports it back to its s
 }, 60_000);
 
 it("keeps a routine waiting through a restart, reruns its cut teammate once, and completes it", async () => {
-  const fixture = await launchVerificationServer({ OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir, logPath } = fixture.info;
   let restarted: ChildProcess | undefined;
   try {
@@ -85,7 +85,7 @@ it("keeps a routine waiting through a restart, reruns its cut teammate once, and
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
-      env: { ...verificationServerEnvironment({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" }, dataDir, Number(new URL(url).port)), FAKE_CLAUDE_MODE: "happy", OMB_TEST_FIXTURE_ENGINE: "pi" },
+      env: { ...verificationServerEnvironment({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" }, dataDir, Number(new URL(url).port)), FAKE_CLAUDE_MODE: "happy", LUNABOT_TEST_FIXTURE_ENGINE: "pi" },
       stdio: ["ignore", log, log],
     });
     closeSync(log);

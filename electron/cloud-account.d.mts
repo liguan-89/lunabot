@@ -34,7 +34,7 @@ export interface CloudAccountState {
   addCloud?: { canAdd: true } | { canAdd: false; blocked: CloudAddBlock };
   /** With `clouds`, for the account a Team plan with organizations is billed to: whether ＋ may add one to it now. */
   organizations?: import("./cloud-list.mjs").CloudOrganizations;
-  /** The newest OpenMausBot release the Admin knows, while it follows releases (with `clouds`); absent otherwise. */
+  /** The newest Luna Bot release the Admin knows, while it follows releases (with `clouds`); absent otherwise. */
   latestVersion?: string;
   /** Another Cloud this app is buying (in the last 24 hours): its id, name, swatch and plan, when its checkout opened,
    * whether main keeps that page (`link`), and `done` once it was opened or announced. */
@@ -57,7 +57,7 @@ export interface CloudAccountState {
    * starts the 30-minute watch again). `link`: main keeps its page, so Reopen
    * and Copy link use that same page. */
   checkout?: { plan: string; startedAt: number; signIn?: true; link?: true; done?: true };
-  /** This app talks to the staging Admin (OMB_CLOUD_STAGING=1): test payments, test Clouds. */
+  /** This app talks to the staging Admin (LUNABOT_CLOUD_STAGING=1): test payments, test Clouds. */
   staging?: true;
   /** Unavailable: the saved sign-in can't be read (`restore-failed`, offered after a few tries) or removed
    * (`signout-storage-failed`); `resetSaved()` clears it so the person can sign in again. */

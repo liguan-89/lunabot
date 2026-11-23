@@ -21,7 +21,7 @@ const terminal = (status: string | undefined) => status === "completed" || statu
 
 async function chiefJob(test: (f: any) => Promise<void>, extraEnv: NodeJS.ProcessEnv = {}) {
   // The approval deadline and the stall window elapse only on marker files, never on their own.
-  const parentEnv = { ...process.env, OMB_TEST_APPROVAL_CLOCK: "1", OMB_TEST_STALL_CLOCK: "1", ...extraEnv };
+  const parentEnv = { ...process.env, LUNABOT_TEST_APPROVAL_CLOCK: "1", LUNABOT_TEST_STALL_CLOCK: "1", ...extraEnv };
   const session = await launchVerificationServer(parentEnv, undefined, undefined, undefined, undefined, { scripted: true });
   const url = session.info.url;
   const dataDir = session.info.dataDir;
@@ -225,7 +225,7 @@ it("carries a consult-and-implement job over several teammate turns to one final
 
 // pi asks the person through its own permission card, so each assignment's plan turn is a native confirm card rather
 // than Claude's permission-prompt tool. The unanswered-and-not-run outcome was removed with that engine's approval
-// broker: OMB_TEST_APPROVAL_CLOCK patches the retired Claude driver, and pi's fifteen-minute deadline has no test seam.
+// broker: LUNABOT_TEST_APPROVAL_CLOCK patches the retired Claude driver, and pi's fifteen-minute deadline has no test seam.
 it("tells the Chief what happened to each approval: allowed or denied", () => chiefJob(async (f) => {
   f.script(f.clive.id,
     { key: "B0", match: ["PHASE-APPROVALS-JOB"], steps: [{ arguments: { bot_ids: [f.mira.id], message: "CHECK-HISTORY: APPROVE-ME check the export module's recent history." } }], reply: "B0: Mira is checking." },
@@ -461,5 +461,5 @@ it("tells a teammate the person's job is its task, and a routine's handoff is no
 }), hostTimeout(90_000));
 
 // The screen-seat subtest was removed with the retired Claude fixture: its plan `screenCalls` reached the mounted
-// computer's OMB_CONTROL_URL, which a pi plan turn does not expose. The seat's queueing on pi is covered by
+// computer's LUNABOT_CONTROL_URL, which a pi plan turn does not expose. The seat's queueing on pi is covered by
 // server/room-roots.e2e.test.ts and server/host-lazy-claim.e2e.test.ts.

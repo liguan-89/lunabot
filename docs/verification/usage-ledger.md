@@ -104,7 +104,7 @@ its preview URL.
 The chat header's input/output breakdown has a separate real-renderer fixture:
 
 ```sh
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/usage-details-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/usage-details-ui.e2e.test.ts
 ```
 
 It launches a disposable app, sends one scripted-engine turn through the composer,

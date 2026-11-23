@@ -23,7 +23,7 @@ const volume = (name) => join(dir, "volumes", name.replaceAll("/", "_"));
 /** An image by any name it has: its id, a tag, or a digest reference. */
 const image = (ref) => state.images.find((candidate) => candidate.local && (candidate.id === ref || candidate.refs.includes(ref)));
 const envFile = () => (existsSync(join(process.cwd(), ".env")) ? readFileSync(join(process.cwd(), ".env"), "utf8") : "");
-const pinned = () => process.env.OMB_IMAGE ?? /^OMB_IMAGE=(.*)$/m.exec(envFile())?.[1] ?? null;
+const pinned = () => process.env.LUNABOT_IMAGE ?? /^LUNABOT_IMAGE=(.*)$/m.exec(envFile())?.[1] ?? null;
 const composeImage = () => (state.composeReadsPin && pinned()) || state.defaultImage;
 
 /** `{step: "compose up", signal: "SIGKILL"}`: the update script is signalled as this call starts, once. `match`, a
@@ -68,11 +68,11 @@ function compose(rest) {
     const serving = image(omb?.image);
     if (omb?.status !== "running" || !serving) fail("service omb is not running");
     // `doctor: false`: a hardened version, where doctor without a session is refused whatever its engines.
-    if (more.includes("openmausbot")) return serving.engine && serving.doctor !== false ? out("ready") : fail("no engine is available", 5);
+    if (more.includes("lunabot") || more.includes("openmausbot")) return serving.engine && serving.doctor !== false ? out("ready") : fail("no engine is available", 5);
     if (serving.behaviour === "silent") fail("", 7);
     // A version with the count (`counts`) answers how many engines can start a bot; an older one has no such route.
     if (line.includes("/api/health/engines")) return serving.counts ? out(JSON.stringify({ app: "openmausbot", engines: serving.engine ? 1 : 0 })) : fail("", 22);
-    if (line.includes("/api/health")) return out('{"app":"openmausbot"}');
+    if (line.includes("/api/health")) return out('{"app":"lunabot"}');
     if (line.includes("/environment")) return out(JSON.stringify({ environmentId: "e", version: serving.serves ?? serving.version }));
   }
   fail(`fake docker: unknown compose command: ${line}`, 64);

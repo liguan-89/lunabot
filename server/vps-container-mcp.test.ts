@@ -23,7 +23,7 @@ function runBridge(bin: string, input: string) {
         vpsContainerName("bridge-test"),
       ],
       {
-        env: { ...process.env, OMB_EXTRA_PATH: bin, NODE_NO_WARNINGS: "1" },
+        env: { ...process.env, LUNABOT_EXTRA_PATH: bin, NODE_NO_WARNINGS: "1" },
         stdio: ["pipe", "pipe", "pipe"],
       },
     );
@@ -67,7 +67,7 @@ describe.skipIf(process.platform === "win32")("VPS Cua MCP bridge", () => {
     expect(result.stderr).toContain(
       `ARGS:-H ssh://production-vps exec -i -u cua -e HOME=/home/cua -e DISPLAY=:1 ` +
         `-e CUA_DRIVER_INSTALL_CHANNEL=python_package -e CUA_DRIVER_RS_TELEMETRY_ENABLED=0 ${vpsContainerName("bridge-test")} ` +
-        "/usr/local/libexec/lunabot/cua-driver mcp --socket /run/user/1000/openmausbot-cua.sock",
+        "/usr/local/libexec/lunabot/cua-driver mcp --socket /run/user/1000/lunabot-cua.sock",
     );
   });
 

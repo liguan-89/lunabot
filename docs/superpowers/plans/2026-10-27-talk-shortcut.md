@@ -448,7 +448,7 @@ test("readFrames joins frames split across chunks and skips heartbeats and junk"
 });
 ```
 
-- [ ] **Step 2: Write the failing fixture test** (`server/talk-server.e2e.test.ts`; launch with `OMB_TEST_DESKTOP_OWNER_TOKEN: owner` and send `x-openmausbot-desktop-owner` on every request, as `server/chat-pages.e2e.test.ts:54-56` does, so it runs the packaged desktop's path)
+- [ ] **Step 2: Write the failing fixture test** (`server/talk-server.e2e.test.ts`; launch with `LUNABOT_TEST_DESKTOP_OWNER_TOKEN: owner` and send `x-openmausbot-desktop-owner` on every request, as `server/chat-pages.e2e.test.ts:54-56` does, so it runs the packaged desktop's path)
 
 ```ts
 it("asks Luna Bot in its own Quick asks chat, as the desktop app does, and follows the reply to the end", async () => {
@@ -842,7 +842,7 @@ git commit -m "feat(talk): Settings row, and calls tell main they hold the micro
 
 `talk-shortcut.md` sections (in this repo's recipe style, see `docs/verification/local-environments.md`):
 1. **Floor: automated checks** — `node --test electron/talk-*.node-test.mjs electron/desktop-prefs.node-test.mjs electron/preload.node-test.mjs electron/speech-helper-release.node-test.mjs`; `pnpm exec vitest run electron/speech.test.mjs server/task-select.test.ts server/talk-server.e2e.test.ts src/lib/call-presence.test.ts src/components/TalkShortcutRow.test.ts --maxWorkers=1`; `pnpm typecheck && pnpm lint && pnpm i18n:check`. What they prove and what they do not (the real hotkey, the microphone, focus, Spaces).
-2. **Setup** — a packaged build of the branch installed beside, never over, the installed Luna Bot (maintainers: the OMB2 side-by-side build), launched with `OMB_DATA_DIR=$HOME/.lunabot-test` unless the check needs real bots; only one running app may hold the key. Composer dictation used once first so Microphone and Speech Recognition are granted.
+2. **Setup** — a packaged build of the branch installed beside, never over, the installed Luna Bot (maintainers: the OMB2 side-by-side build), launched with `LUNABOT_DATA_DIR=$HOME/.lunabot-test` unless the check needs real bots; only one running app may hold the key. Composer dictation used once first so Microphone and Speech Recognition are granted.
 3. **By hand**, each with its expected result:
    - Settings → General shows the row, on, "Hold ⌃⌥Space, speak, let go".
    - In Safari's address bar: hold ⌃⌥, tap Space, say "what can you do", let go of ⌃⌥. Live words, then the reply, bottom-centre of that display. `osascript -e 'tell application "System Events" to name of first application process whose frontmost is true'` prints `Safari` before and after; the caret still blinks in Safari; the Luna Bot window stays behind.

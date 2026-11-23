@@ -11,7 +11,7 @@ import { readHandoffs } from "./testing/handoff-rows.ts";
 const SETTLED = "Your downstream room requests have settled.";
 
 it("keeps a teammate the person stopped from getting the same request back, until the person asks again", async () => {
-  const session = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
+  const session = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
   const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: session.info.url } }) as Promise<any>;
   const api = (path: string, body?: unknown, method = "POST") =>
     request(path, body === undefined ? {} : { method, body: JSON.stringify(body) }, session.info.url) as Promise<any>;

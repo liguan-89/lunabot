@@ -169,9 +169,9 @@ describe("buildMcpServers", () => {
       custom: { motion: { ...url }, shop: { ...url } },
       customResultBudgets: { motion: 40_000 },
     } }) as Record<string, { args: string[]; env: Record<string, string> }>;
-    expect(servers.motion.env.OMB_GATE_BUDGET).toBe("40000");
+    expect(servers.motion.env.LUNABOT_GATE_BUDGET).toBe("40000");
     expect(servers.motion.args[0]).toContain("mcp-gate");
-    expect(servers.shop.env).not.toHaveProperty("OMB_GATE_BUDGET");
+    expect(servers.shop.env).not.toHaveProperty("LUNABOT_GATE_BUDGET");
     expect(servers.shop.args[0]).toContain("mcp-remote-proxy");
   });
 
@@ -213,15 +213,15 @@ describe("buildMcpServers", () => {
     const mounted = servers?.whop as { command: string; args: string[]; env: Record<string, string> };
     expect(mounted).toMatchObject({ command: process.execPath, scope: "custom", directory: true });
     expect(mounted.args[0]).toContain("mcp-remote-proxy");
-    expect(JSON.parse(mounted.env.OMB_REMOTE_MCP_DIRECTORY)).toEqual({ name: "whop" });
+    expect(JSON.parse(mounted.env.LUNABOT_REMOTE_MCP_DIRECTORY)).toEqual({ name: "whop" });
     expect(JSON.stringify(mounted.args)).not.toContain("disposable-pi-token");
     expect(servers?.notes).not.toHaveProperty("directory");
     const toolScope = { allow: ["mcp:whop:*"], deny: ["mcp:whop:payments_create"] };
     const scoped = buildMcpServers({ threadId: "t", text: "hi", toolScope, integrations: { custom: { whop } } })?.whop as { args: string[]; env: Record<string, string> };
     expect(scoped).toMatchObject({ directory: true });
     expect(scoped.args[0]).toContain("mcp-gate");
-    expect(scoped.env.OMB_GATE_DIRECTORY).toBe("1");
-    expect(JSON.parse(JSON.parse(scoped.env.OMB_GATE_UPSTREAM).env.OMB_REMOTE_MCP_DIRECTORY)).toEqual({ name: "whop", toolScope });
+    expect(scoped.env.LUNABOT_GATE_DIRECTORY).toBe("1");
+    expect(JSON.parse(JSON.parse(scoped.env.LUNABOT_GATE_UPSTREAM).env.LUNABOT_REMOTE_MCP_DIRECTORY)).toEqual({ name: "whop", toolScope });
   });
 
   it("mounts none of the owner's custom connectors for a guest-confined turn", () => {
@@ -706,13 +706,13 @@ describe("PiDriver turns (fake CLI)", () => {
     // An isolated TMPDIR shows the mcp temp dir appear at prewarm and disappear at expiry.
     const childTmp = join(dir, "child-tmp");
     mkdirSync(childTmp);
-    const savedTtl = process.env.OMB_PI_PREWARM_MS;
+    const savedTtl = process.env.LUNABOT_PI_PREWARM_MS;
     const savedTmp = process.env.TMPDIR;
     const savedTemp = process.env.TEMP;
     const savedTmpWin = process.env.TMP;
     // Past the fake's node boot (~300 ms) so the child logs its argv row before the expiry lands; slow Windows
     // runners also need room for the spawn's credential dir to appear before anything is read.
-    process.env.OMB_PI_PREWARM_MS = "15000";
+    process.env.LUNABOT_PI_PREWARM_MS = "15000";
     // os.tmpdir() reads TMPDIR only on POSIX; on Windows it reads TEMP and TMP, so point all three at the isolated
     // directory or the credential dir lands in the real %TEMP% and this suite never sees it.
     process.env.TMPDIR = childTmp;
@@ -743,8 +743,8 @@ describe("PiDriver turns (fake CLI)", () => {
       await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
       expect(spawns()).toHaveLength(2);
     } finally {
-      if (savedTtl === undefined) delete process.env.OMB_PI_PREWARM_MS;
-      else process.env.OMB_PI_PREWARM_MS = savedTtl;
+      if (savedTtl === undefined) delete process.env.LUNABOT_PI_PREWARM_MS;
+      else process.env.LUNABOT_PI_PREWARM_MS = savedTtl;
       if (savedTmp === undefined) delete process.env.TMPDIR;
       else process.env.TMPDIR = savedTmp;
       if (savedTemp === undefined) delete process.env.TEMP;
@@ -1762,7 +1762,7 @@ describe("ensurePiInstanceAgentDir", () => {
       const dir = ensurePiInstanceAgentDir("inst-three", operator, { HOME: home });
       ensurePiCustomProvider({
         HOME: home, PI_CODING_AGENT_DIR: dir,
-        DEXBOT_PI_CUSTOM_BASE_URL: "https://gateway.example/v1", DEXBOT_PI_CUSTOM_MODELS: "model-a",
+        LUNABOT_PI_CUSTOM_BASE_URL: "https://gateway.example/v1", LUNABOT_PI_CUSTOM_MODELS: "model-a",
       });
       expect(readFileSync(join(operator, "models.json"), "utf8")).toBe(operatorModels);
       const written = JSON.parse(readFileSync(join(dir, "models.json"), "utf8")) as { providers: Record<string, { models?: Array<{ id: string }> }> };

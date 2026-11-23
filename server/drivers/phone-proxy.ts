@@ -46,8 +46,8 @@ export function resolveAdbPath(env: NodeJS.ProcessEnv = process.env, platform = 
   const executable = executableName(platform);
   const home = homedir();
   const candidates = [
-    env.OMB_ADB_PATH,
-    env.OMB_RESOURCES_PATH && join(env.OMB_RESOURCES_PATH, "android-platform-tools", platform, executable),
+    env.LUNABOT_ADB_PATH,
+    env.LUNABOT_RESOURCES_PATH && join(env.LUNABOT_RESOURCES_PATH, "android-platform-tools", platform, executable),
     ...(env.PATH ?? "").split(delimiter).map((entry) => entry && join(entry, executable)),
     platform === "darwin" && join(home, "Library/Android/sdk/platform-tools/adb"),
     platform === "darwin" && "/opt/homebrew/bin/adb",
@@ -292,8 +292,8 @@ export function createPhoneClaim(
   env: NodeJS.ProcessEnv = process.env,
   fetchImpl: typeof fetch = fetch,
 ): () => Promise<ClaimOutcome> {
-  const url = env.OMB_HARNESS_URL?.trim();
-  const token = env.OMB_PHONE_TOKEN?.trim();
+  const url = env.LUNABOT_HARNESS_URL?.trim();
+  const token = env.LUNABOT_PHONE_TOKEN?.trim();
   if (!url || !token) {
     return async () => ({ ok: true });
   }

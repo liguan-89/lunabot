@@ -93,9 +93,9 @@ beforeAll(async () => {
   writeFileSync(configFile, JSON.stringify({ ...JSON.parse(readFileSync(configFile, "utf8")), decider }));
   const env = {
     ...verificationServerEnvironment({}, fixture.info.dataDir, Number(new URL(fixture.info.url).port)),
-    OMB_BOAT_API: origin, OMB_COMPOSIO_API: `${origin}/composio`, OMB_COMPOSIO_TOOLKITS_API: `${origin}/composio`,
-    OMB_GEMINI_TTS_API: `${origin}/gemini`,
-    OMB_ELEVENLABS_API: `${origin}/eleven`, OMB_FISH_AUDIO_API: `${origin}/fish`, OMB_POSTIZ_CLOUD_URL: `${origin}/postiz`,
+    LUNABOT_BOAT_API: origin, LUNABOT_COMPOSIO_API: `${origin}/composio`, LUNABOT_COMPOSIO_TOOLKITS_API: `${origin}/composio`,
+    LUNABOT_GEMINI_TTS_API: `${origin}/gemini`,
+    LUNABOT_ELEVENLABS_API: `${origin}/eleven`, LUNABOT_FISH_AUDIO_API: `${origin}/fish`, LUNABOT_POSTIZ_CLOUD_URL: `${origin}/postiz`,
   };
   const log = openSync(fixture.info.logPath, "a", 0o600);
   server = spawn(process.execPath, verificationServerArgs(env), { cwd: fileURLToPath(ROOT), env, stdio: ["ignore", log, log] });

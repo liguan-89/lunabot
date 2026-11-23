@@ -1,6 +1,6 @@
 // End-to-end coverage for research through treg on a real server and a real agents proxy: which bots are shown the X
-// and research tools, and where their calls go. One loopback stub stands in for both treg (OMB_TREG_URL, for a person's
-// own treg key) and the Admin's relay (OMB_CLOUD_X_URL and OMB_CLOUD_X_TOKEN, as a Cloud home is wired). No external
+// and research tools, and where their calls go. One loopback stub stands in for both treg (LUNABOT_TREG_URL, for a person's
+// own treg key) and the Admin's relay (LUNABOT_CLOUD_X_URL and LUNABOT_CLOUD_X_TOKEN, as a Cloud home is wired). No external
 // service is reached.
 import { createServer, type Server } from "node:http";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -50,7 +50,7 @@ async function serveStub(seen: Seen[], options: { researchOff?: boolean } = {}):
       if (plan && req.method === "GET" && path === `${RELAY_PATH}/usage`) return send(200, USAGE);
       if (plan && path === `${RELAY_PATH}/call/anyapi.x.search.posts` && raw.includes("used up")) return send(429, { error: "quota_exceeded", message: USED_UP });
       if (plan && path === `${RELAY_PATH}/call/anyapi.x.search.posts`) return send(200, POSTS);
-      if (plan && path === `${RELAY_PATH}/research/call/apollo.people.search`) return send(200, { people: [{ name: "Maus" }] }, { "x-omb-research-charged-usd": "0.002" });
+      if (plan && path === `${RELAY_PATH}/research/call/apollo.people.search`) return send(200, { people: [{ name: "Maus" }] }, { "x-lunabot-research-charged-usd": "0.002" });
       send(404, { error: "not_found" });
     });
   });
@@ -63,7 +63,7 @@ async function serveStub(seen: Seen[], options: { researchOff?: boolean } = {}):
 async function withFixture(test: (f: any) => Promise<void>, options: { plan: boolean; ownKey: boolean; researchOff?: boolean }) {
   const seen: Seen[] = [];
   const stub = await serveStub(seen, { researchOff: options.researchOff });
-  const env = { OMB_TREG_URL: stub.url, ...(options.plan ? { OMB_CLOUD_X_URL: `${stub.url}${RELAY_PATH}`, OMB_CLOUD_X_TOKEN: PLAN_TOKEN } : {}) };
+  const env = { LUNABOT_TREG_URL: stub.url, ...(options.plan ? { LUNABOT_CLOUD_X_URL: `${stub.url}${RELAY_PATH}`, LUNABOT_CLOUD_X_TOKEN: PLAN_TOKEN } : {}) };
   const session = await launchVerificationServer({ ...process.env, ...env }, undefined, undefined, undefined, undefined, { scripted: true });
   const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: session.info.url } }) as Promise<any>;
   const api = (path: string, body?: unknown, method = "POST") =>

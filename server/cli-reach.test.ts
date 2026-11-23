@@ -13,12 +13,12 @@ describe("ways in", () => {
     expect(publicUrlProblem("maus.example.com")).toContain("must start with https://");
   });
 
-  it("OMB_PUBLIC_URL counts as the address unless it is plain http on the open internet", () => {
+  it("LUNABOT_PUBLIC_URL counts as the address unless it is plain http on the open internet", () => {
     const said: string[] = [];
-    expect(envPublicUrl({ OMB_PUBLIC_URL: "https://maus.example.com/" }, (line) => said.push(line))).toBe("https://maus.example.com");
-    expect(envPublicUrl({ OMB_PUBLIC_URL: "http://maus.example.com" }, (line) => said.push(line))).toBeUndefined();
+    expect(envPublicUrl({ LUNABOT_PUBLIC_URL: "https://maus.example.com/" }, (line) => said.push(line))).toBe("https://maus.example.com");
+    expect(envPublicUrl({ LUNABOT_PUBLIC_URL: "http://maus.example.com" }, (line) => said.push(line))).toBeUndefined();
     expect(envPublicUrl({}, (line) => said.push(line))).toBeUndefined();
-    expect(said).toEqual([expect.stringContaining("OMB_PUBLIC_URL is ignored")]);
+    expect(said).toEqual([expect.stringContaining("LUNABOT_PUBLIC_URL is ignored")]);
   });
 
   it("--lan on a machine with only public addresses says so", () => {
@@ -27,7 +27,7 @@ describe("ways in", () => {
   });
 
   it("a browser on the Docker host opens the published port; elsewhere this server's own", () => {
-    expect(localLinkBase("http://localhost:8080", 8799, { OMB_CLI_PREFIX: "docker compose exec omb openmausbot" })).toEqual({ base: "http://localhost:8080", place: "docker" });
+    expect(localLinkBase("http://localhost:8080", 8799, { LUNABOT_CLI_PREFIX: "docker compose exec omb openmausbot" })).toEqual({ base: "http://localhost:8080", place: "docker" });
     expect(localLinkBase(null, 8799, {})).toEqual({ base: "http://127.0.0.1:8799", place: "machine" });
     expect(localLinkBase("https://maus.example.com", 8799, {})).toEqual({ base: "http://127.0.0.1:8799", place: "machine" });
   });

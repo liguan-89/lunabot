@@ -68,7 +68,7 @@ describe("the hook in a checkout without dependencies", () => {
   it.skipIf(process.platform === "win32")("stays out of the way when skipped", () => {
     const { dir, hook } = checkout();
     writeFileSync(join(dir, "ignored"), "");
-    const run = spawnSync(hook, { cwd: dir, encoding: "utf8", input: "", timeout: 10_000, env: { ...process.env, OMB_SKIP_HOOKS: "1" } });
+    const run = spawnSync(hook, { cwd: dir, encoding: "utf8", input: "", timeout: 10_000, env: { ...process.env, LUNABOT_SKIP_HOOKS: "1" } });
     expect(run.status).toBe(0);
     expect(run.stdout).toContain("skipped");
   });

@@ -40,7 +40,7 @@ it("starts the next scheduled run of a routine whose sign-in nobody answered, an
   writeFileSync(wrapper, [
     "#!/usr/bin/env node",
     'import { join } from "node:path";',
-    'const thread = process.env.OMB_THREAD_ID ?? "probe";',
+    'const thread = process.env.LUNABOT_THREAD_ID ?? "probe";',
     'process.env.FAKE_PI_MODE = thread === "probe" ? "happy" : "slow";',
     `process.env.FAKE_PI_SLOW_FINISH_GATE = join(${JSON.stringify(dataDir)}, thread + ".gate");`,
     `process.env.FAKE_PI_DUMP = join(${JSON.stringify(dataDir)}, thread + ".jsonl");`,

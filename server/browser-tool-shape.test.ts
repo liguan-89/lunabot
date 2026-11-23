@@ -78,7 +78,7 @@ describe("browser tool shaping", () => {
   });
 
   it("tells the bot the install command when Chrome cannot load a system library", () => {
-    const launch = "Chrome exited early (exit code: 127) without writing DevToolsActivePort\nChrome stderr:\n  /home/maus/.agent-browser/browsers/chrome-157.0.8103.38/chrome: error while loading shared libraries: libatk-1.0.so.0: cannot open shared object file: No such file or directory";
+    const launch = "Chrome exited early (exit code: 127) without writing DevToolsActivePort\nChrome stderr:\n  /home/lunabot/.agent-browser/browsers/chrome-157.0.8103.38/chrome: error while loading shared libraries: libatk-1.0.so.0: cannot open shared object file: No such file or directory";
     const platform = process.platform;
     const shape = (result: unknown) => shapeBrowserToolResult(result) as { content: Array<{ text: string }>; isError?: boolean };
     try {

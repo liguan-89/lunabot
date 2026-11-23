@@ -72,8 +72,8 @@ posixOnly("a steered message does not lift the unattended mark on its own", () =
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
         HOME: home,
         USERPROFILE: home,
-        OMB_PORT: String(port),
-        OMB_WEBHOOK_PORT: String(port + 1),
+        LUNABOT_PORT: String(port),
+        LUNABOT_WEBHOOK_PORT: String(port + 1),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

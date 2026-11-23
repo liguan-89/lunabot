@@ -222,7 +222,7 @@ it("in a room, gives the 👍 to the member that asked, by name", async () => {
     expect(answered).not.toContain("@Otter: 👍");
     // pi carries the room's own instructions on its first turn for this conversation; read them from the launch log.
     const turns = piTurns(fixture.fixtureDumpPath);
-    const last = turns.findLastIndex((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === room.threadId);
+    const last = turns.findLastIndex((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === room.threadId);
     expect(last).toBeGreaterThanOrEqual(0);
     expect(piInstructionsFor(turns, last))
       .toContain("A \"[reacted 👍 to …]\" line is that person's whole reply to the message it names: 👍 means yes, go ahead when that message asked them something or offered to do something, and only got it (start no new work) when it just told them something; 👎 means no.");

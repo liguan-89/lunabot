@@ -11,7 +11,7 @@ indicator; desktop browsers report zero insets.
 ```sh
 pnpm exec vitest run scripts/testing/web-app-assets.test.ts
 pnpm exec vite build
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/web-app-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/web-app-ui.e2e.test.ts
 ```
 
 The UI recipe launches a disposable verification server with fake engines and
@@ -21,7 +21,7 @@ errors, portrait and landscape safe areas, touch text that avoids automatic
 focus zoom with an aligned mention mirror, a real composer send and reload
 without duplicate messages, and the absence of a service worker or offline
 cache. Screenshots and browser results are saved beside the fixture server log.
-`OMB_WEB_APP_BUILD` can select an already-built UI directory. Neither the user's
+`LUNABOT_WEB_APP_BUILD` can select an already-built UI directory. Neither the user's
 browser profile nor live Luna Bot data is used.
 
 These automated checks do not prove physical phone installation. Follow the

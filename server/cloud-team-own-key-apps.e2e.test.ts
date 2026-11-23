@@ -1,5 +1,5 @@
-// A real Team Cloud (OMB_CLOUD_ROLE=team) whose admin saved the team's own Composio project key: a loopback project
-// stands in for Composio (OMB_COMPOSIO_API), and the managed connected-apps service is a loopback address that records
+// A real Team Cloud (LUNABOT_CLOUD_ROLE=team) whose admin saved the team's own Composio project key: a loopback project
+// stands in for Composio (LUNABOT_COMPOSIO_API), and the managed connected-apps service is a loopback address that records
 // whatever reaches it. Ada's own Gmail is her own Composio user in the team's project, used only by her own request in
 // her private chat, and removed from the project when she leaves; the service hears nothing. The engine is the
 // synthetic pi CLI, calling the connected-apps bridges it was launched with.
@@ -37,7 +37,7 @@ beforeAll(async () => {
   service = createServer((req, res) => { serviceRequests.push(`${req.method} ${req.url}`); res.writeHead(503); res.end(); });
   await new Promise<void>((resolve) => service.listen(0, "127.0.0.1", resolve));
   fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, team: { id: TEAM_ID, name: "Acme", engine: ENGINE, env: {
-    OMB_BOT_BOX: "0", COMPOSIO_API_KEY: KEY, OMB_COMPOSIO_API: project.api, OMB_COMPOSIO_BROKER_URL: `http://127.0.0.1:${(service.address() as AddressInfo).port}`,
+    LUNABOT_BOT_BOX: "0", COMPOSIO_API_KEY: KEY, LUNABOT_COMPOSIO_API: project.api, LUNABOT_COMPOSIO_BROKER_URL: `http://127.0.0.1:${(service.address() as AddressInfo).port}`,
   } } });
   team = fx.team!;
   owner = (await team.pair(OWNER)).token!;

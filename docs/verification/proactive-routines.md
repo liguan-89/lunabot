@@ -102,12 +102,12 @@ cap, busy bots, and Run now. The others:
 ## Looking at it in the real renderer
 
 1. Start the fixture from a script that starts the fake connected-apps service
-   and calls `launchVerificationServer` with `OMB_COMPOSIO_BROKER_URL` and
-   `OMB_COMPOSIO_BROKER_TOKEN` set to it (the launcher passes a loopback
+   and calls `launchVerificationServer` with `LUNABOT_COMPOSIO_BROKER_URL` and
+   `LUNABOT_COMPOSIO_BROKER_TOKEN` set to it (the launcher passes a loopback
    `http://127.0.0.1:PORT` through). Drive it as the end-to-end test does:
    `POST /api/presence/active`, then `POST /api/routines/<watch>/run`.
 2. Serve the renderer against it:
-   `OMB_PORT=<fixture port> pnpm exec vite --port 19872 --strictPort`.
+   `LUNABOT_PORT=<fixture port> pnpm exec vite --port 19872 --strictPort`.
 3. Open `http://127.0.0.1:19872/` in a headless Chromium. Dismiss the welcome
    tour, then open Luna Bot's chat and Automations. In the chat, the cards are
    `[data-widget]` elements.

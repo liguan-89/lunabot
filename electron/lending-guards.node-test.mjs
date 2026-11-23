@@ -425,7 +425,7 @@ test("the lent driver gets the host's system environment, never its credentials"
   t.after(() => { for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key]; Object.assign(process.env, saved); });
   // Real folders: on Windows USERPROFILE is os.homedir(), which sharing resolves to keep the home out of reach.
   for (const name of ["profile-home", "temp", "tmp"]) await mkdir(path.join(dir, name));
-  Object.assign(process.env, { SystemRoot: "C:\\Windows", USERPROFILE: path.join(dir, "profile-home"), TEMP: path.join(dir, "temp"), TMP: path.join(dir, "tmp"), ANTHROPIC_API_KEY: "sk-ant-fixture", OMB_CONTROL_TOKEN: "fixture-token" });
+  Object.assign(process.env, { SystemRoot: "C:\\Windows", USERPROFILE: path.join(dir, "profile-home"), TEMP: path.join(dir, "temp"), TMP: path.join(dir, "tmp"), ANTHROPIC_API_KEY: "sk-ant-fixture", LUNABOT_CONTROL_TOKEN: "fixture-token" });
   const connection = await environmentDriver(dir);
   const { results } = await lend(t, dir, {
     folders: [], computer: true, cuaConnection: async () => connection,
@@ -437,7 +437,7 @@ test("the lent driver gets the host's system environment, never its credentials"
   assert.equal(seen.TEMP, path.join(dir, "temp"));
   assert.equal(seen.CUA_DRIVER_RS_TELEMETRY_ENABLED, "0");
   assert.equal(seen.ANTHROPIC_API_KEY, undefined);
-  assert.equal(seen.OMB_CONTROL_TOKEN, undefined);
+  assert.equal(seen.LUNABOT_CONTROL_TOKEN, undefined);
 });
 
 test("a Windows path in a failure collapses to its file name before it leaves this computer", async t => {

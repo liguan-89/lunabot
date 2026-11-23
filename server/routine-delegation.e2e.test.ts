@@ -90,7 +90,7 @@ describe("routine delegation through the isolated harness", () => {
       // the agents token are fixed at its first launch and stay the thread's for later turns. The marker replies are
       // what let a resumed routine turn answer with its report instead of the whole-prompt echo.
       'process.env.FAKE_PI_CLAUDE_COMPAT = "1";',
-      'const thread = process.env.OMB_THREAD_ID ?? "probe";',
+      'const thread = process.env.LUNABOT_THREAD_ID ?? "probe";',
       'process.env.FAKE_PI_MODE = thread === "probe" ? "happy" : "hang";',
       `process.env.FAKE_PI_RELEASE = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".gate");`,
       `process.env.FAKE_PI_MARKER_REPLIES = join(${JSON.stringify(fixture.info.dataDir)}, "marker-replies.json");`,

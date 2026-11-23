@@ -84,7 +84,7 @@ async function adminPairing(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     ...edge, "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   const paired = await api("POST", "/api/auth/pair", { body: { code: granted.code } });
@@ -95,11 +95,11 @@ async function adminPairing(): Promise<string> {
 const dump = () => piDumpPath(join(home, ".lunabot"));
 type Turn = { mcpConfig: PiMcpConfig | null };
 
-/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in LUNABOT_GATE_UPSTREAM instead. */
 const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
   const env = agents?.env ?? {};
-  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
-  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+  if (env.LUNABOT_BOT_ID || env.LUNABOT_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.LUNABOT_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
 };
 
 /** The newest turn of `botId` whose engine was started after `before` rows of the launch log. */
@@ -107,7 +107,7 @@ async function turnOf(botId: string, before: number): Promise<Turn> {
   let found: Turn | undefined;
   await expect.poll(() => {
     for (const turn of piTurns(dump()).slice(before)) {
-      if (agentsEnv(turn.launch?.mcpConfig?.mcpServers?.agents).OMB_BOT_ID !== botId) continue;
+      if (agentsEnv(turn.launch?.mcpConfig?.mcpServers?.agents).LUNABOT_BOT_ID !== botId) continue;
       found = { mcpConfig: turn.launch?.mcpConfig ?? null };
       return true;
     }
@@ -202,14 +202,14 @@ async function boot() {
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), and the box replaces the data dir
       // with a tmpfs: the fake pi's launch log, which every recipe below reads, would be written where this test cannot
       // see it. The box has its own suites; this one proves the Mac's connection, so it stays off here.
-      OMB_BOT_BOX: "0",
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
-      OMB_AGENT_BROWSER_PATH: join(home, "agent-browser"),
+      LUNABOT_BOT_BOX: "0",
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
+      LUNABOT_AGENT_BROWSER_PATH: join(home, "agent-browser"),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -291,7 +291,7 @@ posixOnly("a bot's browser on My Cloud reaches Instagram from the Mac's own conn
   expect(page.body).toContain("hello from www.instagram.com");
   expect(visits.length).toBeGreaterThan(0);
   expect(visits.every((visit) => macSockets.has(visit.peer)), "every request the website served came over a socket the Mac opened").toBe(true);
-  if (!chrome) return console.log("skipping the real-Chrome page through the Mac: no Chrome found (set OMB_TEST_CHROME)");
+  if (!chrome) return console.log("skipping the real-Chrome page through the Mac: no Chrome found (set LUNABOT_TEST_CHROME)");
   const browser = await launchPipeChrome(chrome, gateChromeFlags(gate));
   try {
     const tab = await browser.page();

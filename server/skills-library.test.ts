@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { AppConfig } from "./config.ts";
 
 // config.ts resolves DATA_DIR at import time, so point this suite at a scratch dir before any module loads.
-process.env.OMB_DATA_DIR = mkdtempSync(join(tmpdir(), "omb-skills-library-"));
+process.env.LUNABOT_DATA_DIR = mkdtempSync(join(tmpdir(), "omb-skills-library-"));
 
 const library = await import("./skill-library.ts");
 const skills = await import("./skills.ts");

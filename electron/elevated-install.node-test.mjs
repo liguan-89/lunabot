@@ -24,7 +24,7 @@ test("a password prompt is only attempted where one can appear", () => {
   assert.equal(canInstallElevated({ ...ok, env: { WAYLAND_DISPLAY: "wayland-0" } }), true);
   assert.equal(canInstallElevated({ ...ok, platform: "darwin" }), false);
   assert.equal(canInstallElevated({ ...ok, env: {} }), false, "no graphical session: ssh, a service");
-  assert.equal(canInstallElevated({ ...ok, env: { DISPLAY: ":0", OMB_UPDATE_INSTALL: "terminal" } }), false);
+  assert.equal(canInstallElevated({ ...ok, env: { DISPLAY: ":0", LUNABOT_UPDATE_INSTALL: "terminal" } }), false);
   assert.equal(canInstallElevated({ ...ok, access: () => { throw new Error("ENOENT"); } }), false);
 });
 

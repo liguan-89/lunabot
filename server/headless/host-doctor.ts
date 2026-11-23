@@ -305,7 +305,7 @@ export function systemProbe(): HostProbe {
       try {
         const response = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2_000) });
         const app = ((await response.json()) as { app?: unknown }).app;
-        return app === "dexbot" || app === "openmausbot";
+        return app === "lunabot" || app === "dexbot" || app === "openmausbot";
       } catch {
         return false;
       }
@@ -314,7 +314,7 @@ export function systemProbe(): HostProbe {
 }
 
 export async function hostDoctor(ctx: VerbContext, probe: HostProbe = systemProbe()): Promise<VerbOutcome> {
-  const rawPort = flag(ctx.flags, "port") ?? ctx.env.OMB_PORT ?? "8799";
+  const rawPort = flag(ctx.flags, "port") ?? ctx.env.LUNABOT_PORT ?? "8799";
   const port = Number(rawPort);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw usageError("--port must be 1-65535");
   // A Linux machine's path, also when the checks are tested on Windows.

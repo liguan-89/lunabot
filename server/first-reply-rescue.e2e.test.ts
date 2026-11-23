@@ -12,7 +12,7 @@ it("posts one rescue notice into a silent first reply, readable as plain text, a
   const release = join(scratch, "release");
   // The fake pi's compatibility `hang` turn says nothing until the release file exists, as the retired fixture did.
   const fixture = await launchVerificationServer({
-    ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release, OMB_FIRST_REPLY_NOTICE_MS: "1500",
+    ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release, LUNABOT_FIRST_REPLY_NOTICE_MS: "1500",
   });
   const { url } = fixture.info;
   const control = (args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;

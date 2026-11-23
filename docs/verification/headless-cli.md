@@ -18,10 +18,10 @@ pnpm typecheck
 pnpm lint
 ```
 
-By hand, against a fixture (`OMB_TEST_PORTS` keeps it in a range):
+By hand, against a fixture (`LUNABOT_TEST_PORTS` keeps it in a range):
 
 ```sh
-OMB_TEST_PORTS=19975-19999 node --experimental-strip-types scripts/control-omb.ts launch
+LUNABOT_TEST_PORTS=19975-19999 node --experimental-strip-types scripts/control-omb.ts launch
 pnpm control:omb doctor --url http://127.0.0.1:PORT
 pnpm control:omb team apply team.yaml --dry-run --url http://127.0.0.1:PORT
 pnpm control:omb team apply team.yaml --url http://127.0.0.1:PORT

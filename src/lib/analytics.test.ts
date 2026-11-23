@@ -62,7 +62,7 @@ const baseStorage = {
 vi.stubGlobal("localStorage", baseStorage);
 
 beforeEach(() => {
-  (globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ = "phc_test_token";
+  (globalThis as { __LUNABOT_ANALYTICS_TOKEN__?: string }).__LUNABOT_ANALYTICS_TOKEN__ = "phc_test_token";
   store.clear();
   ph.loads = 0;
   ph.fail = false;
@@ -77,7 +77,7 @@ beforeEach(() => {
 });
 // Restored in afterEach: an inline restore would be skipped when an assertion fails mid-test.
 afterEach(() => {
-  delete (globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__;
+  delete (globalThis as { __LUNABOT_ANALYTICS_TOKEN__?: string }).__LUNABOT_ANALYTICS_TOKEN__;
   vi.stubGlobal("localStorage", baseStorage);
 });
 

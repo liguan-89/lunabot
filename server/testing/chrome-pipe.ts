@@ -9,14 +9,14 @@ import type { Readable, Writable } from "node:stream";
 import { credentialStoreFlags } from "../browser/egress/gate.ts";
 import { removeTempDir } from "./cleanup.ts";
 
-/** OMB_TEST_CHROME, CHROME_BIN, then where Google Chrome or Chromium installs on this platform. */
+/** LUNABOT_TEST_CHROME, CHROME_BIN, then where Google Chrome or Chromium installs on this platform. */
 export function findChrome(env: NodeJS.ProcessEnv = process.env): string | null {
   const installed = process.platform === "darwin"
     ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
     : process.platform === "win32"
       ? [env.PROGRAMFILES, env["PROGRAMFILES(X86)"], env.LOCALAPPDATA].flatMap((root) => root ? [join(root, "Google", "Chrome", "Application", "chrome.exe")] : [])
       : ["/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser"];
-  return [env.OMB_TEST_CHROME, env.CHROME_BIN, ...installed].find((path) => path && existsSync(path)) ?? null;
+  return [env.LUNABOT_TEST_CHROME, env.CHROME_BIN, ...installed].find((path) => path && existsSync(path)) ?? null;
 }
 
 export interface ChromePage {

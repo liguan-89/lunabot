@@ -41,12 +41,12 @@ export function gatedLocalComputer(
       ...connection.env,
       // Packaged, execPath is Electron: without this the MCP client relaunches OMB instead of the headless gate.
       ELECTRON_RUN_AS_NODE: "1",
-      OMB_CUA_COMMAND: connection.command,
-      OMB_CUA_ARGS: JSON.stringify(connection.args),
-      OMB_CUA_PLATFORM: connection.platform,
-      OMB_CONTROL_URL: control.url,
-      OMB_CONTROL_TOKEN: control.token,
-      OMB_COMPUTER_JOURNAL: journal ? "1" : "0",
+      LUNABOT_CUA_COMMAND: connection.command,
+      LUNABOT_CUA_ARGS: JSON.stringify(connection.args),
+      LUNABOT_CUA_PLATFORM: connection.platform,
+      LUNABOT_CONTROL_URL: control.url,
+      LUNABOT_CONTROL_TOKEN: control.token,
+      LUNABOT_COMPUTER_JOURNAL: journal ? "1" : "0",
     },
   };
 }

@@ -119,7 +119,7 @@ describe("whose phones", () => {
     expect(phones.turnOwner(TURN)).toBeNull();
     send(phones.sendIdFor(loopback));
     expect(phones.turnOwner(TURN)).toBe("owner");
-    expect(phones.integration(chief, TURN)).toMatchObject({ env: { OMB_MCP_TOKEN_DEVICE: "turn-token", OMB_HARNESS_URL: "http://127.0.0.1:1" } });
+    expect(phones.integration(chief, TURN)).toMatchObject({ env: { LUNABOT_MCP_TOKEN_DEVICE: "turn-token", LUNABOT_HARNESS_URL: "http://127.0.0.1:1" } });
     // A line from a person who holds no admin session here is not the owner's, nor is anything after it.
     send("guest-send-0000000001", { origin: { kind: "user" } }, "p_guest");
     expect(phones.turnOwner(TURN)).toBeNull();
@@ -131,7 +131,7 @@ describe("whose phones", () => {
     // An sms: sender id is `sms:<phoneKey>|<number>` — the owner's listed number reaches the phone's tools.
     send("sms-send-000000000001", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613800000000`);
     expect(phones.turnOwner(TURN)).toBe("owner");
-    expect(phones.integration(chief, TURN)).toMatchObject({ env: { OMB_MCP_TOKEN_DEVICE: "turn-token", OMB_HARNESS_URL: "http://127.0.0.1:1" } });
+    expect(phones.integration(chief, TURN)).toMatchObject({ env: { LUNABOT_MCP_TOKEN_DEVICE: "turn-token", LUNABOT_HARNESS_URL: "http://127.0.0.1:1" } });
     // An unlisted number is nobody's owner.
     send("sms-send-000000000002", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613999999999`);
     expect(phones.turnOwner(TURN)).toBeNull();

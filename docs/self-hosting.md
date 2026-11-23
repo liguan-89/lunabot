@@ -23,8 +23,8 @@ For server feature switches, defaults and configuration-file instructions, see
 
 | You have | Run | Link it prints |
 |---|---|---|
-| HTTPS in front already (cloudflared, Caddy, nginx) | `npx lunabot serve --public-url https://maus.example.com` | `https://maus.example.com/pair#code=…` |
-| A domain name, and ports 80 and 443 open | `npx lunabot serve --domain lunabot.example.com` | `https://maus.example.com/pair#code=…` |
+| HTTPS in front already (cloudflared, Caddy, nginx) | `npx lunabot serve --public-url https://lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
+| A domain name, and ports 80 and 443 open | `npx lunabot serve --domain lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
 | Tailscale on the server and your devices | `npx lunabot serve --tailscale` | `https://<machine>.<tailnet>.ts.net/pair#code=…` |
 | Only this network (home or office) | `npx lunabot serve --lan` | `http://192.168.1.20:8799/pair#code=…` |
 | Nothing at all | `npx lunabot login`, then `npx lunabot serve --tunnel` | `https://c-….openmausbot.com/pair#code=…` |
@@ -43,18 +43,18 @@ On any machine with Node 24 or newer:
 
 ```sh
 npx lunabot setup                                        # once: AI access and a default model
-npx lunabot serve --public-url https://maus.example.com  # or --domain, --tailscale, --lan, --tunnel
+npx lunabot serve --public-url https://lunabot.example.com  # or --domain, --tailscale, --lan, --tunnel
 ```
 
 In a terminal, `serve` checks the address and prints one pairing block:
 
 ```
 Luna Bot 0.1.147 · server "hetzner-1"
-data: /home/maus/.lunabot
-Reach    https://maus.example.com   ✓ answers as this server (11:04)
+data: /home/lunabot/.lunabot
+Reach    https://lunabot.example.com   ✓ answers as this server (11:04)
 
 Pairing code   7KQ2-M9XD-H4TP   works once, until 11:14 · everything
-Link           https://maus.example.com/pair#code=7KQ2-M9XD-H4TP
+Link           https://lunabot.example.com/pair#code=7KQ2-M9XD-H4TP
 
   Desktop app   ＋ → Connect to a server, paste the link
   Phone         scan with your camera or the Luna Bot app
@@ -78,7 +78,7 @@ hetzner-1** finishes. You can also type the address (`lunabot.example.com`,
 
 `serve` with no way in mints no code. It lists the ways in instead. Every
 command the CLI prints starts the way you started it (`npx lunabot`,
-`lunabot`, `pnpm omb`, or `docker compose exec omb openmausbot`), so you
+`lunabot`, `pnpm omb`, or `docker compose exec omb lunabot`), so you
 can paste it as is.
 
 ### Already have cloudflared, Caddy or nginx in front
@@ -89,12 +89,12 @@ and don't buffer the event stream ([details](#putting-a-proxy-in-front)).
 Then:
 
 ```sh
-npx lunabot serve --public-url https://maus.example.com
+npx lunabot serve --public-url https://lunabot.example.com
 ```
 
-Setting `OMB_PUBLIC_URL=https://maus.example.com` in the environment works the
+Setting `LUNABOT_PUBLIC_URL=https://lunabot.example.com` in the environment works the
 same way. If the Reach line says
-`✗ https://maus.example.com doesn't reach this server`, the tunnel points
+`✗ https://lunabot.example.com doesn't reach this server`, the tunnel points
 somewhere else. Fix that, then run `npx lunabot status` to check again.
 
 ### Docker on your computer or home network
@@ -103,15 +103,15 @@ From a checkout of the repository:
 
 ```sh
 docker compose up -d --build                  # http://localhost:8080 on this machine
-docker compose exec omb openmausbot pair      # a code, and a sign-in link for this machine's browser
+docker compose exec omb lunabot pair      # a code, and a sign-in link for this machine's browser
 ```
 
 To pair from other devices on the same network, publish the port there and
 name the address they use:
 
 ```sh
-OMB_BIND_ADDRESS=0.0.0.0 OMB_PUBLIC_URL=http://192.168.1.20:8080 docker compose up -d
-docker compose exec omb openmausbot pair      # Link http://192.168.1.20:8080/pair#code=…
+LUNABOT_BIND_ADDRESS=0.0.0.0 LUNABOT_PUBLIC_URL=http://192.168.1.20:8080 docker compose up -d
+docker compose exec omb lunabot pair      # Link http://192.168.1.20:8080/pair#code=…
 ```
 
 Do this only on a machine behind your router. A machine with a public address
@@ -125,8 +125,8 @@ server, installs Luna Bot under `/opt/openmausbot` and ends with HTTPS on your
 domain:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh | sudo sh -s -- --domain lunabot.example.com
-cd /opt/openmausbot && sudo docker compose exec omb openmausbot pair   # Link https://<DOMAIN>/pair#code=…
+curl -fsSL https://raw.githubusercontent.com/liguan-89/lunabot/main/deploy/install.sh | sudo sh -s -- --domain lunabot.example.com
+cd /opt/openmausbot && sudo docker compose exec omb lunabot pair   # Link https://<DOMAIN>/pair#code=…
 ```
 
 Add `--check` to only check the server. Running it again repairs;
@@ -138,10 +138,10 @@ writes and what it contacts are in
 By hand, on any system with Docker:
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+git clone https://github.com/liguan-89/lunabot && cd lunabot/deploy
 cp .env.example .env                          # set DOMAIN (and ENGINES)
 docker compose pull omb && docker compose up -d
-docker compose exec omb openmausbot pair      # Link https://<DOMAIN>/pair#code=…
+docker compose exec omb lunabot pair      # Link https://<DOMAIN>/pair#code=…
 ```
 
 Caddy gets the certificate. See [Docker (with HTTPS on your own domain)](#docker-with-https-on-your-own-domain).
@@ -149,7 +149,7 @@ Caddy gets the certificate. See [Docker (with HTTPS on your own domain)](#docker
 ### Keep it running (a service)
 
 ```sh
-npx lunabot service install --public-url https://maus.example.com   # the same way-in options as serve
+npx lunabot service install --public-url https://lunabot.example.com   # the same way-in options as serve
 ```
 
 This writes a systemd unit (Linux) or a launchd agent (macOS) with the same
@@ -180,7 +180,7 @@ npx lunabot pair
 | `--tailscale: HTTPS certificates are off for this tailnet…` | Tailscale can't serve HTTPS yet. | Turn on HTTPS certificates at https://login.tailscale.com/admin/dns, then run `serve --tailscale` again. |
 | `No Luna Bot server is running here. Start it: … serve` | `pair` found no server on this port. | Start it, or pass the server's `--port` and `--data-dir`. |
 | `Get a pairing code: lunabot pair` and no code | The server runs as a service or under `docker compose logs`, where codes stay out of logs. | Run that command in a terminal. |
-| "This shared server takes no pairing commands from this machine." | The server runs with `OMB_LOOPBACK_TRUST=service`. | Let people sign in with their email (`lunabot access add you@example.com`), or pair from a signed-in admin's Settings. |
+| "This shared server takes no pairing commands from this machine." | The server runs with `LUNABOT_LOOPBACK_TRUST=service`. | Let people sign in with their email (`lunabot access add you@example.com`), or pair from a signed-in admin's Settings. |
 
 ## Reference
 
@@ -265,7 +265,7 @@ too.
   `npx lunabot logout` releases the address. The account credentials
   live in `~/.lunabot/tunnel-account.json` (mode 0600). Started from a
   fleet or a container, where nobody can type an emailed code? Set
-  `OMB_INSTALLATION_CREDENTIAL` to the installation credential the fleet
+  `LUNABOT_INSTALLATION_CREDENTIAL` to the installation credential the fleet
   issued and skip `login`. The address and connector token are fetched at
   every start, and nothing is written to disk. A rejected credential stops
   the start with a clear message rather than serving locally.
@@ -316,7 +316,7 @@ relative name (or `@` at the zone root). Server/proxy instructions are under
 The IP comes from this server's network interfaces, never the browser, tunnel
 hostname or an IP-echo service. Only a single unambiguous public IPv4 is shown.
 For containers/NAT or hosts with multiple public addresses, an administrator can
-set `OMB_PUBLIC_IPV4` to the public IPv4 of the HTTPS proxy and restart OMB.
+set `LUNABOT_PUBLIC_IPV4` to the public IPv4 of the HTTPS proxy and restart OMB.
 This is a display hint, not proof of reachability; verification still checks
 HTTPS and the workspace identity. If the IP is missing or invalid, the UI asks
 for administrator help instead of inventing a DNS value.
@@ -341,7 +341,7 @@ address for **new server pairing links**. Removing it restores that fallback
 address, if any; neither action changes DNS, the proxy, bots, conversations, or
 existing sessions. A different browser origin needs its own pairing, so keep
 your original tab open until the new one works. The setting does not change
-`OMB_WEBHOOK_PUBLIC_URL`, existing webhook URLs, or the desktop companion's
+`LUNABOT_WEBHOOK_PUBLIC_URL`, existing webhook URLs, or the desktop companion's
 managed connection. This feature is for self-hosted servers, not the desktop
 app's managed phone endpoint.
 
@@ -364,13 +364,13 @@ Requirements: Docker with Compose, a DNS name pointing at the machine, and
 ports 80/443 open.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+git clone https://github.com/liguan-89/lunabot && cd lunabot/deploy
 cp .env.example .env            # set DOMAIN
 docker compose pull omb && docker compose up -d
 ```
 
 That starts the image CI publishes on every `main` push
-(`ghcr.io/milind-soni/openmausbot:latest`; each release is also tagged `v…`,
+(`ghcr.io/liguan-89/lunabot:latest`; each release is also tagged `v…`,
 and the one our own Clouds have run for 48 hours is `stable`). Move to the
 stable version right away with `./update.sh`, which pins it by digest in
 `.env`. To build from your checkout instead: `docker compose up -d --build`. The
@@ -383,14 +383,14 @@ pairing code for your first device:
 
 ```sh
 docker compose exec omb claude                       # each CLI you listed in ENGINES
-docker compose exec omb openmausbot pair             # prints a code, a link and a QR
+docker compose exec omb lunabot pair             # prints a code, a link and a QR
 ```
 
 Paste the link (`https://<DOMAIN>/pair#code=…`) into Luna Bot under **＋ →
 Connect to a server**, or open it in a browser, and it is paired; see "Using it from your computer" for what a session is. Webhook
 URLs (`https://<DOMAIN>/hooks/wh_…`) work without a session, and that is the
 base the app prints on new hooks because the stack sets
-`OMB_WEBHOOK_PUBLIC_URL`.
+`LUNABOT_WEBHOOK_PUBLIC_URL`.
 
 What the stack does, so you can adapt it:
 
@@ -400,7 +400,7 @@ What the stack does, so you can adapt it:
   into the image.
 - [`deploy/docker-compose.yml`](../deploy/docker-compose.yml) runs Caddy
   in its own container. It reaches the server over two Unix sockets in a
-  shared in-memory volume (`OMB_TUNNEL_SOCKET`, `OMB_WEBHOOK_SOCKET`), so the
+  shared in-memory volume (`LUNABOT_TUNNEL_SOCKET`, `LUNABOT_WEBHOOK_SOCKET`), so the
   server never binds anything but loopback, and a request that comes through
   Caddy is a remote one, as one through any proxy is. Caddy used to share the
   server's network instead; then a server container restarted on its own (a
@@ -433,11 +433,11 @@ Requirements: Node 24+, pnpm, and at least one agent CLI installed and
 signed in on the server.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot
+git clone https://github.com/liguan-89/lunabot && cd lunabot
 pnpm install
 
 # choose where data lives and start the server
-OMB_DATA_DIR="$HOME/.lunabot" OMB_PORT=8799 \
+LUNABOT_DATA_DIR="$HOME/.lunabot" LUNABOT_PORT=8799 \
   node --experimental-strip-types server/index.ts
 ```
 
@@ -485,7 +485,7 @@ that makes one read-only request to the provider from the server.
   to sign in, and Settings → Engines shows "workspace API key" instead of a
   person. Remove the key to go back to personal logins. The server's own
   `ANTHROPIC_API_KEY` environment variable is deliberately ignored; use the
-  page, `config.json`, or `OMB_ANTHROPIC_API_KEY`.
+  page, `config.json`, or `LUNABOT_ANTHROPIC_API_KEY`.
 - **OpenAI-compatible API key and base URL**: OpenRouter by default, or Groq,
   Together, a gateway, or `https://api.openai.com/v1` for OpenAI itself. This
   powers the OpenAI-compatible engine. Codex has no key path by design and
@@ -509,7 +509,7 @@ Providers added with `opencode auth login` work everywhere.
 ## Many client workspaces on one server
 
 `lunabot fleet` runs one workspace per client on a single Linux server,
-each as its own OS user, its own `openmausbot@<name>` service on its own
+each as its own OS user, its own `lunabot@<name>` service on its own
 loopback ports, its own data folder, brand, sign-in list and provider key,
 reached at `<name>.<your domain>` through the system Caddy. Bots of one
 workspace cannot read another's files or reach its API: the data lives in a
@@ -545,10 +545,10 @@ root service on a Unix socket only that user may open. Your workspace then
 shows **Settings → Installations** (with the enterprise `admin` feature): create
 an installation, add or remove who may sign in, suspend, resume, delete, upgrade
 all, and see each one's spend this month. Every action goes through the
-agent's audit log at `/var/log/openmausbot/fleet.jsonl`.
+agent's audit log at `/var/log/lunabot/fleet.jsonl`.
 
 `https://acme.example.com` is up when `create` returns; the first admin signs
-in with an emailed code. `OMB_LICENSE_KEY` in the environment (or
+in with an emailed code. `LUNABOT_LICENSE_KEY` in the environment (or
 `--license-key`) is carried into every workspace so a partner's white-label
 key covers them all. Not root? Every command prints the exact steps to run as
 root instead, and `--dry-run` always prints.
@@ -580,13 +580,13 @@ reach it. On the server:
 ```sh
 npx lunabot pair                         # npm install
 pnpm omb pair                                # from a checkout
-docker compose exec omb openmausbot pair     # Docker
+docker compose exec omb lunabot pair     # Docker
 ```
 
 It prints a 12-character pairing code (it works once, for 10 minutes, or up
 to a day with `--ttl 24h`) and the link with the code in it, built from the
 address the server is reached at (`--public-url`, `--domain`, `--tunnel`,
-`--tailscale`, `--lan`, or `OMB_PUBLIC_URL`). Open the link, or open `/pair`
+`--tailscale`, `--lan`, or `LUNABOT_PUBLIC_URL`). Open the link, or open `/pair`
 on that address and type the code. The browser gets a session cookie (30
 days, renewed on use up to 180 days from pairing, revocable) and the app
 loads. `npx lunabot devices` lists the paired devices and
@@ -738,11 +738,11 @@ its window adds the app's own per-launch owner header to every request and
 WebSocket it sends to its server, and no other Electron session may reach the
 server at all.
 
-For development, `pnpm dev:server` sets `OMB_DEV_TRUST_LOCAL_BROWSER=1`, so a
+For development, `pnpm dev:server` sets `LUNABOT_DEV_TRUST_LOCAL_BROWSER=1`, so a
 browser on Vite's dev page (`pnpm dev`) is the owner as before. The server
 honours it only when it runs from source with owner trust, logs a warning, and
 ignores it in a build, the desktop app, a hosted workspace and Luna Bot Cloud.
-Run `OMB_DEV_TRUST_LOCAL_BROWSER=0 pnpm dev:server` to try the sign-in.
+Run `LUNABOT_DEV_TRUST_LOCAL_BROWSER=0 pnpm dev:server` to try the sign-in.
 
 ### Loopback trust: owner or service
 
@@ -761,7 +761,7 @@ local requests: service trust (hosted workspace); without a session, loopback ma
 | Trust | Default for | A session-less loopback request may |
 |---|---|---|
 | `owner` | a self-hosted server, the desktop app | do everything, as today |
-| `service` | a hosted workspace: any of `OMB_ADMIN_URL`, `OMB_ADMIN_WORKSPACE` or `OMB_ADMIN_MEMBERSHIP` set (shared-workspace Full access only works there, so it is covered too) | read health, who-am-I, the bot list, a thread's messages and a bot's picture; open a thread; send through the guarded route; watch and stop its exact request; withdraw a queued line; **decline** a card; use the bots' own capability routes (`/api/internal/*`, which check their own per-turn token) |
+| `service` | a hosted workspace: any of `LUNABOT_ADMIN_URL`, `LUNABOT_ADMIN_WORKSPACE` or `LUNABOT_ADMIN_MEMBERSHIP` set (shared-workspace Full access only works there, so it is covered too) | read health, who-am-I, the bot list, a thread's messages and a bot's picture; open a thread; send through the guarded route; watch and stop its exact request; withdraw a queued line; **decline** a card; use the bots' own capability routes (`/api/internal/*`, which check their own per-turn token) |
 
 Under `service`, everything else from loopback needs a real session and
 answers 403: settings and keys (`/api/config`), instances, MCP servers,
@@ -772,8 +772,8 @@ local caller a hosted workspace has) needs nothing more and keeps working
 unchanged. Sessions — a portal sign-in, an email sign-in or a pairing — work
 exactly as before, with their own scopes.
 
-Set `OMB_LOOPBACK_TRUST=service` on a self-hosted server people share (with
-an email sign-in list, say), or `OMB_LOOPBACK_TRUST=owner` to opt a hosted
+Set `LUNABOT_LOOPBACK_TRUST=service` on a self-hosted server people share (with
+an email sign-in list, say), or `LUNABOT_LOOPBACK_TRUST=owner` to opt a hosted
 workspace back into the old behaviour (the log then warns). Any other value
 means `service`. The desktop app ignores the setting: its local changes
 already need the app's own per-launch capability. Luna Bot Cloud ignores
@@ -793,7 +793,7 @@ With `service` on a self-hosted server:
   in with their email (`lunabot access add you@example.com`, which edits
   the sign-in list on disk).
 - A browser on an SSH tunnel gets the sign-in page instead of the app.
-- The MCP server script works with `OPENMAUSBOT_TOKEN` set to a paired session.
+- The MCP server script works with `LUNABOT_TOKEN` set to a paired session.
 
 **What `service` does not close yet.** Any bot's shell can still do
 everything the Slack worker does, and on a shared workspace that is a real
@@ -817,8 +817,8 @@ people use every day, let them sign in with an emailed code instead: set an
 allow-list, and `/pair` on your server offers "Sign in with your email" first.
 
 ```sh
-OMB_SIGNIN_EMAILS="her@yourcompany.com, @yourcompany.com"   # full access
-OMB_SIGNIN_MEMBER_EMAILS="freelancer@example.com"          # chat and approvals only
+LUNABOT_SIGNIN_EMAILS="her@yourcompany.com, @yourcompany.com"   # full access
+LUNABOT_SIGNIN_MEMBER_EMAILS="freelancer@example.com"          # chat and approvals only
 ```
 
 Signed in as an admin? Settings → Remote access → **Who can sign in with an
@@ -855,8 +855,8 @@ through the account service and no Luna Bot account is made, give the server
 an SMTP address:
 
 ```sh
-OMB_SIGNIN_SMTP_URL="smtps://signin%40yourcompany.com:PASSWORD@smtp.yourcompany.com:465"
-OMB_SIGNIN_SMTP_FROM="Luna Bot <signin@yourcompany.com>"   # else the user name, if it is an address
+LUNABOT_SIGNIN_SMTP_URL="smtps://signin%40yourcompany.com:PASSWORD@smtp.yourcompany.com:465"
+LUNABOT_SIGNIN_SMTP_FROM="Luna Bot <signin@yourcompany.com>"   # else the user name, if it is an address
 ```
 
 `smtps://` uses TLS from the start (port 465); `smtp://` upgrades with
@@ -878,7 +878,7 @@ with the address filled in, and the one-time code still goes to that address.
 Roles change with one click; removing someone stops new sign-ins.
 
 On a hosted workspace whose members your organization's Admin manages
-(`OMB_ADMIN_MEMBERSHIP=portal`), this list decides nothing, so Settings →
+(`LUNABOT_ADMIN_MEMBERSHIP=portal`), this list decides nothing, so Settings →
 People shows, read-only, who has signed in and what they spent, with a
 **Manage people in Admin** link to that workspace in Admin → People. Remote
 access there lists signed-in devices and offers no pairing codes, since a
@@ -987,8 +987,8 @@ Files people attach, and pictures a bot shows inline, live in the
 `attachments` folder of the data directory. Nothing there is deleted, since
 old messages still point at it, so the server stops taking new files once the
 folder holds 512 MB. A team fills that sooner: set
-`OMB_ATTACHMENTS_MAX_BYTES` in the server's environment and restart, for
-example `OMB_ATTACHMENTS_MAX_BYTES=4294967296` for 4 GB.
+`LUNABOT_ATTACHMENTS_MAX_BYTES` in the server's environment and restart, for
+example `LUNABOT_ATTACHMENTS_MAX_BYTES=4294967296` for 4 GB.
 
 One file can be up to 100 MB, whether a person sends it or a bot attaches it;
 that setting does not change it. It matches Cloudflare's upload ceiling, so a
@@ -1012,8 +1012,8 @@ Any reverse proxy works, given three things:
    `proxy_buffering off` in nginx); the UI streams events over SSE.
 
 Then start with `serve --public-url https://your.domain` (or set
-`OMB_PUBLIC_URL=https://your.domain`) so pairing links, and
-`OMB_WEBHOOK_PUBLIC_URL=https://your.domain` so hook URLs, are printed with
+`LUNABOT_PUBLIC_URL=https://your.domain`) so pairing links, and
+`LUNABOT_WEBHOOK_PUBLIC_URL=https://your.domain` so hook URLs, are printed with
 the public address. `serve` checks the address answers as this server and
 says so on its Reach line. [`deploy/Caddyfile`](../deploy/Caddyfile)
 is the reference implementation.
@@ -1072,7 +1072,7 @@ than present the old session to it.
 
 Both native apps pair this way. `lunabot pair --phone android` prints the
 app-scheme QR that Android's scanner needs, and the iOS app accepts either
-that QR or the web link, for example `docker compose exec omb openmausbot
+that QR or the web link, for example `docker compose exec omb lunabot
 pair --phone android --public-url https://your-domain`. `pair` never asks
 questions, so it works the same from a script. Nothing extra to install, and
 the phone becomes a session like any other.
@@ -1102,9 +1102,9 @@ Owners can read the same over the API:
 
 ```sh
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://maus.example.com/api/usage?from=2026-09-01&to=2026-09-30&groupBy=user"
+  "https://lunabot.example.com/api/usage?from=2026-09-01&to=2026-09-30&groupBy=user"
 curl -H "Authorization: Bearer $TOKEN" -o usage.csv \
-  "https://maus.example.com/api/usage.csv?from=2026-09-01&to=2026-09-30"
+  "https://lunabot.example.com/api/usage.csv?from=2026-09-01&to=2026-09-30"
 ```
 
 Dates are inclusive, UTC, at most a year apart; without them you get the
@@ -1149,7 +1149,7 @@ it in plain words. It is a usage limit when its words say so, or when it is a
 a shorter wait is a rate limit to try again after. A reply that only quotes
 such an error among other words stays a reply.
 
-This is on by default. Start the server with `OMB_QUOTA_SWITCH=0` to switch it
+This is on by default. Start the server with `LUNABOT_QUOTA_SWITCH=0` to switch it
 off: then only the backups Automatic recovery names take over, and the
 notification says the bot waits. Any other value, or none, leaves it on. It
 has no setting in `config.json` yet.
@@ -1201,7 +1201,7 @@ or picks a model for it or one of its conversations: it moves only after a
 test result, only to an engine that answered, and only away from one whose
 latest test missed or that is signed out or turned off, or up to a better
 one. A status read that timed out moves nothing. No other bot ever moves. To stop the
-background test messages, start the server with `OMB_AI_CHECKS=0`.
+background test messages, start the server with `LUNABOT_AI_CHECKS=0`.
 
 ### The decision log
 
@@ -1211,15 +1211,15 @@ device label, `loopback` for the owner, `worker` for a session-less local
 service) — is appended to `<data dir>/decisions/YYYY-MM.ndjson` (0600,
 credentials redacted). Month files are kept for at least 180 days; set
 `decisions.retentionDays` in `config.json` (or through `PUT /api/config`),
-or `OMB_DECISION_RETENTION_DAYS`, to keep them longer or shorter (1–3650
+or `LUNABOT_DECISION_RETENTION_DAYS`, to keep them longer or shorter (1–3650
 days; the environment wins). A month is deleted only once all of it is older
 than the window. An older server's `decisions.ndjson` and `.1` are still read
 and age out the same way. Admins can read it back:
 
 ```sh
-curl -H "Authorization: Bearer $TOKEN" "https://maus.example.com/api/decisions?limit=200"
+curl -H "Authorization: Bearer $TOKEN" "https://lunabot.example.com/api/decisions?limit=200"
 curl -H "Authorization: Bearer $TOKEN" -o decisions.csv \
-  "https://maus.example.com/api/decisions.csv?from=2026-09-01&to=2026-09-30"
+  "https://lunabot.example.com/api/decisions.csv?from=2026-09-01&to=2026-09-30"
 ```
 
 The CSV has one line per decision (time, decision, source, bot, tool,
@@ -1238,7 +1238,7 @@ a filesystem in an image file or on a loop device is not on it.
 
 It is off unless you switch it on: set `safetyFloor.enabled` to `true` in
 `config.json` (or through `PUT /api/config`), or start the server with
-`OMB_SAFETY_FLOOR=1`, which turns it on whatever the file says.
+`LUNABOT_SAFETY_FLOOR=1`, which turns it on whatever the file says.
 `GET /api/config` reports whether it is in force as `safetyFloor.enabled`.
 
 **It is not applied on a Windows server yet.** There the setting is accepted
@@ -1288,7 +1288,7 @@ list that names more than one person or a whole `@domain`, or a device paired
 (or a pairing code open) with chat-only access, whether before or after the
 change — every admin change is recorded beside the decision
 log, in `<data dir>/admin-activity/YYYY-MM.ndjson` (0600), and kept for the
-same window (`decisions.retentionDays` / `OMB_DECISION_RETENTION_DAYS`; a
+same window (`decisions.retentionDays` / `LUNABOT_DECISION_RETENTION_DAYS`; a
 quiet server prunes on a timer, and pending rows are written out at
 shutdown): settings
 (which keys changed), sign-in lists and people, pairing codes and revoked
@@ -1313,9 +1313,9 @@ them as CSV. The same over the API:
 
 ```sh
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://maus.example.com/api/admin-activity?from=2026-09-01&to=2026-09-30&what=visibility"
+  "https://lunabot.example.com/api/admin-activity?from=2026-09-01&to=2026-09-30&what=visibility"
 curl -H "Authorization: Bearer $TOKEN" -o activity.csv \
-  "https://maus.example.com/api/admin-activity.csv?who=ada@company.com"
+  "https://lunabot.example.com/api/admin-activity.csv?who=ada@company.com"
 ```
 
 `what` is `all` (admin changes and answered cards, the default), `approvals`,
@@ -1391,8 +1391,8 @@ The runtime runs the bundled MCP bridge from the source checkout with the same
 bot, thread and token (replace the port with your server's actual address):
 
 ```sh
-OMB_HARNESS_URL=http://127.0.0.1:8799 OMB_BOT_ID=$BOT_ID OMB_THREAD_ID=$THREAD_ID \
-  OMB_COMMS_TOKEN=$TOKEN OMB_EXTERNAL_RUNTIME=1 \
+LUNABOT_HARNESS_URL=http://127.0.0.1:8799 LUNABOT_BOT_ID=$BOT_ID LUNABOT_THREAD_ID=$THREAD_ID \
+  LUNABOT_COMMS_TOKEN=$TOKEN LUNABOT_EXTERNAL_RUNTIME=1 \
   node --experimental-strip-types server/drivers/agents-proxy.ts
 ```
 
@@ -1430,14 +1430,14 @@ and 20 times in one turn. That notice only tells you. The loop guard, which is
 off by default, also tells the bot:
 
 - Set `loopGuard.enabled` to `true` in `config.json` (or through
-  `PUT /api/config`), or start the server with `OMB_LOOP_GUARD=1`. When the
+  `PUT /api/config`), or start the server with `LUNABOT_LOOP_GUARD=1`. When the
   same whole shell command fails the same way five times in a row
   (`loopGuard.steerAt`, 2-1000), the server puts one short note into the
   running turn saying so. A command that succeeds, or that fails differently,
   ends the count, so a turn that re-runs its tests after each edit or polls a
   build is left alone.
 - Stopping the turn is a separate choice. Set `loopGuard.stopAt` (2-1000), or
-  `OMB_LOOP_GUARD_STOP_AT`, and the turn is stopped at that many identical
+  `LUNABOT_LOOP_GUARD_STOP_AT`, and the turn is stopped at that many identical
   failures in a row, with a line in the chat that names the command and offers
   Retry. Leave it unset and the guard never stops a turn. A wait that fails
   until something is ready (`curl -f` against a server that is still starting)
@@ -1458,15 +1458,15 @@ that succeed. A tool call that was denied is never sent back.
 ## A turn that goes silent
 
 The server stops a turn that has sent it nothing for 20 minutes
-(`OMB_TURN_STALL_MS`) and says why in the chat. Engines report a tool only
+(`LUNABOT_TURN_STALL_MS`) and says why in the chat. Engines report a tool only
 when it starts and when it ends, so while one of the turn's tools is still
-running the turn may stay silent for up to `OMB_TOOL_STALL_MS` (default 2
+running the turn may stay silent for up to `LUNABOT_TOOL_STALL_MS` (default 2
 hours). Any event from the turn starts the silence over, and time spent waiting
 on a person or a computer never counts. Either way the turn stops with "no
 activity for N minutes".
 
-Both take whole milliseconds. `OMB_TURN_STALL_MS` is never below 60000 (one
-minute) and `OMB_TOOL_STALL_MS` never below `OMB_TURN_STALL_MS`. A value that
+Both take whole milliseconds. `LUNABOT_TURN_STALL_MS` is never below 60000 (one
+minute) and `LUNABOT_TOOL_STALL_MS` never below `LUNABOT_TURN_STALL_MS`. A value that
 is not a positive finite number (empty, `65m`, `0`, a negative number,
 `Infinity`, `1e309`) leaves the default. Set them in the server's environment
 and restart it; the restart stops every running turn.
@@ -1482,10 +1482,10 @@ settings do not change it.
 
 Self-hosted servers follow the **stable** channel: a released version that our
 own Clouds have run for 48 hours, named by the image tag `stable` and by
-[`stable.json`](https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json).
+[`stable.json`](https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json).
 `latest` follows `main` and is not for a server you rely on. The update check
 (`GET /api/updates/check`, **Check for updates** in the app) compares the
-server with the stable version; `OMB_UPDATE_CHANNEL=newest` makes it follow
+server with the stable version; `LUNABOT_UPDATE_CHANNEL=newest` makes it follow
 every release instead.
 
 A server installed with the [installer](deploy-vps.md#quick-start-one-command-on-your-own-domain)

@@ -1,5 +1,5 @@
 // The home on a customer-run server: the MausBot server its owner installed with Docker Compose (deploy/install.sh:
-// project `openmausbot`, service `omb`, Caddy in front, the data in a folder beside the Compose file). The connector
+// project `lunabot` (once `openmausbot`), service `omb`, Caddy in front, the data in a folder beside the Compose file). The connector
 // attaches to it and never makes a second one: it starts and stops those containers, copies that folder, and hands an
 // update to the server's own updater. It never writes the owner's settings and never picks the home's image itself.
 import { randomBytes } from "node:crypto";
@@ -15,12 +15,14 @@ import type { CopyInfo, HomeHealth, HomeReport, HomeState, JobError, JobReply, J
 import { BACKUPS_KEPT, HOME_STOP_TIMEOUT_S, LABELS, NAMES } from "./settings.ts";
 import type { HomeRecord, Operation, StateStore } from "./state.ts";
 
-export const COMPOSE_PROJECT = "openmausbot";
+export const COMPOSE_PROJECT = "lunabot";
+/** Installs laid out before the rename keep the earlier project name. */
+export const COMPOSE_PROJECTS = [COMPOSE_PROJECT, "openmausbot"] as const;
 const SERVICE = "omb";
 const FRONT = "caddy";
 const PROJECT_LABEL = "com.docker.compose.project";
 const SERVICE_LABEL = "com.docker.compose.service";
-const HOME_REPOSITORY = "ghcr.io/milind-soni/openmausbot";
+const HOME_REPOSITORIES = ["ghcr.io/liguan-89/lunabot", "ghcr.io/milind-soni/openmausbot"];
 const COPY_CAPS = ["CHOWN", "DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "FSETID"];
 const READ_CAPS = ["DAC_READ_SEARCH"];
 const DELETE_CAPS = ["DAC_OVERRIDE", "DAC_READ_SEARCH"];
@@ -43,11 +45,12 @@ export interface Install {
 
 /** The Compose install on this server, or the plain sentence that says why the connector cannot attach to one. */
 export async function findInstall(docker: Docker): Promise<{ ok: true; install: Install } | { ok: false; why: string }> {
-  const [found] = await docker.listContainers({ [PROJECT_LABEL]: COMPOSE_PROJECT, [SERVICE_LABEL]: SERVICE });
+  const candidates = (await Promise.all(COMPOSE_PROJECTS.map((project) => docker.listContainers({ [PROJECT_LABEL]: project, [SERVICE_LABEL]: SERVICE })))).flat();
+  const found = candidates[0];
   const container = found ? await docker.containerInspect(found.Id) : null;
   if (!container) return { ok: false, why: "MausBot is not installed on this server yet. Install it first with the server's install command, then connect it." };
   const image = container.Config.Image;
-  if (!image.startsWith(`${HOME_REPOSITORY}:`) && !image.startsWith(`${HOME_REPOSITORY}@`)) {
+  if (!HOME_REPOSITORIES.some((repository) => image.startsWith(`${repository}:`) || image.startsWith(`${repository}@`))) {
     return { ok: false, why: "The MausBot on this server was built here, not downloaded from MausBot's registry, so MausBot cannot update it. Move it to the published image first: ./update.sh --replace-local-build" };
   }
   const data = (container.Mounts ?? []).find((mount) => mount.Destination === "/data");
@@ -57,7 +60,7 @@ export async function findInstall(docker: Docker): Promise<{ ok: true; install: 
 
 /** True when a MausBot server its owner installed runs here: an `operated` connector must not start a second home beside it. */
 export async function standaloneServerPresent(docker: Docker): Promise<boolean> {
-  return (await docker.listContainers({ [PROJECT_LABEL]: COMPOSE_PROJECT, [SERVICE_LABEL]: SERVICE })).length > 0;
+  return (await Promise.all(COMPOSE_PROJECTS.map((project) => docker.listContainers({ [PROJECT_LABEL]: project, [SERVICE_LABEL]: SERVICE })))).some((found) => found.length > 0);
 }
 
 /**
@@ -381,7 +384,7 @@ export class AdoptedHome {
   }
 
   private async container(service: string): Promise<ContainerInfo | null> {
-    const [found] = await this.docker.listContainers({ [PROJECT_LABEL]: COMPOSE_PROJECT, [SERVICE_LABEL]: service });
+    const [found] = (await Promise.all(COMPOSE_PROJECTS.map((project) => this.docker.listContainers({ [PROJECT_LABEL]: project, [SERVICE_LABEL]: service })))).flat();
     return found ? this.docker.containerInspect(found.Id) : null;
   }
 

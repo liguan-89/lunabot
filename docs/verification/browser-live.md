@@ -4,8 +4,8 @@ Use installed native engine and Chrome binaries explicitly; the fixture never
 uses the operator's browser profiles, OMB home, provider logins, or API keys.
 
 ```sh
-OMB_VERIFY_BROWSER_BINARY=/absolute/path/to/agent-browser \
-OMB_VERIFY_BROWSER_CHROME=/absolute/path/to/chrome-headless-shell \
+LUNABOT_VERIFY_BROWSER_BINARY=/absolute/path/to/agent-browser \
+LUNABOT_VERIFY_BROWSER_CHROME=/absolute/path/to/chrome-headless-shell \
 node --experimental-strip-types scripts/verify-browser-live.ts
 ```
 
@@ -127,7 +127,7 @@ from the menu (new engine) still shows bands on purpose.
 | ![Before](images/browser-fill/before-midnight-maximized.png) | ![After](images/browser-fill/after-midnight-maximized.png) | ![Wide](images/browser-fill/after-midnight-advanced-wide.png) | ![Tablet](images/browser-fill/after-new-engine-tablet-preset.png) |
 
 `scripts/testing/browser-fill.e2e.test.ts` runs the agent-browser side against the pinned engine and
-`server/browser/viewers/viewers.e2e.test.ts` the new engine's (`OMB_CDP_CHROME`).
+`server/browser/viewers/viewers.e2e.test.ts` the new engine's (`LUNABOT_CDP_CHROME`).
 
 Focused automated coverage:
 
@@ -156,9 +156,9 @@ With an installed Playwright module, the same isolated launcher can run an
 automatic native acceptance pass, close its browsers and exit:
 
 ```sh
-OMB_VERIFY_BROWSER_BINARY=/absolute/path/to/agent-browser \
-OMB_VERIFY_BROWSER_CHROME=/absolute/path/to/chrome-headless-shell \
-OMB_VERIFY_PLAYWRIGHT=/absolute/path/to/playwright/index.mjs \
+LUNABOT_VERIFY_BROWSER_BINARY=/absolute/path/to/agent-browser \
+LUNABOT_VERIFY_BROWSER_CHROME=/absolute/path/to/chrome-headless-shell \
+LUNABOT_VERIFY_PLAYWRIGHT=/absolute/path/to/playwright/index.mjs \
 node --experimental-strip-types scripts/verify-browser-live.ts --recovery
 ```
 
@@ -209,9 +209,9 @@ does not import personal chats, provider settings, skills or browser profiles.
 Never point its requests at the user's running app.
 
 ```sh
-OMB_VERIFY_CODEX_CLI=/absolute/path/to/codex \
-OMB_VERIFY_CODEX_AUTH=/absolute/path/to/auth.json \
-OMB_VERIFY_CODEX_MODEL=your-supported-model \
+LUNABOT_VERIFY_CODEX_CLI=/absolute/path/to/codex \
+LUNABOT_VERIFY_CODEX_AUTH=/absolute/path/to/auth.json \
+LUNABOT_VERIFY_CODEX_MODEL=your-supported-model \
 node --experimental-strip-types scripts/verify-codex-surface-live.ts
 ```
 

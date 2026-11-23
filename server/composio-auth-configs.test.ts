@@ -137,11 +137,11 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => api.listen(0, "127.0.0.1", resolve));
   origin = `http://127.0.0.1:${(api.address() as { port: number }).port}`;
-  process.env.OMB_COMPOSIO_API = `${origin}/api/v3.1`;
+  process.env.LUNABOT_COMPOSIO_API = `${origin}/api/v3.1`;
 });
 
 afterAll(async () => {
-  delete process.env.OMB_COMPOSIO_API;
+  delete process.env.LUNABOT_COMPOSIO_API;
   await new Promise<void>((resolve) => api.close(() => resolve()));
 });
 

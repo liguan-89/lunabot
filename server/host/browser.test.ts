@@ -123,7 +123,7 @@ describe("the bots' browser host with browserEngine.engine set to chrome", () =>
     const { host, minted } = setup("chrome");
     const browser = await host.browserIntegration("scout", undefined, turn);
     expect(browser?.spec).toEqual({ command: "omb-cdp", args: ["bot:scout"], env: {} });
-    expect(browser?.integration).toMatchObject({ command: process.execPath, env: { OMB_HARNESS_URL: "http://127.0.0.1:4100" } });
+    expect(browser?.integration).toMatchObject({ command: process.execPath, env: { LUNABOT_HARNESS_URL: "http://127.0.0.1:4100" } });
     expect(minted).toEqual([expect.objectContaining({ botId: "scout", browserSession: browser?.session, kind: "browser", ...turn })]);
     expect(host.usedBrowserSessions.get(browser!.session)).toEqual(browser?.spec);
   });

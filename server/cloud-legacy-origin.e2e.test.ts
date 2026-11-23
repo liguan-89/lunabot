@@ -1,5 +1,5 @@
 // A Cloud home that moved to another provider, asked the way its old address's forwarder asks: Host rewritten to the
-// home's new name, the browser's own Origin (the old address) kept. With OMB_CLOUD_LEGACY_ORIGINS naming that address, a
+// home's new name, the browser's own Origin (the old address) kept. With LUNABOT_CLOUD_LEGACY_ORIGINS naming that address, a
 // browser signed in there goes on working; any other Origin is refused as before, and a malformed list stops the home.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -31,11 +31,11 @@ async function launch(legacy: string, port: number): Promise<{ child: ChildProce
   const started = spawn(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
     cwd: join(SERVER_DIR, ".."),
     env: {
-      PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      PATH: process.env.PATH, HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
       // tmpfs; this suite reads the home's own files, so the box stays off here.
-      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "5c9e3d2f-0b8a-4f7e-9d6c-2b3c4d5e6f70", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${NEW_HOST}`, OMB_CLOUD_LEGACY_ORIGINS: legacy,
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: "5c9e3d2f-0b8a-4f7e-9d6c-2b3c4d5e6f70", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${NEW_HOST}`, LUNABOT_CLOUD_LEGACY_ORIGINS: legacy,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -94,7 +94,7 @@ beforeAll(async () => {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const granted = await raw("POST", "/api/cloud/pairing", {
     host: NEW_HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body);
   const paired = await raw("POST", "/api/auth/pair", forwarded(OLD, { "content-type": "application/json" }), JSON.stringify({ code: granted.body.code, cookie: true }));
   expect(paired.status, launched.output().slice(-2000)).toBe(200);
@@ -124,5 +124,5 @@ it("refuses to start with a former address that is not an exact https origin", a
   const bad = await launch("http://omb-u-0a1b2c3d4e5f.fly.dev", port);
   await new Promise<void>((resolve) => { if (bad.child.exitCode !== null) resolve(); else bad.child.once("exit", () => resolve()); });
   expect(bad.child.exitCode).not.toBe(0);
-  expect(bad.output()).toMatch(/Cloud home configuration is invalid: every OMB_CLOUD_LEGACY_ORIGINS entry must be an exact https origin/);
+  expect(bad.output()).toMatch(/Cloud home configuration is invalid: every LUNABOT_CLOUD_LEGACY_ORIGINS entry must be an exact https origin/);
 }, 60_000);

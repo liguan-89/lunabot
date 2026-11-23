@@ -93,7 +93,7 @@ function main() {
       if (bad) console.error(`${run.stdout}${run.stderr}`);
     }
     if (bad) {
-      console.error(`pre-push: ${name} failed. Fix it, or push with OMB_SKIP_HOOKS=1 to let CI report it.`);
+      console.error(`pre-push: ${name} failed. Fix it, or push with LUNABOT_SKIP_HOOKS=1 to let CI report it.`);
       process.exitCode = 1;
       return;
     }

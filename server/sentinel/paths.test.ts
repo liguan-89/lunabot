@@ -4,22 +4,22 @@ import { defaultSentinelOut, isInside } from "./paths.ts";
 
 describe("sentinel paths", () => {
   it("keeps Sentinel's files in the platform's state folder, outside the data dir", () => {
-    expect(defaultSentinelOut("/Users/maus/.lunabot", "darwin", "/Users/maus", {})).toBe("/Users/maus/Library/Application Support/openmausbot-sentinel");
-    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", {})).toBe("/home/maus/.local/state/openmausbot-sentinel");
-    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", { XDG_STATE_HOME: "/var/state/maus" })).toBe("/var/state/maus/openmausbot-sentinel");
+    expect(defaultSentinelOut("/Users/maus/.lunabot", "darwin", "/Users/maus", {})).toBe("/Users/maus/Library/Application Support/lunabot-sentinel");
+    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", {})).toBe("/home/maus/.local/state/lunabot-sentinel");
+    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", { XDG_STATE_HOME: "/var/state/maus" })).toBe("/var/state/maus/lunabot-sentinel");
     // a relative XDG_STATE_HOME is invalid by the spec and ignored
-    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", { XDG_STATE_HOME: "state" })).toBe("/home/maus/.local/state/openmausbot-sentinel");
-    expect(defaultSentinelOut("C:\\Users\\maus\\.lunabot", "win32", "C:\\Users\\maus", { LOCALAPPDATA: "D:\\Local" })).toBe("D:\\Local\\openmausbot-sentinel");
+    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", { XDG_STATE_HOME: "state" })).toBe("/home/maus/.local/state/lunabot-sentinel");
+    expect(defaultSentinelOut("C:\\Users\\maus\\.lunabot", "win32", "C:\\Users\\maus", { LOCALAPPDATA: "D:\\Local" })).toBe("D:\\Local\\lunabot-sentinel");
   });
 
   it("treats a data dir left under the old name as the default too, so its issues stay in one place", () => {
-    expect(defaultSentinelOut("/Users/maus/.dexbot", "darwin", "/Users/maus", {})).toBe("/Users/maus/Library/Application Support/openmausbot-sentinel");
-    expect(defaultSentinelOut("/home/maus/.dexbot", "linux", "/home/maus", {})).toBe("/home/maus/.local/state/openmausbot-sentinel");
+    expect(defaultSentinelOut("/Users/maus/.dexbot", "darwin", "/Users/maus", {})).toBe("/Users/maus/Library/Application Support/lunabot-sentinel");
+    expect(defaultSentinelOut("/home/maus/.dexbot", "linux", "/home/maus", {})).toBe("/home/maus/.local/state/lunabot-sentinel");
   });
 
   it("gives any other data dir its own subfolder, the same one every time", () => {
     const other = defaultSentinelOut("/srv/omb-data", "linux", "/home/maus", {});
-    expect(other).toMatch(/^\/home\/maus\/\.local\/state\/openmausbot-sentinel\/data-[0-9a-f]{12}$/);
+    expect(other).toMatch(/^\/home\/maus\/\.local\/state\/lunabot-sentinel\/data-[0-9a-f]{12}$/);
     expect(defaultSentinelOut("/srv/omb-data", "linux", "/home/maus", {})).toBe(other);
     expect(defaultSentinelOut("/srv/omb-data-2", "linux", "/home/maus", {})).not.toBe(other);
   });

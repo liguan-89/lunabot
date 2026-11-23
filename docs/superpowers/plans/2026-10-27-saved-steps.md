@@ -17,7 +17,7 @@
 - The server runs on type stripping: type-only imports are `import type` (or inline `type`).
 - `server/index.ts` is at 16170 lines against a file-size ratchet of 16173 (`scripts/testing/file-size-ratchet.test.ts`). This plan adds exactly three lines there and removes one. `server/config.ts` (1365/1365), `src/components/ChatView.tsx` (1348/1348) and `src/state/store.tsx` (3456/3456) may not grow at all: their edits extend existing lines.
 - `server/index.ts` may not gain a `path === "/` comparison (`scripts/testing/index-route-ratchet.test.ts`, at 92/92). New routes live in `server/routes/` modules; the journal path is compared through the constant `COMPUTER_JOURNAL_PATH`.
-- Journalling runs only when `OMB_COMPUTER_JOURNAL=1`, which only `gatedLocalComputer` (`server/local-computer.ts:29-47`) sets. Local VM, VPS, Cloud Boat, team computers and the browser never journal or replay.
+- Journalling runs only when `LUNABOT_COMPUTER_JOURNAL=1`, which only `gatedLocalComputer` (`server/local-computer.ts:29-47`) sets. Local VM, VPS, Cloud Boat, team computers and the browser never journal or replay.
 - Journal POST: `POST /api/internal/computer/journal`, body `{tool, arguments, result}`, awaited before the response is forwarded, 1 000 ms timeout, then forward anyway.
 - cua-driver's MCP wire uses snake_case (`element_index`, `element_token`, `parent_index`, `window_id`, `window_title`, `app_name`, `bundle_id`); `node_modules/@trycua/cua-driver/dist/native/cua_driver_contract.d.ts` (`WindowElement` ~1379, `WindowStateOutput` ~1404, `AppInfo` ~90, `WindowInfo` ~935) gives the same fields in camelCase. The contract types no `launch_app` output: read its `pid`, `bundle_id`, `name` defensively.
 - Element values (`value`, `valueDescription`), frames, screenshots and all `content` never leave the bridge.
@@ -179,15 +179,15 @@ it("derives the journal URL from the control URL", () =>
 `local-computer-proxy.test.ts`, new case beside the existing `describe`, reusing its `FAKE_DRIVER` child and `rpc` helper pattern with a loopback server that answers `GET /control` with `{held:false, helpOpen:false}` and records `POST /api/internal/computer/journal`:
 ```ts
 it("journals each tools/call before the engine sees its reply, and forwards anyway when the journal is slow", async () => {
-  // connection = gatedLocalComputer(original, control); spawn with { ...connection.env, OMB_COMPUTER_JOURNAL: "1" }
+  // connection = gatedLocalComputer(original, control); spawn with { ...connection.env, LUNABOT_COMPUTER_JOURNAL: "1" }
   // 1. journal route answers after 300 ms: the reply line arrives after the POST was received (record both timestamps).
   // 2. POST body: { tool: "anything", arguments: {...}, result: { isError: false, ... } } and carries Authorization: Bearer <control token>.
   // 3. journal route never answers: the reply still arrives within 1 500 ms.
-  // 4. without OMB_COMPUTER_JOURNAL the route is never called.
+  // 4. without LUNABOT_COMPUTER_JOURNAL the route is never called.
 });
 ```
 
-`local-computer.test.ts:99`: add `OMB_COMPUTER_JOURNAL: "1"` to the expected `gated.env`.
+`local-computer.test.ts:99`: add `LUNABOT_COMPUTER_JOURNAL: "1"` to the expected `gated.env`.
 
 - [ ] **Step 2: Run them and see them fail**
 
@@ -200,9 +200,9 @@ Expected: FAIL (missing modules; proxy case never sees a POST; env mismatch).
 
 `runMcpBridge`: when `options.journal` is set, build one tap, call `tap.request(line)` in the inbound splitter before `intercept(line)`, and send both `answer` lines and the child's rewritten lines through one serialized writer, `reply(raw, written)`, that awaits `tap.response(raw)` before `process.stdout.write(written + "\n")`. The tap reads the child's raw line (before `toolLists.rewriteResponse`, `localComputerResultLine`, `textOnlyErrorResultLine`), so it sees `structuredContent` intact. Without `journal` the writes stay synchronous and unchanged.
 
-`local-computer-proxy.ts`: destructure `OMB_COMPUTER_JOURNAL` out of `process.env` with the other `OMB_*` variables (the driver never receives it) and pass `journal: { url: journalUrl(url), token }` when it equals `"1"`.
+`local-computer-proxy.ts`: destructure `LUNABOT_COMPUTER_JOURNAL` out of `process.env` with the other `LUNABOT_*` variables (the driver never receives it) and pass `journal: { url: journalUrl(url), token }` when it equals `"1"`.
 
-`gatedLocalComputer`: add `OMB_COMPUTER_JOURNAL: "1"` to `env`.
+`gatedLocalComputer`: add `LUNABOT_COMPUTER_JOURNAL: "1"` to `env`.
 
 - [ ] **Step 4: Run them and see them pass**
 

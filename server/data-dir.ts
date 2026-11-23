@@ -9,14 +9,14 @@ let home: string | undefined;
 export function dataHome(): string {
   if (home !== undefined) return home;
   const real = homedir();
-  home = process.env.VITEST !== undefined && real === userInfo().homedir ? mkdtempSync(join(tmpdir(), "omb-test-home-")) : real;
+  home = process.env.VITEST !== undefined && real === userInfo().homedir ? mkdtempSync(join(tmpdir(), "lunabot-test-home-")) : real;
   return home;
 }
 
 /** The data folder's name under the home: `~/.lunabot`. */
 export const DATA_DIR_NAME = ".lunabot";
-/** The name it had before the rename. A person who updates keeps their bots and chats, so it is moved, once, in place. */
-export const LEGACY_DATA_DIR_NAME = ".dexbot";
+/** The names earlier releases used, newest first. A person who updates keeps their bots and chats, so each is moved, once, in place. */
+export const LEGACY_DATA_DIR_NAMES = [".openmausbot", ".dexbot"] as const;
 
 export interface DataDirDefaults {
   /** The home it sits under; the server's own by default. */
@@ -25,16 +25,17 @@ export interface DataDirDefaults {
   join?: (home: string, name: string) => string;
 }
 
-/** Where the server keeps its data: `OMB_DATA_DIR` when set (never migrated, never moved), else `~/.lunabot`, with a
- * `~/.dexbot` left by an earlier release renamed to it the first time anything asks. */
+/** Where the server keeps its data: `LUNABOT_DATA_DIR` when set (never migrated, never moved), else `~/.lunabot`, with a
+ * folder left under an earlier name by a previous release renamed to it the first time anything asks. */
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env, defaults: DataDirDefaults = {}): string {
-  const configured = env.OMB_DATA_DIR?.trim();
+  const configured = env.LUNABOT_DATA_DIR?.trim();
   if (configured) return configured;
   const joinPath = defaults.join ?? join;
   const home = defaults.home ?? dataHome();
   const current = joinPath(home, DATA_DIR_NAME);
-  const legacy = joinPath(home, LEGACY_DATA_DIR_NAME);
-  if (existsSync(current) || !existsSync(legacy)) return current;
+  if (existsSync(current)) return current;
+  const legacy = LEGACY_DATA_DIR_NAMES.map((name) => joinPath(home, name)).find((path) => existsSync(path));
+  if (!legacy) return current;
   try {
     renameSync(legacy, current);
   } catch {

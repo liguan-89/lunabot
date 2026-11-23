@@ -47,8 +47,8 @@ app.whenReady().then(async () => {
     claude: { driver: "claudeAgent", config: { cli: join(root, "server/testing/fake-claude-cli.ts") } },
   } }));
   harness = utilityProcess.fork(join(root, "dist-server/index.js"), [], { cwd: root, stdio: "pipe", env: {
-    HOME: home, USERPROFILE: home, OMB_DATA_DIR: home, PATH: "", OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(await freePort()),
-    OMB_DESKTOP_PARENT: "1", ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+    HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: home, PATH: "", LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(await freePort()),
+    LUNABOT_DESKTOP_PARENT: "1", ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
   } });
   harness.stdout.on("data", (chunk) => { logs += chunk; });
   harness.stderr.on("data", (chunk) => { logs += chunk; });

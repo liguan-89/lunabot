@@ -13,17 +13,17 @@ export const DEFAULT_ACP_PROMPT_IDLE_MS = 15 * 60_000;
 export const formatQuietLimit = (ms: number): string =>
   ms >= 120_000 && ms % 60_000 === 0 ? `${ms / 60_000} min` : `${Math.round(ms / 1000)} s`;
 
-/** Silence before the first "what is it doing" notice (OMB_ACP_QUIET_NOTICE_MS overrides). */
+/** Silence before the first "what is it doing" notice (LUNABOT_ACP_QUIET_NOTICE_MS overrides). */
 export const DEFAULT_QUIET_NOTICE_MS = 60_000;
-/** How often a quiet turn or a long tool call is looked at again (OMB_ACP_QUIET_TICK_MS overrides). */
+/** How often a quiet turn or a long tool call is looked at again (LUNABOT_ACP_QUIET_TICK_MS overrides). */
 export const DEFAULT_QUIET_TICK_MS = 15_000;
 
 const knob = (name: string, fallback: number): number => {
   const ms = Number(process.env[name]);
   return Number.isFinite(ms) && ms > 0 ? ms : fallback;
 };
-export const quietNoticeMs = (): number => knob("OMB_ACP_QUIET_NOTICE_MS", DEFAULT_QUIET_NOTICE_MS);
-export const quietTickMs = (): number => knob("OMB_ACP_QUIET_TICK_MS", DEFAULT_QUIET_TICK_MS);
+export const quietNoticeMs = (): number => knob("LUNABOT_ACP_QUIET_NOTICE_MS", DEFAULT_QUIET_NOTICE_MS);
+export const quietTickMs = (): number => knob("LUNABOT_ACP_QUIET_TICK_MS", DEFAULT_QUIET_TICK_MS);
 
 export type LogSignal =
   | { kind: "retry"; status: number | null; delayMs: number | null; attempt: number | null }
@@ -234,18 +234,18 @@ export const LIMIT_WORDS = /\b429\b|rate.?limit|too many requests|usage limit|qu
 
 /** How long an engine may stay quiet after a model request failed on a limit before the turn is ended as a usage limit,
  * so the bot carries on with another AI: longer than any retry an engine makes without a provider's retry-after
- * (OMB_ACP_LIMIT_QUIET_MS overrides). */
+ * (LUNABOT_ACP_LIMIT_QUIET_MS overrides). */
 export const DEFAULT_LIMIT_QUIET_MS = 2 * 60_000;
-export const limitQuietMs = (): number => knob("OMB_ACP_LIMIT_QUIET_MS", DEFAULT_LIMIT_QUIET_MS);
+export const limitQuietMs = (): number => knob("LUNABOT_ACP_LIMIT_QUIET_MS", DEFAULT_LIMIT_QUIET_MS);
 
 /** A 429 whose wait is longer than any engine retries on its own is a usage limit, not a short rate limit. */
 export const usageLimitWait = (status: number | null | undefined, waitMs: number | null | undefined): boolean =>
   status === 429 && (waitMs ?? 0) > limitQuietMs();
 
 /** No open request, no CPU and nothing logged, this long: the engine is stuck, and the turn is stopped
- * (OMB_ACP_NO_SIGNS_STOP_MS overrides). */
+ * (LUNABOT_ACP_NO_SIGNS_STOP_MS overrides). */
 export const DEFAULT_NO_SIGNS_STOP_MS = 5 * 60_000;
-export const noSignsStopMs = (): number => knob("OMB_ACP_NO_SIGNS_STOP_MS", DEFAULT_NO_SIGNS_STOP_MS);
+export const noSignsStopMs = (): number => knob("LUNABOT_ACP_NO_SIGNS_STOP_MS", DEFAULT_NO_SIGNS_STOP_MS);
 
 /** Whether this quiet state is an engine waiting out a usage or rate limit. */
 export function waitingOutLimit(signal: LogSignal | null): boolean {

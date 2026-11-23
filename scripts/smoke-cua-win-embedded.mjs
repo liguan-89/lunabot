@@ -62,11 +62,11 @@ public static class ConsoleProbe {
 }
 '@
 [ConsoleProbe]::FreeConsole() | Out-Null
-$attached = [ConsoleProbe]::AttachConsole([uint32]$env:OMB_SMOKE_DAEMON_PID)
+$attached = [ConsoleProbe]::AttachConsole([uint32]$env:LUNABOT_SMOKE_DAEMON_PID)
 $failure = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
 if ($attached) { [ConsoleProbe]::FreeConsole() | Out-Null; throw 'Background daemon has a console' }
 if ($failure -ne 6) { throw "Console probe failed with unexpected Windows error $failure" }
-`], { windowsHide: true, timeout: 30_000, env: { ...process.env, OMB_SMOKE_DAEMON_PID: String(pid) } });
+`], { windowsHide: true, timeout: 30_000, env: { ...process.env, LUNABOT_SMOKE_DAEMON_PID: String(pid) } });
   console.log("Windows confirms the background daemon has no console");
 }
 

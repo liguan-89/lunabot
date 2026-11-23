@@ -45,7 +45,7 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       try {
         const response = await fetch(`http://${containerName(cloud.id)}:8080/api/health`, { signal: AbortSignal.timeout(4000) });
         const text = await response.text();
-        if (response.ok && text.includes("openmausbot")) {
+        if (response.ok && text.includes("lunabot")) {
           store.updateCloud(cloud.id, { status: "ready", last_seen_at: Date.now() });
           return true;
         }
@@ -61,15 +61,15 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
 
   function environment(cloud) {
     return [
-      "OMB_CLOUD_ROLE=home",
-      `OMB_CLOUD_MACHINE_ID=${cloud.machine_id}`,
-      `OMB_CLOUD_ADMIN_URL=${config.origin}`,
-      `OMB_CLOUD_BOOTSTRAP_SECRET=${cloud.bootstrap_secret}`,
-      `OMB_PUBLIC_URL=https://${cloud.hostname}`,
-      "OMB_DATA_DIR=/data",
-      "OMB_CLOUD_TRUSTED_PROXIES=private_ranges",
-      "OMB_CLOUD_CLIENT_IP_HEADER=X-Forwarded-For",
-      `OMB_SERVER_NAME=${cloud.name}`,
+      "LUNABOT_CLOUD_ROLE=home",
+      `LUNABOT_CLOUD_MACHINE_ID=${cloud.machine_id}`,
+      `LUNABOT_CLOUD_ADMIN_URL=${config.origin}`,
+      `LUNABOT_CLOUD_BOOTSTRAP_SECRET=${cloud.bootstrap_secret}`,
+      `LUNABOT_PUBLIC_URL=https://${cloud.hostname}`,
+      "LUNABOT_DATA_DIR=/data",
+      "LUNABOT_CLOUD_TRUSTED_PROXIES=private_ranges",
+      "LUNABOT_CLOUD_CLIENT_IP_HEADER=X-Forwarded-For",
+      `LUNABOT_SERVER_NAME=${cloud.name}`,
     ];
   }
 
@@ -188,9 +188,9 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
         .update(`v1\n${timestamp}\n${nonce}\nPOST\n/api/cloud/pairing\n${bodyHash}`)
         .digest("base64url");
       const response = await cloudPost(cloud, "/api/cloud/pairing", body, {
-        "x-omb-cloud-timestamp": timestamp,
-        "x-omb-cloud-nonce": nonce,
-        "x-omb-cloud-signature": `v1=${signature}`,
+        "x-lunabot-cloud-timestamp": timestamp,
+        "x-lunabot-cloud-nonce": nonce,
+        "x-lunabot-cloud-signature": `v1=${signature}`,
       });
       let answer = null;
       try {

@@ -5391,7 +5391,7 @@
   "settings.domain.copyField": "{field} 복사",
   "settings.domain.recordHint": "TTL은 기본값으로 두세요. 업체가 도메인을 자동으로 붙인다면 이름에는 하위 도메인만 입력하세요(루트 도메인은 @).",
   "settings.domain.missingIp": "서버 관리자에게 공개 IPv4 주소를 물어보세요.",
-  "settings.domain.ipAdminHint": "Docker, NAT, 여러 공개 주소를 쓴다면 OMB_PUBLIC_IPV4를 HTTPS 프록시가 있는 IPv4 주소로 설정하고 {app}을 다시 시작하세요. 사설 주소는 DNS 값으로 표시되지 않아요.",
+  "settings.domain.ipAdminHint": "Docker, NAT, 여러 공개 주소를 쓴다면 LUNABOT_PUBLIC_IPV4를 HTTPS 프록시가 있는 IPv4 주소로 설정하고 {app}을 다시 시작하세요. 사설 주소는 DNS 값으로 표시되지 않아요.",
   "settings.domain.httpsNeeded": "관리자가 서버에서 HTTPS를 켜야 해요. 그다음 아래에서 연결을 확인하세요.",
   "settings.domain.dns": "도메인 DNS 설정에서 고른 이름에 대해 이 서버의 공개 IPv4 주소를 가리키는 A 레코드를 만드세요. IPv6로도 같은 서버에 닿을 때만 AAAA 레코드를 추가하세요. DNS가 업데이트될 때까지 시간이 걸려요.",
   "settings.domain.proxy": "서버 관리자가 {app} 앞에 HTTPS를 설정해야 해요. 같은 호스트나 네트워크 네임스페이스에서 Caddy를 실행한다면 이 예시를 쓰고 bots.example.com을 내 도메인으로 바꾸세요:",

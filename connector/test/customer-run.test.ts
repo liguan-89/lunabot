@@ -22,6 +22,7 @@ const digest = (letter: string) => `ghcr.io/milind-soni/openmausbot@sha256:${let
 const CLOUD_HOME = `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"c".repeat(64)}`;
 const CONNECTOR = `ghcr.io/milind-soni/mausbot-connector@sha256:${"1".repeat(64)}`;
 const RUNNING = "ghcr.io/milind-soni/openmausbot:v0.1.151";
+const RUNNING_RENAMED = "ghcr.io/liguan-89/lunabot:v2.1.5";
 const NEXT = digest("b");
 const OLDER = digest("a");
 const UNNAMED = digest("d");
@@ -154,12 +155,12 @@ describe("a customer-run server: the jobs MausBot may run", () => {
   });
 
   it("refuses a start that names an image or settings, and an update to anything but MausBot's server image by digest", () => {
-    const env = { OMB_CLOUD_ROLE: "team", OMB_CLOUD_MACHINE_ID: "m", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test", OMB_PUBLIC_URL: "https://acme.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: "s".repeat(40) };
+    const env = { LUNABOT_CLOUD_ROLE: "team", LUNABOT_CLOUD_MACHINE_ID: "m", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test", LUNABOT_PUBLIC_URL: "https://acme.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: "s".repeat(40) };
     expect(checkJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } })).toMatchObject({ ok: true });
     expect(checkCustomerRunJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } }, "admin")).toMatchObject({ ok: false, id: "s1", code: "refused_by_mode" });
     expect(checkCustomerRunJob({ id: "s2", type: "start" }, "admin")).toEqual({ ok: true, job: { id: "s2", type: "start", args: {} } });
     expect(checkCustomerRunJob({ id: "u1", type: "update", args: { image: NEXT } }, "admin")).toEqual({ ok: true, job: { id: "u1", type: "update", args: { image: NEXT } } });
-    for (const image of [CLOUD_HOME, RUNNING, "ghcr.io/someone-else/openmausbot@sha256:" + "a".repeat(64)]) {
+    for (const image of [CLOUD_HOME, RUNNING, RUNNING_RENAMED, "ghcr.io/someone-else/openmausbot@sha256:" + "a".repeat(64)]) {
       expect(checkCustomerRunJob({ id: "u2", type: "update", args: { image } }, "admin"), image).toMatchObject({ ok: false, code: "invalid_args" });
     }
     expect(checkCustomerRunJob({ id: "u3", type: "update", args: { image: NEXT, env } }, "admin")).toMatchObject({ ok: false, code: "invalid_args" });
@@ -248,6 +249,11 @@ describe("a customer-run server: what leaves it", () => {
     // On or off, nothing else: a server without the field, or with anything else in it, says nothing about its box.
     expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot", box: "off" })}\n\u001e\n`).box).toBe("off");
     expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot", box: { checks: "33/33" } })}\n\u001e\n`).box).toBeNull();
+    // this fleet's server answers its own generation's app name
+    expect(parseHomeReads(`${JSON.stringify({ app: "lunabot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "dexbot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "someone-else" })}\n\u001e\n`).answers).toBe(false);
   });
 
   it("sends a heartbeat of versions, states, counts and the seat count, with no address, name or sentence in it", async () => {

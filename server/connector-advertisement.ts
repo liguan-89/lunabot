@@ -3,9 +3,9 @@
 import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "../shared/wire.ts";
 import { APP_SANDBOX_SERVICE, APP_SANDBOX_TOOLS, serviceSlugFor, serviceSlugForCandidates } from "./connector-verdict.ts";
 
-export const CONNECTOR_ALLOWED_TOOLS_ENV = "OMB_CONNECTOR_ALLOWED_TOOLS";
+export const CONNECTOR_ALLOWED_TOOLS_ENV = "LUNABOT_CONNECTOR_ALLOWED_TOOLS";
 
-export const CONNECTOR_SERVICE_SLUGS_ENV = "OMB_CONNECTOR_SERVICE_SLUGS";
+export const CONNECTOR_SERVICE_SLUGS_ENV = "LUNABOT_CONNECTOR_SERVICE_SLUGS";
 
 /** Past this the env var is omitted: mounting must never depend on catalog size. */
 export const CONNECTOR_ALLOWED_TOOLS_MAX_BYTES = 32 * 1024;

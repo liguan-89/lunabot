@@ -11,6 +11,7 @@ import {
   isPiCustomModel,
   mergePiCustomCatalog,
   piCustomProviderFromEnv,
+  splitPiCustomModel,
   withPiDefaultOption,
 } from "./pi-custom-provider.ts";
 
@@ -55,31 +56,38 @@ describe("pi custom provider", () => {
     const home = tempHome();
     ensurePiCustomProvider(env(home, { [PI_CUSTOM_ENV.protocol]: "anthropic" }));
     const models = JSON.parse(readFileSync(join(home, ".pi", "agent", "models.json"), "utf8"));
-    expect(models.providers.dex).toMatchObject({
+    expect(models.providers.luna).toMatchObject({
       baseUrl: "https://models.example.com/v1",
       api: "anthropic-messages",
     });
-    expect(models.providers.dex.apiKey).toBe(AUTH);
-    expect(models.providers.dex.models.map((model: { id: string }) => model.id)).toEqual(["alpha", "beta"]);
+    expect(models.providers.luna.apiKey).toBe(AUTH);
+    expect(models.providers.luna.models.map((model: { id: string }) => model.id)).toEqual(["alpha", "beta"]);
   });
 
   it("maps model selections to the provider entry", () => {
     const home = tempHome();
-    expect(ensurePiInjectModel("dex/alpha", env(home))).toEqual({ provider: "dex", modelId: "alpha" });
-    expect(isPiCustomModel("dex/alpha")).toBe(true);
+    expect(ensurePiInjectModel("luna/alpha", env(home))).toEqual({ provider: "luna", modelId: "alpha" });
+    expect(isPiCustomModel("luna/alpha")).toBe(true);
     expect(isPiCustomModel("openai/alpha")).toBe(false);
+  });
+
+  it("still recognizes selections saved under the legacy provider id", () => {
+    const home = tempHome();
+    expect(ensurePiInjectModel("dex/alpha", env(home))).toEqual({ provider: "luna", modelId: "alpha" });
+    expect(isPiCustomModel("dex/alpha")).toBe(true);
+    expect(splitPiCustomModel("dex/alpha")).toEqual({ modelId: "alpha" });
   });
 
   it("lists the custom models beside pi's own and prefers pi's default", () => {
     const catalog = mergePiCustomCatalog({ default: "openai/gpt", options: [{ id: "openai/gpt", label: "GPT" }] }, env(tempHome()));
     expect(catalog.default).toBe("openai/gpt");
-    expect(catalog.options.map((option) => option.id)).toEqual(["openai/gpt", "dex/alpha", "dex/beta"]);
+    expect(catalog.options.map((option) => option.id)).toEqual(["openai/gpt", "luna/alpha", "luna/beta"]);
   });
 
   it("selects the first custom model when pi has no default", () => {
     const catalog = mergePiCustomCatalog({ default: "", options: [] }, env(tempHome()));
-    expect(catalog.default).toBe("dex/alpha");
-    expect(catalog.options.map((option) => option.id)).toEqual(["dex/alpha", "dex/beta"]);
+    expect(catalog.default).toBe("luna/alpha");
+    expect(catalog.options.map((option) => option.id)).toEqual(["luna/alpha", "luna/beta"]);
   });
 
   it("keeps a selectable default when nothing is configured", () => {
@@ -122,8 +130,8 @@ describe("pi custom provider", () => {
     );
     const ids = catalog.options.map((option) => option.id);
     expect(ids).toContain("ollama-cloud/glm-5.2");
-    expect(ids).toContain("dex/alpha");
-    expect(ids).toContain("dex/beta");
+    expect(ids).toContain("luna/alpha");
+    expect(ids).toContain("luna/beta");
     expect(catalog.default).toBe("ollama-cloud/glm-5.2");
   });
 });

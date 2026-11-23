@@ -1,5 +1,5 @@
 {
-  "name": "dexbot",
+  "name": "lunabot",
   "productName": "Luna Bot",
   "private": true,
   "version": "2.1.6",
@@ -27,9 +27,9 @@
     "check:contrast": "node scripts/check-skin-contrast.mjs",
     "i18n:check": "node scripts/generate-locale.mjs --check",
     "dev": "vite",
-    "docs:dev": "pnpm --filter @openmausbot/docs dev",
-    "docs:build": "pnpm --filter @openmausbot/docs build",
-    "docs:preview": "pnpm --filter @openmausbot/docs preview",
+    "docs:dev": "pnpm --filter @lunabot/docs dev",
+    "docs:build": "pnpm --filter @lunabot/docs build",
+    "docs:preview": "pnpm --filter @lunabot/docs preview",
     "companion": "node --experimental-strip-types companion/src/index.ts",
     "omb": "node --experimental-strip-types server/lunabot.ts",
     "pair": "node --experimental-strip-types server/lunabot.ts pair",
@@ -73,7 +73,7 @@
     "build:cua:linux:offline": "node scripts/prepare-cua-linux.mjs --offline",
     "build:updater": "node scripts/bundle-updater.mjs",
     "package:prepare": "pnpm build && pnpm build:server && pnpm build:companion && pnpm build:updater && pnpm build:android-tools && pnpm build:cloudflared && pnpm build:browser && pnpm build:duckdb",
-    "package:mac": "export LUNABOT_CUA_ARCHES=arm64 LUNABOT_CUA_ARCHES_PARTIAL=1 CSC_IDENTITY_AUTO_DISCOVERY=false DEXBOT_CODESIGN_IDENTITY=\"DEX BOT Development\" && pnpm package:prepare && pnpm build:speech && pnpm build:cua && electron-builder --mac --arm64 --publish never",
+    "package:mac": "export LUNABOT_CUA_ARCHES=arm64 LUNABOT_CUA_ARCHES_PARTIAL=1 CSC_IDENTITY_AUTO_DISCOVERY=false LUNABOT_CODESIGN_IDENTITY=\"DEX BOT Development\" && pnpm package:prepare && pnpm build:speech && pnpm build:cua && electron-builder --mac --arm64 --publish never",
     "package:win": "pnpm package:prepare && pnpm build:cua:win && electron-builder --win --publish never",
     "package:linux": "pnpm package:prepare && pnpm build:cua:linux && electron-builder --config.productName=LunaBot --linux --x64 --publish never",
     "package:arch": "pnpm package:prepare && pnpm build:cua:linux && electron-builder --config.productName=LunaBot --linux pacman --x64 --publish never",
@@ -89,10 +89,10 @@
     "broker:check": "pnpm broker:types && tsc -p cloudflare/composio-broker/tsconfig.json",
     "broker:test": "vitest run --config cloudflare/composio-broker/vitest.config.ts",
     "broker:deploy": "wrangler deploy --config cloudflare/composio-broker/wrangler.jsonc",
-    "control-plane:types": "pnpm --filter @openmausbot/control-plane types",
-    "control-plane:check": "pnpm --filter @openmausbot/control-plane check",
-    "control-plane:test": "pnpm --filter @openmausbot/control-plane test",
-    "control-plane:dry-run": "pnpm --filter @openmausbot/control-plane dry-run"
+    "control-plane:types": "pnpm --filter @lunabot/control-plane types",
+    "control-plane:check": "pnpm --filter @lunabot/control-plane check",
+    "control-plane:test": "pnpm --filter @lunabot/control-plane test",
+    "control-plane:dry-run": "pnpm --filter @lunabot/control-plane dry-run"
   },
   "dependencies": {
     "@1password/sdk": "0.5.0",

@@ -186,7 +186,7 @@ describe("what woke the home", () => {
     h.power.prepareSleep();
     // Suspended, then resumed for a request: noticed by the request itself, before the clock tick does.
     h.jump(33_000);
-    h.power.arrived("/.well-known/lunabot/environment", { "x-omb-background": "1" });
+    h.power.arrived("/.well-known/lunabot/environment", { "x-lunabot-background": "1" });
     expect(h.power.sleeping()).toBe(false);
     expect(h.power.report()).toMatchObject({ wokeAt: h.now(), wokeBy: { by: "version", background: true } });
     h.power.arrived("/api/threads", {});
@@ -232,8 +232,8 @@ describe("waking from a sleep the machine was stopped for", () => {
 describe("what counts as someone using the home", () => {
   it("is any request but the background paths and marked polls", () => {
     expect(countsAsActivity("/api/threads/t1", {})).toBe(true);
-    expect(countsAsActivity("/api/threads/t1", { "x-omb-background": "0" })).toBe(true);
-    expect(countsAsActivity("/api/team-map", { "x-omb-background": "1" })).toBe(false);
+    expect(countsAsActivity("/api/threads/t1", { "x-lunabot-background": "0" })).toBe(true);
+    expect(countsAsActivity("/api/team-map", { "x-lunabot-background": "1" })).toBe(false);
     for (const path of ["/api/events", "/api/health", "/api/sync", "/api/sync/changes", "/api/shared-computers/c1/poll", "/api/cloud/power"]) {
       expect(countsAsActivity(path, {}), path).toBe(false);
     }
@@ -249,7 +249,7 @@ describe("the Admin's signed power routes", () => {
     let counter = 0;
     const sign = (target: string, method = "GET", body = "", key = secret) => {
       const timestamp = String(Math.floor(h.now() / 1000)), nonce = `nonce-${String(++counter).padStart(12, "0")}`;
-      return { "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudRequestSignature(key, timestamp, nonce, method, target, body)}` };
+      return { "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudRequestSignature(key, timestamp, nonce, method, target, body)}` };
     };
     const send = async (method: string, target: string, headers: Record<string, string>, body = "") => {
       const req = Object.assign(new PassThrough(), { method, url: target, headers, socket: { remoteAddress: "127.0.0.1" } }) as unknown as IncomingMessage;

@@ -21,9 +21,9 @@ export function fakePagesService(options: { quota?: number; plan?: string; admin
 
   const caller = (request: Request, body: string): "desktop" | "home" | null => {
     if (request.headers.get("authorization") === `Bearer ${FAKE_DESKTOP_TOKEN}`) return "desktop";
-    const machine = request.headers.get("x-omb-cloud-machine"), timestamp = request.headers.get("x-omb-cloud-timestamp") ?? "", nonce = request.headers.get("x-omb-cloud-nonce") ?? "";
+    const machine = request.headers.get("x-lunabot-cloud-machine"), timestamp = request.headers.get("x-lunabot-cloud-timestamp") ?? "", nonce = request.headers.get("x-lunabot-cloud-nonce") ?? "";
     const expected = `v1=${pagesHomeSignature(FAKE_HOME.bootstrapSecret, FAKE_HOME.machineId, timestamp, nonce, body)}`;
-    return machine === FAKE_HOME.machineId && request.headers.get("x-omb-cloud-signature") === expected ? "home" : null;
+    return machine === FAKE_HOME.machineId && request.headers.get("x-lunabot-cloud-signature") === expected ? "home" : null;
   };
 
   const fetch: typeof globalThis.fetch = async (input, init) => {

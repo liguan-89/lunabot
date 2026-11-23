@@ -26,7 +26,7 @@ const IDLE_MS = 10 * 60_000;
 const RESULT_LIMIT = 3_900_000;
 const MAX_PAGES = 10;
 const PROTOCOL = "2025-03-26";
-/** Security: a port under 1024 is a system service's, and this computer's own OpenMausBot server and Chrome's DevTools
+/** Security: a port under 1024 is a system service's, and this computer's own Luna Bot server and Chrome's DevTools
  * take commands from any local caller, so a lent address on one of them would hand a Cloud's bot this computer. */
 const OWN_PORT = "Only an MCP server on its own port (1024 or higher) at this computer's address can be reached, never this computer's own Luna Bot or Chrome ports";
 
@@ -73,7 +73,7 @@ export async function ownPorts({ serverPorts = [], dirs = chromeDataDirs({ platf
   return [...DESKTOP_PORTS, ...serverPorts, ...chrome.flatMap(found => (found ? [found.port] : []))];
 }
 
-/** This computer's own OpenMausBot installs, by the environment id each keeps in its data folder. */
+/** This computer's own Luna Bot installs, by the environment id each keeps in its data folder. */
 export function ownEnvironmentIds(dataDirs) {
   const ids = new Set();
   for (const dir of dataDirs) {
@@ -258,7 +258,7 @@ export function createLentMcp({ environment = async () => ({ ...inheritedEnviron
     const client = "command" in server ? stdioClient(server, { environment: await environment(), home }) : httpClient(server, { fetch: fetchImpl });
     const live = { key, client, idle: null, failed: false, started: null };
     running.set(server.name, live);
-    live.started = client.request("initialize", { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "openmausbot-lent", version: "1" } }, signal, START_MS).then(result => {
+    live.started = client.request("initialize", { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "lunabot-lent", version: "1" } }, signal, START_MS).then(result => {
       client.started?.(result?.protocolVersion);
       client.notify("notifications/initialized");
     });

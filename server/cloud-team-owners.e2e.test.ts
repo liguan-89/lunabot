@@ -28,7 +28,7 @@ process.env.FAKE_PI_DUMP = dir + "/dump.jsonl";
 process.env.FAKE_PI_ROOM_PLAN = dir + "/room-plan.json";
 try {
   const approver = readKnob(dir + "/approver.txt", "utf8").trim();
-  if (approver && process.env.OMB_BOT_ID === approver) {
+  if (approver && process.env.LUNABOT_BOT_ID === approver) {
     process.env.FAKE_PI_PERMISSION_ON = "APPROVE-MARKER";
     process.env.FAKE_PI_CONFIRM_TITLE = ${JSON.stringify(APPROVAL)};
   }

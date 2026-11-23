@@ -29,12 +29,12 @@ describe("the container's server command", () => {
   const small = { bytes: GB, cgroupLimit: GB };
 
   it("runs the server through the compile-cache bootstrap, its cache on the data volume, its heap sized to the limit", () => {
-    const command = serverCommand(here, { OMB_DATA_DIR: join("/srv", "omb"), OMB_PORT: "8799" }, { exists: () => true, box: small });
+    const command = serverCommand(here, { LUNABOT_DATA_DIR: join("/srv", "omb"), LUNABOT_PORT: "8799" }, { exists: () => true, box: small });
     expect(command).toEqual({
       args: ["--max-old-space-size=614", join(here, "desktop-entry.mjs")],
-      env: { OMB_DATA_DIR: join("/srv", "omb"), OMB_PORT: "8799", OMB_SERVER_COMPILE_CACHE: join("/srv", "omb", "cache", "node-compile") },
+      env: { LUNABOT_DATA_DIR: join("/srv", "omb"), LUNABOT_PORT: "8799", LUNABOT_SERVER_COMPILE_CACHE: join("/srv", "omb", "cache", "node-compile") },
     });
-    expect(serverCommand(here, {}, { exists: () => true, box: small }).env.OMB_SERVER_COMPILE_CACHE)
+    expect(serverCommand(here, {}, { exists: () => true, box: small }).env.LUNABOT_SERVER_COMPILE_CACHE)
       .toBe(join(homedir(), ".lunabot", "cache", "node-compile"));
   });
 

@@ -116,7 +116,7 @@ export function resolveCloudflaredBinary({
   const bundled = path.join(String(resourcesPath ?? ""), "cloudflared", executable);
   if (isPackaged) return exists(bundled) ? bundled : null;
 
-  const override = environment.OMB_CLOUDFLARED_PATH?.trim();
+  const override = environment.LUNABOT_CLOUDFLARED_PATH?.trim();
   if (override) return path.isAbsolute(override) && exists(override) ? override : null;
 
   const staged = stagedCloudflaredPath({ appPath, platform, arch });

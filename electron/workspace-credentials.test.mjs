@@ -18,7 +18,7 @@ describe("workspace credential migration", () => {
     } }, {});
     expect(result.credentials).toEqual({ openaiImageApiKey: "openai-only", customImageApiKey: "router-only" });
     expect(result.config.imageGen).toEqual({ provider: "custom", customUrl: "http://127.0.0.1:4000/v1", customModel: "local/image" });
-    expect(workspaceCredentialEnv(result.credentials)).toEqual({ OMB_OPENAI_IMAGE_KEY: "openai-only", OMB_CUSTOM_IMAGE_KEY: "router-only" });
+    expect(workspaceCredentialEnv(result.credentials)).toEqual({ LUNABOT_OPENAI_IMAGE_KEY: "openai-only", LUNABOT_CUSTOM_IMAGE_KEY: "router-only" });
   });
   it("moves every plaintext secret into the store and deletes the field", () => {
     const config = {
@@ -60,9 +60,9 @@ describe("workspace credential migration", () => {
     expect(result.config.decider).toEqual({ provider: "openrouter", openrouterModel: "openai/gpt-4o-mini", enabled: true });
     expect(result.config.openrouter).toEqual({});
     expect(workspaceCredentialEnv(result.credentials)).toEqual({
-      OMB_JEV_API_KEY: "jev-secret",
-      OMB_OPENROUTER_DECIDER_KEY: "sk-or-secret",
-      OMB_OPENROUTER_API_KEY: "engine-openrouter-key",
+      LUNABOT_JEV_API_KEY: "jev-secret",
+      LUNABOT_OPENROUTER_DECIDER_KEY: "sk-or-secret",
+      LUNABOT_OPENROUTER_API_KEY: "engine-openrouter-key",
     });
   });
 
@@ -142,10 +142,10 @@ describe("workspace credential env", () => {
     ).toEqual({
       XAI_API_KEY: "xai-secret",
       BOX_TOKEN: "boat-secret",
-      OMB_TTS_KEY: "tts-secret",
-      OMB_FISH_AUDIO_API_KEY: "fish-secret",
+      LUNABOT_TTS_KEY: "tts-secret",
+      LUNABOT_FISH_AUDIO_API_KEY: "fish-secret",
       OPENCODE_API_KEY: "ocg-secret",
-      OMB_OPENAI_IMAGE_KEY: "image-secret",
+      LUNABOT_OPENAI_IMAGE_KEY: "image-secret",
     });
   });
 
@@ -163,16 +163,16 @@ describe("workspace credential env", () => {
 });
 
 const AI_PROVIDER_KEYS = [
-  ["openai", "openaiApiKey", "OMB_OPENAI_API_KEY"],
-  ["anthropic", "anthropicApiKey", "OMB_ANTHROPIC_API_KEY"],
-  ["openrouter", "openrouterApiKey", "OMB_OPENROUTER_API_KEY"],
+  ["openai", "openaiApiKey", "LUNABOT_OPENAI_API_KEY"],
+  ["anthropic", "anthropicApiKey", "LUNABOT_ANTHROPIC_API_KEY"],
+  ["openrouter", "openrouterApiKey", "LUNABOT_OPENROUTER_API_KEY"],
   ["mistral", "mistralApiKey", "MISTRAL_API_KEY"],
   ["cerebras", "cerebrasApiKey", "CEREBRAS_API_KEY"],
-  ["groq", "groqApiKey", "OMB_GROQ_API_KEY"],
-  ["greenference", "greenferenceApiKey", "OMB_GREENFERENCE_API_KEY"],
-  ["modelgo", "modelgoApiKey", "OMB_MODELGO_API_KEY"],
-  ["meta", "metaApiKey", "OMB_META_API_KEY"],
-  ["deepseek", "deepseekApiKey", "OMB_DEEPSEEK_API_KEY"],
+  ["groq", "groqApiKey", "LUNABOT_GROQ_API_KEY"],
+  ["greenference", "greenferenceApiKey", "LUNABOT_GREENFERENCE_API_KEY"],
+  ["modelgo", "modelgoApiKey", "LUNABOT_MODELGO_API_KEY"],
+  ["meta", "metaApiKey", "LUNABOT_META_API_KEY"],
+  ["deepseek", "deepseekApiKey", "LUNABOT_DEEPSEEK_API_KEY"],
   ["openaiCompat", "openaiCompatApiKey", "OPENAI_COMPAT_API_KEY"],
 ];
 

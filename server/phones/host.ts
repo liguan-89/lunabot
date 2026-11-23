@@ -521,7 +521,7 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       const token = mint();
       return {
         command: process.execPath, args: [SPAWNED_PROXIES.harnessMcp, PHONE_MCP_SERVER],
-        env: { ...AGENTS_NODE_FLAG, [harnessMcpTokenEnv("device")]: token, OMB_HARNESS_URL: harnessUrl },
+        env: { ...AGENTS_NODE_FLAG, [harnessMcpTokenEnv("device")]: token, LUNABOT_HARNESS_URL: harnessUrl },
       };
     },
     prompt,

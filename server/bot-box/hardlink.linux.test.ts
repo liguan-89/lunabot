@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { detectBox } from "./detect.ts";
 import { bwrapArgs, planBox } from "./plan.ts";
 
-const detection = detectBox({ env: { ...process.env, OMB_BOT_BOX: "1" } });
+const detection = detectBox({ env: { ...process.env, LUNABOT_BOT_BOX: "1" } });
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 

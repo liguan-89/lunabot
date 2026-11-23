@@ -29,15 +29,15 @@ async function serveStub(): Promise<{ server: Server; url: string }> {
 }
 
 const stub = await serveStub();
-const output = process.env.OMB_UI_EVIDENCE_DIR || "/tmp/omb-x-connector-evidence";
+const output = process.env.LUNABOT_UI_EVIDENCE_DIR || "/tmp/omb-x-connector-evidence";
 mkdirSync(output, { recursive: true });
-const { chromium } = await import(process.env.OMB_VERIFY_PLAYWRIGHT || "playwright");
-const browser = await chromium.launch({ headless: true, executablePath: process.env.OMB_VERIFY_BROWSER_CHROME || undefined });
+const { chromium } = await import(process.env.LUNABOT_VERIFY_PLAYWRIGHT || "playwright");
+const browser = await chromium.launch({ headless: true, executablePath: process.env.LUNABOT_VERIFY_BROWSER_CHROME || undefined });
 const opened: Array<{ fixture: VerificationServer; ui: MountedPreview }> = [];
 
 async function open(plan: boolean) {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TREG_URL: stub.url,
-    ...(plan ? { OMB_CLOUD_X_URL: `${stub.url}${RELAY_PATH}`, OMB_CLOUD_X_TOKEN: PLAN_TOKEN } : {}) });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TREG_URL: stub.url,
+    ...(plan ? { LUNABOT_CLOUD_X_URL: `${stub.url}${RELAY_PATH}`, LUNABOT_CLOUD_X_TOKEN: PLAN_TOKEN } : {}) });
   const ui = await mountPreview(fixture, {
     entry: "/scripts/testing/whop-preview.tsx", route: "/__x.html", title: "Isolated X card",
     extraRoutes: [

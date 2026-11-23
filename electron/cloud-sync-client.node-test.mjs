@@ -24,14 +24,14 @@ test("marks every call as background work, so My Cloud never counts Files as the
   const client = createSyncClient({ origin: ORIGIN, fetch: async (url, init) => { seen.push(init.headers); return reply(200, { folders: [] }); } });
   await client.summary();
   await client.changes(0, 10, new AbortController().signal);
-  assert.deepEqual(seen.map((headers) => headers["x-omb-background"]), ["1", "1"]);
+  assert.deepEqual(seen.map((headers) => headers["x-lunabot-background"]), ["1", "1"]);
 });
 
 test("My Cloud going to sleep: its 503 asleep answer holds Files back, and nothing is called while it sleeps", async () => {
   const at = 1_792_355_000_000;
   let power = { state: "awake", since: at, sleeps: true }, calls = 0;
   const gate = createCloudPowerGate({ power: () => power });
-  const client = createSyncClient({ origin: ORIGIN, power: gate, fetch: async () => { calls++; return reply(503, { error: "asleep" }, { "x-omb-cloud-power": "asleep" }); } });
+  const client = createSyncClient({ origin: ORIGIN, power: gate, fetch: async () => { calls++; return reply(503, { error: "asleep" }, { "x-lunabot-cloud-power": "asleep" }); } });
   await assert.rejects(client.changes(0, 10, new AbortController().signal), CloudAsleepError);
   assert.equal(gate.asleep(), true);
   await assert.rejects(client.summary(), CloudAsleepError);
@@ -77,7 +77,7 @@ test("a download resumes a partial file with a range", async (t) => {
   const temporary = join(dir(t), ".a.txt.omb-sync-1a2b3c4d");
   writeFileSync(temporary, "hello ");
   let range;
-  const client = createSyncClient({ origin: ORIGIN, fetch: async (_url, init) => { range = init.headers.range; return new Response("world", { status: 206, headers: { "x-omb-sha256": "s" } }); } });
+  const client = createSyncClient({ origin: ORIGIN, fetch: async (_url, init) => { range = init.headers.range; return new Response("world", { status: 206, headers: { "x-lunabot-sha256": "s" } }); } });
   assert.deepEqual(await client.download("f", "a.txt", temporary), { sha256: "s" });
   assert.equal(range, "bytes=6-");
   assert.equal(readFileSync(temporary, "utf8"), "hello world");

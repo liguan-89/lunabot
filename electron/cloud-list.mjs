@@ -79,7 +79,7 @@ export function cloudState(cloud) {
     : status === "setting_up" ? "setup" : null;
 }
 
-/** An OpenMausBot release as the Admin names it ("0.1.130"), or null: anything else is no version at all. */
+/** A Luna Bot release as the Admin names it ("0.1.130"), or null: anything else is no version at all. */
 export const releaseVersion = value => (typeof value === "string" && VERSION.test(value) ? value : null);
 
 /** Whether `version` is an older release than `latest`, compared number by number; false when either isn't plain
@@ -132,7 +132,7 @@ export function parseOrganizations(input) {
   return { planCloudId: input.planCloudId, canAdd: input.canAdd, ...(blocked && !input.canAdd ? { blocked } : {}), count: input.count, max: input.max };
 }
 
-/** OMB_CLOUD_STOPPED_HOLD_DAYS allows parts of a day, and at most 60. */
+/** LUNABOT_CLOUD_STOPPED_HOLD_DAYS allows parts of a day, and at most 60. */
 const keptDays = value => value === null ? null : typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 60 ? value : undefined;
 /**
  * The account's own plan's renewal, from the verified session's raw `clouds`: its primary Cloud, only while the Admin says

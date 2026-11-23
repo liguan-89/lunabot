@@ -44,7 +44,7 @@ function readRuntimeDb(dataDir: string): RuntimeDb {
 const chipText = (message: any): string => [message.tool?.name, message.tool?.output, message.text].filter(Boolean).join("\n");
 
 async function scenario(test: (f: any) => Promise<void>) {
-  const parentEnv: NodeJS.ProcessEnv = { ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" };
+  const parentEnv: NodeJS.ProcessEnv = { ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" };
   const session = await launchVerificationServer(parentEnv, undefined, undefined, undefined, undefined, { scripted: true });
   const url = session.info.url;
   const dataDir = session.info.dataDir;

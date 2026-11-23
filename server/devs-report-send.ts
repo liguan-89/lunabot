@@ -20,10 +20,10 @@ export type SendOutcome =
   /** The endpoint refused this report; sending it again would be refused again. */
   | { ok: false; retry: false; why: "refused"; detail: string };
 
-/** OMB_BUG_REPORT_URL (an https address, or http on this machine's loopback, for fixtures), else a Cloud home's own
+/** LUNABOT_BUG_REPORT_URL (an https address, or http on this machine's loopback, for fixtures), else a Cloud home's own
  * Admin origin, else the staging or production Cloud. */
 export function bugReportEndpoint(env: NodeJS.ProcessEnv, cloudOrigin?: string | null): string {
-  const explicit = env.OMB_BUG_REPORT_URL?.trim();
+  const explicit = env.LUNABOT_BUG_REPORT_URL?.trim();
   if (explicit) {
     try {
       const url = new URL(explicit);
@@ -31,7 +31,7 @@ export function bugReportEndpoint(env: NodeJS.ProcessEnv, cloudOrigin?: string |
       if ((url.protocol === "https:" || loopback) && !url.username && !url.password) return url.href;
     } catch { /* not an address: the default below */ }
   }
-  const origin = cloudOrigin ?? (env.OMB_CLOUD_STAGING === "1" ? STAGING_CLOUD_ORIGIN : PRODUCTION_CLOUD_ORIGIN);
+  const origin = cloudOrigin ?? (env.LUNABOT_CLOUD_STAGING === "1" ? STAGING_CLOUD_ORIGIN : PRODUCTION_CLOUD_ORIGIN);
   return `${origin.replace(/\/+$/, "")}${BUG_REPORT_PATH}`;
 }
 
@@ -124,8 +124,8 @@ export async function askReportStatus(endpoint: string, question: ReportStatusQu
   now = Date.now): Promise<ReportStatusAnswer | null> {
   const body = JSON.stringify({ installId: question.installId, ids: question.ids.slice(0, BUG_REPORT_STATUS_MAX_IDS) });
   const timestamp = String(Math.floor(now() / 1000)), nonce = randomBytes(18).toString("base64url");
-  const signed: Record<string, string> = home ? { "x-omb-cloud-machine": home.machineId, "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-    "x-omb-cloud-signature": `v1=${bugReportsHomeSignature(home.bootstrapSecret, home.machineId, timestamp, nonce, body)}` } : {};
+  const signed: Record<string, string> = home ? { "x-lunabot-cloud-machine": home.machineId, "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+    "x-lunabot-cloud-signature": `v1=${bugReportsHomeSignature(home.bootstrapSecret, home.machineId, timestamp, nonce, body)}` } : {};
   try {
     const response = await fetcher(endpoint, { method: "POST", redirect: "error", cache: "no-store", body, signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
       headers: { accept: "application/json", "content-type": "application/json", ...signed } });

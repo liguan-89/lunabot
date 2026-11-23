@@ -214,7 +214,7 @@ test("healthz names the control plane", async () => {
   try {
     const health = await call(app.base, "GET", "/healthz");
     assert.equal(health.status, 200);
-    assert.equal(health.body.service, "openmausbot-control-plane");
+    assert.equal(health.body.service, "lunabot-control-plane");
   } finally {
     app.server.close();
     app.store.close();
@@ -236,7 +236,7 @@ test("the Cloud serves docs, feedback and the download page instead of a private
     const download = await call(app.base, "GET", "/download");
     assert.equal(download.status, 200);
     assert.match(String(download.body), /\/download\/dexbot\.apk/);
-    assert.match(String(download.body), /com\.lunabot\.companion/);
+    assert.match(String(download.body), /com\.openmausbot\.companion/);
     assert.doesNotMatch(String(download.body), /com\.dexbot\.companion/);
     assert.doesNotMatch(String(download.body), /github\.com\/liguan-89/);
   } finally {

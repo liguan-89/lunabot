@@ -63,7 +63,7 @@ child.on('exit', code => { process.exitCode = code; });
   mkdirSync(home);
   vi.stubEnv("HOME", home);
   vi.stubEnv("USERPROFILE", home);
-  vi.stubEnv("OMB_EXTRA_PATH", bin);
+  vi.stubEnv("LUNABOT_EXTRA_PATH", bin);
   resetPathCache();
   cleanups.push(async () => {
     for (const socket of sockets) socket.destroy();

@@ -23,7 +23,7 @@ it("starts the server with the original workspace after an interrupted restore p
     commitPendingWorkspaceRestore(target, staged.id);
     mkdirSync(join(target, ".backups", `safety-${staged.id}`, "data"), { recursive: true });
     const env = verificationServerEnvironment({}, join(source, "home"), Number(new URL(fixture.info.url).port));
-    env.OMB_DATA_DIR = target;
+    env.LUNABOT_DATA_DIR = target;
     mkdirSync(env.TMPDIR!, { recursive: true });
     const log = openSync(fixture.info.logPath, "a", 0o600);
     try {
@@ -38,7 +38,7 @@ it("starts the server with the original workspace after an interrupted restore p
     }, { timeout: 20_000 }).toBe(true);
     const response = await fetch(`${fixture.info.url}/api/health`);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ app: "dexbot", pid: restarted.pid });
+    expect(await response.json()).toMatchObject({ app: "lunabot", pid: restarted.pid });
     expect(readFileSync(join(target, "note.txt"), "utf8")).toBe("original workspace");
     expect(existsSync(join(target, ".backups", "pending-restore.json"))).toBe(false);
   } finally {

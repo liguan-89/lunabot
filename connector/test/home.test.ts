@@ -16,8 +16,8 @@ const A = image("a"), B = image("b"), C = image("c"), D = image("d");
 const SECRET = "Bootstrap-secret-0123456789abcdefghijklmnopq";
 const RELAY = "box_omb_relay-token-0123456789abcdefghijklmnop";
 const env = {
-  OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-  OMB_PUBLIC_URL: "https://acme.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: SECRET, OMB_CLOUD_BOAT_TOKEN: RELAY,
+  LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+  LUNABOT_PUBLIC_URL: "https://acme.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_BOAT_TOKEN: RELAY,
 };
 const SECCOMP = '{"defaultAction":"SCMP_ACT_ERRNO","syscalls":[]}';
 const LEASE = ".lunabot/lunabot-server.lease";
@@ -45,15 +45,15 @@ function fixture(options: { free?: number } = {}) {
     const home = docker.container("mausbot-home");
     if (!home || home.status !== "running") return { status: 0, report: null };
     // As the launcher does: its environment, and the secrets file when one is mounted.
-    const secrets = home.spec.HostConfig.Mounts?.find((mount) => mount.Target === "/run/mausbot");
+    const secrets = home.spec.HostConfig.Mounts?.find((mount) => mount.Target === "/run/lunabot");
     const homeEnv: Record<string, string> = {
       ...Object.fromEntries((home.spec.Env ?? []).map((entry) => [entry.slice(0, entry.indexOf("=")), entry.slice(entry.indexOf("=") + 1)])),
       ...(secrets ? JSON.parse(readFileSync(join(secrets.Source, "secrets.json"), "utf8")) as Record<string, string> : {}),
     };
-    if (target.secret !== homeEnv.OMB_CLOUD_BOOTSTRAP_SECRET) return { status: 401, report: { error: "invalid_signature" } };
-    if (target.publicHost !== new URL(homeEnv.OMB_PUBLIC_URL).hostname || target.port !== 8080) return { status: 403, report: null };
+    if (target.secret !== homeEnv.LUNABOT_CLOUD_BOOTSTRAP_SECRET) return { status: 401, report: { error: "invalid_signature" } };
+    if (target.publicHost !== new URL(homeEnv.LUNABOT_PUBLIC_URL).hostname || target.port !== 8080) return { status: 403, report: null };
     if (!healthy.has(home.spec.Image)) return { status: 0, report: null };
-    return { status: 200, report: { version: "0.1.130", image: homeEnv.OMB_CLOUD_IMAGE, box: boxes.get(home.spec.Image) ?? { box: "bwrap", checks: "32/32", failed: [] } } };
+    return { status: 200, report: { version: "0.1.130", image: homeEnv.LUNABOT_CLOUD_IMAGE, box: boxes.get(home.spec.Image) ?? { box: "bwrap", checks: "32/32", failed: [] } } };
   };
   const uploads: { url: string; headers: Record<string, string>; body: string }[] = [];
   const downloads: { url: string; headers: Record<string, string> }[] = [];
@@ -119,7 +119,7 @@ describe("the home on an own server", () => {
     });
     expect(spec.StopTimeout).toBe(30);
     expect(Object.keys(spec.HostConfig)).not.toContain("Privileged");
-    expect(spec.Env).toEqual([...Object.entries(env).map(([name, value]) => `${name}=${value}`), `OMB_CLOUD_IMAGE=${A}`]);
+    expect(spec.Env).toEqual([...Object.entries(env).map(([name, value]) => `${name}=${value}`), `LUNABOT_CLOUD_IMAGE=${A}`]);
     expect(JSON.parse(readFileSync(f.state.path("home-env.json"), "utf8"))).toEqual(env);
     if (process.platform !== "win32") {
       expect(statSync(f.state.path("home-env.json")).mode & 0o777).toBe(0o600);
@@ -142,40 +142,40 @@ describe("the home on an own server", () => {
     expect(JSON.stringify(spec)).not.toContain(SECRET);
     expect(JSON.stringify(spec)).not.toContain(RELAY);
     expect(spec.Env).toEqual([
-      "OMB_CLOUD_ROLE=home", `OMB_CLOUD_MACHINE_ID=${env.OMB_CLOUD_MACHINE_ID}`, `OMB_CLOUD_ADMIN_URL=${env.OMB_CLOUD_ADMIN_URL}`, `OMB_PUBLIC_URL=${env.OMB_PUBLIC_URL}`, `OMB_CLOUD_IMAGE=${D}`,
+      "LUNABOT_CLOUD_ROLE=home", `LUNABOT_CLOUD_MACHINE_ID=${env.LUNABOT_CLOUD_MACHINE_ID}`, `LUNABOT_CLOUD_ADMIN_URL=${env.LUNABOT_CLOUD_ADMIN_URL}`, `LUNABOT_PUBLIC_URL=${env.LUNABOT_PUBLIC_URL}`, `LUNABOT_CLOUD_IMAGE=${D}`,
     ]);
     expect(spec.HostConfig.Mounts).toEqual([
       { Type: "volume", Source: "mausbot-data", Target: "/data" },
-      { Type: "bind", Source: secretsDir, Target: "/run/mausbot", ReadOnly: true },
+      { Type: "bind", Source: secretsDir, Target: "/run/lunabot", ReadOnly: true },
     ]);
     expect(spec.HostConfig.CapAdd).toEqual(["CHOWN", "SETUID", "SETGID", "KILL", "SYS_ADMIN", "SETPCAP"]);
     expect(readdirSync(secretsDir)).toEqual(["secrets.json"]);
-    expect(JSON.parse(readFileSync(join(secretsDir, "secrets.json"), "utf8"))).toEqual({ OMB_CLOUD_BOOTSTRAP_SECRET: SECRET, OMB_CLOUD_BOAT_TOKEN: RELAY });
+    expect(JSON.parse(readFileSync(join(secretsDir, "secrets.json"), "utf8"))).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_BOAT_TOKEN: RELAY });
     if (process.platform !== "win32") {
       expect(statSync(secretsDir).mode & 0o777).toBe(0o700);
       expect(statSync(join(secretsDir, "secrets.json")).mode & 0o777).toBe(0o600);
     }
     // A new secret makes a new container, which reads the new file.
-    const rotated = { ...env, OMB_CLOUD_BOOTSTRAP_SECRET: `${SECRET}-rotated` };
+    const rotated = { ...env, LUNABOT_CLOUD_BOOTSTRAP_SECRET: `${SECRET}-rotated` };
     await f.home.start("start-2", D, rotated);
-    expect(JSON.parse(readFileSync(join(secretsDir, "secrets.json"), "utf8")).OMB_CLOUD_BOOTSTRAP_SECRET).toBe(`${SECRET}-rotated`);
+    expect(JSON.parse(readFileSync(join(secretsDir, "secrets.json"), "utf8")).LUNABOT_CLOUD_BOOTSTRAP_SECRET).toBe(`${SECRET}-rotated`);
     expect((await f.home.report()).health).toMatchObject({ ok: true, image: D });
   });
 
   it("publishes HTTPS on IPv4 when the home serves its own domain, and keeps the connector's loopback port", async () => {
     const f = fixture();
     const tunnel = "t".repeat(40);
-    await f.home.start("start-1", D, { ...env, OMB_CLOUD_EDGE_TLS: "1" });
+    await f.home.start("start-1", D, { ...env, LUNABOT_CLOUD_EDGE_TLS: "1" });
     const spec = f.docker.container("mausbot-home")!.spec;
     expect(spec.HostConfig.PortBindings).toEqual({ "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "8080" }], "443/tcp": [{ HostIp: "0.0.0.0", HostPort: "443" }] });
     expect(spec.ExposedPorts).toEqual({ "8080/tcp": {}, "443/tcp": {} });
-    expect(spec.Env).toContain("OMB_CLOUD_EDGE_TLS=1");
+    expect(spec.Env).toContain("LUNABOT_CLOUD_EDGE_TLS=1");
     // A home reached through a tunnel publishes nothing more, and its token rides the secrets file, not the environment.
-    await f.home.start("start-2", D, { ...env, OMB_CLOUD_TUNNEL_TOKEN: tunnel });
+    await f.home.start("start-2", D, { ...env, LUNABOT_CLOUD_TUNNEL_TOKEN: tunnel });
     const tunnelled = f.docker.container("mausbot-home")!.spec;
     expect(tunnelled.HostConfig.PortBindings).toEqual({ "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "8080" }] });
     expect(JSON.stringify(tunnelled)).not.toContain(tunnel);
-    expect(JSON.parse(readFileSync(join(f.state.dir, "home-secrets", "secrets.json"), "utf8")).OMB_CLOUD_TUNNEL_TOKEN).toBe(tunnel);
+    expect(JSON.parse(readFileSync(join(f.state.dir, "home-secrets", "secrets.json"), "utf8")).LUNABOT_CLOUD_TUNNEL_TOKEN).toBe(tunnel);
   });
 
   it("gives an older image exactly what it always had: secrets in its environment, no added capability", async () => {
@@ -188,7 +188,7 @@ describe("the home on an own server", () => {
     expect(old.Image).toBe(C);
     expect(old.HostConfig.CapAdd).toEqual(["CHOWN", "SETUID", "SETGID", "KILL"]);
     expect(old.HostConfig.Mounts).toEqual([{ Type: "volume", Source: "mausbot-data", Target: "/data" }]);
-    expect(old.Env).toContain(`OMB_CLOUD_BOOTSTRAP_SECRET=${SECRET}`);
+    expect(old.Env).toContain(`LUNABOT_CLOUD_BOOTSTRAP_SECRET=${SECRET}`);
     expect(launcherOf(null)).toEqual({ secretsFile: false, dropsCapabilities: false });
     expect(launcherOf([0, 1, 144])).toEqual({ secretsFile: false, dropsCapabilities: false });
     expect(launcherOf([0, 1, 145])).toEqual({ secretsFile: true, dropsCapabilities: true });
@@ -199,7 +199,7 @@ describe("the home on an own server", () => {
     const f = fixture();
     f.state.write("home-env.json", env);
     new Home({ docker: f.docker, state: f.state, log: () => {}, readHealth: async () => ({ status: 0, report: null }), seccomp: () => SECCOMP, transfer: { download: async () => ({ bytes: 0 }), upload: async () => ({ bytes: 0, sha256: "" }) }, diskFree: () => 1e12 });
-    expect(JSON.parse(readFileSync(join(f.state.dir, "home-secrets", "secrets.json"), "utf8"))).toEqual({ OMB_CLOUD_BOOTSTRAP_SECRET: SECRET, OMB_CLOUD_BOAT_TOKEN: RELAY });
+    expect(JSON.parse(readFileSync(join(f.state.dir, "home-secrets", "secrets.json"), "utf8"))).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_BOAT_TOKEN: RELAY });
   });
 
   it("clears the lease a killed home left before each start, until the image clears it itself, and never while a home runs", async () => {
@@ -509,7 +509,7 @@ describe("the home on an own server", () => {
     const f = fixture();
     await started(f);
     await f.home.stop();
-    f.docker.startFailures.set("mausbot-home", `container create failed: env OMB_CLOUD_BOOTSTRAP_SECRET=${SECRET} rejected`);
+    f.docker.startFailures.set("mausbot-home", `container create failed: env LUNABOT_CLOUD_BOOTSTRAP_SECRET=${SECRET} rejected`);
     const failed = await failure(f.home.restart());
     expect(failed.code).toBe("docker");
     expect(JSON.stringify(failed.toJobError())).not.toContain(SECRET);

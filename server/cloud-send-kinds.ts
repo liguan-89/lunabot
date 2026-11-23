@@ -388,7 +388,7 @@ type ArrivingSource = { computer?: string; defaultBot?: boolean };
 
 /** This computer's name as a person knows it, which a MausBot that moves away is named for when the place it goes keeps its own. */
 function thisComputerName(): string {
-  return (process.env.OMB_ENVIRONMENT_LABEL?.trim() || hostname()).replace(/\.local$/iu, "").slice(0, 120);
+  return (process.env.LUNABOT_ENVIRONMENT_LABEL?.trim() || hostname()).replace(/\.local$/iu, "").slice(0, 120);
 }
 
 /** False when the path is not this route. */

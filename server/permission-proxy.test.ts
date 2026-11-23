@@ -124,7 +124,7 @@ describe("permission proxy", () => {
 
   it("withholds an excluded question without losing the CLI permission callback", async () => {
     const exited = once(proxy, "exit"); proxy.kill(); await exited; results.clear();
-    startProxy(brokerSocketPath(scratch, "test"), { ...process.env, OMB_PERMISSION_TOOL_SCOPE: JSON.stringify({ allow: ["native:*"] }) });
+    startProxy(brokerSocketPath(scratch, "test"), { ...process.env, LUNABOT_PERMISSION_TOOL_SCOPE: JSON.stringify({ allow: ["native:*"] }) });
     rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     expect((await waitFor(2)).result.tools.map((tool: { name: string }) => tool.name)).toEqual(["approve"]);
     rpc({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "ask_user", arguments: { question: "Must not ask" } } });

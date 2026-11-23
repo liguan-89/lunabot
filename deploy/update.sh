@@ -6,7 +6,7 @@
 #   ./update.sh --check          say what would change, and change nothing
 #   ./update.sh --rollback       put back the version and the data from before the last update (asks first; --yes)
 #   ./update.sh --allow-older    go ahead when the version asked for is older than, or no newer than, the one running
-#   ./update.sh --dir PATH       the install's folder, when it is not this one (the installer's: /opt/openmausbot)
+#   ./update.sh --dir PATH       the install's folder, when it is not this one (the installer's: /opt/lunabot)
 #
 # It runs on the server itself, beside docker-compose.yml, because a server cannot replace its own container. The steps
 # are the ones the MausBot connector runs for a connected server (connector/src/home.ts `update`): download the new
@@ -32,29 +32,34 @@ set -uo pipefail
 # update half-way. Output to a terminal that has gone is lost; .update/update.log keeps it.
 trap '' HUP PIPE
 
-REPO="ghcr.io/milind-soni/openmausbot"
-PINNED="^ghcr\.io/milind-soni/openmausbot@sha256:[0-9a-f]{64}$"
-STABLE_URL=${OMB_STABLE_URL:-https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json}
-NEWEST_URL=${OMB_NEWEST_URL:-https://api.github.com/repos/milind-soni/OpenMausBot/releases/latest}
-SERVICE=${OMB_UPDATE_SERVICE:-omb}
+REPO="ghcr.io/liguan-89/lunabot"
+# Installs still running an image of the repository under its earlier name pin by digest the same way.
+LEGACY_REPO="ghcr.io/milind-soni/openmausbot"
+PINNED="^ghcr\.io/liguan-89/lunabot@sha256:[0-9a-f]{64}$"
+STABLE_URL=${LUNABOT_STABLE_URL:-https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json}
+NEWEST_URL=${LUNABOT_NEWEST_URL:-https://api.github.com/repos/liguan-89/lunabot/releases/latest}
+SERVICE=${LUNABOT_UPDATE_SERVICE:-omb}
 # A healthy server answers within seconds of starting; two minutes leaves room for a slow first start after an update,
-# and is how long the server is down before a version that never answers is rolled back. OMB_UPDATE_WAIT_S for more.
-WAIT_S=${OMB_UPDATE_WAIT_S:-120}
-ENGINE_WAIT_S=${OMB_UPDATE_ENGINE_WAIT_S:-120}
-POLL_S=${OMB_UPDATE_POLL_S:-5}
-KEEP_TAG="openmausbot-before-update:local"
+# and is how long the server is down before a version that never answers is rolled back. LUNABOT_UPDATE_WAIT_S for more.
+WAIT_S=${LUNABOT_UPDATE_WAIT_S:-120}
+ENGINE_WAIT_S=${LUNABOT_UPDATE_ENGINE_WAIT_S:-120}
+POLL_S=${LUNABOT_UPDATE_POLL_S:-5}
+KEEP_TAG="lunabot-before-update:local"
 BACKUP_ROLE="com.mausbot.role=update-backup"
 
 # The install: --dir, else the folder this script is in when that holds a Compose file, else where the installer
 # (deploy/install.sh) puts one.
-DIR=${OMB_INSTALL_DIR:-}
+DIR=${LUNABOT_INSTALL_DIR:-}
 want_dir=no
 for arg in "$@"; do
   if [ "$want_dir" = yes ]; then DIR=$arg; want_dir=no; elif [ "$arg" = --dir ]; then want_dir=yes; fi
 done
 if [ -z "$DIR" ]; then
   DIR=$(cd "$(dirname "$0")" && pwd)
-  if [ ! -f "$DIR/docker-compose.yml" ] && [ ! -f "$DIR/compose.yaml" ] && [ -f /opt/openmausbot/compose.yaml ]; then DIR=/opt/openmausbot; fi
+  if [ ! -f "$DIR/docker-compose.yml" ] && [ ! -f "$DIR/compose.yaml" ]; then
+    if [ -f /opt/lunabot/compose.yaml ]; then DIR=/opt/lunabot
+    elif [ -f /opt/openmausbot/compose.yaml ]; then DIR=/opt/openmausbot; fi
+  fi
 fi
 STATE="$DIR/.update"
 JOURNAL="$STATE/journal"
@@ -63,7 +68,7 @@ LOCK="$STATE/lock"
 LOG="$STATE/update.log"
 cd "$DIR" 2>/dev/null || { printf '%s\n' "There is no folder $DIR."; exit 4; }
 # The pin is read from .env, never from the shell that happens to run this.
-unset OMB_IMAGE
+unset LUNABOT_IMAGE
 
 # A step interrupted while its output goes to the log still speaks to the terminal.
 exec 3>&1
@@ -92,7 +97,7 @@ compose() { docker compose "$@"; }
 container() { compose ps -aq "$SERVICE" 2>/dev/null | head -n 1; }
 inspect() { docker inspect -f "$1" "$2" 2>/dev/null; }
 image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null; }
-published_ref() { docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$1" 2>/dev/null | grep "^$REPO@" | head -n 1; }
+published_ref() { docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$1" 2>/dev/null | grep -E "^($REPO|$LEGACY_REPO)@" | head -n 1; }
 # The released version an image is labelled with; nothing for a build of main, whose label is the branch.
 image_version() { docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null | sed -n 's/^v\{0,1\}\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p'; }
 name_of() { if [ -n "${2:-}" ]; then printf '%s' "$2"; else printf '%s' "$1" | sed 's/^.*sha256:\(.\{12\}\).*$/image \1/'; fi; }
@@ -284,17 +289,17 @@ room_for_copy() { # data backup image → 0 when there is room where the copy go
 # this machine has no digest to pin.
 pin_previous() {
   local named
-  case "$J_previous" in "$REPO@sha256:"*) ;; *) return 0 ;; esac
-  named=$(sed -n 's/^OMB_IMAGE=//p' .env 2>/dev/null | tail -n 1)
+  case "$J_previous" in "$REPO@sha256:"* | "$LEGACY_REPO@sha256:"*) ;; *) return 0 ;; esac
+  named=$(sed -n 's/^LUNABOT_IMAGE=//p' .env 2>/dev/null | tail -n 1)
   case "$named" in
     *@sha256:* | *:v[0-9]*.[0-9]*.[0-9]*) return 0 ;;
   esac
   pin_image "$J_previous"
 }
-pin_image() { # writes OMB_IMAGE=<ref> into .env, keeping every other line and the file's mode
+pin_image() { # writes LUNABOT_IMAGE=<ref> into .env, keeping every other line and the file's mode
   local tmp="$DIR/.env.update.tmp"
-  if [ -f .env ]; then cp -p .env "$tmp" && grep -v '^OMB_IMAGE=' .env >"$tmp"; else : >"$tmp" && chmod 600 "$tmp"; fi
-  printf 'OMB_IMAGE=%s\n' "$1" >>"$tmp" && mv "$tmp" .env
+  if [ -f .env ]; then cp -p .env "$tmp" && grep -v '^LUNABOT_IMAGE=' .env >"$tmp"; else : >"$tmp" && chmod 600 "$tmp"; fi
+  printf 'LUNABOT_IMAGE=%s\n' "$1" >>"$tmp" && mv "$tmp" .env
 }
 keep_env() {
   rm -f "$STATE/env.before" "$STATE/env.absent" "$STATE/compose.yaml.before" "$STATE/Caddyfile.before"
@@ -330,33 +335,33 @@ installer_compose() {
 # two Unix sockets in the `edge` volume, which Caddy, in its own container, reaches it through. A request on a socket is
 # always a remote one to the server. Caddy does not share the server's network: a server that restarted on its own came
 # back in a new one, and left Caddy refusing HTTPS in the old one.
-name: openmausbot
+name: lunabot
 services:
   omb:
-    image: ${OMB_IMAGE:?run the installer again}
+    image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
     shm_size: 512m
     volumes:
       - ./data:/data
-      - edge:/run/openmausbot
+      - edge:/run/lunabot
     environment:
-      OMB_PORT: "8799"
-      OMB_WEBHOOK_PORT: "8800"
-      OMB_TUNNEL_SOCKET: /run/openmausbot/http.sock
-      OMB_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
-      OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
-      OMB_PUBLIC_URL: https://${DOMAIN}
-      OMB_SERVER_NAME: ${OMB_SERVER_NAME:-${DOMAIN}}
+      LUNABOT_PORT: "8799"
+      LUNABOT_WEBHOOK_PORT: "8800"
+      LUNABOT_TUNNEL_SOCKET: /run/lunabot/http.sock
+      LUNABOT_WEBHOOK_SOCKET: /run/lunabot/hooks.sock
+      LUNABOT_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-${DOMAIN}}
       # Passed only when .env sets them: an empty one would still be set, and Settings' own lists are used when not.
-      OMB_SIGNIN_EMAILS:
-      OMB_SIGNIN_MEMBER_EMAILS:
-      OMB_SIGNIN_SMTP_URL:
-      OMB_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb openmausbot login --relay
-      OMB_PHONE_RELAY:
+      LUNABOT_SIGNIN_EMAILS:
+      LUNABOT_SIGNIN_MEMBER_EMAILS:
+      LUNABOT_SIGNIN_SMTP_URL:
+      LUNABOT_SIGNIN_SMTP_FROM:
+      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb lunabot login --relay
+      LUNABOT_PHONE_RELAY:
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -376,7 +381,7 @@ services:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - edge:/run/openmausbot
+      - edge:/run/lunabot
       - ./caddy/data:/data
       - ./caddy/config:/config
 
@@ -399,7 +404,7 @@ installer_caddyfile() {
 	# own per-hook secrets), so it sits outside any login. The path is passed
 	# through unchanged: the receiver routes on /hooks/<id>.
 	handle /hooks/* {
-		reverse_proxy unix//run/openmausbot/hooks.sock
+		reverse_proxy unix//run/lunabot/hooks.sock
 	}
 
 	handle {
@@ -409,7 +414,7 @@ installer_caddyfile() {
 		#   }
 		# and set both variables in .env (hash with `caddy hash-password`,
 		# every `$` doubled for Compose).
-		reverse_proxy unix//run/openmausbot/http.sock {
+		reverse_proxy unix//run/lunabot/http.sock {
 			# SSE: stream events as they arrive
 			flush_interval -1
 			# Compression is `encode`'s job above; the server would gzip its
@@ -429,19 +434,20 @@ stop_server() {
   [ -z "$cid" ] || [ "$(inspect '{{.State.Running}}' "$cid")" = false ]
 }
 
-# The update being checked against may still run a pre-rename build: /api/health's
-# app name and the descriptor path both changed, so accept either generation.
-answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(dexbot|openmausbot)"'; }
+# The update being checked against may still run a build from before the renames: /api/health's
+# app name and the descriptor path both changed, so accept every generation.
+answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(lunabot|dexbot|openmausbot)"'; }
 reported_version() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
+  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
 }
 # How many engines can start a bot, as the server counts them (GET /api/health/engines, which a hardened server answers
 # a local caller without a session); nothing from a version without that count.
 engine_count() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${OMB_PORT:-8799}/api/health/engines"' 2>/dev/null |
+  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health/engines"' 2>/dev/null |
     sed -n 's/.*"engines":\([0-9][0-9]*\).*/\1/p' | head -n 1
 }
-# At least one engine can start a bot, within $1 seconds: the server's count, or `openmausbot doctor` on a version that
+# At least one engine can start a bot, within $1 seconds: the server's count, or `lunabot doctor` (once `openmausbot doctor`, on
+# an image from before the CLI's rename) on a version that
 # has no count (it needs the owner's trust, so on a hardened version without the count this cannot tell).
 engine_ready() {
   local deadline=$(($(date +%s) + ${1:-0})) count
@@ -449,7 +455,7 @@ engine_ready() {
     count=$(engine_count)
     if [ -n "$count" ]; then
       [ "$count" -gt 0 ] && return 0
-    elif compose exec -T "$SERVICE" openmausbot doctor >/dev/null 2>&1; then
+    elif compose exec -T "$SERVICE" lunabot doctor >/dev/null 2>&1 || compose exec -T "$SERVICE" openmausbot doctor >/dev/null 2>&1; then
       return 0
     fi
     [ "$(date +%s)" -lt "$deadline" ] || return 1
@@ -780,9 +786,9 @@ if [ "$ALLOW_OLDER" != yes ] && [ -n "$(older_reason)" ]; then
   say "Nothing was changed. To go ahead anyway, with the data copied first: ./update.sh --allow-older${WANT_VERSION:+ --version $WANT_VERSION}${WANT_IMAGE:+ --image $WANT_IMAGE}"
   exit 5
 fi
-if ! OMB_IMAGE="$J_target" docker compose config 2>/dev/null | grep -qF "image: $J_target"; then
+if ! LUNABOT_IMAGE="$J_target" docker compose config 2>/dev/null | grep -qF "image: $J_target"; then
   abandon
-  refuse "The Compose file in $DIR does not take its image from OMB_IMAGE. Get the current one (git pull, or run the installer again), then run this again. Nothing was changed."
+  refuse "The Compose file in $DIR does not take its image from LUNABOT_IMAGE. Get the current one (git pull, or run the installer again), then run this again. Nothing was changed."
 fi
 BACKUP_MADE=yes
 if ! make_backup_volume "$J_backup" "$J_previous_id" || ! room_for_copy "$J_data" "$J_backup" "$J_previous_id"; then

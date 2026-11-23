@@ -11,7 +11,7 @@ import { uploadableFiles } from "./browser-upload.ts";
 import { listBotFiles } from "./cloud-send-files.ts";
 import { listMessageFolder, openMessageFile } from "./message-file.ts";
 import { botFileSource, readPageBundle } from "./pages/bundle.ts";
-import { SECRET_FILE_REFUSAL, SECRET_FOLDER } from "./secret-folder.ts";
+import { LEGACY_SECRET_FOLDER, SECRET_FILE_REFUSAL, SECRET_FOLDER } from "./secret-folder.ts";
 import { excludedWorkspaceAuthPath } from "./workspace-backup-policy.ts";
 import { omittedFromWorkspaceBackup } from "./workspace-backup.ts";
 
@@ -42,6 +42,16 @@ describe("a bot's private secret files", () => {
     expect(moved).toContain("workspaces/atlas/notes.txt");
     expect(moved.some((path) => path.includes(SECRET_FOLDER))).toBe(false);
     expect(skipped(SECRET_FOLDER, true)).toBe(true);
+  });
+
+  it("still refuse the pre-rename .dexbot-secrets folder name", async () => {
+    mkdirSync(join(workspace, LEGACY_SECRET_FOLDER, "thread-1"), { recursive: true });
+    const legacy = join(workspace, LEGACY_SECRET_FOLDER, "thread-1", "card-1");
+    writeFileSync(legacy, "sk_canary_secret");
+    await expect(openMessageFile(pathToFileURL(legacy).href, [workspace])).rejects.toMatchObject({ status: 403, message: SECRET_FILE_REFUSAL });
+    expect(excludedWorkspaceAuthPath(`workspaces/atlas/${LEGACY_SECRET_FOLDER}/t/c`), "backup exclude").toBe(true);
+    expect(omittedFromWorkspaceBackup(`workspaces/atlas/${LEGACY_SECRET_FOLDER}/t/c`), "backup omit").toBe(true);
+    expect(uploadableFiles([legacy], [workspace])).toEqual({ error: SECRET_FILE_REFUSAL });
   });
 
   it("cannot be opened or listed through a chat link, which attach_file uses too", async () => {

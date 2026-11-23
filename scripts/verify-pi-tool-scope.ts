@@ -11,7 +11,7 @@ const cli = resolve(process.argv[2] ?? "node_modules/.bin/pi");
 const home = mkdtempSync(join(tmpdir(), "omb-pi-selection-"));
 process.env.HOME = home;
 process.env.USERPROFILE = home;
-process.env.OMB_DATA_DIR = join(home, "data");
+process.env.LUNABOT_DATA_DIR = join(home, "data");
 const { PiDriver } = await import("../server/drivers/pi.ts");
 const { ensureDirs } = await import("../server/config.ts");
 if (process.argv[3]) {

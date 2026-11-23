@@ -37,8 +37,8 @@ Totals: 116 blocks, mean ~66 chars.
 Synthesis comes from the record stub, not the live engine:
 `voice-latency-stub.ts` serves the ElevenLabs wire shape
 (`server/tts/elevenlabs.ts`) on loopback, and the harness points the fixture
-server at it through `OMB_ELEVENLABS_API`. No live engine call, no engine key:
-record runs need no `OMB_TTS_KEY` and never reach api.elevenlabs.io; the stub
+server at it through `LUNABOT_ELEVENLABS_API`. No live engine call, no engine key:
+record runs need no `LUNABOT_TTS_KEY` and never reach api.elevenlabs.io; the stub
 key in the fixture config is a literal that only ever reaches loopback.
 
 Modeled timing, identical on both sides and pinned in `manifest.json`

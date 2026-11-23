@@ -32,14 +32,14 @@ cd deploy/podman
 umask 077
 cat > .env.fixture <<EOF
 COMPOSE_PROJECT_NAME=omb-podman-verify
-OMB_IMAGE_TAG=verify
-OMB_DATA_ROOT=$fixture
+LUNABOT_IMAGE_TAG=verify
+LUNABOT_DATA_ROOT=$fixture
 PODMAN_SOCKET=/run/user/$(id -u)/podman/podman.sock
-OMB_PORT=28799
-OMB_WEBHOOK_PORT=28800
-OMB_HTTP_PORT=28880
-OMB_PUBLIC_URL=http://localhost:28880
-OMB_HTTPS_HOST=https-disabled.invalid
+LUNABOT_PORT=28799
+LUNABOT_WEBHOOK_PORT=28800
+LUNABOT_HTTP_PORT=28880
+LUNABOT_PUBLIC_URL=http://localhost:28880
+LUNABOT_HTTPS_HOST=https-disabled.invalid
 ENGINES=
 EOF
 PODMAN_COMPOSE_PROVIDER=podman-compose podman compose --env-file .env.fixture -f compose.yaml up -d --no-build

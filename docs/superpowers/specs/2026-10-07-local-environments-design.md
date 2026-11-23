@@ -9,7 +9,7 @@ mobile-app bot team) want completely separate teams, model choices, MCP servers
 and histories, and want to switch between them at the start of a work session.
 
 Every piece of that isolation already exists in code. `DATA_DIR` resolves once
-at server boot from `OMB_DATA_DIR` (`server/config.ts:963`), and every state
+at server boot from `LUNABOT_DATA_DIR` (`server/config.ts:963`), and every state
 file derives from it. The desktop shell already has an "environments" registry
 (`electron/environments.cjs`, `DesktopWorkspaceSwitcher.tsx`) that switches
 between "This computer" and paired remote servers — but exactly one local
@@ -91,7 +91,7 @@ wired thinly from `main.mjs`).
    re-acquire the old lease, restart the old child, tell the user.
 4. Acquire the lease on the target (a held lease means the environment runs
    elsewhere → abort the same way).
-5. Fork the server child with `OMB_DATA_DIR` set to the target (the launch env
+5. Fork the server child with `LUNABOT_DATA_DIR` set to the target (the launch env
    is already rebuilt per `startServerOn` call); health-probe as at boot.
 6. Health OK → persist `activeId`, reload the window to the local origin.
    Health fails → kill the child, re-acquire the old lease, restart the old
@@ -129,7 +129,7 @@ confirm.
 
 ## Server changes
 
-None. `OMB_DATA_DIR` already isolates everything, `environment-id` is
+None. `LUNABOT_DATA_DIR` already isolates everything, `environment-id` is
 per-directory already, and the CLI attach check (`server/cli.ts:367`) already
 refuses to attach across directories.
 
@@ -149,7 +149,7 @@ refuses to attach across directories.
 
 Proposed issue: "Switch between multiple local environments (separate bots,
 providers and settings on one machine)". Prior art to cite in the issue:
-`OMB_DATA_DIR` + `--data-dir`, the environments switcher, fleet (server-side
+`LUNABOT_DATA_DIR` + `--data-dir`, the environments switcher, fleet (server-side
 multi-workspace), `workspace-backup.ts`. Fleet proves the model; this gives
 desktop users the same capability without systemd.
 

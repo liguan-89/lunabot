@@ -114,10 +114,10 @@ beforeAll(async () => {
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home,
       USERPROFILE: home,
-      OMB_PORT: String(port),
-      OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_STATIC_DIR: staticDir,
-      OMB_JEV_API_KEY: KEY,
+      LUNABOT_PORT: String(port),
+      LUNABOT_WEBHOOK_PORT: String(port + 1),
+      LUNABOT_STATIC_DIR: staticDir,
+      LUNABOT_JEV_API_KEY: KEY,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -288,7 +288,7 @@ describe("Auto rooms ask the decision model who answers", { timeout: 90_000 }, (
   it("engines never see the key; the decision log holds no text and no key", async () => {
     expect(existsSync(engineDump)).toBe(true);
     const dump = readFileSync(engineDump, "utf8");
-    expect(dump).not.toContain("OMB_JEV_API_KEY");
+    expect(dump).not.toContain("LUNABOT_JEV_API_KEY");
     expect(dump).not.toContain(KEY);
     const dir = join(data, "decider-log");
     const log = readdirSync(dir).map((name) => readFileSync(join(dir, name), "utf8")).join("");
@@ -467,7 +467,7 @@ describe("Auto rooms ask the decision model who answers", { timeout: 90_000 }, (
 
     it("engines never see the OpenRouter decision key", () => {
       const dump = readFileSync(engineDump, "utf8");
-      expect(dump).not.toContain("OMB_OPENROUTER_DECIDER_KEY");
+      expect(dump).not.toContain("LUNABOT_OPENROUTER_DECIDER_KEY");
       expect(dump).not.toContain(OR_KEY);
     });
   });

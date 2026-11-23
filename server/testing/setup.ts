@@ -12,17 +12,17 @@ process.env.HOME = home;
 process.env.USERPROFILE = home;
 // A provider that answers 5xx retries with backoff: no test should wait out real seconds.
 process.env.FAKE_OPENAI_COMPAT_RETRY_SCALE ??= "0.001";
-// OMB_DATA_DIR must never escape the throwaway home the suite deletes.
-delete process.env.OMB_DATA_DIR;
+// LUNABOT_DATA_DIR must never escape the throwaway home the suite deletes.
+delete process.env.LUNABOT_DATA_DIR;
 // Do not let a developer's Hermes global config path leak into per-test homes.
 delete process.env.HERMES_HOME;
 // A ChatGPT-plan turn links the person's Codex home ($CODEX_HOME or ~/.codex) into its own: keep it in the throwaway home.
 delete process.env.CODEX_HOME;
 // Named explicitly although homedir() already covers it: the device tests delete this directory wholesale.
-process.env.OMB_COMPANION_DIR = join(home, ".lunabot-companion");
+process.env.LUNABOT_COMPANION_DIR = join(home, ".lunabot-companion");
 
 // The shipped app has no analytics key; tests exercise the loading path with a throwaway write-only key.
-(globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ = "phc_test_token";
+(globalThis as { __LUNABOT_ANALYTICS_TOKEN__?: string }).__LUNABOT_ANALYTICS_TOKEN__ = "phc_test_token";
 
 // Product code follows navigator.language; pin it so English assertions do not depend on the host locale.
 Object.defineProperty(globalThis.navigator, "language", { value: "en", configurable: true });

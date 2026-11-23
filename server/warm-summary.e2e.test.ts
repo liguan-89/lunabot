@@ -1,6 +1,6 @@
 // Warm summaries end to end: the real server, the fake Claude Code. The fake's conversation grows 20k tokens a turn from
 // 110k and Claude Code's own compaction (at 162k, as measured on a Team trial) takes FAKE_CLAUDE_COMPACT_MS, standing in for
-// the 35-58 s a real one takes on Opus. Warm summaries run at 1/100 of their real delays (OMB_WARM_SUMMARY_TIME_SCALE).
+// the 35-58 s a real one takes on Opus. Warm summaries run at 1/100 of their real delays (LUNABOT_WARM_SUMMARY_TIME_SCALE).
 //
 // Skipped: this build runs pi only. Every case here drives a `claude` instance and reads Claude Code's own `/compact` on a
 // `--fork-session` fork (an argv and a session cursor pi has none of; pi's driver exposes no `cacheKeepWarm` at all), so
@@ -30,7 +30,7 @@ async function setup(extra: NodeJS.ProcessEnv) {
   const env = {
     ...process.env, FAKE_CLAUDE_VERSION: "2.1.312", FAKE_CLAUDE_TOOL_CALLS: "[]", FAKE_CLAUDE_PROMPTS: prompts,
     FAKE_CLAUDE_CONTEXT_GROWTH: "110000:20000", FAKE_CLAUDE_CONTEXT_STATE: join(scratch, "context"), FAKE_CLAUDE_AUTOCOMPACT_AT: "162000",
-    FAKE_CLAUDE_COMPACT_MS: String(COMPACT_MS), FAKE_CLAUDE_COMPACT_DUMP: join(scratch, "compact.json"), OMB_WARM_SUMMARY_TIME_SCALE: "0.01",
+    FAKE_CLAUDE_COMPACT_MS: String(COMPACT_MS), FAKE_CLAUDE_COMPACT_DUMP: join(scratch, "compact.json"), LUNABOT_WARM_SUMMARY_TIME_SCALE: "0.01",
     ...extra,
   };
   const session = await launchVerificationServer(env);
@@ -72,7 +72,7 @@ const record = (entry: Record<string, unknown>) => {
   appendFileSync(join(dir, "warm-summary-timings.jsonl"), `${JSON.stringify({ at: new Date().toISOString(), compactMs: COMPACT_MS, ...entry })}\n`);
 };
 
-it.skip("before: the next turn waits for Claude Code to summarize a conversation past its point", () => fixture({ OMB_WARM_SUMMARY: "0" }, async (f) => {
+it.skip("before: the next turn waits for Claude Code to summarize a conversation past its point", () => fixture({ LUNABOT_WARM_SUMMARY: "0" }, async (f) => {
   for (const text of ["MSG-1 build the landing page", "MSG-2 make the title bold", "MSG-3 and the subtitle"]) await f.send(text);
   await sleep(COMPACT_MS + 3_000);
   const before = await f.send("MSG-4 what changed?");

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // config.ts resolves DATA_DIR at import time; isolate before importing.
-process.env.OMB_DATA_DIR = mkdtempSync(join(tmpdir(), "omb-skill-share-"));
+process.env.LUNABOT_DATA_DIR = mkdtempSync(join(tmpdir(), "omb-skill-share-"));
 
 const library = await import("./skill-library.ts");
 const skills = await import("./skills.ts");

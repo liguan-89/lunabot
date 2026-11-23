@@ -202,7 +202,7 @@ jobs:
         run: |
           resources="$PWD/release/mac-arm64/Luna Bot.app/Contents/Resources"
           node scripts/smoke-browser-bundle.mjs --resources "$resources"
-          OMB_SMOKE_DIST="$resources/server" node scripts/smoke-packaged-server.mjs --browser-bundle "$resources/browser-engine"
+          LUNABOT_SMOKE_DIST="$resources/server" node scripts/smoke-packaged-server.mjs --browser-bundle "$resources/browser-engine"
 
       - name: "Gate: the packaged server starts and every helper path resolves"
         run: |
@@ -210,7 +210,7 @@ jobs:
           res="$app/Contents/Resources"
           # the server tree is plain JS — runnable on the runner's node
           # regardless of the app binary's arch
-          OMB_SMOKE_DIST="$res/server" node scripts/smoke-packaged-server.mjs \
+          LUNABOT_SMOKE_DIST="$res/server" node scripts/smoke-packaged-server.mjs \
             || { echo "::error::packaged server in $app failed to start"; exit 1; }
           node scripts/check-module-scopes.mjs "$res" || exit 1
           node --input-type=module - "$res/server" <<'EOF'
@@ -293,7 +293,7 @@ jobs:
         run: node scripts/smoke-browser-bundle.mjs --resources "${{ github.workspace }}/release/win-unpacked/resources"
       - name: "Gate: packaged Windows server discovers its browser"
         env:
-          OMB_SMOKE_DIST: ${{ github.workspace }}/release/win-unpacked/resources/server
+          LUNABOT_SMOKE_DIST: ${{ github.workspace }}/release/win-unpacked/resources/server
         run: node scripts/smoke-packaged-server.mjs --browser-bundle "${{ github.workspace }}/release/win-unpacked/resources/browser-engine"
       - name: Verify the packaged tree and start the packaged server
         shell: bash
@@ -317,7 +317,7 @@ jobs:
           if grep -q "publisherName" "$res/app-update.yml"; then
             echo "::error::publisherName on an unsigned build breaks every update"; exit 1
           fi
-          HOME="$RUNNER_TEMP/smoke" USERPROFILE="$RUNNER_TEMP/smoke" OMB_PORT=21987 \
+          HOME="$RUNNER_TEMP/smoke" USERPROFILE="$RUNNER_TEMP/smoke" LUNABOT_PORT=21987 \
             node "$res/server/index.js" > "$RUNNER_TEMP/server.log" 2>&1 &
           pid=$!
           for _ in $(seq 1 90); do
@@ -403,14 +403,14 @@ jobs:
         run: node scripts/smoke-browser-bundle.mjs --resources "/opt/LunaBot/resources"
       - name: "Gate: packaged Linux server discovers its browser"
         env:
-          OMB_SMOKE_DIST: /opt/LunaBot/resources/server
+          LUNABOT_SMOKE_DIST: /opt/LunaBot/resources/server
         run: node scripts/smoke-packaged-server.mjs --browser-bundle "/opt/LunaBot/resources/browser-engine"
       - name: "Gate: packaged server and phone helper load as ES modules"
         run: node scripts/check-module-scopes.mjs "/opt/LunaBot/resources"
       - name: Smoke the packages
         env:
-          OMB_KEEP_SMOKE_DIR: "1"
-          OMB_SMOKE_INSTALLED_DEB: "1"
+          LUNABOT_KEEP_SMOKE_DIR: "1"
+          LUNABOT_SMOKE_INSTALLED_DEB: "1"
         run: pnpm smoke:linux-package
       - name: Remove the installed upgrade fixture
         if: always()

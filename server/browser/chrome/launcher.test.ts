@@ -35,7 +35,7 @@ function mac(options: { chrome?: boolean; env?: NodeJS.ProcessEnv } = {}) {
   const dataDir = join(root, "data");
   const env = { HOME: root, ...options.env };
   // Only this folder exists for the launcher: the machine running the test may have a Google Chrome of its own.
-  const inside = (path: string) => path.startsWith(root) || path.startsWith(options.env?.OMB_CHROME_PATH ?? "\0");
+  const inside = (path: string) => path.startsWith(root) || path.startsWith(options.env?.LUNABOT_CHROME_PATH ?? "\0");
   const real = chromeHost({ dataDir, env, platform: "darwin", arch: "arm64" });
   const host = { ...real, exists: (path: string) => inside(path) && existsSync(path), list: (folder: string) => inside(folder) ? real.list(folder) : [], appForBundleId: () => options.chrome === false ? null : app };
   return { root, app, chrome, dataDir, env, host };
@@ -170,7 +170,7 @@ describe("the Chrome launcher", () => {
     const named = mkdtempSync(join(tmpdir(), "omb-named-"));
     folders.push(named);
     writeFileSync(join(named, "chrome"), "#!/bin/sh\n", { mode: 0o755 });
-    const chrome = launcher(mac({ env: { OMB_CHROME_PATH: join(named, "chrome") } }), {
+    const chrome = launcher(mac({ env: { LUNABOT_CHROME_PATH: join(named, "chrome") } }), {
       calibrate: async () => { throw new Error("the browser's user agent is not Chrome's"); },
     });
     const spec = headless(chrome.path);
@@ -237,15 +237,15 @@ describe("the Chrome launcher", () => {
     await expect(runsLauncher(slow, process.env, 5_000)).rejects.toThrow(/the browser launcher does not run here/);
   });
 
-  it("changes nothing on OMB_BROWSER_LEGACY_SHELL=1", async () => {
-    const machine = mac({ env: { OMB_BROWSER_LEGACY_SHELL: "1", OMB_RESOURCES_PATH: "/Applications/DEX BOT.app/Contents/Resources" } });
+  it("changes nothing on LUNABOT_BROWSER_LEGACY_SHELL=1", async () => {
+    const machine = mac({ env: { LUNABOT_BROWSER_LEGACY_SHELL: "1", LUNABOT_RESOURCES_PATH: "/Applications/DEX BOT.app/Contents/Resources" } });
     const calibrate = vi.fn();
     const chrome = launcher(machine, { calibrate });
     expect(chrome.env()).toEqual({});
     await chrome.ready(headless("/bundle/chrome-headless-shell"));
     await chrome.prepare();
     expect(calibrate).not.toHaveBeenCalled();
-    expect(chrome.describe()).toBe("the bundled Chromium headless shell (OMB_BROWSER_LEGACY_SHELL=1)");
+    expect(chrome.describe()).toBe("the bundled Chromium headless shell (LUNABOT_BROWSER_LEGACY_SHELL=1)");
     expect(readdirSync(machine.root)).not.toContain("data");
   });
 

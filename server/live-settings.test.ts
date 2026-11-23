@@ -158,11 +158,11 @@ describe("Live calls through a Qwen realtime gateway", () => {
   });
 
   it("pair a key and a gateway set together in the environment, as an operator does", () => {
-    const env = { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "qwen", OMB_LIVE_QWEN_ENDPOINT: "https://a.example.com", OMB_LIVE_QWEN_MODEL: "qwen3-s2s-flash-realtime" };
+    const env = { LUNABOT_OPENAI_LIVE_KEY: "operators", LUNABOT_LIVE_PROVIDER: "qwen", LUNABOT_LIVE_QWEN_ENDPOINT: "https://a.example.com", LUNABOT_LIVE_QWEN_MODEL: "qwen3-s2s-flash-realtime" };
     const merged = liveConfigWithEnv(undefined, env);
     expect(usableLiveKey(merged)).toBe("operators");
     expect(merged).toMatchObject({ provider: "qwen", qwenModel: "qwen3-s2s-flash-realtime", keyFor: "qwen:a.example.com" });
-    expect(usableLiveKey(liveConfigWithEnv({ provider: "qwen" }, { OMB_OPENAI_LIVE_KEY: "operators" }))).toBeUndefined();
+    expect(usableLiveKey(liveConfigWithEnv({ provider: "qwen" }, { LUNABOT_OPENAI_LIVE_KEY: "operators" }))).toBeUndefined();
   });
 });
 
@@ -258,7 +258,7 @@ describe("a saved Live key", () => {
     const usable = (live: LiveConfig | undefined, env: NodeJS.ProcessEnv) => usableLiveKey(liveConfigWithEnv(live, env));
 
     it("is the desktop's copy from its store, usable where it was saved for and nowhere else", () => {
-      const env = { OMB_OPENAI_LIVE_KEY: "from-the-store" };
+      const env = { LUNABOT_OPENAI_LIVE_KEY: "from-the-store" };
       expect(usable({ ...onA, key: "" }, env)).toBe("from-the-store");
       expect(usable({ ...onA, key: "", azureEndpoint: B }, env)).toBeUndefined();
       expect(usable({ provider: "openai", key: "", keyFor: "nowhere" }, env)).toBeUndefined();
@@ -266,41 +266,41 @@ describe("a saved Live key", () => {
     });
 
     it("pairs a key and an Azure endpoint set together there, as an operator does", () => {
-      const env = { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "azure", OMB_AZURE_OPENAI_LIVE_ENDPOINT: A };
+      const env = { LUNABOT_OPENAI_LIVE_KEY: "operators", LUNABOT_LIVE_PROVIDER: "azure", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: A };
       expect(usable(undefined, env)).toBe("operators");
       expect(liveConfigWithEnv(undefined, env).keyFor).toBe("azure:a.openai.azure.com");
     });
 
     it("cannot be paired by settings saved later: a save mirrors them into the environment", () => {
-      // Repoint the endpoint (the key is forgotten), wait for a restart (the desktop's copy returns as OMB_OPENAI_LIVE_KEY),
+      // Repoint the endpoint (the key is forgotten), wait for a restart (the desktop's copy returns as LUNABOT_OPENAI_LIVE_KEY),
       // then save the same service and endpoint again, which puts both in the environment beside that copy.
       const evil = "https://evil.azure-api.net";
       const afterMove: LiveConfig = { provider: "azure", azureEndpoint: evil, key: "", keyFor: "nowhere" };
-      const mirrored = { OMB_OPENAI_LIVE_KEY: "from-the-store", OMB_LIVE_PROVIDER: "azure", OMB_AZURE_OPENAI_LIVE_ENDPOINT: evil };
-      expect(liveSavePatch(liveConfigWithEnv(afterMove, { OMB_OPENAI_LIVE_KEY: "from-the-store" }), { provider: "azure" })).toEqual({ provider: "azure" });
+      const mirrored = { LUNABOT_OPENAI_LIVE_KEY: "from-the-store", LUNABOT_LIVE_PROVIDER: "azure", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: evil };
+      expect(liveSavePatch(liveConfigWithEnv(afterMove, { LUNABOT_OPENAI_LIVE_KEY: "from-the-store" }), { provider: "azure" })).toEqual({ provider: "azure" });
       expect(usable(afterMove, mirrored)).toBeUndefined();
     });
 
     it("re-pairs an operator's different key with the endpoint set beside it", () => {
-      expect(usable(onA, { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "azure", OMB_AZURE_OPENAI_LIVE_ENDPOINT: B })).toBe("operators");
+      expect(usable(onA, { LUNABOT_OPENAI_LIVE_KEY: "operators", LUNABOT_LIVE_PROVIDER: "azure", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: B })).toBe("operators");
     });
 
     it("does not pair a key there with an endpoint or service only the file names", () => {
-      expect(usable({ provider: "azure", azureEndpoint: A }, { OMB_OPENAI_LIVE_KEY: "operators" })).toBeUndefined();
-      expect(usable({ azureEndpoint: A }, { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "azure" })).toBeUndefined();
-      expect(usable({ provider: "azure" }, { OMB_OPENAI_LIVE_KEY: "operators", OMB_AZURE_OPENAI_LIVE_ENDPOINT: A })).toBeUndefined();
-      expect(usable(onA, { OMB_LIVE_PROVIDER: "azure", OMB_AZURE_OPENAI_LIVE_ENDPOINT: B })).toBeUndefined();
+      expect(usable({ provider: "azure", azureEndpoint: A }, { LUNABOT_OPENAI_LIVE_KEY: "operators" })).toBeUndefined();
+      expect(usable({ azureEndpoint: A }, { LUNABOT_OPENAI_LIVE_KEY: "operators", LUNABOT_LIVE_PROVIDER: "azure" })).toBeUndefined();
+      expect(usable({ provider: "azure" }, { LUNABOT_OPENAI_LIVE_KEY: "operators", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: A })).toBeUndefined();
+      expect(usable(onA, { LUNABOT_LIVE_PROVIDER: "azure", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: B })).toBeUndefined();
     });
 
     it("takes no binding from the file when it is a different key from the one saved there", () => {
-      expect(usable(onA, { OMB_OPENAI_LIVE_KEY: "another" })).toBeUndefined();
-      expect(usable({ ...onA, provider: "openai", keyFor: "openai" }, { OMB_OPENAI_LIVE_KEY: "another" })).toBe("another");
-      expect(usable(onA, { OMB_OPENAI_LIVE_KEY: "k" })).toBe("k");
+      expect(usable(onA, { LUNABOT_OPENAI_LIVE_KEY: "another" })).toBeUndefined();
+      expect(usable({ ...onA, provider: "openai", keyFor: "openai" }, { LUNABOT_OPENAI_LIVE_KEY: "another" })).toBe("another");
+      expect(usable(onA, { LUNABOT_OPENAI_LIVE_KEY: "k" })).toBe("k");
     });
 
     it("keeps OpenAI working as it did with only a key set", () => {
-      expect(usable(undefined, { OMB_OPENAI_LIVE_KEY: "sk-env" })).toBe("sk-env");
-      expect(usable({ voice: "cedar" }, { OMB_OPENAI_LIVE_KEY: "sk-env", OMB_LIVE_PROVIDER: "openai" })).toBe("sk-env");
+      expect(usable(undefined, { LUNABOT_OPENAI_LIVE_KEY: "sk-env" })).toBe("sk-env");
+      expect(usable({ voice: "cedar" }, { LUNABOT_OPENAI_LIVE_KEY: "sk-env", LUNABOT_LIVE_PROVIDER: "openai" })).toBe("sk-env");
     });
   });
 });
@@ -353,10 +353,10 @@ describe("Live calls through Doubao realtime speech", () => {
   });
 
   it("pairs a token and an App ID set together in the environment", () => {
-    const env = { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "volc", OMB_LIVE_VOLC_APP_ID: "6255978659", OMB_LIVE_VOLC_MODEL: "2.2.0.0" };
+    const env = { LUNABOT_OPENAI_LIVE_KEY: "operators", LUNABOT_LIVE_PROVIDER: "volc", LUNABOT_LIVE_VOLC_APP_ID: "6255978659", LUNABOT_LIVE_VOLC_MODEL: "2.2.0.0" };
     const merged = liveConfigWithEnv(undefined, env);
     expect(usableLiveKey(merged)).toBe("operators");
     expect(merged).toMatchObject({ provider: "volc", volcAppId: "6255978659", volcModel: "2.2.0.0", keyFor: "volc" });
-    expect(usableLiveKey(liveConfigWithEnv({ provider: "volc" }, { OMB_OPENAI_LIVE_KEY: "operators" }))).toBeUndefined();
+    expect(usableLiveKey(liveConfigWithEnv({ provider: "volc" }, { LUNABOT_OPENAI_LIVE_KEY: "operators" }))).toBeUndefined();
   });
 });

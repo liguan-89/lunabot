@@ -83,10 +83,10 @@ export function originIsLoopback(origin: string | undefined): boolean {
 }
 
 /** Null when the desktop app launched this sidecar: it sends the token over its private port, and the control port
- * opens only then. Standing alone, the token is OMB_CONTROL_TOKEN when a script chose one, else random. */
+ * opens only then. Standing alone, the token is LUNABOT_CONTROL_TOKEN when a script chose one, else random. */
 export function initialControlToken(env: NodeJS.ProcessEnv, launchedByApp: boolean): string | null {
   if (launchedByApp) return null;
-  const chosen = env.OMB_CONTROL_TOKEN ?? "";
+  const chosen = env.LUNABOT_CONTROL_TOKEN ?? "";
   return /^[A-Za-z0-9_-]{43}$/.test(chosen) ? chosen : randomBytes(32).toString("base64url");
 }
 
@@ -467,7 +467,7 @@ function render(s) {
       : "<p class=dim>No network address yet.</p>") +
     (s.tailnetName && s.lan ? "<p class=dim>On this network only: <code>" + esc(s.lan) + ":" + s.port + "</code></p>" : "") +
     (s.tailscale && !s.tailnetName
-      ? "<p class=dim>On a tailnet, but this computer's MagicDNS name could not be read from Tailscale — either MagicDNS is off, or nobody gave it one. iPhones cannot connect to a bare tailnet address: turn Tailscale on in the desktop app, or set OMB_COMPANION_TAILNET_NAME.</p>"
+      ? "<p class=dim>On a tailnet, but this computer's MagicDNS name could not be read from Tailscale — either MagicDNS is off, or nobody gave it one. iPhones cannot connect to a bare tailnet address: turn Tailscale on in the desktop app, or set LUNABOT_COMPANION_TAILNET_NAME.</p>"
       : "") +
     (!s.tailscale
       ? "<p class=dim>Reachable on this network only. Install Tailscale on both this computer and your phone to reach it from anywhere — including networks that stop devices from seeing each other.</p>"

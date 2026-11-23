@@ -1,4 +1,4 @@
-import "../testing/scrub-ambient-omb-env.ts";
+import "../testing/scrub-ambient-lunabot-env.ts";
 
 import { spawn, spawnSync } from "node:child_process";
 import { join } from "node:path";

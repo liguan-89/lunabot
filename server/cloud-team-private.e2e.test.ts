@@ -1,5 +1,5 @@
 // A member's private chat with a team bot is theirs alone, the Owner and every Admin included (docs/team-cloud.md "The
-// audience rule"). A real Team Cloud (OMB_CLOUD_ROLE=team) with the Owner, an Admin and Bob, a member, paired with the
+// audience rule"). A real Team Cloud (LUNABOT_CLOUD_ROLE=team) with the Owner, an Admin and Bob, a member, paired with the
 // Admin's signed claims: Bob's chat, its words, its files and its live frames never reach the Owner or the Admin through
 // any route, the event stream, search, a bot's tools or another bot; they cannot write in it; Bob uses it as before; and
 // when Bob leaves the team it is deleted, never handed over. The engine is the synthetic pi CLI, whose launch log is a

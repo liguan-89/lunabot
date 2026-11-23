@@ -160,7 +160,7 @@ async function main(): Promise<void> {
     FAKE_CLAUDE_MARKER_REPLIES: markerPath,
     FAKE_CLAUDE_TOOL_CALLS: "[]",
     FAKE_CLAUDE_STREAM_CADENCE: `${CADENCE.chunkChars}:${CADENCE.intervalMs}`,
-    OMB_ELEVENLABS_API: stub.url,
+    LUNABOT_ELEVENLABS_API: stub.url,
   };
 
   let fixture: VerificationServer | undefined;
@@ -177,7 +177,7 @@ async function main(): Promise<void> {
     const serverEnv: NodeJS.ProcessEnv = { ...process.env, ...fakeEnv };
     // Keyless record run: an exported live key would otherwise ride the
     // parent env into measurement, even though nothing reads it here.
-    delete serverEnv.OMB_TTS_KEY;
+    delete serverEnv.LUNABOT_TTS_KEY;
     fixture = await launchVerificationServer(serverEnv, stop.signal, undefined,
       { binaryPath: binary, executablePath: chrome ?? "" });
 
@@ -351,7 +351,7 @@ async function main(): Promise<void> {
       label,
       corpusFixtureId: corpusSha,
       baseCommit: BASE_COMMIT,
-      measuredBuildCommit: process.env.OMB_MEASURED_COMMIT ?? "(unset: worktree HEAD)",
+      measuredBuildCommit: process.env.LUNABOT_MEASURED_COMMIT ?? "(unset: worktree HEAD)",
       date: new Date().toISOString(),
       machine: { platform: process.platform, arch: process.arch, cpuModel: cpus()[0]?.model ?? null },
       configSummary: { provider: "elevenlabs (record stub)", model: STUB_MODEL, voice: STUB_VOICE },

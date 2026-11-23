@@ -45,7 +45,7 @@ describe("openmausbot service", () => {
     expect(pinned).toContain(`ExecStart=/usr/bin/node ${/[\s"\\]/.test(script) ? `"${script.replace(/[\\"]/g, "\\$&")}"` : script} serve`);
     expect(pinned).toContain("--public-url https://maus.example.com");
     expect(pinned).not.toContain("--no-pair");
-    expect(pinned).toContain('Environment="OMB_CLI_PREFIX=npx lunabot"');
+    expect(pinned).toContain('Environment="LUNABOT_CLI_PREFIX=npx lunabot"');
     expect(installs).toEqual([join(dir, "x", "app", "latest"), join(dir, "x", "app", "latest")]);
   });
 
@@ -88,7 +88,7 @@ describe("openmausbot service", () => {
     // Windows gets a schtasks line, with the platform's own folder as --out
     expect(runServiceCommand({ ...base, sentinelOut: undefined, platform: "win32", dataDir: "C:\\Users\\maus\\.lunabot", home: "C:\\Users\\maus", env: {} }, io)).toBe(1);
     expect(err.join("\n")).toContain('schtasks /Create /SC MINUTE /MO 2 /TN "Luna Bot Sentinel" /TR "\\"/usr/bin/node\\" \\"/usr/lib/node_modules/openmausbot/cli.js\\" \\"sentinel\\"');
-    expect(err.join("\n")).toContain("\\\"--out\\\" \\\"C:\\Users\\maus\\AppData\\Local\\openmausbot-sentinel\\\"");
+    expect(err.join("\n")).toContain("\\\"--out\\\" \\\"C:\\Users\\maus\\AppData\\Local\\lunabot-sentinel\\\"");
   });
 
   // Simulates a Linux install with the host's paths; on Windows those are backslash paths no Linux unit has.

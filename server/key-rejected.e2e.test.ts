@@ -68,12 +68,12 @@ it("a key the provider rejects is reported until it changes or works again", asy
       models: ["fixture-model"],
     });
     ({ bot } = await control(["new-bot", "--name", "Rejected key fixture"]));
-    // The fixture's own pi instance runs the custom provider's `dex/fixture-model`. The config PUT above folds the
+    // The fixture's own pi instance runs the custom provider's `luna/fixture-model`. The config PUT above folds the
     // custom provider's models into pi's catalog asynchronously, so on a slow runner an immediate set-model races
     // that merge: retry until the catalog offers it.
     await expect.poll(async () => {
       try {
-        await control(["set-model", "--bot", bot.id, "--instance", "pi", "--model", "dex/fixture-model"]);
+        await control(["set-model", "--bot", bot.id, "--instance", "pi", "--model", "luna/fixture-model"]);
         return true;
       } catch {
         return false;
@@ -84,7 +84,9 @@ it("a key the provider rejects is reported until it changes or works again", asy
     expect((await turn(true)).status).toBe("failed");
     // The old "HTTP 401" row came from the retired driver's provider error; the fake pi never dials the
     // provider, so the turn-failure assertion survives while its exact error text has no successor.
-    expect(piModelsSet(piDumpPath(fixture.info.dataDir)).at(-1)).toEqual({ provider: "dex", modelId: "fixture-model" });
+    // The custom provider's model reached pi (the background helper may append its own
+    // catalog-default set afterwards; the key-rejection assertions below are the contract here).
+    expect(piModelsSet(piDumpPath(fixture.info.dataDir))).toContainEqual({ provider: "luna", modelId: "fixture-model" });
     const afterLimit = await control(["messages", "--bot", bot.id, "--limit", "1"]);
     expect(afterLimit.bot.tasks.map((task: { title: string }) => task.title)).toHaveLength(1);
 

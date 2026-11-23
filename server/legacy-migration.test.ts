@@ -34,9 +34,9 @@ beforeAll(async () => {
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home,
       USERPROFILE: home,
-      OMB_PORT: String(PORT),
-      OMB_WEBHOOK_PORT: String(WEBHOOK_PORT),
-      OMB_BROWSER_CONNECTION: join(home, "browser-test-connection.json"),
+      LUNABOT_PORT: String(PORT),
+      LUNABOT_WEBHOOK_PORT: String(WEBHOOK_PORT),
+      LUNABOT_BROWSER_CONNECTION: join(home, "browser-test-connection.json"),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

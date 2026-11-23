@@ -18,8 +18,8 @@
 | 层 | 内容 | 规模 | 用户可见 |
 | --- | --- | --- | --- |
 | A 用户可见 | mDNS 主机名 `openmausbot-<hash>.local`、租约文件 `openmausbot-server.lease` | 2 处 + 引用点 | 是（手机上、错误弹窗里） |
-| B 内部标识 | 请求头 `x-openmausbot-*`、Docker 标签 `com.openmausbot.*`、localStorage 键、`OPENMAUSBOT_*` 环境变量、`/.well-known/openmausbot/environment` | 12 头 / 12 标签 / 7 键 / 19 变量 / 2 路径 | 否 |
-| C Android 源码包名 | `com.openmausbot.companion`（namespace，对外的 applicationId 已是 `com.lunabot.companion`） | 437 个 .kt/.xml 文件 | 否 |
+| B 内部标识 | 请求头 `x-openmausbot-*`、Docker 标签 `com.lunabot.*`、localStorage 键、`LUNABOT_*` 环境变量、`/.well-known/openmausbot/environment` | 12 头 / 12 标签 / 7 键 / 19 变量 / 2 路径 | 否 |
+| C Android 源码包名 | `com.lunabot.companion`（namespace，对外的 applicationId 已是 `com.lunabot.companion`） | 437 个 .kt/.xml 文件 | 否 |
 
 **A**：改名后旧配对手机将忘记这台电脑，需重配对；租约文件不再被旧名认出。已确认接受。
 

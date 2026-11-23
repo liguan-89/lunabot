@@ -117,7 +117,7 @@ function everythingArrived(report: Awaited<ReturnType<CloudSendFixture["check"]>
  * starts again over its own data with those lines stripped of who wrote them, before anything reads them. */
 async function asABringLeftThem(threadIds: string[]) {
   const strip = `import { DatabaseSync } from "node:sqlite"; import { join } from "node:path";
-const db = new DatabaseSync(join(process.env.OMB_DATA_DIR, "messages.db"));
+const db = new DatabaseSync(join(process.env.LUNABOT_DATA_DIR, "messages.db"));
 const forget = db.prepare("UPDATE messages SET json = json_remove(json, '$.sender') WHERE thread_id = ? AND role = 'user'");
 for (const id of ${JSON.stringify(threadIds)}) forget.run(id);
 db.close(); delete process.env.NODE_OPTIONS;`;
@@ -136,8 +136,8 @@ async function turnDump(botId: string, threadId: string, since: number) {
   let found: { systemPrompt?: string; mcpConfig?: { mcpServers?: { agents?: { command: string; args: string[]; env: Record<string, string> } } } } | undefined;
   await expect.poll(() => {
     const turns = piTurns(dumpPath());
-    const index = turns.findIndex((turn, at) => at >= since && turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === botId
-      && turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId);
+    const index = turns.findIndex((turn, at) => at >= since && turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_BOT_ID === botId
+      && turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === threadId);
     if (index < 0) return false;
     found = { systemPrompt: piInstructionsFor(turns, index), mcpConfig: turns[index]!.launch!.mcpConfig as typeof found extends undefined ? never : NonNullable<typeof found>["mcpConfig"] };
     return true;

@@ -1,4 +1,4 @@
-// A real Team Cloud (OMB_CLOUD_ROLE=team) with the fake connected-apps service and fake MCP servers: connections the team
+// A real Team Cloud (LUNABOT_CLOUD_ROLE=team) with the fake connected-apps service and fake MCP servers: connections the team
 // makes once, and connections each person makes for themselves. Ada's own Gmail and mail key reach only work her own
 // message started: her private chat, her own line in a group chat, and the work those hand on to other bots. Never
 // anyone else's request or the work it hands on, Cleo's chat or an admin; and no admin read ever holds them. The engine
@@ -39,7 +39,7 @@ beforeAll(async () => {
   mail = await startFakeHttpMcp({ tools: [{ name: "read_inbox" }] });
   oauth = await startFakeOAuth();
   notes = await startFakeHttpMcp({ tools: [{ name: "read_notes" }], acceptBearer: oauth.isValid, wwwAuthenticate: oauth.challenge });
-  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: { OMB_BOT_BOX: "0" } } });
+  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: { LUNABOT_BOT_BOX: "0" } } });
   team = fx.team!;
   owner = (await team.pair(OWNER)).token!;
   admin = (await team.pair(ADMIN)).token!;
@@ -192,7 +192,7 @@ it("gives Ada's own Gmail and mail to her private chat, for her own request, and
   expect(team_.thread).toContain(`Gmail here is ${ADA.email}'s own: use it through the own_apps tools`);
   expect(gmailCallsBy(teamUser)).toBe(teamBefore);
   // Each bridge keeps its own bearer from turn to turn, so her conversation's engine stays warm.
-  const bearer = (dumped: { mcpConfig: { mcpServers: Record<string, unknown> } }, server: string) => (dumped.mcpConfig.mcpServers[server] as { env: Record<string, string> }).env.OMB_CONNECTOR_TOKEN;
+  const bearer = (dumped: { mcpConfig: { mcpServers: Record<string, unknown> } }, server: string) => (dumped.mcpConfig.mcpServers[server] as { env: Record<string, string> }).env.LUNABOT_CONNECTOR_TOKEN;
   expect(bearer(team_, "own_apps")).toBe(bearer(seen, "own_apps"));
   expect(bearer(team_, "composio")).toBe(bearer(seen, "composio"));
   expect(bearer(seen, "own_apps")).not.toBe(bearer(seen, "composio"));

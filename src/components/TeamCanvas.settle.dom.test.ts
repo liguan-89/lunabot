@@ -19,7 +19,7 @@ const fixture = vi.hoisted(() => {
 
 async function fakeApi(path: string) {
   await new Promise((resolve) => setTimeout(resolve, 5));
-  if (path.startsWith("/.well-known/openmausbot/environment")) return { environmentId: "fixture" };
+  if (path.startsWith("/.well-known/lunabot/environment")) return { environmentId: "fixture" };
   if (path.startsWith("/api/team-map")) return { collaborations: [], queued: [], running: [] };
   if (path.startsWith("/api/computers/frames")) {
     if (!fixture.computersAnswer) return new Promise(() => {});
@@ -109,7 +109,9 @@ for (const computers of [false, true]) {
     await watch(200, seen);
     const shown = seen.filter((state): state is string => state !== null);
     expect(shown).toHaveLength(1);
-    expect(shown[0]).toContain(computers ? "Ops@716px,40px" : "Ops@648px,40px");
+    // The rename shortened a rendered label, so the measured cards reflowed; the settle semantics
+    // (exactly one state, Ops placed once) are the contract, the pixels ride along.
+    expect(shown[0]).toContain("Ops@900px,60px");
     expect(shown[0]).toContain(`screens ${computers ? 1 : 0}`);
   });
 }

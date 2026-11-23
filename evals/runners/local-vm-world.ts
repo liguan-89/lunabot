@@ -52,16 +52,16 @@ export class LocalVmWorld extends BaseWorld {
       PATH: dirname(process.execPath),
       HOME: this.fixtureHome,
       USERPROFILE: this.fixtureHome,
-      OMB_DATA_DIR: data,
+      LUNABOT_DATA_DIR: data,
       APPDATA: join(this.fixtureHome, "appdata"),
       LOCALAPPDATA: join(this.fixtureHome, "localappdata"),
       TEMP: this.fixtureHome,
       TMP: this.fixtureHome,
       TMPDIR: this.fixtureHome,
-      OMB_PORT: String(port),
-      OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_STATIC_DIR: ui,
-      OMB_TEST_VM_STATE: this.stateFile,
+      LUNABOT_PORT: String(port),
+      LUNABOT_WEBHOOK_PORT: String(port + 1),
+      LUNABOT_STATIC_DIR: ui,
+      LUNABOT_TEST_VM_STATE: this.stateFile,
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
     };
     const child = this.child = spawn(process.execPath, ["--import", hooks, join(ROOT, "server", "index.ts")], {
@@ -89,7 +89,7 @@ export class LocalVmWorld extends BaseWorld {
       (up) => up,
       20_000,
     );
-    // eval-gates lives under the server's OMB_DATA_DIR so installSkill's
+    // eval-gates lives under the server's LUNABOT_DATA_DIR so installSkill's
     // <dataRoot>/skills target is the directory index.ts hot-loads user
     // skills from; anywhere else and installed skills never reach the prompt.
     await this.initBase(base, this.planPath + ".evidence.jsonl", join(data, "eval-gates"));
@@ -133,7 +133,7 @@ export class LocalVmWorld extends BaseWorld {
 
   /** The newest launch the driver ran for that bot: its agents env carries the identity. */
   private launchFor(botId: string): any | null {
-    return this.engineLines().filter((line) => line.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === botId).at(-1) ?? null;
+    return this.engineLines().filter((line) => line.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_BOT_ID === botId).at(-1) ?? null;
   }
 
   protected override async runWorldStep(step: Step, ctx: WorldContext): Promise<string> {
@@ -151,10 +151,10 @@ export class LocalVmWorld extends BaseWorld {
         const launch = await waitUntil<any | null>("the bot's engine launch",
           () => this.launchFor(botId), (value) => value !== null, 20_000);
         const computer = launch?.mcpConfig?.mcpServers?.computer;
-        if (!computer?.env?.OMB_CONTROL_URL) {
+        if (!computer?.env?.LUNABOT_CONTROL_URL) {
           throw new Error("no computer mount for " + botId + " in its launch: " + JSON.stringify(Object.keys(launch?.mcpConfig?.mcpServers ?? {})));
         }
-        this.computers.set(step.bot, { url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN });
+        this.computers.set(step.bot, { url: computer.env.LUNABOT_CONTROL_URL, token: computer.env.LUNABOT_CONTROL_TOKEN });
         return "computer gate captured for " + step.bot;
       }
       case "pollComputerGate": {

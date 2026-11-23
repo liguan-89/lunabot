@@ -173,7 +173,7 @@ describe("a turn's Email tools", () => {
     const { host } = await fixture();
     const mount = host.integration({ id: "b", name: "A" }, () => "cap", "http://127.0.0.1:1")!;
     expect(mount.args.at(-1)).toBe("email");
-    expect(mount.env.OMB_MCP_TOKEN_EMAIL).toBe("cap");
+    expect(mount.env.LUNABOT_MCP_TOKEN_EMAIL).toBe("cap");
     expect(JSON.stringify(mount)).not.toContain(PASSWORD);
     expect(host.prompt({ id: "b", name: "A" })).toContain("me@shop.example");
     expect(host.prompt({ id: "b", name: "A" })).not.toContain(PASSWORD);

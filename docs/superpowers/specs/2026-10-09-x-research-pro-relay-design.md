@@ -21,7 +21,7 @@ Two repositories change:
 
 - Every paid tier gets X research: Personal, Pro and Max. Free gets nothing.
 - Allowance per account per calendar month (UTC): Personal 1,500 calls,
-  Pro 5,000, Max 15,000. Overridable per tier through `OMB_CLOUD_TIERS`.
+  Pro 5,000, Max 15,000. Overridable per tier through `LUNABOT_CLOUD_TIERS`.
 - No bring-your-own treg token anywhere in the product.
 - The relay is the real gate. The app's check is presentation only.
 
@@ -61,8 +61,8 @@ Two repositories change:
 
 ### Tokens
 
-- **Cloud homes**: like decider. `OMB_CLOUD_X_URL` (the relay base,
-  `<origin>/api/cloud/services/x`) and the secret `OMB_CLOUD_X_TOKEN`
+- **Cloud homes**: like decider. `LUNABOT_CLOUD_X_URL` (the relay base,
+  `<origin>/api/cloud/services/x`) and the secret `LUNABOT_CLOUD_X_TOKEN`
   (`omb_x_…`), minted by the provisioning job and the reconciler, honoured
   while `serviceAccess(machineId)` allows. Stored hashed in a new table
   `portal_cloud_relay_token(machineId, service, tokenHash, createdAt)`; the old
@@ -79,9 +79,9 @@ Two repositories change:
 
 ### Configuration
 
-- `OMB_CLOUD_TREG_KEY`: our treg token. Without it the relay answers 503 and
+- `LUNABOT_CLOUD_TREG_KEY`: our treg token. Without it the relay answers 503 and
   no home or desktop gets X wiring.
-- `OMB_CLOUD_X_CALLS_PER_MONTH` (default 1,500): the allowance for a Cloud
+- `LUNABOT_CLOUD_X_CALLS_PER_MONTH` (default 1,500): the allowance for a Cloud
   whose plan is unknown.
 - Tier catalog: `xCallsPerMonth` per tier (defaults 1,500 / 5,000 / 15,000).
 - The Cloud page's "Included" block gains `x: { calls, max }`.
@@ -91,7 +91,7 @@ Two repositories change:
 
 ### Removed
 
-The person's token: config `treg`, `OMB_TREG_TOKEN`, desktop credential
+The person's token: config `treg`, `LUNABOT_TREG_TOKEN`, desktop credential
 `tregToken`, the API keys row and its Test route (`/api/x-research/test`),
 their strings and tests. Old config files that still contain `treg` keep
 loading.
@@ -99,7 +99,7 @@ loading.
 ### Included credential
 
 - `server/included-services.ts`: `xCredential()` returns `{ token, api }`.
-  - A Cloud home reads `OMB_CLOUD_X_URL` and `OMB_CLOUD_X_TOKEN` at boot, held
+  - A Cloud home reads `LUNABOT_CLOUD_X_URL` and `LUNABOT_CLOUD_X_TOKEN` at boot, held
     in memory like the others (`CLOUD_HOME_SECRET_KEYS`,
     `cloud-home-start.ts` `SERVER_ENV_NAMES`, `WORKSPACE_CREDENTIAL_ENV`,
     diagnostics).
@@ -111,7 +111,7 @@ loading.
   the X token and sends it to the server. On sign-out, an inactive plan or
   re-sign-in required, it sends `null`. It sends again after the server
   restarts. A 402 from the Admin sends `null`.
-- `OMB_CLOUD_X_URL` (with `OMB_CLOUD_X_TOKEN`) also serves development and the
+- `LUNABOT_CLOUD_X_URL` (with `LUNABOT_CLOUD_X_TOKEN`) also serves development and the
   e2e fixture; the verification launcher lets it cross only as a
   `http://127.0.0.1:<port>` URL.
 

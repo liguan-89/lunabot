@@ -1,7 +1,7 @@
-// "Just me / Team" at the top of a team's sidebar and the audience label by the message box, in the real app on a real Team Cloud (OMB_CLOUD_ROLE=team, each person paired
+// "Just me / Team" at the top of a team's sidebar and the audience label by the message box, in the real app on a real Team Cloud (LUNABOT_CLOUD_ROLE=team, each person paired
 // with the Admin's signed claim) in headless Chrome: what one member types under Just me reaches no other member and no
-// admin, on screen or through the API, and what they type under Team reaches both. Run with OMB_UI_E2E=1;
-// OMB_TEAM_SWITCH_SHOTS=DIR keeps the screenshots there.
+// admin, on screen or through the API, and what they type under Team reaches both. Run with LUNABOT_UI_E2E=1;
+// LUNABOT_TEAM_SWITCH_SHOTS=DIR keeps the screenshots there.
 import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -16,10 +16,10 @@ import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } 
 import { agentBrowser, ensureUiBrowser, sessionEnv } from "./control-omb-ui.ts";
 import { mountPreview, REPO_ROOT } from "./preview-fixture.ts";
 
-const enabled = process.env.OMB_UI_E2E === "1";
-if (!enabled) console.info("skipping the Just me / Team UI e2e: set OMB_UI_E2E=1");
+const enabled = process.env.LUNABOT_UI_E2E === "1";
+if (!enabled) console.info("skipping the Just me / Team UI e2e: set LUNABOT_UI_E2E=1");
 
-const SHOTS = process.env.OMB_TEAM_SWITCH_SHOTS || join(REPO_ROOT, ".omb-scratch", "team-side-switch");
+const SHOTS = process.env.LUNABOT_TEAM_SWITCH_SHOTS || join(REPO_ROOT, ".omb-scratch", "team-side-switch");
 const PRIVATE = "Kumquat salary plan for March";
 const SHARED = "Team lunch is on Friday";
 const DESKTOP = ["1280", "800"] as const, PHONE = ["390", "844"] as const;

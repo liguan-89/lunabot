@@ -2,7 +2,7 @@
 // failure is sorted into one thing the person can fix.
 import { EXAMPLE_ADDRESS, isLoopbackHost, parseServerInput, serverTransport } from "./server-address.mjs";
 
-const DESCRIPTOR = "/.well-known/dexbot/environment";
+const DESCRIPTOR = "/.well-known/lunabot/environment";
 /** A Luna Bot desktop app's Remote access (companion/src/routes.ts) refuses the descriptor with this until a phone pairs. */
 const DESKTOP_APP_REFUSAL = /^pair this device from Remote access settings/;
 

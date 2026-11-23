@@ -382,7 +382,7 @@ export function normalizeBuiltInBrowserArgs(tool: string, args: unknown): void {
  * Say so on the failed navigation instead of leaving only ERR_SOCKS_CONNECTION_FAILED, and point at the LAN address to use.
  * Not on the desktop app, where the browser runs on the person's own computer, nor on a Cloud home, which has no such setting. */
 export function loopbackNavigationHint(tool: string, args: unknown, text: string, env: NodeJS.ProcessEnv = process.env): string {
-  if (env.OMB_DESKTOP_PARENT === "1" || cloudHomeConfigured(env)) return "";
+  if (env.LUNABOT_DESKTOP_PARENT === "1" || cloudHomeConfigured(env)) return "";
   if (!/^agent_browser_(?:open|navigate)$/u.test(tool) || !object(args) || typeof args.url !== "string") return "";
   if (!ROUTE_LOOPBACK.test(args.url.trim()) || !/(?:ERR_[A-Z_]+|failed)/u.test(text)) return "";
   return " That address is the loopback of the machine running this browser, not your own computer: open the site by the LAN address it answers on (for example http://192.168.1.20:8188), which must be reachable from the server, and allow it under Settings → Browser → Open sites on this server.";

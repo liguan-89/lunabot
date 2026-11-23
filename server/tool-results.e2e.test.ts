@@ -33,7 +33,7 @@ it("bounds a real roster, retrieves its tail, isolates owners and expires stoppe
       mounted = piTurns(dumpFile).findLast((turn) => turn.launch?.mcpConfig?.mcpServers?.agents)?.launch?.mcpConfig?.mcpServers?.agents as typeof mounted;
       return Boolean(mounted);
     }, { timeout: 15_000 }).toBe(true);
-    expect(mounted!.env.OMB_THREAD_ID).toBe(threadId);
+    expect(mounted!.env.LUNABOT_THREAD_ID).toBe(threadId);
     const proxy = spawn(mounted!.command, mounted!.args, { cwd: process.cwd(),
       env: { ...mounted!.env, PATH: process.env.PATH, HOME: fixture.info.dataDir }, stdio: ["pipe", "pipe", "pipe"] });
     proxies.push(proxy);
@@ -52,7 +52,7 @@ it("bounds a real roster, retrieves its tail, isolates owners and expires stoppe
       proxy.stdin!.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
     });
     await rpc("initialize", { protocolVersion: "2024-11-05" });
-    return { token: mounted!.env.OMB_COMMS_TOKEN as string,
+    return { token: mounted!.env.LUNABOT_COMMS_TOKEN as string,
       tool: async (name: string, args = {}) => (await rpc("tools/call", { name, arguments: args })).result };
   };
   try {

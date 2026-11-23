@@ -19,7 +19,7 @@ async function withVoiceFixture(test: (f: any) => Promise<void>, options?: { fai
   const session = await launchVerificationServer(
     {
       ...process.env,
-      ...(options?.failFirstAudioAppend ? { OMB_TEST_FAIL_AUDIO_APPEND_ONCE: "1" } : {}),
+      ...(options?.failFirstAudioAppend ? { LUNABOT_TEST_FAIL_AUDIO_APPEND_ONCE: "1" } : {}),
     },
     undefined,
     undefined,

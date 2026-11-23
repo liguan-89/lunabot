@@ -1,4 +1,4 @@
-// A real Team Cloud home (OMB_CLOUD_ROLE=team) whose idle windows are a quarter second (the power clock): it agrees to
+// A real Team Cloud home (LUNABOT_CLOUD_ROLE=team) whose idle windows are a quarter second (the power clock): it agrees to
 // the Admin's sleep request once nobody uses it, waits while a member does, and waits for work one bot handed another
 // until it is done. The engine is the fake pi with each bot's tool calls scripted; nothing leaves loopback.
 import { randomBytes } from "node:crypto";
@@ -38,7 +38,7 @@ async function admin(method: "GET" | "POST", path: string, body = "") {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}${path}`, { method, ...(method === "POST" ? { body } : {}), headers: {
     ...EDGE, ...(method === "POST" ? { "content-type": "application/json" } : {}),
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudRequestSignature(secret, timestamp, nonce, method, path, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudRequestSignature(secret, timestamp, nonce, method, path, body)}`,
   } });
   return { status: response.status, body: await response.json().catch(() => null) as any };
 }
@@ -49,7 +49,7 @@ async function pair(person: { email: string; role: "owner" | "member" }) {
   const body = JSON.stringify({ label: "Luna Bot app (Team Cloud)", ttlSeconds: 300, team: TEAM, member: person });
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const minted = await fetch(`${base}/api/cloud/pairing`, { method: "POST", body, headers: { ...EDGE, "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}` } });
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}` } });
   expect(minted.status, log.slice(-2000)).toBe(200);
   const { code } = await minted.json() as { code: string };
   const paired = await fetch(`${base}/api/auth/pair`, { method: "POST", headers: { ...EDGE, "content-type": "application/json" }, body: JSON.stringify({ code }) });
@@ -79,7 +79,7 @@ beforeAll(async () => {
   const cli = join(home, "fixture-pi.mjs");
   writeFileSync(cli, `#!/usr/bin/env node
 import { existsSync } from "node:fs";
-const bot = process.env.OMB_BOT_ID ?? "";
+const bot = process.env.LUNABOT_BOT_ID ?? "";
 const calls = ${JSON.stringify(home)} + "/tools-" + bot + ".json";
 if (bot && existsSync(calls)) process.env.FAKE_PI_TOOL_CALLS_FILE = calls;
 process.env.FAKE_PI_MOUNT_TOOLS = "1";
@@ -96,12 +96,12 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   child = spawn(process.execPath, ["--import", offline, "--import", new URL("./testing/power-clock-hooks.mjs", import.meta.url).href, join(SERVER_DIR, "index.ts")], {
     cwd: join(SERVER_DIR, ".."),
     env: {
-      PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), HOME: home, USERPROFILE: home, OMB_DATA_DIR: home,
+      PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: home,
       // A Team Cloud boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
       // tmpfs; the power clock reads this home's own records, so the box stays off here.
-      OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_CLOUD_ROLE: "team", OMB_BOT_BOX: "0", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name,
-      OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
-      OMB_TEST_POWER_CLOCK: "1",
+      LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_CLOUD_ROLE: "team", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_TEAM_ID: TEAM.id, LUNABOT_CLOUD_TEAM_NAME: TEAM.name,
+      LUNABOT_CLOUD_MACHINE_ID: MACHINE, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
+      LUNABOT_TEST_POWER_CLOCK: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

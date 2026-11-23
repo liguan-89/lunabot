@@ -6,7 +6,7 @@ import { SessionClosed } from "../../src/e2e/session.ts";
 import { attachmentByte } from "./fake-harness.ts";
 import { events, freePort, http, json, pairViaRelay, spawnRelay, startRig, waitFor, type RelayProcess, type Rig } from "./rig.ts";
 
-const LONG = process.env.OMB_E2E_LONG === "1";
+const LONG = process.env.LUNABOT_E2E_LONG === "1";
 let rig: Rig;
 let relay: RelayProcess;
 let relayPort: number;
@@ -37,7 +37,7 @@ describe("the sidecar's end-to-end connection, through the real relay", () => {
     deviceToken = paired.token;
     deviceId = paired.id;
     expect((await http(paired.session, "GET", "/api/threads/t1/messages", { token: "omb_other" })).status).toBe(401);
-    expect(json(await http(paired.session, "GET", "/api/health", { token: deviceToken }))).toEqual({ app: "dexbot" });
+    expect(json(await http(paired.session, "GET", "/api/health", { token: deviceToken }))).toEqual({ app: "lunabot" });
     expect((await state()).devices).toEqual([expect.objectContaining({ id: deviceId, route: "relay", routes: "any", e2eAt: expect.any(Number) })]);
     paired.session.shutdown();
   });

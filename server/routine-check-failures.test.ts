@@ -9,7 +9,7 @@ it.each(["manual", "scheduled"])("contains a %s check's rejection after its resu
   try {
     const child = spawnSync(process.execPath, ["--experimental-strip-types", "server/testing/routine-check-failures.ts", dir, mode], {
       encoding: "utf8", timeout: 10_000,
-      env: { ...process.env, HOME: dir, USERPROFILE: dir, OMB_DATA_DIR: dir },
+      env: { ...process.env, HOME: dir, USERPROFILE: dir, LUNABOT_DATA_DIR: dir },
     });
     expect(child.status, child.stderr).toBe(0);
     expect(child.stdout).toContain("fixture survived");

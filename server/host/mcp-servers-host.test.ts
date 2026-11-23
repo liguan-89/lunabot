@@ -127,7 +127,7 @@ it("a restart, or turning a server off and on, shows in what the next turn start
   await host.health.settled();
   const notes = () => host.mounted(PAUL).notes as { env: Record<string, string> };
   const fresh = JSON.stringify(host.mounted(PAUL).notes);
-  expect(notes().env.OMB_MCP_RESTART).toBeUndefined();
+  expect(notes().env.LUNABOT_MCP_RESTART).toBeUndefined();
 
   host.health.changed("notes");
   const restarted = JSON.stringify(host.mounted(PAUL).notes);

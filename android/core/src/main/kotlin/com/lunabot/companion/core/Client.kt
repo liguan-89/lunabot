@@ -81,7 +81,7 @@ class ServerPairingRetryError(cause: IOException) : IOException(
     else "无法完成与服务器的连接。请使用相同的配对码重试。", cause,
 )
 
-internal const val SCOPED_IPV6_HTTP_HOST = "scoped-ipv6.openmausbot.invalid"
+internal const val SCOPED_IPV6_HTTP_HOST = "scoped-ipv6.lunabot.invalid"
 
 /**
  * OkHttp deliberately rejects RFC 6874 zone identifiers in HttpUrl hosts.

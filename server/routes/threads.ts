@@ -297,7 +297,7 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
       if (asksMediaLink) {
         await file.handle.close();
         const id = mediaLinks.issue({ threadId, messageId: message.id, path: href, ...(folderEntry ? { entry: folderEntry } : {}) }, auth);
-        res.setHeader("x-openmausbot-media", "1");
+        res.setHeader("x-lunabot-media", "1");
         res.setHeader("cache-control", "private, no-store");
         return json(res, 200, { url: `/api/threads/${encodeURIComponent(threadId)}/messages/${encodeURIComponent(message.id)}/file?media=${id}`, mime: file.mime, bytes: file.bytes });
       }

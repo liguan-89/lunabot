@@ -104,11 +104,11 @@ export function volcLiveModel(raw: string | undefined): string | null {
   return /^[\w.-]{1,32}$/.test(name) ? name : null;
 }
 
-/** The realtime root is fixed (openspeech.bytedance.com); OMB_LIVE_VOLC_ENDPOINT swaps in a loopback ws root for tests. */
+/** The realtime root is fixed (openspeech.bytedance.com); LUNABOT_LIVE_VOLC_ENDPOINT swaps in a loopback ws root for tests. */
 export function volcLiveEndpoint(appId: string | undefined, model: string | undefined, env: NodeJS.ProcessEnv = process.env): LiveEndpoint | null {
   if (!volcAppId(appId)) return null;
   const version = volcLiveModel(model);
-  const override = env.OMB_LIVE_VOLC_ENDPOINT?.trim() ?? "";
+  const override = env.LUNABOT_LIVE_VOLC_ENDPOINT?.trim() ?? "";
   const root = /^wss?:\/\/127\.0\.0\.1:\d{1,5}$/.test(override) ? override : VOLC_LIVE_HOST;
   return version ? { provider: "volc", apiBase: root, model: version } : null;
 }
@@ -290,7 +290,7 @@ export function probeVolcLive(endpoint: LiveEndpoint, appId: string, accessToken
 
 /** Only a loopback http URL is accepted, read at call time. */
 export function liveBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env.OMB_OPENAI_LIVE_URL?.trim() ?? "";
+  const override = env.LUNABOT_OPENAI_LIVE_URL?.trim() ?? "";
   return /^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(override) ? override : OPENAI_BASE;
 }
 

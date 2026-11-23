@@ -230,8 +230,8 @@ describe("routine comms e2e on the job runtime (fake pi fleet)", () => {
     const env: NodeJS.ProcessEnv = {
       HOME: home,
       USERPROFILE: home,
-      OMB_PORT: String(PORT),
-      OMB_TEST_INTERNAL_CAPABILITY_KEY: TEST_CAPABILITY_KEY,
+      LUNABOT_PORT: String(PORT),
+      LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: TEST_CAPABILITY_KEY,
     };
     if (process.env.PATH) env.PATH = process.env.PATH;
     // Without SystemRoot, winsock fails to initialize in the child.

@@ -74,9 +74,9 @@ describe("the away email a Team Cloud asks the Admin for", () => {
     expect(Object.keys(request!.body.notices[0]!).sort()).toEqual(["id", "items", "language", "to"]);
     expect(awayKey("inbox:line-1")).toMatch(/^[0-9a-f]{64}$/);
     const headers = request!.headers;
-    expect(headers["x-omb-cloud-machine"]).toBe(MACHINE);
-    expect(headers["x-omb-cloud-timestamp"]).toBe(String(Math.floor(clock() / 1000)));
-    expect(headers["x-omb-cloud-signature"]).toBe(`v1=${teamAwaySignature(SECRET, MACHINE, headers["x-omb-cloud-timestamp"]!, headers["x-omb-cloud-nonce"]!, request!.raw)}`);
+    expect(headers["x-lunabot-cloud-machine"]).toBe(MACHINE);
+    expect(headers["x-lunabot-cloud-timestamp"]).toBe(String(Math.floor(clock() / 1000)));
+    expect(headers["x-lunabot-cloud-signature"]).toBe(`v1=${teamAwaySignature(SECRET, MACHINE, headers["x-lunabot-cloud-timestamp"]!, headers["x-lunabot-cloud-nonce"]!, request!.raw)}`);
   });
 
   it("signs the way the Admin checks (a fixed vector both repositories test)", () => {

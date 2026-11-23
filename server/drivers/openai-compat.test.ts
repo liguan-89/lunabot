@@ -98,7 +98,7 @@ describe("OpenAICompatDriver", () => {
     const before = process.env.OPENAI_COMPAT_MODEL;
     process.env.OPENAI_COMPAT_MODEL = "meta-llama/llama-3.3-70b-instruct";
     try {
-      const config = OpenAICompatDriver.decodeConfig({ url: "https://api.openai.com/v1", apiKeyEnv: "OMB_OPENAI_API_KEY", catalog: "openai" });
+      const config = OpenAICompatDriver.decodeConfig({ url: "https://api.openai.com/v1", apiKeyEnv: "LUNABOT_OPENAI_API_KEY", catalog: "openai" });
       expect(config).toMatchObject({ url: "https://api.openai.com/v1", catalog: "openai" });
       expect(config.model).toBeUndefined();
       const inst = await OpenAICompatDriver.create({
@@ -127,8 +127,8 @@ describe("OpenAICompatDriver", () => {
     ] }), { status: 200 })));
     const inst = await OpenAICompatDriver.create({
       instanceId: "openai", displayName: "OpenAI", enabled: true,
-      config: OpenAICompatDriver.decodeConfig({ url: "https://api.openai.com/v1", apiKeyEnv: "OMB_OPENAI_API_KEY", catalog: "openai" }),
-      environment: { OMB_OPENAI_API_KEY: "sk-fixture" },
+      config: OpenAICompatDriver.decodeConfig({ url: "https://api.openai.com/v1", apiKeyEnv: "LUNABOT_OPENAI_API_KEY", catalog: "openai" }),
+      environment: { LUNABOT_OPENAI_API_KEY: "sk-fixture" },
     });
     await vi.waitFor(() => expect(inst.models.options.map((option) => option.id)).toEqual(["gpt-5", "o3", "gpt-4.1"]));
     expect(inst.models.options.every((option) => !option.custom)).toBe(true);
@@ -215,7 +215,7 @@ describe("OpenAICompatDriver", () => {
   });
 
   it("keeps the desktop store's workspace key away from an instance with its own URL", async () => {
-    vi.stubEnv("OMB_DESKTOP_PARENT", "1");
+    vi.stubEnv("LUNABOT_DESKTOP_PARENT", "1");
     process.env.OPENAI_COMPAT_API_KEY = "sk-or-STORE";
     const seen: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {

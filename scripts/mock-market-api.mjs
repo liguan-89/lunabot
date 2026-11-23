@@ -4,7 +4,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 
-const PORT = Number(process.env.OMB_MARKET_MOCK_PORT ?? 4010);
+const PORT = Number(process.env.LUNABOT_MARKET_MOCK_PORT ?? 4010);
 const ACCESS = "mkt_mock_access_0000000000000001";
 const REFRESH = "mkr_mock_refresh_000000000000001";
 const USER = { id: 1, username: "mock", display_name: "Mock User" };
@@ -215,5 +215,5 @@ const server = createServer(async (request, response) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`TK1688 market mock: ${base}`);
-  console.log(`  OMB_MARKET_FIXTURE=${base} OMB_MARKET_API_FIXTURE=${base} electron . --omb-company-desktop=1`);
+  console.log(`  LUNABOT_MARKET_FIXTURE=${base} LUNABOT_MARKET_API_FIXTURE=${base} electron . --omb-company-desktop=1`);
 });

@@ -8,12 +8,12 @@ import nativeText from "./native-text.cjs";
 const { englishText } = nativeText;
 
 export const CLOUD_ORIGIN = "https://cloud.dexai.vip";
-/** The staging Admin: a fixed address, on only with OMB_CLOUD_STAGING=1. */
+/** The staging Admin: a fixed address, on only with LUNABOT_CLOUD_STAGING=1. */
 export const STAGING_CLOUD_ORIGIN = "https://staging.cloud.dexai.vip";
 /** Which Admin this app signs in to, and the files that depend on it (the sign-in, saved servers with the Cloud's
  * entry, Files' state, the Cloud's chosen name): staging never reads or writes production's. */
 export function cloudTarget(env = process.env) {
-  return env?.OMB_CLOUD_STAGING === "1"
+  return env?.LUNABOT_CLOUD_STAGING === "1"
     ? { origin: STAGING_CLOUD_ORIGIN, staging: true, file: "cloud-account-staging.bin", saved: "cloud-accounts-staging.bin", places: "account-places-staging.json", environments: "environments-staging.json", sync: "cloud-sync-staging", look: "cloud-home-look-staging.json" }
     : { origin: CLOUD_ORIGIN, staging: false, file: "cloud-account.bin", saved: "cloud-accounts.bin", places: "account-places.json", environments: "environments.json", sync: "cloud-sync", look: "cloud-home-look.json" };
 }

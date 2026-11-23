@@ -63,7 +63,7 @@ describe("openmausbot serve --relay", () => {
   it("signs a machine in for the relay without reserving one of the scarce tunnel addresses", async () => {
     const stub = await startControlPlaneStub();
     const dataDir = mkdtempSync(join(tmpdir(), "omb-login-relay-"));
-    vi.stubEnv("OMB_CONTROL_PLANE_URL", stub.url);
+    vi.stubEnv("LUNABOT_CONTROL_PLANE_URL", stub.url);
     try {
       const lines: string[] = [];
       const io = { log: (line: string) => lines.push(line), error: (line: string) => lines.push(`error: ${line}`), ask: async () => stub.otp };

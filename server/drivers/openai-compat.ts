@@ -50,7 +50,7 @@ const localFacts = ({ bytes, parameters, quantization, tools, vision }: OllamaMo
 const DEFAULT_KEY_ENV = "OPENAI_COMPAT_API_KEY";
 /** A provider's own key: such an instance never falls back to the workspace OpenAI-compatible key, URL,
  * model or routing. */
-const OWN_KEY_ENVS = new Set(["OMB_OPENAI_API_KEY", "OMB_OPENROUTER_API_KEY"]);
+const OWN_KEY_ENVS = new Set(["LUNABOT_OPENAI_API_KEY", "LUNABOT_OPENROUTER_API_KEY"]);
 
 const OPENAI_MODELS: ModelCatalog = {
   default: "gpt-5",

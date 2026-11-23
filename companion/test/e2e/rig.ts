@@ -117,20 +117,20 @@ export async function startRig(relayUrl: (signingPublicKey: Buffer) => Promise<s
     env: {
       PATH: process.env.PATH,
       HOME: dir,
-      OMB_PORT: String(harness.port),
-      OMB_WEBHOOK_PORT: String(webhookPort),
-      OMB_COMPANION_PORT: String(companionPort),
-      OMB_CONTROL_PORT: String(controlPort),
-      OMB_CONTROL_TOKEN: controlToken,
-      OMB_COMPANION_DIR: dir,
-      OMB_COMPANION_NAME: "Test Mac",
-      OMB_COMPANION_E2E: "1",
-      OMB_COMPANION_BONJOUR: "0",
-      OMB_COMPANION_RELAY_URL: url,
+      LUNABOT_PORT: String(harness.port),
+      LUNABOT_WEBHOOK_PORT: String(webhookPort),
+      LUNABOT_COMPANION_PORT: String(companionPort),
+      LUNABOT_CONTROL_PORT: String(controlPort),
+      LUNABOT_CONTROL_TOKEN: controlToken,
+      LUNABOT_COMPANION_DIR: dir,
+      LUNABOT_COMPANION_NAME: "Test Mac",
+      LUNABOT_COMPANION_E2E: "1",
+      LUNABOT_COMPANION_BONJOUR: "0",
+      LUNABOT_COMPANION_RELAY_URL: url,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  if (process.env.OMB_E2E_DEBUG) for (const stream of [sidecar.stdout!, sidecar.stderr!]) stream.on("data", (chunk: Buffer) => process.stderr.write(`[sidecar] ${chunk}`));
+  if (process.env.LUNABOT_E2E_DEBUG) for (const stream of [sidecar.stdout!, sidecar.stderr!]) stream.on("data", (chunk: Buffer) => process.stderr.write(`[sidecar] ${chunk}`));
   await new Promise<void>((resolve, reject) => {
     let out = "";
     sidecar.stdout!.on("data", (chunk: Buffer) => {

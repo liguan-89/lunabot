@@ -148,14 +148,14 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
     expect(sent.systemPrompt).toContain("You control the assigned cloud computer");
     const computer = sent.mcpConfig.mcpServers.computer;
     expect(computer.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
-    expect(computer.env.OMB_MCP_TOKEN_COMPUTER).toEqual(expect.any(String));
-    expect(computer.env.OMB_HARNESS_URL).toBe(fixture.info.url);
+    expect(computer.env.LUNABOT_MCP_TOKEN_COMPUTER).toEqual(expect.any(String));
+    expect(computer.env.LUNABOT_HARNESS_URL).toBe(fixture.info.url);
     expect(JSON.stringify(sent)).not.toContain(BOAT_TOKEN);
     // The launch carries no Cloud or Boat credential: only the names the sealed fixture keeps.
-    expect(sent.envConfigured.filter(key => /BOAT|BOX_TOKEN|OMB_CLOUD/.test(key))).toEqual([]);
+    expect(sent.envConfigured.filter(key => /BOAT|BOX_TOKEN|LUNABOT_CLOUD/.test(key))).toEqual([]);
     const client = mcpClient(computer);
     try {
-      expect((await client.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "fixture", version: "1" } })).result.serverInfo.name).toBe("openmausbot-computer");
+      expect((await client.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "fixture", version: "1" } })).result.serverInfo.name).toBe("lunabot-computer");
       const listed = (await client.request("tools/list")).result.tools;
       expect(listed).toHaveLength(13);
       expect(listed.find((tool: { name: string }) => tool.name === "exec").description)

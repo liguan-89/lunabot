@@ -447,7 +447,7 @@ async function scanAccount(
 
   const policy = idlePolicy(config);
   const idle: Record<IdleReason, number> = { never_connected: 0, offline: 0 };
-  // The dry run: the same rules at OMB_TUNNEL_RECLAIM_PREVIEW_DAYS, counted
+  // The dry run: the same rules at LUNABOT_TUNNEL_RECLAIM_PREVIEW_DAYS, counted
   // before anything is marked and never acted on.
   const previewPolicy = config.capacity.reclaimPreviewMs === null
     ? null

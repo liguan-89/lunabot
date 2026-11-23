@@ -11,7 +11,7 @@ pnpm exec vitest run server/cloud-team-bot-access.e2e.test.ts server/bot-access.
   server/bot-visibility.test.ts src/components/bot-access src/state/team-chats.test.ts src/components/SettingsModal.groups.test.ts
 ```
 
-- `server/cloud-team-bot-access.e2e.test.ts` starts a real Team Cloud (`OMB_CLOUD_ROLE=team`) with the Owner (Olive),
+- `server/cloud-team-bot-access.e2e.test.ts` starts a real Team Cloud (`LUNABOT_CLOUD_ROLE=team`) with the Owner (Olive),
   an Admin (Ada) and four Users paired with the Admin's signed claims, and the synthetic Claude CLI. Payroll is shared
   with Bob to view, Cara to chat and Dan to edit; Eve is not added. As each of them it tries every route a member
   reaches: the bot list (each copy's `yourAccess`, the sharing only on an editor's), its chat, export, a room with it,

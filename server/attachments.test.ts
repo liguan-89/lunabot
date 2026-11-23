@@ -38,7 +38,7 @@ afterEach(() => {
 // The module reads DATA_DIR at import time, so the env var must be set
 // before the import is evaluated.
 const DATA_ROOT = mkdtempSync(join(tmpdir(), "omb-attachments-"));
-process.env.OMB_DATA_DIR = join(DATA_ROOT, "data");
+process.env.LUNABOT_DATA_DIR = join(DATA_ROOT, "data");
 
 const {
   ATTACHMENTS_DIR,
@@ -235,12 +235,12 @@ describe("saveAudio", () => {
 });
 
 describe("attachmentsMaxBytes", () => {
-  it("keeps 512 MB unless OMB_ATTACHMENTS_MAX_BYTES is a positive whole number of bytes", () => {
+  it("keeps 512 MB unless LUNABOT_ATTACHMENTS_MAX_BYTES is a positive whole number of bytes", () => {
     expect(ATTACHMENTS_MAX_BYTES).toBe(DEFAULT_ATTACHMENTS_MAX_BYTES);
     expect(attachmentsMaxBytes({})).toBe(512 * 1024 * 1024);
-    expect(attachmentsMaxBytes({ OMB_ATTACHMENTS_MAX_BYTES: " 4294967296 " })).toBe(4 * 1024 * 1024 * 1024);
+    expect(attachmentsMaxBytes({ LUNABOT_ATTACHMENTS_MAX_BYTES: " 4294967296 " })).toBe(4 * 1024 * 1024 * 1024);
     for (const bad of ["", "0", "-1", "2GB", "1.5", "NaN"]) {
-      expect(attachmentsMaxBytes({ OMB_ATTACHMENTS_MAX_BYTES: bad })).toBe(DEFAULT_ATTACHMENTS_MAX_BYTES);
+      expect(attachmentsMaxBytes({ LUNABOT_ATTACHMENTS_MAX_BYTES: bad })).toBe(DEFAULT_ATTACHMENTS_MAX_BYTES);
     }
   });
 });

@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// scripts/mcp-server.ts snapshots process.env at import time: scrub ambient OMB_* / LUNABOT_* values first.
-import "./testing/scrub-ambient-omb-env.ts";
+// scripts/mcp-server.ts snapshots process.env at import time: scrub ambient LUNABOT_* / LUNABOT_* values first.
+import "./testing/scrub-ambient-lunabot-env.ts";
 
 import {
   handleToolCall,
-  OpenMausBotApiError,
+  LunaBotApiError,
   probeBaseUrls,
   processMcpMessage,
   request,
@@ -659,7 +659,7 @@ describe("waiting on a conversation's job", () => {
   it("names an older server that cannot report a job, and a conversation that is gone as gone", async () => {
     const answering = (body: string) => vi.fn(async (path: string) => {
       if (path === "/api/bots?messages=0") return bot();
-      throw new OpenMausBotApiError(404, `Luna Bot API error (404): ${body}`);
+      throw new LunaBotApiError(404, `Luna Bot API error (404): ${body}`);
     });
     await expect(handleToolCall("wait_for_conversation", { target_type: "bot", target_id: "bot-1" }, answering("not found")))
       .rejects.toThrow("cannot report a conversation's job");
@@ -756,7 +756,7 @@ describe("connection security and discovery", () => {
 
   it("requires an explicit destination before sending a bearer token", async () => {
     process.env.LUNABOT_TOKEN = "proxy-token";
-    await expect(resolveBaseUrl()).rejects.toThrow("DEXBOT_URL (or LUNABOT_URL) or OMB_PORT");
+    await expect(resolveBaseUrl()).rejects.toThrow("Set LUNABOT_URL (or LUNABOT_PORT) when using a token so credentials are never sent during port discovery");
   });
 
   it("validates direct tool arguments", () => {

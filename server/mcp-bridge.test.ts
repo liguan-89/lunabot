@@ -108,8 +108,8 @@ describe("runLivenessProbe", () => {
     // take longer than that just to spawn node, so give the spawn room to land.
     await expect(runLivenessProbe({
       command: process.execPath,
-      args: ["-e", "process.exit(process.env.OMB_TEST_BRIDGE_ENV === 'shared-ssh' ? 0 : 1)"],
-    }, 5_000, { ...process.env, OMB_TEST_BRIDGE_ENV: "shared-ssh" })).resolves.toBe(true);
+      args: ["-e", "process.exit(process.env.LUNABOT_TEST_BRIDGE_ENV === 'shared-ssh' ? 0 : 1)"],
+    }, 5_000, { ...process.env, LUNABOT_TEST_BRIDGE_ENV: "shared-ssh" })).resolves.toBe(true);
   });
 
   it("maps exit status to liveness and treats an unspawnable probe as dead", async () => {

@@ -159,7 +159,7 @@ export function installedChrome(toolsDir = UI_TOOLS_DIR, platform: NodeJS.Platfo
   return null;
 }
 
-/** OMB_AGENT_BROWSER_PATH, then the tools directory, then PATH; otherwise the
+/** LUNABOT_AGENT_BROWSER_PATH, then the tools directory, then PATH; otherwise the
  * pinned download, verified by size and SHA-256. Chrome follows the same rule
  * with AGENT_BROWSER_EXECUTABLE_PATH. Both land once under UI_TOOLS_DIR. */
 export async function ensureUiBrowser(
@@ -434,7 +434,7 @@ export async function launchUi(
   }
   const entry = ENTRIES[entryName as keyof typeof ENTRIES];
   // Scripted turns that call a mounted server need the fake's tools mounted at boot: the driver
-  // removes OMB_MCP_CONFIG once the extension would have read it, so lazy mounting finds nothing.
+  // removes LUNABOT_MCP_CONFIG once the extension would have read it, so lazy mounting finds nothing.
   const fakeEnv: NodeJS.ProcessEnv = { FAKE_PI_MOUNT_TOOLS: "1" };
   if (values["tool-calls"] !== undefined) {
     let calls: unknown;

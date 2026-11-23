@@ -50,9 +50,9 @@ export function toolCallContextFromEnv(env: NodeJS.ProcessEnv): ToolCallContext 
   const profile = catalogProfileFromEnv(env);
   return {
     botId: profile.botId,
-    threadId: env.OMB_THREAD_ID ?? "",
-    depth: Number(env.OMB_TURN_DEPTH ?? "0") || 0,
-    externalRuntime: env.OMB_EXTERNAL_RUNTIME === "1",
+    threadId: env.LUNABOT_THREAD_ID ?? "",
+    depth: Number(env.LUNABOT_TURN_DEPTH ?? "0") || 0,
+    externalRuntime: env.LUNABOT_EXTERNAL_RUNTIME === "1",
     sharedComputers: profile.sharedComputers,
     client: harnessClientFromEnv(env),
   };

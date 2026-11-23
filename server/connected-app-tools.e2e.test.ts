@@ -53,7 +53,7 @@ it("a bot given Gmail by its app switch reaches gmail.search_emails by name thro
   // runs one engine, so the second half of this recipe (the same tools under an ACP engine's own names) has no engine to
   // compare against; what remains is that the bridge lists the app's reads under the names a model calls.
   const fixture = await launchVerificationServer({
-    ...process.env, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token,
+    ...process.env, LUNABOT_COMPOSIO_BROKER_URL: apps.url, LUNABOT_COMPOSIO_BROKER_TOKEN: apps.token,
     FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate,
   });
   const api = apiOn(fixture.info.url);
@@ -108,7 +108,7 @@ it("a bot with HighLevel read only runs HighLevel's reads, which name the resour
   const scratch = mkdtempSync(join(tmpdir(), "omb-app-tools-"));
   const gate = join(scratch, "finish");
   const fixture = await launchVerificationServer({
-    ...process.env, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token, FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate,
+    ...process.env, LUNABOT_COMPOSIO_BROKER_URL: apps.url, LUNABOT_COMPOSIO_BROKER_TOKEN: apps.token, FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate,
   });
   const api = apiOn(fixture.info.url);
   try {

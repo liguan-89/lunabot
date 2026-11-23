@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-process.env.OMB_DATA_DIR = mkdtempSync(join(tmpdir(), "omb-skill-share-manifest-"));
+process.env.LUNABOT_DATA_DIR = mkdtempSync(join(tmpdir(), "omb-skill-share-manifest-"));
 
 vi.mock("./skills.ts", async (original) => ({
   ...await original<typeof import("./skills.ts")>(),

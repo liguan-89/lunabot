@@ -48,7 +48,7 @@ function threadSessions(path: string, threadId: string): Array<"new" | "resume" 
   let thread: string | null = null;
   for (const row of jsonl(path)) {
     if (row.argv) {
-      thread = row.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID ?? null;
+      thread = row.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID ?? null;
       continue;
     }
     if (row.newSession) { pending = "new"; continue; }
@@ -74,7 +74,7 @@ function threadPrompts(dataDir: string, threadId: string): number {
 function threadLastPid(dataDir: string, threadId: string): number | undefined {
   let pid: number | undefined;
   for (const row of jsonl(join(dataDir, "fake-pi-dump.jsonl")))
-    if (row.argv && row.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId) pid = row.pid;
+    if (row.argv && row.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === threadId) pid = row.pid;
   return pid;
 }
 

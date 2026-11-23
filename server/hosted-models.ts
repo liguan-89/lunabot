@@ -7,7 +7,7 @@ import { hostedWorkspaceConfiguration } from "./enterprise.ts";
 import type { InstanceConfigMap, ModelSelection, ProviderInstance } from "./contracts.ts";
 import type { Store } from "./store.ts";
 
-export const HOSTED_MODEL_POLICY_HEADER = "X-Omb-Hosted-Model-Policy";
+export const HOSTED_MODEL_POLICY_HEADER = "X-Lunabot-Hosted-Model-Policy";
 export const HOSTED_MODEL_SETUP_ERROR = "No company models are assigned to this workspace. Ask your administrator to enable model access in Admin.";
 export const HOSTED_MODEL_SELECTION_ERROR = "This model is not assigned to this workspace. Choose one of its company models.";
 export const HOSTED_PROVIDER_SETTINGS_ERROR = "Company models and provider accounts are managed in Admin.";
@@ -22,19 +22,19 @@ const providerFor = { claude: "anthropic", codex: "openai", opencode: "openroute
 
 /** Operator-only: partial policy configuration must never enable it, and a Cloud home ignores it. */
 export function hostedModelPolicy(dataDirectory: string, env: NodeJS.ProcessEnv = process.env) {
-  if (env.OMB_HOSTED_MODELS === undefined && env.OMB_HOSTED_MODEL_TOKEN === undefined) return null;
+  if (env.LUNABOT_HOSTED_MODELS === undefined && env.LUNABOT_HOSTED_MODEL_TOKEN === undefined) return null;
   if (cloudHomeConfigured(env)) return null;
   const hosted = hostedWorkspaceConfiguration(env);
-  if (!hosted?.portalMembership || env.OMB_DESKTOP_PARENT === "1" || !/^omb_workspace_[A-Za-z0-9_-]{43}$/.test(env.OMB_HOSTED_MODEL_TOKEN ?? "")) {
+  if (!hosted?.portalMembership || env.LUNABOT_DESKTOP_PARENT === "1" || !/^omb_workspace_[A-Za-z0-9_-]{43}$/.test(env.LUNABOT_HOSTED_MODEL_TOKEN ?? "")) {
     throw new Error("Hosted model access requires complete portal-managed configuration.");
   }
   let catalog: HostedCatalog;
   try {
-    if (!env.OMB_HOSTED_MODELS || env.OMB_HOSTED_MODELS.length > 65536) throw new Error();
-    catalog = catalogSchema.parse(JSON.parse(env.OMB_HOSTED_MODELS));
+    if (!env.LUNABOT_HOSTED_MODELS || env.LUNABOT_HOSTED_MODELS.length > 65536) throw new Error();
+    catalog = catalogSchema.parse(JSON.parse(env.LUNABOT_HOSTED_MODELS));
   } catch { throw new Error("Invalid hosted model catalog."); }
   for (const key of ["anthropic", "openai", "openrouter"] as const) catalog[key] = [...new Set(catalog[key])];
-  const token = env.OMB_HOSTED_MODEL_TOKEN!;
+  const token = env.LUNABOT_HOSTED_MODEL_TOKEN!;
   const base = `${hosted.admin.origin}/api/gateway/${hosted.workspace}`;
   const assigned = (id: string): string[] => Object.hasOwn(providerFor, id) ? catalog[providerFor[id as keyof typeof providerFor]] : [];
   const allows = (selection: ModelSelection) => assigned(selection.instanceId).includes(selection.model);
@@ -76,7 +76,7 @@ export function hostedModelPolicy(dataDirectory: string, env: NodeJS.ProcessEnv 
     configs(): InstanceConfigMap {
       const configs: InstanceConfigMap = {};
       // Saved instance commands are tenant-editable; only the operator may replace the bundled executables.
-      const cli = (name: "CLAUDE" | "CODEX") => env[`OMB_HOSTED_${name}_CLI`]?.trim() || name.toLowerCase();
+      const cli = (name: "CLAUDE" | "CODEX") => env[`LUNABOT_HOSTED_${name}_CLI`]?.trim() || name.toLowerCase();
       if (catalog.anthropic.length) configs.claude = {
         driver: "claudeAgent", displayName: "Company · Claude",
         config: { cli: cli("CLAUDE"), managed: true, managedModels: catalog.anthropic, configDir: home("claude") },

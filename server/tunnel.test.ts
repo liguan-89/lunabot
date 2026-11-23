@@ -87,7 +87,7 @@ describe("the headless cloudflared connector", () => {
     mkdirSync(dirname(staged), { recursive: true });
     writeFileSync(staged, "override");
     expect(await ensureCloudflared({
-      dataDir, here, env: { PATH: "", MARKER: marker, OMB_CLOUDFLARED_PATH: staged }, log: (line) => lines.push(line),
+      dataDir, here, env: { PATH: "", MARKER: marker, LUNABOT_CLOUDFLARED_PATH: staged }, log: (line) => lines.push(line),
     })).toBe(staged);
     expect(existsSync(marker)).toBe(false);
     expect(readFileSync(staged, "utf8")).toBe("override");
@@ -164,7 +164,7 @@ describe("login and logout against the control plane", () => {
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), "omb-tunnel-login-"));
     stub = await startControlPlaneStub();
-    vi.stubEnv("OMB_CONTROL_PLANE_URL", stub.url);
+    vi.stubEnv("LUNABOT_CONTROL_PLANE_URL", stub.url);
   });
   afterEach(async () => {
     vi.unstubAllEnvs();
@@ -261,10 +261,10 @@ describe("login and logout against the control plane", () => {
   });
 
   it("an unusable control-plane override is a clear error, not a silent default", async () => {
-    vi.stubEnv("OMB_CONTROL_PLANE_URL", "ftp://nope");
+    vi.stubEnv("LUNABOT_CONTROL_PLANE_URL", "ftp://nope");
     const io = fakeIo([]);
     expect(await runLogin(options(dir, { email: "a@b.test" }), io.io)).toBe(1);
-    expect(io.err.join("\n")).toMatch(/OMB_CONTROL_PLANE_URL/);
+    expect(io.err.join("\n")).toMatch(/LUNABOT_CONTROL_PLANE_URL/);
   });
 });
 
@@ -320,7 +320,7 @@ describe.skipIf(!posix)("startTunnel: guardian, gateway and connector, verified 
       originTarget: { pid: process.pid, socketPath: origin.socketPath },
       binaryPath: fake,
       guardian: guardian ?? "",
-      env: { ...process.env, OMB_TUNNEL_ORIGIN_PORT: String(originPort) },
+      env: { ...process.env, LUNABOT_TUNNEL_ORIGIN_PORT: String(originPort) },
       fetchImpl: (input, init) => fetch(String(input).replace(endpoint, `http://127.0.0.1:${originPort}`), init),
       onState: (state) => states.push(state.status),
     });
@@ -365,11 +365,11 @@ describe("a fleet's credential in the environment", () => {
   it("gets the public address with no account file and no emailed code; a rejected credential is a clear error", async () => {
     const stub = await startControlPlaneStub();
     try {
-      const env = { ...process.env, OMB_CONTROL_PLANE_URL: stub.url };
+      const env = { ...process.env, LUNABOT_CONTROL_PLANE_URL: stub.url };
       expect(fleetCredential({})).toBeNull();
-      expect(fleetCredential({ OMB_INSTALLATION_CREDENTIAL: "   " })).toBeNull();
+      expect(fleetCredential({ LUNABOT_INSTALLATION_CREDENTIAL: "   " })).toBeNull();
       const credential = stub.seedInstallation("boat-1");
-      expect(fleetCredential({ OMB_INSTALLATION_CREDENTIAL: ` ${credential} ` })).toBe(credential);
+      expect(fleetCredential({ LUNABOT_INSTALLATION_CREDENTIAL: ` ${credential} ` })).toBe(credential);
       const access = await fleetAccess({ credential, env, version: "9.8.7" });
       expect(access).toEqual({ endpoint: stub.endpointUrl, token: stub.connectorToken });
       expect(stub.calls).toContain("POST /v1/installations/self/endpoint");
@@ -377,7 +377,7 @@ describe("a fleet's credential in the environment", () => {
       expect([...stub.installations.values()].find((inst) => inst.credential === credential)?.appVersion).toBe("9.8.7");
       expect(stub.calls.some((call) => call.includes("/api/auth/"))).toBe(false);
       await expect(fleetAccess({ credential: `omb_install_${"x".repeat(22)}.${"y".repeat(43)}`, env })).rejects.toThrow(/rejected/);
-      await expect(fleetAccess({ credential, env: { ...env, OMB_CONTROL_PLANE_URL: "ftp://nope" } })).rejects.toThrow(/OMB_CONTROL_PLANE_URL/);
+      await expect(fleetAccess({ credential, env: { ...env, LUNABOT_CONTROL_PLANE_URL: "ftp://nope" } })).rejects.toThrow(/LUNABOT_CONTROL_PLANE_URL/);
     } finally {
       await stub.close();
     }

@@ -95,7 +95,7 @@ beforeAll(async () => {
       const body = Buffer.concat(chunks).toString("utf8");
       expect(req.url).toBe(TEAM_POLICY_ADMIN_PATH);
       const headers = req.headers as Record<string, string>;
-      admin.signed.push(/^v1=[\w-]{43}$/.test(headers["x-omb-cloud-signature"] ?? "") && Boolean(headers["x-omb-cloud-machine"]) && createHash("sha256").update(body).digest().length === 32);
+      admin.signed.push(/^v1=[\w-]{43}$/.test(headers["x-lunabot-cloud-signature"] ?? "") && Boolean(headers["x-lunabot-cloud-machine"]) && createHash("sha256").update(body).digest().length === 32);
       admin.reports.push(JSON.parse(body));
       res.writeHead(admin.answer.status, { "content-type": admin.answer.type });
       res.end(typeof admin.answer.body === "string" ? admin.answer.body : JSON.stringify(admin.answer.body));
@@ -108,8 +108,8 @@ beforeAll(async () => {
   broker = await startBrokerFake();
   const relayBase = `http://127.0.0.1:${(relay.address() as AddressInfo).port}`;
   fx = await launchCloudSendFixture({ onePasswordToken: "ops_fake-rules", broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: {
-    OMB_BOT_BOX: "0", FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}`,
-    OMB_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, OMB_CLOUD_BOAT_TOKEN: "box_omb_rules",
+    LUNABOT_BOT_BOX: "0", FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}`,
+    LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_rules",
   } } });
   team = fx.team!;
   owner = (await team.pair(OWNER)).token!;

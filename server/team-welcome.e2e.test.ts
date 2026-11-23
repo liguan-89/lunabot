@@ -1,4 +1,4 @@
-// A real Team Cloud (OMB_CLOUD_ROLE=team): each person's first screen is theirs alone. Who invited them comes from the
+// A real Team Cloud (LUNABOT_CLOUD_ROLE=team): each person's first screen is theirs alone. Who invited them comes from the
 // Admin's signed claim only; whether they saw it, and the steps they finished, are kept per person, never team-wide.
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";

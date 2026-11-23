@@ -79,7 +79,7 @@ export interface AppEventAttempt {
 }
 
 export interface AppTriggerService {
-  /** "self-hosted": this server uses its own Composio key, which app events do not support. "off": OMB_COMPOSIO_BROKER=off. */
+  /** "self-hosted": this server uses its own Composio key, which app events do not support. "off": LUNABOT_COMPOSIO_BROKER=off. */
   available: boolean;
   reason?: "self-hosted" | "unavailable" | "off";
   plan?: "desktop" | "cloud";

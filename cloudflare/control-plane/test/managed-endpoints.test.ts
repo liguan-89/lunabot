@@ -1376,9 +1376,9 @@ describe("managed companion endpoints", () => {
       "SELECT status, COUNT(*) AS count FROM installation_endpoints GROUP BY status ORDER BY status",
     ).all<{ count: number; status: string }>()).results;
 
-    // Workers Free deployments set OMB_CLEANUP_SWEEP_LIMIT=4: forty cleanup
+    // Workers Free deployments set LUNABOT_CLEANUP_SWEEP_LIMIT=4: forty cleanup
     // calls plus the two capacity reads stay under 50 subrequests.
-    await runScheduledCleanup(worker, { OMB_CLEANUP_SWEEP_LIMIT: "4" });
+    await runScheduledCleanup(worker, { LUNABOT_CLEANUP_SWEEP_LIMIT: "4" });
     expect(await counts()).toEqual([
       { count: 4, status: "deleted" },
       { count: 21, status: "deleting" },
@@ -1389,7 +1389,7 @@ describe("managed companion endpoints", () => {
     // Workers Paid (the code default of 20): twenty rows at ten calls each is
     // about 200 of the token's 1,200 requests per five minutes.
     cloudflare.calls.length = 0;
-    await runScheduledCleanup(worker, { OMB_CLEANUP_SWEEP_LIMIT: "20" });
+    await runScheduledCleanup(worker, { LUNABOT_CLEANUP_SWEEP_LIMIT: "20" });
     expect(await counts()).toEqual([
       { count: 24, status: "deleted" },
       { count: 1, status: "deleting" },
@@ -1626,7 +1626,7 @@ describe("idle tunnel reclaim", () => {
 
     // The deployed policy, pinned here so retuning wrangler.jsonc cannot change
     // which of these endpoints count as idle.
-    await runScheduledCleanup(worker, { OMB_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" });
+    await runScheduledCleanup(worker, { LUNABOT_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" });
 
     for (const reclaimed of [neverConnected, offline]) {
       expect(await endpointState(reclaimed.id)).toMatchObject({
@@ -1711,7 +1711,7 @@ describe("idle tunnel reclaim", () => {
     cloudflare.calls.length = 0;
     const logged = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    await runScheduledCleanup(worker, { OMB_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" });
+    await runScheduledCleanup(worker, { LUNABOT_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" });
 
     expect(await endpointState(stopped.id)).toMatchObject({ dns_record_id: null, status: "deleted", tunnel_id: null });
     expect(cloudflare.tunnels.has(stopped.tunnel.name)).toBe(false);
@@ -1742,7 +1742,7 @@ describe("idle tunnel reclaim", () => {
     cloudflare.calls.length = 0;
     const logged = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    await runScheduledCleanup(worker, { OMB_TUNNEL_RECLAIM: "observe" });
+    await runScheduledCleanup(worker, { LUNABOT_TUNNEL_RECLAIM: "observe" });
 
     expect(await endpointState(idle.id)).toMatchObject({ reclaim_requested_at: null, status: "ready" });
     expect(deleteURLs(cloudflare)).toHaveLength(0);
@@ -2240,7 +2240,7 @@ describe("managed endpoint provider capacity", () => {
     }
 
     errors.mockClear();
-    await runScheduledCleanup(worker, { OMB_TUNNEL_LIMIT: "2000" });
+    await runScheduledCleanup(worker, { LUNABOT_TUNNEL_LIMIT: "2000" });
     expect(loggedJSON(errors, "managed endpoint capacity high")).toEqual([]);
     cloudflare.tunnelTotalCount = 1000;
     cloudflare.dnsTotalCount = 3400;
@@ -2974,7 +2974,7 @@ describe("managed endpoints in several Cloudflare accounts", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    await runScheduledCleanup(fixture.worker, { ...fixture.vars, OMB_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" });
+    await runScheduledCleanup(fixture.worker, { ...fixture.vars, LUNABOT_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" });
     expect(await endpointState(installation.installation.id)).toMatchObject({ status: "deleted", tunnel_id: null });
     expect(fixture.first.tunnels.has(tunnel.name)).toBe(false);
     expect(await env.DB.prepare("SELECT last_reconciled_at FROM installation_endpoints WHERE installation_id = ?")
@@ -3313,7 +3313,7 @@ describe("managed endpoints in several Cloudflare accounts", () => {
     const orphan = await orphanIn(cloudflare, PRIMARY_ACCOUNT, HOST_SUFFIX, "8".repeat(32), now + 1);
     errors.mockClear();
     vi.spyOn(console, "log").mockImplementation(() => undefined);
-    await runScheduledCleanup(worker, { OMB_CLEANUP_SWEEP_LIMIT: "1" });
+    await runScheduledCleanup(worker, { LUNABOT_CLEANUP_SWEEP_LIMIT: "1" });
     expect(await endpointState(orphan.installationId)).toMatchObject({ status: "deleted" });
     expect(await endpointState(installation.installation.id)).toMatchObject({
       last_error_code: "endpoint_account_unavailable",
@@ -3899,7 +3899,7 @@ describe("releasing tunnels the relay has replaced", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     cloudflare.failures.add("delete_tunnel");
-    const vars = relayVars({ RELAY_TUNNEL_RELEASE_PERCENT: "100", OMB_CLEANUP_SWEEP_LIMIT: "2" });
+    const vars = relayVars({ RELAY_TUNNEL_RELEASE_PERCENT: "100", LUNABOT_CLEANUP_SWEEP_LIMIT: "2" });
     const deleting = async () => (await Promise.all(computers.map((each) => endpointState(each.id)))).filter((state) => state.status === "deleting").length;
 
     await runScheduledCleanup(worker, vars);
@@ -4069,19 +4069,19 @@ describe("the idle reclaim dry run", () => {
       return (await health.json<{ capacity: { reclaim: Record<string, unknown> } }>()).capacity.reclaim;
     };
 
-    const live = { OMB_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" };
+    const live = { LUNABOT_TUNNEL_OFFLINE_RECLAIM_DAYS: "3" };
     await runScheduledCleanup(worker, live);
     expect(await reclaim(live)).toEqual({ mode: "on", pending: 0 });
 
-    const preview = { ...live, OMB_TUNNEL_RECLAIM_PREVIEW_DAYS: "1" };
+    const preview = { ...live, LUNABOT_TUNNEL_RECLAIM_PREVIEW_DAYS: "1" };
     await runScheduledCleanup(worker, preview);
     expect(await reclaim(preview)).toEqual({ mode: "on", pending: 0, preview: { offlineDays: 1, eligible: 1 } });
     expect((await endpointState(twoDays.id)).status).toBe("ready");
     expect(cloudflare.tunnels.size).toBe(2);
 
     // Another threshold has no finished pass yet; the live threshold itself still reclaims.
-    expect(await reclaim({ ...live, OMB_TUNNEL_RECLAIM_PREVIEW_DAYS: "2" })).toMatchObject({ preview: { offlineDays: 2, eligible: null } });
-    await runScheduledCleanup(worker, { OMB_TUNNEL_OFFLINE_RECLAIM_DAYS: "1" });
+    expect(await reclaim({ ...live, LUNABOT_TUNNEL_RECLAIM_PREVIEW_DAYS: "2" })).toMatchObject({ preview: { offlineDays: 2, eligible: null } });
+    await runScheduledCleanup(worker, { LUNABOT_TUNNEL_OFFLINE_RECLAIM_DAYS: "1" });
     expect((await endpointState(twoDays.id)).status).toBe("deleted");
     expect((await endpointState(online.id)).status).toBe("ready");
   });
@@ -4188,7 +4188,7 @@ describe("removing a tunnel whose computer is online", () => {
     cloudflare.reconnectsAfterCleanup = 1_000;
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const vars = minimum({ OMB_CLEANUP_SWEEP_LIMIT: "1" });
+    const vars = minimum({ LUNABOT_CLEANUP_SWEEP_LIMIT: "1" });
     const firstTunnel = tunnelOf(cloudflare, first).id;
     cloudflare.calls.length = 0;
 
@@ -4228,7 +4228,7 @@ describe("removing a tunnel whose computer is online", () => {
     cloudflare.failures.add("cleanup_connections");
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const vars = minimum({ OMB_CLEANUP_SWEEP_LIMIT: "1" });
+    const vars = minimum({ LUNABOT_CLEANUP_SWEEP_LIMIT: "1" });
 
     await runScheduledCleanup(worker, vars);
     expect(await endpointState(first.id)).toMatchObject({ status: "deleting", last_error_code: "cf_api_10000", tunnel_id: tunnel.id });

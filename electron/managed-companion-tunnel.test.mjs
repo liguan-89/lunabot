@@ -26,7 +26,7 @@ const ORIGIN_TARGET =
     ? {
         pid: 31337,
         socketPath:
-          "\\\\.\\pipe\\openmausbot-companion-origin-31337-12345678-1234-1234-1234-123456789abc",
+          "\\\\.\\pipe\\lunabot-companion-origin-31337-12345678-1234-1234-1234-123456789abc",
       }
     : { pid: 31337, socketPath: "/tmp/omb-companion-origin-test/origin.sock" };
 const temporaryDirectories = [];
@@ -199,7 +199,7 @@ describe("cloudflared binary resolution", () => {
         appPath: "/checkout",
         platform: "linux",
         arch: "x64",
-        environment: { OMB_CLOUDFLARED_PATH: "./untrusted-cloudflared" },
+        environment: { LUNABOT_CLOUDFLARED_PATH: "./untrusted-cloudflared" },
         exists: () => true,
       }),
     ).toBeNull();

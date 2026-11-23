@@ -421,7 +421,7 @@ describe("automations made before the owner kept the managed service out", () =>
   });
 
   it("the host reports the switch as off, for the app and for a bot's event list, and calls nothing", async () => {
-    vi.stubEnv("OMB_COMPOSIO_BROKER", "off");
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER", "off");
     try {
       const { createAppTriggerHost } = await import("./app-trigger-host.ts");
       const fetches = vi.fn();

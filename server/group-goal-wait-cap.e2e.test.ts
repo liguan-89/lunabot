@@ -37,9 +37,9 @@ const api = async (method: string, path: string, body?: unknown): Promise<{ stat
   return { status: response.status, body: await response.json() };
 };
 
-// 本版只有一个 pi 实例，环境开关却是进程级的：包一层 .mjs，按引擎 spawn 的 OMB_BOT_ID
+// 本版只有一个 pi 实例，环境开关却是进程级的：包一层 .mjs，按引擎 spawn 的 LUNABOT_BOT_ID
 // 为该 bot 挑 FAKE_PI_MODE/REPLIES——与旧夹具每 bot 一台 claude 的语义一致。目录探测没有
-// OMB_BOT_ID，落到 happy 默认，requireAvailableModel 才能拿到模型列表。
+// LUNABOT_BOT_ID，落到 happy 默认，requireAvailableModel 才能拿到模型列表。
 let botMapPath = "";
 
 const wrapper = (data: string, fakeCli: string, mapPath: string) => [
@@ -48,12 +48,12 @@ const wrapper = (data: string, fakeCli: string, mapPath: string) => [
   'import { join } from "node:path";',
   'import { pathToFileURL } from "node:url";',
   `const bots = existsSync(${JSON.stringify(mapPath)}) ? JSON.parse(readFileSync(${JSON.stringify(mapPath)}, "utf8")) : {};`,
-  'const spec = bots[process.env.OMB_BOT_ID ?? ""] ?? {};',
+  'const spec = bots[process.env.LUNABOT_BOT_ID ?? ""] ?? {};',
   'if (spec.compat !== false) process.env.FAKE_PI_CLAUDE_COMPAT = "1";',
   'process.env.FAKE_PI_MODE = spec.mode ?? "happy";',
   "if (spec.replies) {",
   "  process.env.FAKE_PI_REPLIES = JSON.stringify(spec.replies);",
-  `  process.env.FAKE_PI_REPLY_STATE = join(${JSON.stringify(data)}, \`reply-state-\${process.env.OMB_BOT_ID}.txt\`);`,
+  `  process.env.FAKE_PI_REPLY_STATE = join(${JSON.stringify(data)}, \`reply-state-\${process.env.LUNABOT_BOT_ID}.txt\`);`,
   "}",
   `await import(${JSON.stringify(pathToFileURL(fakeCli).href)});`,
 ].join("\n");
@@ -85,11 +85,11 @@ beforeAll(async () => {
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home,
       USERPROFILE: home,
-      OMB_PORT: String(port),
-      OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_STATIC_DIR: staticDir,
+      LUNABOT_PORT: String(port),
+      LUNABOT_WEBHOOK_PORT: String(port + 1),
+      LUNABOT_STATIC_DIR: staticDir,
       // seconds, not minutes: the point of this file is the cap firing
-      OMB_GOAL_WAIT_MAX_MS: "1500",
+      LUNABOT_GOAL_WAIT_MAX_MS: "1500",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

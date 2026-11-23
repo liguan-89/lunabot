@@ -23,7 +23,7 @@ directory, health-probes it, and reloads the window — roughly fifteen
 seconds, and a failed switch leaves you exactly where you were. The current
 data folder stays "This computer" and behaves exactly as before: zero
 migration, and it is never forgettable. The server itself is unchanged —
-`OMB_DATA_DIR` already isolates everything, and the per-directory
+`LUNABOT_DATA_DIR` already isolates everything, and the per-directory
 `environment-id` already tells two environments apart.
 
 Everything the environment holds is isolated with it: bots, provider

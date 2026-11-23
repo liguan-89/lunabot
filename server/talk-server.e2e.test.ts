@@ -10,7 +10,7 @@ const request = (route: string, init?: RequestInit) => fetch(`${fixture.info.url
 
 beforeAll(async () => {
   globalThis.fetch = (input, init = {}) => realFetch(input, { ...init, headers: { ...Object.fromEntries(new Headers(init.headers)), "x-lunabot-desktop-owner": owner } });
-  fixture = await launchVerificationServer({ ...process.env, OMB_TEST_DESKTOP_OWNER_TOKEN: owner });
+  fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_DESKTOP_OWNER_TOKEN: owner });
 }, 90_000);
 afterAll(async () => {
   globalThis.fetch = realFetch;

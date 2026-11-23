@@ -70,7 +70,7 @@ describe("sign-in codes through the server's own mail server", () => {
     refuse = false;
     expect(await mail.send("her@example.test")).toBe("sent");
     await expect(createSignInMail({ url: "smtp://localhost:25", transport: { sendMail: async () => undefined } }).send("her@example.test"))
-      .rejects.toThrow("OMB_SIGNIN_SMTP_FROM");
+      .rejects.toThrow("LUNABOT_SIGNIN_SMTP_FROM");
   });
 
   it.each(["success", "failure"])("keeps a resent code after an older delivery ends in %s", async (outcome) => {
@@ -106,11 +106,11 @@ describe("sign-in codes through the server's own mail server", () => {
     expect(mail.check("her@example.test", code)).toBe("wrong");
   });
 
-  it("is what email sign-in uses when OMB_SIGNIN_SMTP_URL is set: no account service, the allow-list as before", async () => {
+  it("is what email sign-in uses when LUNABOT_SIGNIN_SMTP_URL is set: no account service, the allow-list as before", async () => {
     const box = mailbox();
     const signIn = createEmailSignIn({
       allow: { admins: ["her@example.test"], members: ["@team.test"] },
-      env: { OMB_SIGNIN_SMTP_URL: URL_, OMB_CONTROL_PLANE_URL: "https://control-plane.invalid" },
+      env: { LUNABOT_SIGNIN_SMTP_URL: URL_, LUNABOT_CONTROL_PLANE_URL: "https://control-plane.invalid" },
       fetchImpl: async () => { throw new Error("the account service must not be asked"); },
       mailTransport: box.transport,
     });
@@ -126,10 +126,10 @@ describe("sign-in codes through the server's own mail server", () => {
   });
 
   it("says why when the mail server cannot be used", async () => {
-    const signIn = createEmailSignIn({ allow: { admins: ["her@example.test"], members: [] }, env: { OMB_SIGNIN_SMTP_URL: "smtp://localhost:25" } });
+    const signIn = createEmailSignIn({ allow: { admins: ["her@example.test"], members: [] }, env: { LUNABOT_SIGNIN_SMTP_URL: "smtp://localhost:25" } });
     const refused = await signIn.start("her@example.test");
     expect(refused).toMatchObject({ ok: false, status: 502 });
-    expect(refused.ok ? "" : refused.error).toContain("OMB_SIGNIN_SMTP_FROM");
+    expect(refused.ok ? "" : refused.error).toContain("LUNABOT_SIGNIN_SMTP_FROM");
   });
 });
 

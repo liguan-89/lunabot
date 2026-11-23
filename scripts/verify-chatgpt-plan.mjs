@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 
 const root = mkdtempSync(join(tmpdir(), "omb-chatgpt-plan-"));
-process.env.OMB_DATA_DIR = join(root, "omb");
+process.env.LUNABOT_DATA_DIR = join(root, "omb");
 const { chatgptPlanCodexArgs } = await import("../server/drivers/codex.ts");
 const home = join(root, "home");
 const cwd = join(root, "workspace");
@@ -56,7 +56,7 @@ async function start() {
     }
     else if (message.method === "turn/completed") completions?.(message.params);
   });
-  await rpc("initialize", { clientInfo: { name: "openmausbot", title: "OpenMausBot", version: "fixture" } });
+  await rpc("initialize", { clientInfo: { name: "lunabot", title: "Luna Bot", version: "fixture" } });
   child.stdin.write(JSON.stringify({ method: "initialized" }) + "\n");
 }
 function rpc(method, params) {

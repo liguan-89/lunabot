@@ -1,4 +1,4 @@
-// The OMB_* switches the harness gives the agents proxy, read into the profile agents-catalog.ts lists tools for.
+// The LUNABOT_* switches the harness gives the agents proxy, read into the profile agents-catalog.ts lists tools for.
 
 /** Which tools a conversation is shown, the same on every one of its turns. Presentation only: the server still
  * authenticates and scopes every call. */
@@ -38,22 +38,22 @@ export interface CatalogProfile {
 /** Everything is off unless the harness says "1". */
 export function catalogProfileFromEnv(env: NodeJS.ProcessEnv): CatalogProfile {
   return {
-    skillAuthoring: env.OMB_SKILL_AUTHORING_ENABLED === "1",
-    sharedComputers: env.OMB_SHARED_COMPUTERS_ENABLED === "1",
-    voiceNotes: env.OMB_VOICE_NOTES === "1",
-    xResearch: env.OMB_X_RESEARCH === "1",
-    research: env.OMB_RESEARCH === "1",
-    cloudHome: env.OMB_CLOUD_HOME === "1",
-    memoryEnabled: env.OMB_MEMORY_ENABLED !== "0",
-    chief: env.OMB_CHIEF_OF_STAFF === "1",
-    botId: env.OMB_BOT_ID ?? "",
-    team: env.OMB_TEAM_PEOPLE === "1",
-    mausbot: env.OMB_MAUSBOT === "1",
-    computerSelection: env.OMB_COMPUTER_SELECTION === "1",
-    room: env.OMB_ROOM === "1",
-    imageGeneration: env.OMB_IMAGE_GENERATION === "1",
-    videoGeneration: env.OMB_VIDEO_GENERATION === "1",
-    meetings: env.OMB_MEETINGS === "1",
-    toolSelection: env.OMB_TOOL_SELECTION === "1",
+    skillAuthoring: env.LUNABOT_SKILL_AUTHORING_ENABLED === "1",
+    sharedComputers: env.LUNABOT_SHARED_COMPUTERS_ENABLED === "1",
+    voiceNotes: env.LUNABOT_VOICE_NOTES === "1",
+    xResearch: env.LUNABOT_X_RESEARCH === "1",
+    research: env.LUNABOT_RESEARCH === "1",
+    cloudHome: env.LUNABOT_CLOUD_HOME === "1",
+    memoryEnabled: env.LUNABOT_MEMORY_ENABLED !== "0",
+    chief: env.LUNABOT_CHIEF_OF_STAFF === "1",
+    botId: env.LUNABOT_BOT_ID ?? "",
+    team: env.LUNABOT_TEAM_PEOPLE === "1",
+    mausbot: env.LUNABOT_MAUSBOT === "1",
+    computerSelection: env.LUNABOT_COMPUTER_SELECTION === "1",
+    room: env.LUNABOT_ROOM === "1",
+    imageGeneration: env.LUNABOT_IMAGE_GENERATION === "1",
+    videoGeneration: env.LUNABOT_VIDEO_GENERATION === "1",
+    meetings: env.LUNABOT_MEETINGS === "1",
+    toolSelection: env.LUNABOT_TOOL_SELECTION === "1",
   };
 }

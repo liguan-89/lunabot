@@ -11,10 +11,10 @@ From a blank Linux server to Luna Bot running on it around the clock, reachable 
 For a fresh Ubuntu 22.04 or 24.04 server (x86-64, at least 2 CPUs, 4 GB of memory and 20 GB of free disk) and a domain name whose A record already points at it:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh | sudo sh -s -- --domain lunabot.example.com
+curl -fsSL https://raw.githubusercontent.com/liguan-89/lunabot/main/deploy/install.sh | sudo sh -s -- --domain lunabot.example.com
 ```
 
-The installer ([`deploy/install.sh`](https://github.com/milind-soni/OpenMausBot/blob/main/deploy/install.sh)) does path B below for you and ends with Luna Bot answering at `https://maus.example.com`.
+The installer ([`deploy/install.sh`](https://github.com/liguan-89/lunabot/blob/main/deploy/install.sh)) does path B below for you and ends with Luna Bot answering at `https://lunabot.example.com`.
 
 **It checks the server first, and changes nothing while it checks.** Each check that fails prints one sentence saying what to fix, and nothing is installed until all pass:
 
@@ -36,7 +36,7 @@ The installer ([`deploy/install.sh`](https://github.com/milind-soni/OpenMausBot/
 To run only the checks, add `--check`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh | sudo sh -s -- --check --domain lunabot.example.com
+curl -fsSL https://raw.githubusercontent.com/liguan-89/lunabot/main/deploy/install.sh | sudo sh -s -- --check --domain lunabot.example.com
 ```
 
 If Docker is missing, the installer asks before installing it with Docker's official script (`get.docker.com`); `--install-docker` says yes ahead of time. It installs nothing else on the server.
@@ -46,7 +46,7 @@ If Docker is missing, the installer asks before installing it with Docker's offi
 | Path | What |
 |---|---|
 | `compose.yaml`, `Caddyfile` | the same server-plus-Caddy setup as path B, Caddy in its own container reaching the server over a socket; written again on every run |
-| `.env` | your settings: `DOMAIN`, the pinned version (`OMB_IMAGE`) and anything you add, such as [who may sign in with an email](self-hosting.md#sign-in-with-your-email). The installer keeps your lines |
+| `.env` | your settings: `DOMAIN`, the pinned version (`LUNABOT_IMAGE`) and anything you add, such as [who may sign in with an email](self-hosting.md#sign-in-with-your-email). The installer keeps your lines |
 | `data/` | everything Luna Bot stores: chats, bots, engine sign-ins, paired devices. Never touched once it exists |
 | `caddy/` | the HTTPS certificates |
 | `update.sh` | the update command, once this repository has it (see below) |
@@ -54,14 +54,14 @@ If Docker is missing, the installer asks before installing it with Docker's offi
 
 `update.sh` and the sandbox's files are this repository's own, taken from the tag of the version being installed so they match it, and from `main` only when that tag does not have them. The installer says which it used.
 
-It runs the newest release, pinned by its version; once a `stable` channel is published it follows that instead. If that version has no bots' sandbox, the checks (`--check` too) say so before anything is downloaded. It never runs `latest`, which follows every commit. It then waits until the server reports healthy and `https://maus.example.com` answers with a valid certificate, and prints the address.
+It runs the newest release, pinned by its version; once a `stable` channel is published it follows that instead. If that version has no bots' sandbox, the checks (`--check` too) say so before anything is downloaded. It never runs `latest`, which follows every commit. It then waits until the server reports healthy and `https://lunabot.example.com` answers with a valid certificate, and prints the address.
 
 **The bots' sandbox.** A Luna Bot version with the hardened profile runs every bot in a sandbox, away from the server's settings, keys and other bots' files, and Docker's defaults do not let a container build one. For such a version the installer prepares the server (a seccomp profile in `/etc/mausbot` and an AppArmor profile in `/etc/apparmor.d`, the two the Luna Bot connector installs), starts the server with the four security settings in `compose.box.yaml` (no `--privileged`, no added capability), and then runs the server's own self-check, which among other things confirms that a bot cannot read `config.json`. If a check fails that means a bot could reach something it must not, or that bots would not work, the installer names it and does not report success; so does a self-check that gives no answer, or a check the installer has never heard of. Five checks that are about neither (the kernel keyring, the sandbox's host name, the CPU list, a hosting provider's address, and reaching the public internet) only print a note. For a version without the hardened profile it says the sandbox is not there yet; run the install command again after updating to one that has it. `--no-sandbox` skips all of this, for a server only you sign in to on a host without AppArmor.
 
 **Sign in as the first admin** with a one-time link made on the server. Run in a terminal, the installer makes one and prints it when it finishes. It does not when its output goes anywhere else, such as a log, because whoever reads the link can sign in as the admin until it is used or expires. To make one yourself:
 
 ```sh
-cd /opt/openmausbot && sudo docker compose exec omb openmausbot pair --label "First admin"
+cd /opt/openmausbot && sudo docker compose exec omb lunabot pair --label "First admin"
 ```
 
 Open the link it prints, or paste it into the desktop app under **＋ → Connect to a server**. To sign in with an emailed code instead, run the installer with `--email you@example.com`.
@@ -71,7 +71,7 @@ Open the link it prints, or paste it into the desktop app under **＋ → Connec
 - **Stop:** `--uninstall` stops the server and removes its containers. It deletes nothing: your data stays in `/opt/openmausbot/data`.
 - **Every other command in this guide** that starts `docker compose` for path B works from `/opt/openmausbot`.
 - **What the installer contacts:** the registries and Let's Encrypt from the table, GitHub's release list, this repository's files on `raw.githubusercontent.com`, and `cloudflare.com/cdn-cgi/trace` to learn the server's public address for the DNS check. It sends no telemetry.
-- **Behind a load balancer or NAT** that forwards ports 80 and 443 to the server, set `OMB_INSTALL_SKIP_DNS=1` to skip the DNS check.
+- **Behind a load balancer or NAT** that forwards ports 80 and 443 to the server, set `LUNABOT_INSTALL_SKIP_DNS=1` to skip the DNS check.
 
 The installer also accepts the one-time code of a server connected to Luna Bot. That offering is not available yet.
 
@@ -89,7 +89,7 @@ Three ways to make the server reachable are covered. Pick one; the rest of the g
 
 Only need the phone app? Add `--relay` to path B or C on a machine signed in with `lunabot login --relay` (never on a machine with a path A address), or use it on its own: the app pairs by QR through Luna Bot Relay, end-to-end encrypted, with no domain, open port or VPN. See [Phones through Luna Bot Relay](phone-relay-server.md).
 
-Whichever you pick, the login is the same: you **pair** each device once with a short code and it stays signed in. A session lasts 30 days; using it with half that or less left renews it to a full 30, up to 180 days from pairing (`OMB_SESSION_TTL_DAYS` and `OMB_SESSION_MAX_DAYS` change both numbers). There is no password.
+Whichever you pick, the login is the same: you **pair** each device once with a short code and it stays signed in. A session lasts 30 days; using it with half that or less left renews it to a full 30, up to 180 days from pairing (`LUNABOT_SESSION_TTL_DAYS` and `LUNABOT_SESSION_MAX_DAYS` change both numbers). There is no password.
 
 ## Hetzner launch check (2026-09-07)
 
@@ -134,18 +134,18 @@ ssh root@YOUR_SERVER_IP
 ```
 
 For paths A and C, use the same unprivileged Linux account for setup and the
-running service. The examples below use `maus` with home `/home/maus`. From an
+running service. The examples below use `lunabot` with home `/home/lunabot`. From an
 administrator shell, create it if it does not already exist, then switch to it:
 
 ```sh
-sudo useradd --create-home --shell /bin/bash maus
-sudo -iu maus
+sudo useradd --create-home --shell /bin/bash lunabot
+sudo -iu lunabot
 ```
 
-The login shell also changes into `/home/maus`; run setup there, not from `/root`.
+The login shell also changes into `/home/lunabot`; run setup there, not from `/root`.
 Run the `npx` commands and engine sign-ins below in this account. Keep a separate
 administrator shell for system packages and systemd. If you already signed in as
-root, sign in again as `maus`; those accounts have different homes and credentials.
+root, sign in again as `lunabot`; those accounts have different homes and credentials.
 
 ## Path A: a public address with one command
 
@@ -169,11 +169,11 @@ Skip to "Install and sign the engines in".
 
 ## Path B: your own domain, with Docker
 
-One container for the server plus Caddy for HTTPS at `https://maus.example.com`.
+One container for the server plus Caddy for HTTPS at `https://lunabot.example.com`.
 
 The [installer](#quick-start-one-command-on-your-own-domain) does these steps for you on Ubuntu. Do them by hand on another system, to build your own image with `ENGINES`, or to see what it does.
 
-1. **Point a name at the server.** In your DNS provider add an **A record** (name `maus`, value the server's public IP). After a few minutes `ping lunabot.example.com` should answer with that IP. Ports 80 and 443 must be open; most providers open them by default.
+1. **Point a name at the server.** In your DNS provider add an **A record** (name `lunabot`, value the server's public IP). After a few minutes `ping lunabot.example.com` should answer with that IP. Ports 80 and 443 must be open; most providers open them by default.
 2. **Install Docker:**
 
    ```sh
@@ -184,7 +184,7 @@ The [installer](#quick-start-one-command-on-your-own-domain) does these steps fo
 3. **Get the deploy files and set the name:**
 
    ```sh
-   git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+   git clone https://github.com/liguan-89/lunabot && cd lunabot/deploy
    cp .env.example .env
    nano .env                # DOMAIN=lunabot.example.com ; ENGINES=@anthropic-ai/claude-code @openai/codex
    ```
@@ -199,23 +199,23 @@ The [installer](#quick-start-one-command-on-your-own-domain) does these steps fo
    docker compose ps        # omb "healthy", caddy "running"
    ```
 
-   Caddy requests the certificate on its own; give it a minute. Then `https://maus.example.com` shows a page asking for a pairing code. That is correct: nothing works until you pair.
+   Caddy requests the certificate on its own; give it a minute. Then `https://lunabot.example.com` shows a page asking for a pairing code. That is correct: nothing works until you pair.
 
 In this path, every `npx lunabot …` command below is run inside the container instead:
 
 ```sh
-docker compose exec omb openmausbot pair --label "My MacBook"
+docker compose exec omb lunabot pair --label "My MacBook"
 ```
 
 ## Path C: only your Tailscale network
 
-From the administrator shell, install Tailscale on the server and sign in (`curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up`). Enable HTTPS certificates for your tailnet once at https://login.tailscale.com/admin/dns (HTTPS Certificates), then run this from the `maus` shell:
+From the administrator shell, install Tailscale on the server and sign in (`curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up`). Enable HTTPS certificates for your tailnet once at https://login.tailscale.com/admin/dns (HTTPS Certificates), then run this from the `lunabot` shell:
 
 ```sh
 npx lunabot serve --tailscale
 ```
 
-Tailscale terminates HTTPS with its own certificate and the pairing link uses the server's MagicDNS name (`https://maus.tail1234.ts.net`). `serve` runs `tailscale serve` in the foreground, so the share ends when it stops. Only devices on your tailnet can reach it, which is a very good property for a server that can run tools.
+Tailscale terminates HTTPS with its own certificate and the pairing link uses the server's MagicDNS name (`https://lunabot.tail1234.ts.net`). `serve` runs `tailscale serve` in the foreground, so the share ends when it stops. Only devices on your tailnet can reach it, which is a very good property for a server that can run tools.
 
 ## Give the bots a browser (optional)
 
@@ -227,7 +227,7 @@ administrator shell:
 sudo -H npx --yes lunabot browser install --with-deps
 ```
 
-Then install the browser in the service account's home, from the `maus` shell:
+Then install the browser in the service account's home, from the `lunabot` shell:
 
 ```sh
 npx --yes lunabot browser install
@@ -246,7 +246,7 @@ gets its own isolated session whose logins persist across restarts.
 
 The npm Luna Bot package does not install model engine CLIs. For paths A and C,
 install the engine you use in the service account, then sign it in. For example,
-from the `maus` shell, for Claude:
+from the `lunabot` shell, for Claude:
 
 ```sh
 npm install --global --prefix "$HOME/.local" @anthropic-ai/claude-code
@@ -298,7 +298,7 @@ npx lunabot status                # the address others use, and whether it answe
 ## Keep it running
 
 `npx lunabot serve` is a plain foreground process. `npx lunabot service install --tunnel` (or `--tailscale`) writes a unit like the one below for you, with a copy of the release it runs beside your data. To write it by hand for systemd (paths A and C),
-install a chosen release first, from the `maus` shell. Replace `X.Y.Z` with the
+install a chosen release first, from the `lunabot` shell. Replace `X.Y.Z` with the
 published version you want to run:
 
 ```sh
@@ -315,11 +315,11 @@ Description=Luna Bot server
 After=network-online.target
 
 [Service]
-User=maus
-WorkingDirectory=/home/maus
-Environment=HOME=/home/maus
-Environment=PATH=/home/maus/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/maus/.local/bin/lunabot serve --tunnel
+User=lunabot
+WorkingDirectory=/home/lunabot
+Environment=HOME=/home/lunabot
+Environment=PATH=/home/lunabot/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/lunabot/.local/bin/lunabot serve --tunnel
 Restart=always
 RestartSec=5
 
@@ -342,11 +342,11 @@ same release without an npm install prompt or an implicit upgrade.
 
 A self-hosted server follows the **stable** channel: a released version that
 Luna Bot's own Clouds have run for 48 hours first. The image tag `stable` and
-[`stable.json`](https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json)
+[`stable.json`](https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json)
 name it. The tag `latest` follows every change on `main`; it is for trying
 things out, not for a server you rely on. **Check for updates** in the app
 compares your server with the stable version. To hear of every release as soon
-as it is published instead, set `OMB_UPDATE_CHANNEL=newest` in the server's
+as it is published instead, set `LUNABOT_UPDATE_CHANNEL=newest` in the server's
 environment.
 
 ### Path B (Docker): one command, with a way back
@@ -363,7 +363,7 @@ has no checkout, with its `compose.yaml`, `.env` and `data/` in one folder such
 as `/opt/openmausbot`, runs the same script on that folder:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/update.sh -o update.sh
+curl -fsSL https://raw.githubusercontent.com/liguan-89/lunabot/main/deploy/update.sh -o update.sh
 sudo bash update.sh --dir /opt/openmausbot
 ```
 
@@ -390,13 +390,13 @@ every file's owner and mode either way. The script then:
    changed. The copy from the update before is removed only after this one
    has matched. The server is down from here until step 4; how long depends
    on how much data there is.
-3. Writes the image into `.env` (`OMB_IMAGE=ghcr.io/milind-soni/openmausbot@sha256:…`)
+3. Writes the image into `.env` (`LUNABOT_IMAGE=ghcr.io/liguan-89/lunabot@sha256:…`)
    and starts it. An install the installer made while Caddy still shared the
    server's network gets the installer's current `compose.yaml` and
    `Caddyfile` here, as a run of the installer would write them (the rollback
    puts the old ones back). For this repository's `docker-compose.yml`,
    `git pull` brings the current one; `--check` says when it is needed.
-4. Waits, up to two minutes (`OMB_UPDATE_WAIT_S` for longer), until the new server answers `/api/health`
+4. Waits, up to two minutes (`LUNABOT_UPDATE_WAIT_S` for longer), until the new server answers `/api/health`
    steadily, says it is the new version, can still start a bot if it could
    before (the server's own count of ready engines, `GET /api/health/engines`,
    which a hardened server answers too; `lunabot doctor` on a version
@@ -475,16 +475,16 @@ from **Settings → Engines** live on the data volume and survive either way.
 There is no one-command updater for an npm install yet. Do what the script
 does: copy the data first, install one named version, check it, and keep the
 way back. Take the stable version number from
-[`stable.json`](https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json)
+[`stable.json`](https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json)
 (`"version"`), and note the one you run now (`lunabot --version`). From
 the administrator shell, replacing `X.Y.Z`:
 
 ```sh
 sudo systemctl stop lunabot
-sudo -iu maus sh -c 'umask 077; tar czf ~/openmausbot-before-update.tgz -C ~ .lunabot && chmod 600 ~/openmausbot-before-update.tgz'
-sudo -iu maus npm install --global --prefix /home/maus/.local lunabot@X.Y.Z
+sudo -iu lunabot sh -c 'umask 077; tar czf ~/lunabot-before-update.tgz -C ~ .lunabot && chmod 600 ~/lunabot-before-update.tgz'
+sudo -iu lunabot npm install --global --prefix /home/lunabot/.local lunabot@X.Y.Z
 sudo systemctl start lunabot
-curl -sf http://127.0.0.1:8799/api/health && sudo -iu maus lunabot doctor
+curl -sf http://127.0.0.1:8799/api/health && sudo -iu lunabot lunabot doctor
 ```
 
 If the install fails, or the last line does not end with the server answering
@@ -492,8 +492,8 @@ and an engine ready, go back (replace `OLD` with the version you noted):
 
 ```sh
 sudo systemctl stop lunabot
-sudo -iu maus npm install --global --prefix /home/maus/.local lunabot@OLD
-sudo -iu maus sh -c 'mv ~/.lunabot ~/.lunabot-failed-update && tar xzf ~/openmausbot-before-update.tgz -C ~'
+sudo -iu lunabot npm install --global --prefix /home/lunabot/.local lunabot@OLD
+sudo -iu lunabot sh -c 'mv ~/.lunabot ~/.lunabot-failed-update && tar xzf ~/lunabot-before-update.tgz -C ~'
 sudo systemctl start lunabot
 ```
 
@@ -522,8 +522,8 @@ credentials, and paired sessions). Run it from the service account's shell:
 ```sh
 umask 077
 backup_dir=$(mktemp -d "$PWD/lunabot-backup.XXXXXX")
-tar czf "$backup_dir/openmausbot-data.tgz" -C "$HOME" .lunabot
-chmod 600 "$backup_dir/openmausbot-data.tgz"
+tar czf "$backup_dir/lunabot-data.tgz" -C "$HOME" .lunabot
+chmod 600 "$backup_dir/lunabot-data.tgz"
 ```
 
 A full backup also needs your engine credential/configuration paths, such as
@@ -540,7 +540,7 @@ volume name if you changed the Compose project:
 ```sh
 docker compose stop
 backup_dir=$(mktemp -d "$PWD/lunabot-backup.XXXXXX")
-docker run --rm -v deploy_data:/data:ro -v "$backup_dir":/b alpine sh -c 'umask 077; tar czf /b/openmausbot-data.tgz -C /data . && chmod 600 /b/openmausbot-data.tgz'
+docker run --rm -v deploy_data:/data:ro -v "$backup_dir":/b alpine sh -c 'umask 077; tar czf /b/lunabot-data.tgz -C /data . && chmod 600 /b/lunabot-data.tgz'
 docker compose start
 ```
 
@@ -549,7 +549,7 @@ volume with it (`lunabot-backup.XXXXXX` is the folder the backup made):
 
 ```sh
 docker compose stop
-docker run --rm -v deploy_data:/data -v "$PWD/lunabot-backup.XXXXXX":/b:ro alpine sh -c 'find /data -mindepth 1 -delete && tar xzpf /b/openmausbot-data.tgz -C /data'
+docker run --rm -v deploy_data:/data -v "$PWD/lunabot-backup.XXXXXX":/b:ro alpine sh -c 'find /data -mindepth 1 -delete && tar xzpf /b/lunabot-data.tgz -C /data'
 docker compose start
 ```
 
@@ -592,7 +592,7 @@ its own.
 
 Read this before putting anything else in front of the server.
 
-- The server only ever listens on loopback (`127.0.0.1:8799`). Never publish that port yourself. The tunnel, Caddy and Tailscale each reach it from the same machine; path B's Caddy, in its own container, reaches it over a Unix socket (`OMB_TUNNEL_SOCKET`), and a request on that socket always counts as a remote one.
+- The server only ever listens on loopback (`127.0.0.1:8799`). Never publish that port yourself. The tunnel, Caddy and Tailscale each reach it from the same machine; path B's Caddy, in its own container, reaches it over a Unix socket (`LUNABOT_TUNNEL_SOCKET`), and a request on that socket always counts as a remote one.
 - A request that arrives through a proxy or the tunnel is treated as remote and needs a session, whatever headers it carries. A proxy of your own (nginx, Traefik, Cloudflare Tunnel) must forward the real `Host` and add `X-Forwarded-For` and `X-Forwarded-Proto`, must not buffer the event stream, and must **not** rewrite `Host` to `127.0.0.1`.
 - Pairing is the login. Want a second wall in front of it? Path B's `Caddyfile` has a commented `basic_auth` block for a shared password.
 - The session cookie is marked `Secure`; do not serve this over plain HTTP on the public internet.
@@ -631,7 +631,7 @@ For paths A and C, an administrator can allow only a trusted, root-owned Chrome
 copy. Find the service user's downloaded executable:
 
 ```sh
-find /home/maus/.agent-browser/browsers -type f -name chrome -executable
+find /home/lunabot/.agent-browser/browsers -type f -name chrome -executable
 ```
 
 Use its actual `chrome-VERSION` directory in every path below; `VERSION` is a
@@ -639,10 +639,10 @@ placeholder, not a fixed Chrome release. Copy the whole directory, including its
 libraries, to a new location that the service user cannot modify:
 
 ```sh
-sudo install -d -o root -g root -m 0755 /opt/openmausbot-browser
-sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/openmausbot-browser/
-sudo chown -R root:root /opt/openmausbot-browser/chrome-VERSION
-sudo chmod -R go-w /opt/openmausbot-browser/chrome-VERSION
+sudo install -d -o root -g root -m 0755 /opt/lunabot-browser
+sudo cp -R /home/lunabot/.agent-browser/browsers/chrome-VERSION /opt/lunabot-browser/
+sudo chown -R root:root /opt/lunabot-browser/chrome-VERSION
+sudo chmod -R go-w /opt/lunabot-browser/chrome-VERSION
 ```
 
 Save this as the root-owned `/etc/apparmor.d/lunabot-chrome`, replacing
@@ -653,7 +653,7 @@ the writable service home would also allow replacement executables.
 abi <abi/4.0>,
 include <tunables/global>
 
-profile lunabot-chrome /opt/openmausbot-browser/chrome-VERSION/chrome flags=(unconfined) {
+profile lunabot-chrome /opt/lunabot-browser/chrome-VERSION/chrome flags=(unconfined) {
   userns,
 }
 ```
@@ -669,11 +669,11 @@ the exact installed version, then run `sudo systemctl daemon-reload` and
 `sudo systemctl restart lunabot`:
 
 ```ini
-Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/openmausbot-browser/chrome-VERSION/chrome
+Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/lunabot-browser/chrome-VERSION/chrome
 ```
 
 For a foreground server, export `AGENT_BROWSER_EXECUTABLE_PATH` to that same
-path in the `maus` shell before starting `serve`. After a Chrome update, copy the
+path in the `lunabot` shell before starting `serve`. After a Chrome update, copy the
 new version and update both the AppArmor profile and service environment; the
 root-owned copy is not updated by the browser installer. Keep
 `kernel.apparmor_restrict_unprivileged_userns=1`.

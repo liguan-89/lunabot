@@ -1,7 +1,7 @@
 // The real server with two silent turns side by side: a pi turn that holds on its prompt with no tool, and a pi turn
 // whose one tool holds until a release file appears. A marker file brings the stall watchdog's twenty minutes forward.
 // The fake pi keeps one warm child per conversation, so the wrapper exits after every turn: each launch reads
-// engine.json again and picks the role that bot plays (server/drivers/pi.ts names the child with OMB_BOT_ID).
+// engine.json again and picks the role that bot plays (server/drivers/pi.ts names the child with LUNABOT_BOT_ID).
 // FAKE_PI_TOOL_CALLS is only played by the fixture's scripted turns (the compat bridge or FAKE_PI_MODE=slow), never by
 // the plain happy turn, so the busy bot runs under the compat bridge: its tool starts as compat-0 and holds.
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -21,7 +21,7 @@ afterEach(async () => {
 });
 
 it("stops a silent turn but spares one whose tool is still running", async () => {
-  fixture = await launchVerificationServer({ ...process.env, OMB_TEST_STALL_CLOCK: "1" });
+  fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_STALL_CLOCK: "1" });
   const { url, dataDir } = fixture.info;
   const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
   const release = join(dataDir, "tool.release");
@@ -34,7 +34,7 @@ it("stops a silent turn but spares one whose tool is still running", async () =>
     'process.env.FAKE_PI_EXIT_AFTER_TURN = "1";',
     // A model-catalog or `--version` probe runs before engine.json exists: it plays the quiet role harmlessly.
     'let role = "quiet";',
-    `try { role = JSON.parse(readFileSync(${JSON.stringify(engineFile)}, "utf8"))[process.env.OMB_BOT_ID ?? ""] ?? "quiet"; } catch {}`,
+    `try { role = JSON.parse(readFileSync(${JSON.stringify(engineFile)}, "utf8"))[process.env.LUNABOT_BOT_ID ?? ""] ?? "quiet"; } catch {}`,
     'if (role === "busy") {',
     // The compat bridge is what plays FAKE_PI_TOOL_CALLS: the call starts, holds while the release file is absent,
     // and the reply follows once it appears.

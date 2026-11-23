@@ -45,7 +45,7 @@ const MESSAGES: Record<string, Buffer> = {
   withPdf: crlf(["From: invoices@example.net", "To: tester@omb-test.example", `Subject: ${encoded("Rechnung März")}`, "Date: Mon, 2 Nov 2026 10:07:00 +0100", "MIME-Version: 1.0", 'Content-Type: multipart/mixed; boundary="b1"', "", "--b1", "Content-Type: text/plain; charset=utf-8", "", "See the attached invoice.", "--b1", 'Content-Type: application/pdf; name="x.pdf"', "Content-Transfer-Encoding: base64", "Content-Disposition: attachment; filename*=UTF-8''..%2F..%2FRechnung%20M%C3%A4rz.pdf", "", ...(PDF.toString("base64").match(/.{1,76}/gu) ?? []), "--b1--", ""]),
 };
 
-describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email against a real mail server", () => {
+describe.skipIf(!process.env.LUNABOT_EMAIL_REAL_TEST)("Email against a real mail server", () => {
   const root = mkdtempSync(join(tmpdir(), "omb-mail-real-"));
   const service = createEmailService({ dataDir: root, publicOnly: false, discover, guard });
   const uids: Record<string, number> = {};

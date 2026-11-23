@@ -64,7 +64,7 @@ export function isPublicDomainAddress(address: string): boolean {
 /** Local interfaces only: a tunnel/CDN address or an IP-echo service does not identify where the customer's HTTPS proxy runs. */
 export function customDomainIpv4(
   interfaces = networkInterfaces(),
-  configured = process.env.OMB_PUBLIC_IPV4,
+  configured = process.env.LUNABOT_PUBLIC_IPV4,
 ): string | null {
   if (configured?.trim()) {
     const address = configured.trim();

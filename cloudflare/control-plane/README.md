@@ -167,7 +167,7 @@ Revoking an installation first revokes its local installation credentials, then
 schedules best-effort endpoint cleanup. Cloud cleanup failure cannot restore or
 delay credential revocation. Repeating the owner-scoped installation DELETE is
 safe and retries retained cleanup state. A five-minute cron also processes at
-most `OMB_CLEANUP_SWEEP_LIMIT` (code default 20, which `wrangler.jsonc` ships;
+most `LUNABOT_CLEANUP_SWEEP_LIMIT` (code default 20, which `wrangler.jsonc` ships;
 it needs Workers Paid, whose per-invocation subrequest and D1 limits the
 default relies on) expired-lease rows per run when
 they are already deleting, belong to a revoked installation, or outlive a
@@ -281,7 +281,7 @@ A failure in one account is logged and never stops the others:
    - `inactive` (never ran), with no activation time, created at least two
      days ago; or
    - `down` with its last connection ended at least
-     `OMB_TUNNEL_OFFLINE_RECLAIM_DAYS` (default 21, minimum 1) days ago and no
+     `LUNABOT_TUNNEL_OFFLINE_RECLAIM_DAYS` (default 21, minimum 1) days ago and no
      later activation.
 
    `healthy` and `degraded` tunnels, any reported connection, an unknown
@@ -315,11 +315,11 @@ A failure in one account is logged and never stops the others:
    emits `"alert": "managed_endpoint_pool_capacity"`: once an account fills it
    reports `full` for good, so page on the pool alert instead.
 
-`OMB_TUNNEL_RECLAIM` is `observe` unless set to `on` (an unset or invalid value
+`LUNABOT_TUNNEL_RECLAIM` is `observe` unless set to `on` (an unset or invalid value
 observes): it logs `idle`/`eligible` counts without marking anything. Deploy in
 `observe`, check one full scan cycle of real counts, then set it to `on`.
 
-`OMB_TUNNEL_LIMIT` and `OMB_DNS_RECORD_LIMIT` (default 1000 each) are the
+`LUNABOT_TUNNEL_LIMIT` and `LUNABOT_DNS_RECORD_LIMIT` (default 1000 each) are the
 primary account's tunnel quota and its zone's DNS record quota; extra accounts
 carry their own. The limits drive the alerts and `/healthz`, rank accounts for
 new endpoints, and decide whether a tunnel-creation `429` is the quota. They
@@ -328,7 +328,7 @@ to Cloudflare's real quotas and raise them when Cloudflare raises a quota (a
 limit below the real quota turns a genuine rate limit at that count into a
 ten-minute capacity gate for that account and, with several accounts, makes
 the account look full, so new endpoints go elsewhere while it still has
-room). `wrangler.jsonc` sets `OMB_DNS_RECORD_LIMIT` to 3500 because the
+room). `wrangler.jsonc` sets `LUNABOT_DNS_RECORD_LIMIT` to 3500 because the
 `openmausbot.com` zone is on Pro.
 
 `GET /healthz` keeps `ok` and `service` unchanged (desktops gate hosted sign-in
@@ -404,8 +404,8 @@ trail D1 by that long; allocation gating always reads D1.
 ### Several Cloudflare accounts
 
 The account configured by `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ZONE_ID`,
-`COMPANION_HOST_SUFFIX`, the `CLOUDFLARE_API_TOKEN` secret, `OMB_TUNNEL_LIMIT`,
-and `OMB_DNS_RECORD_LIMIT` is the primary. Without `CLOUDFLARE_ENDPOINT_ACCOUNTS`
+`COMPANION_HOST_SUFFIX`, the `CLOUDFLARE_API_TOKEN` secret, `LUNABOT_TUNNEL_LIMIT`,
+and `LUNABOT_DNS_RECORD_LIMIT` is the primary. Without `CLOUDFLARE_ENDPOINT_ACCOUNTS`
 it is the only account, and endpoints behave exactly as described above.
 
 `CLOUDFLARE_ENDPOINT_ACCOUNTS` adds up to three more accounts. It is a JSON
@@ -578,7 +578,7 @@ Tailscale still work).
 **Raising a zone's record quota.** After moving a zone to a plan with more
 DNS records (Free zones added since September 2024 allow 200, Pro 3,500),
 confirm the new quota with `GET zones/<zone id>/dns_records/usage`
-(`record_quota`), set the account's limit to it (`OMB_DNS_RECORD_LIMIT` for
+(`record_quota`), set the account's limit to it (`LUNABOT_DNS_RECORD_LIMIT` for
 the primary, the entry's `dnsRecordLimit` in `CLOUDFLARE_ENDPOINT_ACCOUNTS`
 otherwise; with 3,500 records the account's 1,000 tunnels bind first), and
 deploy. Until that deploy the account looks full at its old limit and gets
@@ -587,7 +587,7 @@ no new endpoint while another account has room.
 Each account adds two Cloudflare reads to every cron run (a tunnel page and a
 DNS count), and each move two lookups in the old account. Tokens created by
 the same Cloudflare user share its 1,200 requests per five minutes. On
-Workers Free, three accounts with `OMB_CLEANUP_SWEEP_LIMIT` 3 use the whole
+Workers Free, three accounts with `LUNABOT_CLEANUP_SWEEP_LIMIT` 3 use the whole
 50-subrequest budget; a fourth needs the limit at 2.
 
 ### MausBot Relay
@@ -643,7 +643,7 @@ hostname stay, so a later provisioning call returns the same address.
 | `TUNNEL_LEGACY_PHONE_CUTOFF_PERCENT` | `0` | Share of relay-served computers that give up their tunnel whatever phones are paired. Old phone apps stop connecting from outside the home network |
 | `TUNNEL_MIN_APP_VERSION` | empty | A desktop below it gets `426 update_required` and its tunnel is removed. A missing version counts as below |
 | `TUNNEL_REASON_MIN_VERSION` | empty | First desktop release that reads `tunnel` on `409 relay_capable` and keeps asking afterwards. Only from it is a full account answered with `relay_capable` |
-| `OMB_TUNNEL_RECLAIM_PREVIEW_DAYS` | empty | Dry run of idle reclaim at another offline period; counted, never acted on |
+| `LUNABOT_TUNNEL_RECLAIM_PREVIEW_DAYS` | empty | Dry run of idle reclaim at another offline period; counted, never acted on |
 
 - **Proven on the relay** means: a relay token in the last two days, a phone report in the last two days with at
   least one phone on the encrypted connection and no old phone, and no old phone reported for the whole wait
@@ -667,12 +667,12 @@ hostname stay, so a later provisioning call returns the same address.
   deletes again at once, for at most two rounds, the last with `?cascade=true` (what `cloudflared tunnel delete
   --force` sends; not in the public API reference); a deleted tunnel's connector token no longer connects. Idle reclaim never does this: a tunnel that answers
   "still connected" is left, and its next attempt finds it connected and cancels.
-- **Backpressure.** A run marks at most what one cleanup sweep removes (`OMB_CLEANUP_SWEEP_LIMIT`, at most 20) minus
+- **Backpressure.** A run marks at most what one cleanup sweep removes (`LUNABOT_CLEANUP_SWEEP_LIMIT`, at most 20) minus
   the rows already waiting for cleanup. While the sweep is failing or rate-limited nothing more is marked. A forced
   removal still refused as connected after its rounds does not count as waiting: it backs off (5 minutes up to 24
   hours) and retries while the sweep and the marking go on. A marked row is a final delete: its owner is answered
   `409 endpoint_busy` until the sweep has removed it.
-- **Self-hosted servers.** A server (`openmausbot serve --tunnel`, a fleet container with `OMB_INSTALLATION_CREDENTIAL`)
+- **Self-hosted servers.** A server (`openmausbot serve --tunnel`, a fleet container with `LUNABOT_INSTALLATION_CREDENTIAL`)
   has no phone relay of its own: its tunnel is its public address (web UI, the desktop app's connection to it,
   webhooks). Provisioning never answers a server `relay_capable` (no `retired`, no `full`; at the limit it gets
   `503 endpoint_capacity`), and the cron never marks a server's tunnel for `relay_proven` or `legacy_cutoff`. The

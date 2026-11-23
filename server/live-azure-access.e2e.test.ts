@@ -56,7 +56,7 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "web"),
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: join(home, "web"),
       ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -90,7 +90,7 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
     const body = JSON.stringify({ label: "Luna Bot app (Cloud)", ttlSeconds: 300, ...claim });
     const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
     const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
-      ...REMOTE, "content-type": "application/json", "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+      ...REMOTE, "content-type": "application/json", "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
     }, body });
     const granted = await response.json() as { code: string };
     return redeem(granted.code);
@@ -110,8 +110,8 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
 }
 
 const CLOUD_ENV = {
-  OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-  OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
+  LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+  LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
 };
 
 it("on a self-hosted server: the owner and their devices get through; a chat-only device is refused, and from then on a local request is not taken for the owner", async () => {
@@ -151,7 +151,7 @@ it("on a self-hosted server with a sign-in list: an admin's session gets through
 // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a tmpfs
 // and hides the fake pi's dump; the box has its own suites, so it stays off in these two boots.
 it("on a person's own Cloud: their session gets through, a bot's shell does not", async () => {
-  const s = await boot({ OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", ...CLOUD_ENV });
+  const s = await boot({ LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", ...CLOUD_ENV });
   const owner = await s.signedSession();
   const botId = await s.newBot(owner);
   expect(await s.start(botId, owner)).toEqual(THROUGH);
@@ -161,7 +161,7 @@ it("on a person's own Cloud: their session gets through, a bot's shell does not"
 }, 90_000);
 
 it("on a Team Cloud: a Super admin and an Admin get through; a User is refused in plain words, on the app or their phone, and a bot's shell does not get through", async () => {
-  const s = await boot({ OMB_CLOUD_ROLE: "team", OMB_BOT_BOX: "0", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, ...CLOUD_ENV });
+  const s = await boot({ LUNABOT_CLOUD_ROLE: "team", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_TEAM_ID: TEAM.id, LUNABOT_CLOUD_TEAM_NAME: TEAM.name, ...CLOUD_ENV });
   const session = (email: string, role: string) => s.signedSession({ team: TEAM, member: { email, role } });
   const owner = await session("olive@acme.test", "owner");
   const admin = await session("ben@acme.test", "admin");
@@ -309,7 +309,7 @@ it("the desktop's way of saving, with the key kept outside the file, ties it jus
 }, 60_000);
 
 it("a server set up in the environment: the key goes to the endpoint set beside it, until an admin changes the endpoint", async () => {
-  const s = await boot({ OMB_LIVE_PROVIDER: "azure", OMB_AZURE_OPENAI_LIVE_ENDPOINT: ENDPOINT, OMB_OPENAI_LIVE_KEY: "operators-key" }, { live: {} });
+  const s = await boot({ LUNABOT_LIVE_PROVIDER: "azure", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: ENDPOINT, LUNABOT_OPENAI_LIVE_KEY: "operators-key" }, { live: {} });
   const botId = await s.newBot();
   const { reaches, asksForKey } = keyChecks(s, botId);
   await reaches(SESSIONS, "operators-key");
@@ -318,7 +318,7 @@ it("a server set up in the environment: the key goes to the endpoint set beside 
 }, 60_000);
 
 it.each([
-  ["the environment", { OMB_LIVE_PROVIDER: "azure", OMB_AZURE_OPENAI_LIVE_ENDPOINT: ENDPOINT }, null],
+  ["the environment", { LUNABOT_LIVE_PROVIDER: "azure", LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT: ENDPOINT }, null],
   ["PUT /api/config", {}, { provider: "azure", azureEndpoint: ENDPOINT }],
 ] as const)("a provider set by %s gives way to a later PATCH /api/live/settings", async (_from, env, viaConfig) => {
   const s = await boot({ ...env }, { live: {} });

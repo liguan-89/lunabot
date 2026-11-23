@@ -41,18 +41,18 @@ it("lists exactly the curated apps product analytics may name, in the same order
 });
 
 it("only sends Session MCP credentials over HTTPS or loopback HTTP", () => {
-  const old = process.env.OMB_COMPOSIO_API;
+  const old = process.env.LUNABOT_COMPOSIO_API;
   try {
-    process.env.OMB_COMPOSIO_API = "http://remote.example.test/api";
+    process.env.LUNABOT_COMPOSIO_API = "http://remote.example.test/api";
     expect(trustedSessionMcpUrl("http://remote.example.test/mcp")).toBe(false);
-    process.env.OMB_COMPOSIO_API = "ftp://remote.example.test/api";
+    process.env.LUNABOT_COMPOSIO_API = "ftp://remote.example.test/api";
     expect(trustedSessionMcpUrl("ftp://remote.example.test/mcp")).toBe(false);
-    process.env.OMB_COMPOSIO_API = "http://127.0.0.1:9876/api";
+    process.env.LUNABOT_COMPOSIO_API = "http://127.0.0.1:9876/api";
     expect(trustedSessionMcpUrl("http://127.0.0.1:9876/mcp")).toBe(true);
     expect(trustedSessionMcpUrl("https://app.composio.dev/mcp")).toBe(true);
   } finally {
-    if (old === undefined) delete process.env.OMB_COMPOSIO_API;
-    else process.env.OMB_COMPOSIO_API = old;
+    if (old === undefined) delete process.env.LUNABOT_COMPOSIO_API;
+    else process.env.LUNABOT_COMPOSIO_API = old;
   }
 });
 let origin = "";
@@ -404,14 +404,14 @@ beforeAll(async () => {
   await new Promise<void>((resolve) => api.listen(0, "127.0.0.1", resolve));
   origin = `http://127.0.0.1:${(api.address() as { port: number }).port}`;
   base = `${origin}/api/v3.1`;
-  process.env.OMB_COMPOSIO_API = base;
-  process.env.OMB_COMPOSIO_TOOLKITS_API = `${origin}/api/v3`;
+  process.env.LUNABOT_COMPOSIO_API = base;
+  process.env.LUNABOT_COMPOSIO_TOOLKITS_API = `${origin}/api/v3`;
 });
 
 afterAll(async () => {
   setManagedBrokerAccess(null);
-  delete process.env.OMB_COMPOSIO_API;
-  delete process.env.OMB_COMPOSIO_TOOLKITS_API;
+  delete process.env.LUNABOT_COMPOSIO_API;
+  delete process.env.LUNABOT_COMPOSIO_TOOLKITS_API;
   await new Promise<void>((resolve) => api.close(() => resolve()));
 });
 
@@ -420,23 +420,23 @@ describe.sequential("Composio Sessions", () => {
   beforeEach(() => forgetProjectAuthConfigs());
 
   it("rejects broker URL components and invalid tokens from the environment", () => {
-    process.env.OMB_COMPOSIO_BROKER_TOKEN = "a".repeat(64);
+    process.env.LUNABOT_COMPOSIO_BROKER_TOKEN = "a".repeat(64);
     try {
       for (const url of [
         "https://user:secret@broker.example/root",
         "https://broker.example/root?redirect=evil",
         "https://broker.example/root#fragment",
       ]) {
-        process.env.OMB_COMPOSIO_BROKER_URL = url;
+        process.env.LUNABOT_COMPOSIO_BROKER_URL = url;
         expect(() => connectionMode({})).toThrow(/must not include/);
       }
-      process.env.OMB_COMPOSIO_BROKER_URL = "http://[::1]:3210/root/";
+      process.env.LUNABOT_COMPOSIO_BROKER_URL = "http://[::1]:3210/root/";
       expect(connectionMode({})).toBe("managed");
-      process.env.OMB_COMPOSIO_BROKER_TOKEN = "short";
+      process.env.LUNABOT_COMPOSIO_BROKER_TOKEN = "short";
       expect(() => connectionMode({})).toThrow(/token is invalid/);
     } finally {
-      delete process.env.OMB_COMPOSIO_BROKER_URL;
-      delete process.env.OMB_COMPOSIO_BROKER_TOKEN;
+      delete process.env.LUNABOT_COMPOSIO_BROKER_URL;
+      delete process.env.LUNABOT_COMPOSIO_BROKER_TOKEN;
     }
   });
   it("accepts a private desktop credential update and rejects unsafe broker URLs", () => {
@@ -896,12 +896,12 @@ describe.sequential("Composio Sessions", () => {
       command: process.execPath,
       args: [expect.stringContaining("connector-proxy")],
       env: {
-        OMB_CONNECTOR_UPSTREAM_URL: "http://127.0.0.1:8799/api/internal/connectors/mcp",
-        OMB_CONNECTOR_UPSTREAM_HEADERS: JSON.stringify({ authorization: "Bearer secret" }),
-        OMB_HARNESS_URL: "http://127.0.0.1:8799",
-        OMB_CONNECTOR_TOKEN: "secret",
-        OMB_BOT_ID: "bot-1",
-        OMB_THREAD_ID: "thread-1",
+        LUNABOT_CONNECTOR_UPSTREAM_URL: "http://127.0.0.1:8799/api/internal/connectors/mcp",
+        LUNABOT_CONNECTOR_UPSTREAM_HEADERS: JSON.stringify({ authorization: "Bearer secret" }),
+        LUNABOT_HARNESS_URL: "http://127.0.0.1:8799",
+        LUNABOT_CONNECTOR_TOKEN: "secret",
+        LUNABOT_BOT_ID: "bot-1",
+        LUNABOT_THREAD_ID: "thread-1",
       },
     });
   });

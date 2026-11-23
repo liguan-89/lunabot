@@ -52,12 +52,12 @@ const staging = mkdtempSync(join(tmpdir(), "omb-smoke-"));
 const home = mkdtempSync(join(tmpdir(), "omb-smoke-home-"));
 const [port, webhookPort] = await freePorts(2);
 
-// OMB_SMOKE_DIST lets the release workflow aim this at a packaged app's
+// LUNABOT_SMOKE_DIST lets the release workflow aim this at a packaged app's
 // Resources/server tree instead of the repo build.
 try {
   // A desktop install can live beneath a user's CommonJS package scope.
   writeFileSync(join(staging, "package.json"), '{"type":"commonjs"}\n');
-  cpSync(process.env.OMB_SMOKE_DIST ?? join(root, "dist-server"), join(staging, "server"), { recursive: true });
+  cpSync(process.env.LUNABOT_SMOKE_DIST ?? join(root, "dist-server"), join(staging, "server"), { recursive: true });
   if (browserBundle) cpSync(resolve(browserBundle), join(staging, "browser-engine"), { recursive: true });
 } catch (error) {
   for (const directory of [staging, home]) rmSync(directory, { recursive: true, force: true });
@@ -74,13 +74,13 @@ const fixtureEnv = {
   XDG_CONFIG_HOME: join(home, ".config"),
   XDG_CACHE_HOME: join(home, ".cache"),
   XDG_DATA_HOME: join(home, ".local", "share"),
-  OMB_DATA_DIR: join(home, ".lunabot"),
-  OMB_PORT: String(port),
-  OMB_WEBHOOK_PORT: String(webhookPort),
+  LUNABOT_DATA_DIR: join(home, ".lunabot"),
+  LUNABOT_PORT: String(port),
+  LUNABOT_WEBHOOK_PORT: String(webhookPort),
   // Not a genuine key: enough to make the server look for its enterprise layer.
-  OMB_LICENSE_KEY: "omb1.not.real",
+  LUNABOT_LICENSE_KEY: "omb1.not.real",
   ...(browserBundle ? {
-    OMB_RESOURCES_PATH: staging,
+    LUNABOT_RESOURCES_PATH: staging,
     // A global engine on the developer's PATH must not make this test pass.
     PATH: process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32") : "/usr/bin:/bin",
   } : {}),
@@ -291,8 +291,8 @@ if (listening) {
   const [servicePort, serviceWebhookPort] = await freePorts(2);
   const service = spawn(process.execPath, [join(staging, "server", "index.js")], {
     cwd: staging,
-    env: { ...fixtureEnv, HOME: serviceHome, USERPROFILE: serviceHome, OMB_DATA_DIR: join(serviceHome, ".lunabot"),
-      OMB_PORT: String(servicePort), OMB_WEBHOOK_PORT: String(serviceWebhookPort), OMB_LOOPBACK_TRUST: "service" },
+    env: { ...fixtureEnv, HOME: serviceHome, USERPROFILE: serviceHome, LUNABOT_DATA_DIR: join(serviceHome, ".lunabot"),
+      LUNABOT_PORT: String(servicePort), LUNABOT_WEBHOOK_PORT: String(serviceWebhookPort), LUNABOT_LOOPBACK_TRUST: "service" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let serviceOutput = "";
@@ -340,7 +340,7 @@ if (listening && process.platform !== "win32") {
   const [launcherPort, launcherWebhookPort] = await freePorts(2);
   const launcher = spawn(process.execPath, [join(staging, "server", "server-launcher.js")], {
     cwd: staging,
-    env: { ...fixtureEnv, HOME: launcherHome, USERPROFILE: launcherHome, OMB_DATA_DIR: join(launcherHome, ".lunabot"), OMB_PORT: String(launcherPort), OMB_WEBHOOK_PORT: String(launcherWebhookPort) },
+    env: { ...fixtureEnv, HOME: launcherHome, USERPROFILE: launcherHome, LUNABOT_DATA_DIR: join(launcherHome, ".lunabot"), LUNABOT_PORT: String(launcherPort), LUNABOT_WEBHOOK_PORT: String(launcherWebhookPort) },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let launcherOutput = "";
@@ -398,8 +398,8 @@ if (listening) {
       const [entryPort, entryWebhookPort] = await freePorts(2);
       const entry = spawn(process.execPath, [join(staging, "server", "desktop-entry.mjs")], {
         cwd: staging,
-        env: { ...fixtureEnv, HOME: entryHome, USERPROFILE: entryHome, OMB_DATA_DIR: join(entryHome, ".lunabot"),
-          OMB_PORT: String(entryPort), OMB_WEBHOOK_PORT: String(entryWebhookPort), OMB_SERVER_COMPILE_CACHE: cacheDir },
+        env: { ...fixtureEnv, HOME: entryHome, USERPROFILE: entryHome, LUNABOT_DATA_DIR: join(entryHome, ".lunabot"),
+          LUNABOT_PORT: String(entryPort), LUNABOT_WEBHOOK_PORT: String(entryWebhookPort), LUNABOT_SERVER_COMPILE_CACHE: cacheDir },
         stdio: ["ignore", "pipe", "pipe"],
       });
       let entryOutput = "";
@@ -456,7 +456,7 @@ if (!listening) {
 }
 
 const repoVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-if (!process.env.OMB_SMOKE_DIST && versionReport !== repoVersion) {
+if (!process.env.LUNABOT_SMOKE_DIST && versionReport !== repoVersion) {
   console.error(`The packaged server reports version ${JSON.stringify(versionReport)}, not ${repoVersion}.`);
   process.exit(1);
 }
@@ -503,7 +503,7 @@ if (
 
 if (!headlessReport || headlessReport.error || headlessReport.doctor.body?.server?.capabilities?.jobs !== true ||
   headlessReport.bots.code !== 0 || !Array.isArray(headlessReport.bots.body?.bots)) {
-  console.error("the packaged openmausbot command's headless verbs failed:");
+  console.error("the packaged lunabot command's headless verbs failed:");
   console.error(JSON.stringify(headlessReport, null, 2));
   process.exit(1);
 }
@@ -521,7 +521,7 @@ if (!serviceTrustReport || serviceTrustReport.error || serviceTrustReport.servin
 console.log(`packaged server started with no node_modules in reach (port ${port}) ✓`);
 console.log(`all ${count} spawned proxy paths resolve inside the packaged server dir ✓`);
 console.log("packaged MCP stdio server reached the API and flushed its final frames ✓");
-console.log("packaged openmausbot doctor and bots answered from the bundle ✓");
+console.log("packaged lunabot doctor and bots answered from the bundle ✓");
 console.log("packaged backup worker exported an encrypted archive ✓");
 console.log("packaged loopback trust gate: health serves, a public mutation is refused at service trust ✓");
 if (launcherReport) console.log("packaged container launcher ran the server as its child and stopped it cleanly ✓");

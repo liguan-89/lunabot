@@ -51,7 +51,7 @@ describe("rendered files", () => {
     const unit = templateUnit({ node: "/usr/bin/node", script: "/usr/lib/node_modules/lunabot/cli.js", layout });
     expect(unit).toContain("User=omb-%i");
     expect(unit).toContain("EnvironmentFile=/etc/lunabot/instances/%i.env");
-    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/lunabot/cli.js serve --port ${OMB_PORT} --data-dir ${OMB_DATA_DIR} --public-url ${OMB_PUBLIC_URL} --label %i --no-pair");
+    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/lunabot/cli.js serve --port ${LUNABOT_PORT} --data-dir ${LUNABOT_DATA_DIR} --public-url ${LUNABOT_PUBLIC_URL} --label %i --no-pair");
     for (const line of ["PrivateTmp=yes", "NoNewPrivileges=yes", "ProtectSystem=strict", "ReadWritePaths=/var/lib/lunabot/%i"]) expect(unit).toContain(line);
     expect(templateUnit({ node: "/usr/bin/node", script: "/src/server/cli.ts", layout })).toContain("--experimental-strip-types /src/server/cli.ts");
   });
@@ -97,7 +97,7 @@ describe("rendered files", () => {
   it("writes the environment, the first config and the sign-in edits the server reads live", () => {
     const workspace: FleetWorkspace = { slug: "acme", host: "acme.agentada.cc", port: 8810, webhookPort: 8811, status: "running", createdAt: "" };
     expect(instanceEnv({ workspace, dataDir: "/var/lib/lunabot/acme/.lunabot", licenseKey: "omb1.k" })).toBe(
-      "OMB_DATA_DIR=/var/lib/lunabot/acme/.lunabot\nOMB_PORT=8810\nOMB_WEBHOOK_PORT=8811\nOMB_PUBLIC_URL=https://acme.agentada.cc\nOMB_LICENSE_KEY=omb1.k\n",
+      "LUNABOT_DATA_DIR=/var/lib/lunabot/acme/.lunabot\nLUNABOT_PORT=8810\nLUNABOT_WEBHOOK_PORT=8811\nLUNABOT_PUBLIC_URL=https://acme.agentada.cc\nLUNABOT_LICENSE_KEY=omb1.k\n",
     );
     expect(JSON.parse(initialConfig({ admins: ["ada@example.test"], members: ["@acme.test"], anthropicKey: "sk-ant-x", monthlyCapUsd: 50 }))).toEqual({
       signIn: { admins: ["ada@example.test"], members: ["@acme.test"] }, anthropic: { key: "sk-ant-x" }, budgets: { monthlyUsd: 50 },
@@ -205,7 +205,7 @@ describe("plans", () => {
     const seed = { admins: ["owner@example.test"], members: [], portalUrl: "https://admin.example.test", anthropicUrl: "https://admin.example.test/api/gateway/acme/anthropic", anthropicKey: "workspace-scoped-token" };
     const plan = createPlan({ registry, slug: "acme", seed, now, layout });
     const env = plan.steps.find((step) => step.kind === "write" && step.path.endsWith("/acme.env"));
-    expect(env).toMatchObject({ mode: 0o600, content: expect.stringContaining("OMB_ADMIN_URL=https://admin.example.test\nOMB_ADMIN_WORKSPACE=acme") });
+    expect(env).toMatchObject({ mode: 0o600, content: expect.stringContaining("LUNABOT_ADMIN_URL=https://admin.example.test\nLUNABOT_ADMIN_WORKSPACE=acme") });
     expect(env).not.toHaveProperty("owner");
     const config = plan.steps.find((step) => step.kind === "write" && step.path.endsWith("/config.json"));
     expect(config).toMatchObject({ owner: "omb-acme", content: expect.stringContaining('"url": "https://admin.example.test/api/gateway/acme/anthropic"') });
@@ -221,7 +221,7 @@ describe("plans", () => {
     const lines = describeSteps([
       { kind: "mkdir", path: "/var/lib/lunabot/acme/.lunabot", mode: 0o700, owner: "omb-acme" },
       { kind: "write", path: "/var/lib/lunabot/acme/.lunabot/config.json", content: "secret", mode: 0o600, owner: "omb-acme" },
-      { kind: "write", path: "/etc/lunabot/instances/acme.env", content: "OMB_PORT=8810\n", mode: 0o600 },
+      { kind: "write", path: "/etc/lunabot/instances/acme.env", content: "LUNABOT_PORT=8810\n", mode: 0o600 },
       { kind: "run", argv: ["useradd", "--comment", "Acme Inc", "omb-acme"], why: "the account" },
       { kind: "append-once", path: "/etc/caddy/Caddyfile", line: "import /etc/caddy/omb.d/*.caddy" },
       { kind: "note", text: "done" },
@@ -229,9 +229,9 @@ describe("plans", () => {
     expect(lines).toEqual([
       "# Create /var/lib/lunabot/acme/.lunabot mode 700 as omb-acme (use fleet --yes; never root chown on tenant paths)",
       "# Write /var/lib/lunabot/acme/.lunabot/config.json mode 600 as omb-acme (use fleet --yes; tenant content omitted)",
-      "cat > /etc/lunabot/instances/acme.env <<'OMB_EOF'",
-      "OMB_PORT=8810",
-      "OMB_EOF",
+      "cat > /etc/lunabot/instances/acme.env <<'LUNABOT_EOF'",
+      "LUNABOT_PORT=8810",
+      "LUNABOT_EOF",
       "chmod 600 /etc/lunabot/instances/acme.env",
       "useradd --comment 'Acme Inc' omb-acme   # the account",
       "grep -qxF 'import /etc/caddy/omb.d/*.caddy' /etc/caddy/Caddyfile || printf '\\n%s\\n' 'import /etc/caddy/omb.d/*.caddy' >> /etc/caddy/Caddyfile",

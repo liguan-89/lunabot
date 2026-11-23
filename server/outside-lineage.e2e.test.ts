@@ -25,7 +25,7 @@ const engine = [
   'const { existsSync } = await import("node:fs");',
   `process.env.FAKE_PI_MODE = existsSync(${JSON.stringify(failing)}) ? "exit-early" : "hang";`,
   // Only a turn's spawn carries the MCP config: model probes and --version calls must not enter the launch log.
-  `if (process.env.OMB_MCP_CONFIG) process.env.FAKE_PI_DUMP = ${JSON.stringify(dump)};`,
+  `if (process.env.LUNABOT_MCP_CONFIG) process.env.FAKE_PI_DUMP = ${JSON.stringify(dump)};`,
   `process.env.FAKE_PI_RELEASE = existsSync(${JSON.stringify(holding)}) ? ${JSON.stringify(held)} : ${JSON.stringify(release)};`,
 ].join("\n");
 async function until<V>(what: string, fn: () => Promise<V> | V, ms = hostTimeout(30_000)): Promise<NonNullable<V>> {
@@ -61,7 +61,7 @@ let fx: CloudSendFixture, team: CloudTeamFixture, ada: string;
 beforeAll(async () => {
   // Every home runs the fixture's own synthetic pi CLI (fixture-pi.mjs, the repository's fake in its retired-Claude
   // compatibility mode), so each turn waits on this file's gate and each launch's config lands in one shared log.
-  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-${randomBytes(8).toString("hex")}`, env: { OMB_TEST_INTERNAL_CAPABILITY_KEY: KEY, OMB_BOT_BOX: "0" },
+  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-${randomBytes(8).toString("hex")}`, env: { LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: KEY, LUNABOT_BOT_BOX: "0" },
     cloudEngine: engine, desktopEngine: engine, team: { id: "team-acme-1", name: "Acme", engine } });
   team = fx.team!;
   ada = (await team.pair({ email: "ada@acme.test", role: "admin" })).token!;

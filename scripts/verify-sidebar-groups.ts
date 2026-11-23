@@ -1,7 +1,7 @@
 // Departments in the sidebar of the real app, against a disposable fake-engine server: dragging a bot to reorder it,
 // onto another bot to start a department named in place, into and out of a department, and a bot's menu.
 // Run: node --experimental-strip-types scripts/verify-sidebar-groups.ts [--shots <dir> [--only <view,view>]]
-// With --shots it photographs each view with a headless Chrome in a throwaway profile (OMB_CDP_CHROME, else the
+// With --shots it photographs each view with a headless Chrome in a throwaway profile (LUNABOT_CDP_CHROME, else the
 // installed Google Chrome) at twice 1280x800 and exits; without, it prints the preview's address and waits. Drags are
 // the page's own DragEvents with a DataTransfer, so a view can stop mid-drag to show where the bot would land.
 import { spawn } from "node:child_process";
@@ -16,7 +16,7 @@ const at = process.argv.indexOf("--shots");
 const shots = at === -1 ? null : resolve(process.argv[at + 1] ?? "");
 const onlyAt = process.argv.indexOf("--only");
 const only = onlyAt === -1 ? null : new Set((process.argv[onlyAt + 1] ?? "").split(",").filter(Boolean));
-const CHROME = process.env.OMB_CDP_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = process.env.LUNABOT_CDP_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const [WIDTH, HEIGHT, CLIP] = [1280, 800, 640];
 const BOTS: Record<string, string> = { Research: "pink", Inbox: "teal", Writer: "yellow", Travel: "blue", Recipes: "coral" };
 const NAMES = Object.keys(BOTS);

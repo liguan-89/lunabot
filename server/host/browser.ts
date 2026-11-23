@@ -115,7 +115,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
       throw error instanceof RelayTimeout ? new TransportError(error.message) : error;
     }),
     steps: browserSteps,
-    onTiming: process.env.OMB_BROWSER_TIMING === "1" ? (timing) => console.info(formatBrowserTiming(timing)) : undefined,
+    onTiming: process.env.LUNABOT_BROWSER_TIMING === "1" ? (timing) => console.info(formatBrowserTiming(timing)) : undefined,
   });
   const browserBox = deps.browserBox;
   const boxed = Boolean(browserBox?.(LAUNCHER_SECCOMP_FD, []));
@@ -355,7 +355,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
       kind: "browser", depth: 0, skillAuthoring: false, createdBots: 0, openedThreads: 0 });
     return {
       command: process.execPath, args: [SPAWNED_PROXIES.harnessMcp, "browser"], env: {
-        ...AGENTS_NODE_FLAG, [harnessMcpTokenEnv("browser")]: token, OMB_HARNESS_URL: `http://127.0.0.1:${PORT}`,
+        ...AGENTS_NODE_FLAG, [harnessMcpTokenEnv("browser")]: token, LUNABOT_HARNESS_URL: `http://127.0.0.1:${PORT}`,
       },
     };
   }

@@ -16,9 +16,9 @@ let fx: OwnHomeFixture;
 let garage: OwnServer, family: OwnServer;
 
 beforeAll(async () => {
-  fx = await launchOwnHomeFixture({ env: { OMB_TEST_INTERNAL_CAPABILITY_KEY: KEY } });
+  fx = await launchOwnHomeFixture({ env: { LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: KEY } });
   garage = await fx.addServer("Garage server", { FAKE_PI_DUMP: join(fx.root, "garage-turn.jsonl") });
-  family = await fx.addServer("Family server", { OMB_SIGNIN_MEMBER_EMAILS: "friend@example.test" });
+  family = await fx.addServer("Family server", { LUNABOT_SIGNIN_MEMBER_EMAILS: "friend@example.test" });
 }, hostTimeout(120_000));
 afterAll(async () => { await fx?.close(); });
 

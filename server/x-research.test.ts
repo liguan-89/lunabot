@@ -76,7 +76,7 @@ function fakeFetch(...responses: Reply[]) {
   return { fetcher: fetcher as unknown as typeof fetch, calls };
 }
 
-/** The Admin's X relay (a Cloud home's OMB_CLOUD_X_URL, or a desktop's from its Cloud sign-in). */
+/** The Admin's X relay (a Cloud home's LUNABOT_CLOUD_X_URL, or a desktop's from its Cloud sign-in). */
 const RELAY = "https://cloud.example.test/api/cloud/services/x";
 const clientWith = (fetcher: typeof fetch) => createXRelayClient({ url: RELAY, token: "omb_xd_test", fetcher });
 

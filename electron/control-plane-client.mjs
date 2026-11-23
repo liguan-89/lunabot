@@ -296,7 +296,9 @@ export function createControlPlaneClient({
       });
       if (
         payload.ok !== true ||
-        payload.service !== "openmausbot-control-plane"
+        // The deployed control plane still reports the pre-rename name until the fleet's dex-cloud is updated;
+        // accept both so a desktop update never orphans it against the running server.
+        (payload.service !== "lunabot-control-plane" && payload.service !== "openmausbot-control-plane")
       ) {
         throw new ControlPlaneError("control_plane_unavailable");
       }

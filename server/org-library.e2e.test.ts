@@ -36,7 +36,7 @@ function entry(packageId: string, rel: ReturnType<typeof release>) {
 
 it("shows the organization's shelf, adds a team once, and keeps its stamps off the wire", async () => {
   const key = randomBytes(32).toString("hex");
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_ORG_LIBRARY_KEY: key });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_ORG_LIBRARY_KEY: key });
   console.log(JSON.stringify({ fixture: fixture.info }));
   const url = fixture.info.url;
   const call = async (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => {
@@ -108,7 +108,7 @@ it("shows the organization's shelf, adds a team once, and keeps its stamps off t
 
 it("brings an added team to a newer release, keeping what the person changed", async () => {
   const key = randomBytes(32).toString("hex");
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_ORG_LIBRARY_KEY: key });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_ORG_LIBRARY_KEY: key });
   const url = fixture.info.url;
   const call = async (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => {
     const response = await fetch(`${url}${path}`, {

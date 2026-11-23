@@ -53,7 +53,7 @@ imports `electron`.
 - Modify `server/index.ts`: `GET /api/machine` reporting this installation's identity and capabilities.
 - Modify `companion/src/routes.ts`: allowlist `/api/machine`.
 - Modify `src/components/Sidebar.tsx` or settings: the machine roster.
-- Create `docs/headless.md`, `build/lunabot.service`, `build/com.openmausbot.serve.plist`.
+- Create `docs/headless.md`, `build/lunabot.service`, `build/com.lunabot.serve.plist`.
 - Modify `package.json`: a `serve` script and a `bin` entry.
 
 ---
@@ -146,7 +146,7 @@ imports `electron`.
 - [ ] Write a failing API test that `/api/machine` reports the adapter's capabilities verbatim and carries no credential, no tunnel hostname, and no installation secret.
 - [ ] Write a failing test in `companion/test/routes.test.ts` that `GET /api/machine` is allowlisted for paired devices and that `POST` to it is refused — the companion is default-deny per method and path, and a new route is closed until someone opens it deliberately.
 - [ ] Run; expect FAIL.
-- [ ] Implement. `name` defaults to the OS hostname and is overridable by `OMB_MACHINE_NAME`, because three VPS boxes all called `localhost` is not a roster.
+- [ ] Implement. `name` defaults to the OS hostname and is overridable by `LUNABOT_MACHINE_NAME`, because three VPS boxes all called `localhost` is not a roster.
 - [ ] Run; expect PASS.
 - [ ] Commit `feat(headless): expose machine identity and capabilities`.
 
@@ -185,7 +185,7 @@ imports `electron`.
 ### Task 7: Ship it as a service
 
 **Files:**
-- Create: `docs/headless.md`, `build/lunabot.service`, `build/com.openmausbot.serve.plist`
+- Create: `docs/headless.md`, `build/lunabot.service`, `build/com.lunabot.serve.plist`
 - Modify: `README.md` (the Status section's honest note about always-on)
 
 - [ ] Write the systemd unit: `Type=simple`, `Restart=on-failure`, `RestartSec=5`, a dedicated non-root user, `StateDirectory=lunabot`, and `ProtectSystem=strict` with `~/.lunabot` as the only writable path.

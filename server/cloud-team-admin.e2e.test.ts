@@ -25,8 +25,8 @@ async function call(method: string, path: string, options: { body?: string; head
 }
 function signed(method: "GET" | "POST", path: string, body = "") {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
-  return call(method, path, { ...(body ? { body } : {}), headers: { ...(body ? { "content-type": "application/json" } : {}), "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-    "x-omb-cloud-signature": `v1=${path === "/api/cloud/pairing" ? cloudPairingSignature(secret, timestamp, nonce, body) : cloudRequestSignature(secret, timestamp, nonce, method, path, body)}` } });
+  return call(method, path, { ...(body ? { body } : {}), headers: { ...(body ? { "content-type": "application/json" } : {}), "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+    "x-lunabot-cloud-signature": `v1=${path === "/api/cloud/pairing" ? cloudPairingSignature(secret, timestamp, nonce, body) : cloudRequestSignature(secret, timestamp, nonce, method, path, body)}` } });
 }
 
 beforeAll(async () => {
@@ -52,12 +52,12 @@ beforeAll(async () => {
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "web"),
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: join(home, "web"),
       // No bot box: a Team Cloud boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
       // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
-      OMB_BOT_BOX: "0",
-      OMB_CLOUD_ROLE: "team", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, OMB_CLOUD_TEAM_LANGUAGE: "de",
-      OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
+      LUNABOT_BOT_BOX: "0",
+      LUNABOT_CLOUD_ROLE: "team", LUNABOT_CLOUD_TEAM_ID: TEAM.id, LUNABOT_CLOUD_TEAM_NAME: TEAM.name, LUNABOT_CLOUD_TEAM_LANGUAGE: "de",
+      LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -116,7 +116,7 @@ it("an Owner or Admin's paired session (as the Admin holds one) sets a team key 
   expect(JSON.stringify(summary)).not.toContain("never-shown");
   const saved = JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8"));
   expect([saved.openai?.key, saved.mcpServers, saved.language]).toEqual(["sk-team-key-never-shown", {}, undefined]);
-  // The language is the team's (OMB_CLOUD_TEAM_LANGUAGE), though config.json sets none.
+  // The language is the team's (LUNABOT_CLOUD_TEAM_LANGUAGE), though config.json sets none.
   const settings = await admin("GET", "/api/config");
   expect([settings.status, settings.body.language]).toEqual([200, "de"]);
 }, 30_000);

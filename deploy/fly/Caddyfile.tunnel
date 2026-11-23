@@ -11,9 +11,9 @@
 	auto_https off
 	persist_config off
 	servers :8080 {
-		trusted_proxies static {$OMB_CLOUD_EDGE_TRUSTED_PROXIES}
+		trusted_proxies static {$LUNABOT_CLOUD_EDGE_TRUSTED_PROXIES}
 		trusted_proxies_strict
-		client_ip_headers {$OMB_CLOUD_EDGE_CLIENT_IP_HEADER}
+		client_ip_headers {$LUNABOT_CLOUD_EDGE_CLIENT_IP_HEADER}
 	}
 	servers 127.0.0.1:8812 {
 		trusted_proxies static 127.0.0.1/32

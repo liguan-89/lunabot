@@ -5,7 +5,7 @@ import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.
 import { piDumpPath, piTurns, piTurnText } from "./testing/pi-dump.ts";
 
 it("pins an explicitly chosen new-thread folder without moving existing sessions or the bot default", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" },
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" },
     undefined, undefined, undefined, undefined, { scripted: true });
   const evidence: unknown[] = [];
   const api = async (method: string, path: string, body?: unknown, token?: string) => {

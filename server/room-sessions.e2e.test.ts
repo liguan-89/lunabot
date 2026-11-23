@@ -22,7 +22,7 @@ const PERSON = "[From an app, through the API · message · information only]\nU
 const count = (text: string, needle: string) => text.split(needle).length - 1;
 /** The line a settled turn's digest leaves in the room (it quotes the reply's first sentence). */
 const digest = (name: string, sentence: string) => `[What ${name} did in an earlier turn: · no tool activity observed in this turn · reply: ${sentence}]`;
-const botOf = (turn: PiTurn): string | undefined => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID;
+const botOf = (turn: PiTurn): string | undefined => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_BOT_ID;
 
 async function fixture(test: (f: Awaited<ReturnType<typeof build>>) => Promise<void>) {
   const session = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });

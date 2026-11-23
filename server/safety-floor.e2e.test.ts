@@ -125,7 +125,7 @@ it("denies a never-list command a grant would have allowed, at a saved command a
     expect(await notices(bot.threadId)).toHaveLength(1);
     await stop(bot);
 
-    // Restart with the file's switch removed and only OMB_SAFETY_FLOOR=1 set,
+    // Restart with the file's switch removed and only LUNABOT_SAFETY_FLOOR=1 set,
     // then give the bot Full access the way a person does.
     await waitForExit(fixture.child, { signal: "SIGTERM" });
     const configPath = join(dataDir, "config.json");
@@ -135,7 +135,7 @@ it("denies a never-list command a grant would have allowed, at a saved command a
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
-      env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), OMB_SAFETY_FLOOR: "1" },
+      env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), LUNABOT_SAFETY_FLOOR: "1" },
       stdio: ["ignore", log, log],
     });
     closeSync(log);

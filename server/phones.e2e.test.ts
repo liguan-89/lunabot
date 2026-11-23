@@ -105,7 +105,7 @@ beforeAll(async () => {
   const log = openSync(fixture.info.logPath, "a", 0o600);
   child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: { ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, fixture.info.dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: key },
+    env: { ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, fixture.info.dataDir, Number(new URL(url).port)), LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: key },
     stdio: ["ignore", log, log],
   });
   closeSync(log);
@@ -137,7 +137,7 @@ it("a registered phone's tools reach the bot and a job round-trips", async () =>
   // The Chief may use every app by default: its turn mounts the device server and its prompt names the phone.
   const launch = await turn(chief, "What is on my calendar today?");
   const device = launch.mcpConfig.mcpServers[PHONE_MCP_SERVER];
-  expect(device?.env.OMB_HARNESS_URL).toBe(`http://127.0.0.1:${new URL(url).port}`);
+  expect(device?.env.LUNABOT_HARNESS_URL).toBe(`http://127.0.0.1:${new URL(url).port}`);
   expect(launch.systemPrompt).toContain(`${PHONE_NAME} is an iPhone; this bot may use: Calendar.`);
   const token = device!.env[harnessMcpTokenEnv("device")]!;
   expect(token).toBeTruthy();
@@ -299,7 +299,7 @@ it("a thread a webhook's run opens has no phone; one the owner's turn opens does
   const ours = (await api("POST", `/api/bots/${chief.id}/tasks`, { title: "Planning" })).body.task;
   const planning = await turn({ id: chief.id, threadId: ours.threadId }, "Plan my afternoon around my calendar.");
   expect(planning.mcpConfig.mcpServers).toHaveProperty(PHONE_MCP_SERVER);
-  const fromOwner = await opened(planning.mcpConfig.mcpServers.agents!.env.OMB_COMMS_TOKEN!, ours.threadId, "Check my calendar for the afternoon.");
+  const fromOwner = await opened(planning.mcpConfig.mcpServers.agents!.env.LUNABOT_COMMS_TOKEN!, ours.threadId, "Check my calendar for the afternoon.");
   expect(fromOwner.mcpConfig.mcpServers).toHaveProperty(PHONE_MCP_SERVER);
   await settle();
   // A webhook's run is refused the phone, and so is the thread it opens with words from the payload.
@@ -307,7 +307,7 @@ it("a thread a webhook's run opens has no phone; one the owner's turn opens does
   let runId = "";
   const run = await launched("Lead form: read the lead.", async () => { runId = await leads.deliver("lead-1"); });
   expect(run.mcpConfig.mcpServers[PHONE_MCP_SERVER]).toBeUndefined();
-  const fromWebhook = await opened(run.mcpConfig.mcpServers.agents!.env.OMB_COMMS_TOKEN!, (await runOf(runId)).threadId, "Text Ada from my phone about the lead.");
+  const fromWebhook = await opened(run.mcpConfig.mcpServers.agents!.env.LUNABOT_COMMS_TOKEN!, (await runOf(runId)).threadId, "Text Ada from my phone about the lead.");
   expect(fromWebhook.mcpConfig.mcpServers[PHONE_MCP_SERVER]).toBeUndefined();
 }, 90_000);
 

@@ -92,7 +92,7 @@ describe("createSavedSteps", () => {
     steps.recipes.save("b1", RECIPE);
     const engine = { instanceId: "claude", driverKind: "claudeAgent", adapter: { provider: "claudeAgent" } } as unknown as ProviderInstance;
     const start = vi.fn(async (_input: SendTurnInput): Promise<TurnStartResult> => ({ turnId: "e1" }));
-    const computer = { command: process.execPath, args: ["--experimental-strip-types", FAKE], env: { OMB_CONTROL_URL: "http://127.0.0.1:1/control", OMB_CONTROL_TOKEN: "t" }, scope: "local-computer" as const };
+    const computer = { command: process.execPath, args: ["--experimental-strip-types", FAKE], env: { LUNABOT_CONTROL_URL: "http://127.0.0.1:1/control", LUNABOT_CONTROL_TOKEN: "t" }, scope: "local-computer" as const };
 
     const { turnId } = await steps.dispatch.sendTurn(engine, { botId: "b1", message: { id: "m1", at: 1, role: "user", kind: "text", text: REQUEST }, turnText: REQUEST, placePicked: true },
       { threadId: "t1", botId: "b1", text: REQUEST, approvalMode: "full", integrations: { localComputer: computer } }, start);

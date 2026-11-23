@@ -34,9 +34,9 @@ import { isPairingCredential, type SessionRegistry } from "./sessions.ts";
 import { describeTunnelAccount, FLEET_CREDENTIAL_ENV, fleetCredential, openTunnelCredentials } from "./tunnel.ts";
 import type { E2ESession } from "../companion/src/e2e/session.ts";
 
-export const PHONE_RELAY_ENV = "OMB_PHONE_RELAY";
-/** `serve --tunnel` sets it. OMB_TUNNEL_SOCKET alone is no tunnel: Docker's Caddy reaches the server over that socket. */
-export const SERVES_TUNNEL_ENV = "OMB_SERVES_TUNNEL";
+export const PHONE_RELAY_ENV = "LUNABOT_PHONE_RELAY";
+/** `serve --tunnel` sets it. LUNABOT_TUNNEL_SOCKET alone is no tunnel: Docker's Caddy reaches the server over that socket. */
+export const SERVES_TUNNEL_ENV = "LUNABOT_SERVES_TUNNEL";
 export const PHONE_RELAY_KEY_FILE = "phone-relay-key.json";
 export const PHONE_RELAY_PHONES_FILE = "phone-relay-phones.json";
 /** The relay admits 32 per host; 20 phones, 2 pairing windows and the live pairing sessions stay under it. */
@@ -160,7 +160,7 @@ function qrRoute(publicOrigin: string | null): { address: string; port: number; 
       // for a hosted route, and both are protected routes to a phone, so the kind stays `hosted` here.
       return { address: url.hostname, port: url.port ? Number(url.port) : 443, hosts: [url.hostname], endpoints: [{ url: url.origin, kind: "hosted", priority: 0 }] };
     }
-    // `OMB_LAN=1` makes `publicUrl` this machine's LAN address. The server answers `/v1/e2e` there, so a phone on the
+    // `LUNABOT_LAN=1` makes `publicUrl` this machine's LAN address. The server answers `/v1/e2e` there, so a phone on the
     // same network pairs and connects without the relay at all.
     if (url?.protocol === "http:" && !isLoopbackHost(url.hostname) && isPrivateHost(url.hostname)) {
       const port = url.port ? Number(url.port) : 80;
@@ -173,7 +173,7 @@ function qrRoute(publicOrigin: string | null): { address: string; port: number; 
 }
 
 /** Every complete route a phone may dial on this machine, best first: the public origin the QR names, then each private
- * address the server answers `/v1/e2e` on. Those private addresses exist only with `OMB_LAN=1`: without it the server
+ * address the server answers `/v1/e2e` on. Those private addresses exist only with `LUNABOT_LAN=1`: without it the server
  * binds loopback and a tailnet reaches it through `tailscale serve`, whose `.ts.net` origin `qrRoute` already names. */
 export function serverEndpoints(
   publicOrigin: string | null,
@@ -182,7 +182,7 @@ export function serverEndpoints(
   addresses: ReachableAddresses = reachableAddresses(),
 ): CompanionEndpoint[] {
   const out: CompanionEndpoint[] = [...(qrRoute(publicOrigin).endpoints ?? [])];
-  if (env.OMB_LAN !== "1") return out;
+  if (env.LUNABOT_LAN !== "1") return out;
   const add = (url: string, kind: CompanionEndpoint["kind"], priority: number) => {
     if (!out.some((endpoint) => endpoint.url === url)) out.push({ url, kind, priority });
   };
@@ -226,7 +226,7 @@ function offForTunnel(reason: string): PhoneRelay {
 
 const TUNNEL_HELD = "tunnel_held";
 
-/** Null unless OMB_PHONE_RELAY=1, and when it cannot run here: the server works on without it either way. */
+/** Null unless LUNABOT_PHONE_RELAY=1, and when it cannot run here: the server works on without it either way. */
 export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   if (options.env[PHONE_RELAY_ENV] !== "1") return null;
   const log = options.log ?? ((line: string) => console.log(line));
@@ -269,7 +269,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   let relay: RelayClient | null = null;
   let grantState: PhoneRelayGrantState = "waiting";
   let tunnelReason: string | null = null;
-  const baseUrl = relayBaseUrlOverride(options.env.OMB_PHONE_RELAY_URL);
+  const baseUrl = relayBaseUrlOverride(options.env.LUNABOT_PHONE_RELAY_URL);
   /** The descriptor as one device sees it: a device restricted to its own networks is told `"local"`, and the relay
    * never admits it (the registry filters `routes === "local"` out of the admission set). */
   const descriptor = (deviceId: string | null = null) => e2e.descriptor(deviceId);

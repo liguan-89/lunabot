@@ -114,7 +114,7 @@ async function thinMacPlatformTools(resources, arch) {
 // bundle's real id here, once; when a Developer ID certificate does exist
 // electron-builder signs after this hook and replaces ours untouched.
 //
-// A local development certificate (DEXBOT_CODESIGN_IDENTITY) is used when it is
+// A local development certificate (LUNABOT_CODESIGN_IDENTITY) is used when it is
 // set, so TCC sees one stable requirement across rebuilds instead of a new
 // ad-hoc hash each time.
 async function signBundleIdentity(context) {
@@ -126,7 +126,7 @@ async function signBundleIdentity(context) {
   // an app to sign (fixtures call the hook directly).
   if (!await lstat(path.join(app, "Contents", "Info.plist")).then(() => true, () => false)) return;
   const identifier = context.packager?.appInfo?.id ?? "com.lunabot.app";
-  const identity = process.env.DEXBOT_CODESIGN_IDENTITY?.trim() || "-";
+  const identity = (process.env.LUNABOT_CODESIGN_IDENTITY ?? process.env.DEXBOT_CODESIGN_IDENTITY)?.trim() || "-";
   const report = spawnSync("codesign", ["-dv", "--verbose=2", app], { encoding: "utf8" });
   if (/Authority=Developer ID Application/.test(`${report.stdout ?? ""}${report.stderr ?? ""}`)) return;
   const signed = spawnSync(

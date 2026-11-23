@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 
 it("preserves conversations and scheduled work when deletion cannot save, then safely retries", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir, logPath } = fixture.info;
   const botsFile = join(dataDir, "bots.json");
   const retainedBotsFile = join(dataDir, "bots.before-delete-fixture.json");

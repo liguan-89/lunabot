@@ -141,7 +141,7 @@ export interface NoticePolicy {
 
 /** This app's own packages; a notification from any suffix of these is never learned. The earlier install ids stay, so a
  * phone that has not updated yet is still recognized. */
-export const SELF_PACKAGE_PREFIXES: readonly string[] = Object.freeze(["com.lunabot.companion", "com.dexbot.companion", "com.openmausbot.companion"]);
+export const SELF_PACKAGE_PREFIXES: readonly string[] = Object.freeze(["com.lunabot.companion", "com.dexbot.companion", "com.lunabot.companion"]);
 
 /** Notification categories that are progress, media transport, services, calls, alarms, navigation or timers. */
 export const DROPPED_NOTICE_CATEGORIES: ReadonlySet<string> = new Set([

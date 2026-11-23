@@ -557,19 +557,20 @@ export function createProxyHandler(options: ProxyOptions) {
               return;
             }
             // SAFETY: identity is untrusted JSON; the assertion only permits
-            // reading one optional property compared to fixed literals. Luna Bot's
-            // harness answers "dexbot"; upstream builds answer "openmausbot".
+            // reading one optional property compared to fixed literals. This
+            // fleet's harness answers "lunabot"; builds from before the rename
+            // answered "dexbot", upstream builds answer "openmausbot".
             const app = (identity as { app?: unknown } | null)?.app;
             if (
               (harness.statusCode ?? 500) < 200 ||
               (harness.statusCode ?? 500) >= 300 ||
-              (app !== "openmausbot" && app !== "dexbot")
+              (app !== "lunabot" && app !== "dexbot" && app !== "openmausbot")
             ) {
               fail();
               return;
             }
             finished = true;
-            sendJson(res, 200, { app: "dexbot", ...(device && version ? { version } : {}) });
+            sendJson(res, 200, { app: "lunabot", ...(device && version ? { version } : {}) });
           });
           return;
         }

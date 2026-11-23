@@ -54,7 +54,7 @@ async function listen(who: string) {
 }
 
 beforeAll(async () => {
-  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, team: { id: "team-acme-1", name: "Acme", env: { OMB_BOT_BOX: "0" } } });
+  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, team: { id: "team-acme-1", name: "Acme", env: { LUNABOT_BOT_BOX: "0" } } });
   team = fx.team!;
   for (const [who, member] of Object.entries({ olive: OLIVE, ada: ADA, bob: BOB, cara: CARA, dan: DAN, eve: EVE })) {
     const paired = await team.pair(member);

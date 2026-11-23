@@ -15,8 +15,8 @@ archives and stages `dist-native/browser/PLATFORM-ARCH`, copied as
 Each package includes only its target architecture: macOS ARM64/x64,
 Windows x64, or Linux x64.
 
-The server receives `OMB_RESOURCES_PATH` from Electron. It resolves an explicit
-`OMB_AGENT_BROWSER_PATH` override first, then the complete bundled engine and
+The server receives `LUNABOT_RESOURCES_PATH` from Electron. It resolves an explicit
+`LUNABOT_AGENT_BROWSER_PATH` override first, then the complete bundled engine and
 browser, then a separately installed engine or PATH. An incomplete bundle
 fails closed with a reinstall/update message. An explicit
 `AGENT_BROWSER_EXECUTABLE_PATH` still overrides the browser executable.
@@ -52,8 +52,8 @@ Servers and the Docker image name their browser with
 Chrome for Testing `agent-browser install` put in place. A Linux server where
 agent-browser already finds a browser (Chrome, Chromium or Brave on `PATH`, or a
 complete Puppeteer or Playwright Chromium in their caches) keeps it; with none,
-it downloads its own as in step 2. `OMB_CHROME_PATH`
-names one explicitly. An `OMB_AGENT_BROWSER_PATH` engine keeps its own choice
+it downloads its own as in step 2. `LUNABOT_CHROME_PATH`
+names one explicitly. An `LUNABOT_AGENT_BROWSER_PATH` engine keeps its own choice
 unless a Chrome is named too.
 
 **Identity.** The chosen Chrome reports exactly what it reports headed, read
@@ -69,13 +69,13 @@ Linux), and on macOS it always runs with the person's own home, so no
 "keychain cannot be found" dialog can appear. A second DevTools connection gives every page,
 cross-site frame and worker the matching client hints before it runs.
 Nothing is invented: Chrome for Testing reports Chromium brands, Google Chrome
-its own. `OMB_BROWSER_SCREEN`, `OMB_BROWSER_LANG` and `OMB_BROWSER_TIMEZONE`
+its own. `LUNABOT_BROWSER_SCREEN`, `LUNABOT_BROWSER_LANG` and `LUNABOT_BROWSER_TIMEZONE`
 override the display, language and zone.
 
 `lunabot browser status`, the server's startup log and the
 `browserEngine.chrome` field of its configuration status name the choice, for
 example `Google Chrome 155 (installed)`. **Rollback:** start the server with
-`OMB_BROWSER_LEGACY_SHELL=1` to run exactly the previous engine.
+`LUNABOT_BROWSER_LEGACY_SHELL=1` to run exactly the previous engine.
 
 `node --experimental-strip-types scripts/verify-browser-identity.ts --public`
 checks what sites see, in a throwaway home: the identity on a loopback probe

@@ -739,7 +739,7 @@ export async function launchHomeWorld(fx: CloudSendFixture, { chrome, ports, ver
 }
 
 export function shotsDir(fallback: string): string {
-  const dir = process.env.OMB_ONE_WORKSPACE_SHOTS ?? join(fallback, "shots");
+  const dir = process.env.LUNABOT_ONE_WORKSPACE_SHOTS ?? join(fallback, "shots");
   mkdirSync(dir, { recursive: true });
   return dir;
 }

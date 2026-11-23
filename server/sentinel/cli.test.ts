@@ -86,9 +86,9 @@ describe("openmausbot sentinel", () => {
 
   it("parses its options and defaults the output to a folder of its own, outside the data", () => {
     const parsed = parseSentinelArgs(["--data-dir", "/data/omb"], {});
-    expect(parsed).toMatchObject({ dataDir: expect.stringMatching(/omb$/), out: expect.stringMatching(/openmausbot-sentinel[\\/]data-[0-9a-f]{12}$/), json: false });
+    expect(parsed).toMatchObject({ dataDir: expect.stringMatching(/omb$/), out: expect.stringMatching(/lunabot-sentinel[\\/]data-[0-9a-f]{12}$/), json: false });
     expect("out" in parsed && parsed.out.includes(join("data", "omb"))).toBe(false);
-    expect(parseSentinelArgs(["--queue-wait", "600", "--cost", "2.5", "--json"], { OMB_DATA_DIR: "/d" })).toMatchObject({ queueWaitMs: 600_000, costUsd: 2.5, json: true });
+    expect(parseSentinelArgs(["--queue-wait", "600", "--cost", "2.5", "--json"], { LUNABOT_DATA_DIR: "/d" })).toMatchObject({ queueWaitMs: 600_000, costUsd: 2.5, json: true });
     expect(parseSentinelArgs(["--cost", "-1"], {})).toEqual({ error: expect.stringContaining("--cost"), json: false });
     // an unset variable in a script is an error, not a threshold of 0
     expect(parseSentinelArgs(["--cost", ""], {})).toEqual({ error: expect.stringContaining("--cost"), json: false });

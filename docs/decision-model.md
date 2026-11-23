@@ -15,7 +15,7 @@ for OpenRouter the model, one master switch, each key with **Save** and
 clicks, tool selection and where work runs. Each
 provider keeps its own key, but picking a provider does not choose whose key
 decides: the fixed order below does. To use Workers AI or OpenRouter while a
-Jev key is saved, clear the Jev key (an `OMB_JEV_API_KEY` in the environment
+Jev key is saved, clear the Jev key (an `LUNABOT_JEV_API_KEY` in the environment
 replaces the saved one, so remove it too). OpenRouter needs no key here when
 you already saved one under **Settings → API keys**: the decision model uses
 that one.
@@ -189,24 +189,24 @@ The log stays on this machine: workspace backups leave it out.
 
 - **Desktop app:** in the operating system's encrypted store
   (`credentials.bin`), like the other workspace keys. The server receives the
-  Jev key as `OMB_JEV_API_KEY`, the OpenRouter key as
-  `OMB_OPENROUTER_DECIDER_KEY` and the Workers AI token as
-  `OMB_WORKERS_AI_TOKEN` at start-up; `config.json` keeps only an empty
+  Jev key as `LUNABOT_JEV_API_KEY`, the OpenRouter key as
+  `LUNABOT_OPENROUTER_DECIDER_KEY` and the Workers AI token as
+  `LUNABOT_WORKERS_AI_TOKEN` at start-up; `config.json` keeps only an empty
   placeholder.
 - **Server or browser use:** in the server's own `config.json` (mode 0600),
   under `decider.key` (Jev), `decider.openrouterKey` (OpenRouter) or
-  `decider.workersAiToken` (Workers AI). `OMB_JEV_API_KEY`,
-  `OMB_OPENROUTER_DECIDER_KEY` and `OMB_WORKERS_AI_TOKEN` override them.
+  `decider.workersAiToken` (Workers AI). `LUNABOT_JEV_API_KEY`,
+  `LUNABOT_OPENROUTER_DECIDER_KEY` and `LUNABOT_WORKERS_AI_TOKEN` override them.
 - **The Cloudflare account ID is not a secret.** It is kept in `config.json`
   as `decider.workersAiAccountId` and shown back in Settings.
 - **The OpenRouter key is shared with your OpenRouter models.** The decision
   model uses the first of these it finds:
   1. a key saved here, in **Settings → Decision and extraction**
-     (`decider.openrouterKey` or `OMB_OPENROUTER_DECIDER_KEY`): the optional
+     (`decider.openrouterKey` or `LUNABOT_OPENROUTER_DECIDER_KEY`): the optional
      "use a different key" override, which wins so a key saved before
      sharing keeps working;
   2. the OpenRouter key under **Settings → API keys** (`openrouter.key` or
-     `OMB_OPENROUTER_API_KEY`);
+     `LUNABOT_OPENROUTER_API_KEY`);
   3. none: it is off until one is saved.
 
   With the shared key, Settings says **Using your OpenRouter API key** and links
@@ -221,7 +221,7 @@ The log stays on this machine: workspace backups leave it out.
   until a key is saved again.
 - **Cloud Pro:** decisions are included, with no key to paste. With no key of
   the person's own, the Cloud home uses its relay token
-  (`OMB_CLOUD_DECIDER_TOKEN`), sent only to the Admin's relay, never to Jev or
+  (`LUNABOT_CLOUD_DECIDER_TOKEN`), sent only to the Admin's relay, never to Jev or
   `baseUrl`, and only for the requests the relay accepts: room routing, inbox
   triage, a bot's own `decide` call and the key check, plus extraction for inbox
   reading, a bot's own `extract` call and the extraction key check (other jobs
@@ -338,9 +338,9 @@ Requests go to
 
 `server/decider/room-routing.eval.test.ts` replays 53 labelled room messages
 (`server/decider/fixtures/room-routing.json`) against the live model. It is
-skipped unless `OMB_JEV_LIVE_EVAL=1` is set with a key, and costs about
+skipped unless `LUNABOT_JEV_LIVE_EVAL=1` is set with a key, and costs about
 $0.002 per run. The same eval runs against OpenRouter with
-`OMB_OPENROUTER_LIVE_EVAL=1` and `OMB_OPENROUTER_DECIDER_KEY`, using the
-model in `OMB_OPENROUTER_EVAL_MODEL` (else the default); the cost depends on
+`LUNABOT_OPENROUTER_LIVE_EVAL=1` and `LUNABOT_OPENROUTER_DECIDER_KEY`, using the
+model in `LUNABOT_OPENROUTER_EVAL_MODEL` (else the default); the cost depends on
 the model. It is the check for whether a model's own probabilities hold up at
 the 0.6 threshold.

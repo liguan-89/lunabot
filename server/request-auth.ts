@@ -69,7 +69,7 @@ export function ownerOrAdmin(auth: RequestAuth): boolean {
   return auth.kind === "loopback" ? auth.trust !== "service" : auth.scopes.includes("admin");
 }
 
-/** Packaged desktop: `owner`. Else OMB_LOOPBACK_TRUST=owner|service; unset, a hosted workspace (any OMB_ADMIN_*)
+/** Packaged desktop: `owner`. Else LUNABOT_LOOPBACK_TRUST=owner|service; unset, a hosted workspace (any LUNABOT_ADMIN_*)
  * gets `service` and a headless server `owner`. Any other value fails closed. `localBrowsers`: see localBrowserTrust. */
 export function resolveLoopbackTrust(input: {
   env?: NodeJS.ProcessEnv;
@@ -87,25 +87,25 @@ export function resolveLoopbackTrust(input: {
 }
 
 function loopbackTrust(input: Parameters<typeof resolveLoopbackTrust>[0]): { trust: LoopbackTrust; reason: string; warning?: string } {
-  const raw = (input.env ?? process.env).OMB_LOOPBACK_TRUST;
+  const raw = (input.env ?? process.env).LUNABOT_LOOPBACK_TRUST;
   const requested = raw?.trim().toLowerCase();
   if (input.cloudHome) {
-    return { trust: "service", reason: "Luna Bot Cloud home", ...(raw !== undefined && requested !== "service" ? { warning: "OMB_LOOPBACK_TRUST is ignored on a Luna Bot Cloud home: a local request is always a service" } : {}) };
+    return { trust: "service", reason: "Luna Bot Cloud home", ...(raw !== undefined && requested !== "service" ? { warning: "LUNABOT_LOOPBACK_TRUST is ignored on a Luna Bot Cloud home: a local request is always a service" } : {}) };
   }
   if (input.desktopManaged) {
-    return { trust: "owner", reason: "desktop app", ...(raw !== undefined ? { warning: "OMB_LOOPBACK_TRUST is ignored in the desktop app" } : {}) };
+    return { trust: "owner", reason: "desktop app", ...(raw !== undefined ? { warning: "LUNABOT_LOOPBACK_TRUST is ignored in the desktop app" } : {}) };
   }
   if (requested === "owner" || requested === "service") {
     return {
       trust: requested,
-      reason: "OMB_LOOPBACK_TRUST",
+      reason: "LUNABOT_LOOPBACK_TRUST",
       ...(requested === "owner" && input.hostedWorkspace
-        ? { warning: "OMB_LOOPBACK_TRUST=owner on a shared workspace: every bot's shell can change settings and approve cards as the owner" }
+        ? { warning: "LUNABOT_LOOPBACK_TRUST=owner on a shared workspace: every bot's shell can change settings and approve cards as the owner" }
         : {}),
     };
   }
   if (raw !== undefined && requested !== "") {
-    return { trust: "service", reason: "OMB_LOOPBACK_TRUST", warning: `OMB_LOOPBACK_TRUST="${raw.replace(/[^\w.-]/g, "").slice(0, 40)}" is not owner or service; using service` };
+    return { trust: "service", reason: "LUNABOT_LOOPBACK_TRUST", warning: `LUNABOT_LOOPBACK_TRUST="${raw.replace(/[^\w.-]/g, "").slice(0, 40)}" is not owner or service; using service` };
   }
   if (input.hostedWorkspace) return { trust: "service", reason: "hosted workspace" };
   return { trust: "owner", reason: "self-hosted default" };
@@ -144,7 +144,7 @@ export function fromBrowser(req: IncomingMessage): boolean {
   return headerValue(headers.upgrade)?.toLowerCase() === "websocket" && headers.origin !== undefined;
 }
 
-const LOCAL_BROWSER_TRUST = "OMB_DEV_TRUST_LOCAL_BROWSER";
+const LOCAL_BROWSER_TRUST = "LUNABOT_DEV_TRUST_LOCAL_BROWSER";
 
 /** Development only: a server run from a source checkout (`pnpm dev:server`, test fixtures) lets this machine's browsers in
  * as before, because Vite's dev proxy forwards them; a packaged, bundled, hosted or service-trust server ignores it. */
@@ -209,7 +209,7 @@ export function ipcPeer(req: IncomingMessage): boolean {
 
 let legacyOrigins: ReadonlySet<string> = new Set();
 
-/** A Cloud home that moved to another provider (OMB_CLOUD_LEGACY_ORIGINS): its old address forwards here with Host
+/** A Cloud home that moved to another provider (LUNABOT_CLOUD_LEGACY_ORIGINS): its old address forwards here with Host
  * rewritten to this home's own name, so a page or client still on the old address sends that address as its Origin.
  * Security: only these exact origins count as this server's own besides its Host's; X-Forwarded-Host, which any client
  * writes, is never read. */

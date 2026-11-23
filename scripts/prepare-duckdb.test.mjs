@@ -93,10 +93,10 @@ describe("the pin", () => {
     expect(targetsFor("darwin", { LUNABOT_CUA_ARCHES: "arm64", LUNABOT_CUA_ARCHES_PARTIAL: "1" })).toEqual([{ platform: "darwin", arch: "arm64" }]);
     expect(targetsFor("linux", {})).toEqual([{ platform: "linux", arch: "x64" }]);
     // The Docker build stages the image's CPU, which need not be the build host's (linux/arm64 under buildx).
-    expect(targetsFor("linux", { OMB_DUCKDB_ARCH: "arm64" })).toEqual([{ platform: "linux", arch: "arm64" }]);
-    expect(targetsFor("linux", { OMB_DUCKDB_ARCH: "x64" })).toEqual([{ platform: "linux", arch: "x64" }]);
-    expect(() => targetsFor("linux", { OMB_DUCKDB_ARCH: "amd64" })).toThrow(/OMB_DUCKDB_ARCH/);
-    expect(targetsFor("win32", { OMB_DUCKDB_ARCH: "arm64" })).toEqual([{ platform: "win32", arch: "x64" }]);
+    expect(targetsFor("linux", { LUNABOT_DUCKDB_ARCH: "arm64" })).toEqual([{ platform: "linux", arch: "arm64" }]);
+    expect(targetsFor("linux", { LUNABOT_DUCKDB_ARCH: "x64" })).toEqual([{ platform: "linux", arch: "x64" }]);
+    expect(() => targetsFor("linux", { LUNABOT_DUCKDB_ARCH: "amd64" })).toThrow(/LUNABOT_DUCKDB_ARCH/);
+    expect(targetsFor("win32", { LUNABOT_DUCKDB_ARCH: "arm64" })).toEqual([{ platform: "win32", arch: "x64" }]);
     expect(targetsFor("win32", {})).toEqual([{ platform: "win32", arch: "x64" }]);
   });
 });
@@ -181,7 +181,7 @@ describe("staging from an install", () => {
       return directory;
     };
     const staged = await stageDuckdb({ root, targets: [{ platform: "win32", arch: "x64" }], pack, sign: false, log: null });
-    const cache = path.join(root, "node_modules", ".cache", "openmausbot", "duckdb");
+    const cache = path.join(root, "node_modules", ".cache", "lunabot", "duckdb");
     // Both native packages the host lacks are fetched, each at its own pin.
     expect(packed).toEqual([
       { name: "node-bindings-win32-x64", version: PIN, cache, scope: "@duckdb" },

@@ -25,7 +25,7 @@ in the manual editor remain possible. Existing routines are never removed.
 
 ```sh
 pnpm exec vitest run shared/routine-schedule.test.ts server/routine-cron.e2e.test.ts server/routine-requests.test.ts server/routines.test.ts src/components/routines/cron-editor.test.ts src/lib/routine-calendar.test.ts src/lib/schedule-label.test.ts server/bot-package.test.ts server/package-export.test.ts
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/cron-routines-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/cron-routines-ui.e2e.test.ts
 ```
 
 ## Editing long automation instructions
@@ -175,7 +175,7 @@ in-tree suite keeps a dedicated **On startup** run count since the engine
 teardown removed that fixture suite.
 
 The desktop gives every server child of one launch the same
-`OMB_DESKTOP_LAUNCH_ID`, and `routines.json` records the launch whose startup
+`LUNABOT_DESKTOP_LAUNCH_ID`, and `routines.json` records the launch whose startup
 runs were queued. A crash recovery or switching back to a workspace within
 that launch queues none; the next launch does. A server without the variable,
 such as a standalone one, counts every process start.
@@ -213,7 +213,7 @@ the panel marks the failure seen; a second restart must keep the dot cleared.
 It retains screenshots under `.omb-scratch/automations-journey/notification*`.
 
 ```sh
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/automations-journey.ui.e2e.test.ts -t explains.an.old.automation.notification
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/automations-journey.ui.e2e.test.ts -t explains.an.old.automation.notification
 ```
 
 In the editor's Advanced section, recurring routines offer **Skip this

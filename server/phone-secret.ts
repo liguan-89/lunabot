@@ -4,7 +4,10 @@ import { isCredentialTargetId, isProviderCredentialTarget } from "../shared/cred
 import type { CipherSuite } from "@hpke/core";
 
 export const PHONE_SECRET_PROTOCOL_VERSION = 1 as const;
-export const PHONE_SECRET_INFO = "DEX BOT phone credential v1";
+/** HPKE info for ciphertexts sealed after the lunabot rename; `open` still accepts the pre-rename pair below. */
+export const PHONE_SECRET_INFO = "LUNA BOT phone credential v2";
+/** HPKE info phone apps paired before the lunabot rename sealed with. */
+export const PHONE_SECRET_INFO_LEGACY = "DEX BOT phone credential v1";
 export const PHONE_SECRET_MAX_BYTES = 4_096;
 
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
@@ -62,6 +65,7 @@ const suite = () => hpkeSuite ??= import("@hpke/core").then(({ Aes256Gcm, Cipher
   aead: new Aes256Gcm(),
 }));
 const INFO = new TextEncoder().encode(PHONE_SECRET_INFO);
+const INFO_LEGACY = new TextEncoder().encode(PHONE_SECRET_INFO_LEGACY);
 
 const decodeBase64URL = (value: unknown, expectedBytes?: number): Uint8Array | null => {
   if (typeof value !== "string" || !BASE64URL.test(value)) return null;
@@ -90,13 +94,18 @@ export function phoneSecretKeyIdFromJwk(jwk: webcrypto.JsonWebKey): string | nul
     .toString("base64url");
 }
 
+/** The canonical first AAD field, shared with the phone app; ciphertexts sealed after the lunabot rename carry v2. */
+export const PHONE_SECRET_AAD_V2 = "lunabot-phone-credential-v2";
+/** The pre-rename first AAD field, still accepted when opening a phone's ciphertext. */
+export const PHONE_SECRET_AAD_V1 = "openmausbot-phone-credential-v1";
+
 /** One canonical string shared with Swift. Authenticating it stops a relay moving a ciphertext to another bot, conversation, card, device or credential. */
 export function phoneSecretAAD(context: Pick<
   PhoneSecretContext,
   "keyId" | "deviceId" | "botId" | "threadId" | "messageId" | "target" | "requestKey"
->): Uint8Array {
+>, identity: string = PHONE_SECRET_AAD_V2): Uint8Array {
   const fields = [
-    "openmausbot-phone-credential-v1",
+    identity,
     context.keyId,
     context.deviceId,
     context.botId,
@@ -408,7 +417,16 @@ export class PhoneSecretBridge {
         phoneSecretAAD(context),
       );
     } catch {
-      throw new PhoneSecretError("The encrypted credential could not be verified");
+      // A phone paired before the lunabot rename sealed with the v1 info and AAD: fall back to opening that pair.
+      try {
+        opened = await (await suite()).open(
+          { recipientKey: identity.privateKey, enc: encapsulatedKey, info: INFO_LEGACY },
+          ciphertext,
+          phoneSecretAAD(context, PHONE_SECRET_AAD_V1),
+        );
+      } catch {
+        throw new PhoneSecretError("The encrypted credential could not be verified");
+      }
     }
 
     const openedBytes = new Uint8Array(opened);

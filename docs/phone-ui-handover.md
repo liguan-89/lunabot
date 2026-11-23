@@ -108,11 +108,11 @@ node_modules/.bin/vitest run \
 
 # The Android phone-UI suite: 27 classes, 305 tests.
 cd android && ./gradlew :app:testDebugUnitTest \
-  --tests 'com.openmausbot.companion.phoneui.*' --offline
+  --tests 'com.lunabot.companion.phoneui.*' --offline
 
 # The job catalogue: 16 tests.
 cd android && ./gradlew :core:test \
-  --tests 'com.openmausbot.companion.core.PhoneJobsTest' --offline
+  --tests 'com.lunabot.companion.core.PhoneJobsTest' --offline
 
 npx tsc -b && npx tsc -p tsconfig.server.json --noEmit
 pnpm i18n:check    # 16 languages, 10552 English strings

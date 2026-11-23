@@ -93,9 +93,9 @@ done
 expect '.heartbeats >= 1 and .lastHeartbeat.host.arch == "x86_64" and ([.lastHeartbeat.host.checks[] | select(.ok | not)] | length) == 0 and (.lastHeartbeat.host.checks | any(.id == "box" and .ok))' "$(control state)" "the heartbeat"
 
 ENV_JSON=$(jq -cn --arg secret "$SECRET" '{
-  OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "e2e-connector-home", OMB_CLOUD_ADMIN_URL: "https://admin.e2e.invalid",
-  OMB_PUBLIC_URL: "https://home.e2e.invalid", OMB_CLOUD_BOOTSTRAP_SECRET: $secret,
-  OMB_COMPOSIO_BROKER_URL: "http://127.0.0.1:9"
+  LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "e2e-connector-home", LUNABOT_CLOUD_ADMIN_URL: "https://admin.e2e.invalid",
+  LUNABOT_PUBLIC_URL: "https://home.e2e.invalid", LUNABOT_CLOUD_BOOTSTRAP_SECRET: $secret,
+  LUNABOT_COMPOSIO_BROKER_URL: "http://127.0.0.1:9"
 }')
 
 step "the team's Owner accepts the server; until then it takes no job that changes anything"
@@ -119,7 +119,7 @@ expect '.apparmor == "omb-home-narrow" and .stopTimeout == 30' "$settings" "the 
 expect '.host | .Init and .ShmSize == 536870912 and (.MaskedPaths // [] | length) == 0 and (.ReadonlyPaths // [] | length) == 0 and (.Privileged | not) and .OomScoreAdj == -800 and .RestartPolicy.Name == "no"' "$settings" "the home's container settings"
 expect '.host | (.CapDrop | map(sub("^CAP_"; ""))) == ["ALL"] and (.CapAdd | map(sub("^CAP_"; "")) | sort) == ["CHOWN", "KILL", "SETGID", "SETUID"]' "$settings" "the home's capabilities"
 expect '.host | .PortBindings["8080/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "8080"}] and (.SecurityOpt | any(startswith("seccomp="))) and (.SecurityOpt | any(. == "no-new-privileges=true" or . == "no-new-privileges"))' "$settings" "the home's port and seccomp"
-docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mausbot-home | grep -qx "OMB_COMPOSIO_BROKER_URL=http://127.0.0.1:9" || fail "the home could reach the production connected-apps broker"
+docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mausbot-home | grep -qx "LUNABOT_COMPOSIO_BROKER_URL=http://127.0.0.1:9" || fail "the home could reach the production connected-apps broker"
 docker exec -u maus mausbot-home sh -c 'echo kept > /data/e2e-marker'
 
 step "update to another digest: a safety copy, a swap, and the new image's health"
@@ -188,7 +188,7 @@ sudo cat /var/log/mausbot/audit.jsonl >"$OUT/audit.jsonl"
 docker exec mausbot-connector mausbot-connector audit --verify | tee "$OUT/audit-verify.txt"
 grep -q "each linked to the one before it" "$OUT/audit-verify.txt" || fail "the audit log's chain is broken"
 audit=$(jq -cs . "$OUT/audit.jsonl")
-expect 'any(.[]; .event == "job" and .by == "admin" and .id == "start-1" and (.args.env | index("OMB_CLOUD_BOOTSTRAP_SECRET")))' "$audit" "the start, with its environment's names"
+expect 'any(.[]; .event == "job" and .by == "admin" and .id == "start-1" and (.args.env | index("LUNABOT_CLOUD_BOOTSTRAP_SECRET")))' "$audit" "the start, with its environment's names"
 expect '[.[] | select(.id == "update-1" and .event == "step") | .step] == ["pull", "checked", "stop", "snapshot", "swap", "wait", "healthy"]' "$audit" "the update's steps"
 expect 'any(.[]; .event == "result" and .id == "update-1" and .ok)' "$audit" "the update's result"
 expect 'any(.[]; .event == "result" and .id == "update-2" and .error.code == "update_rolled_back")' "$audit" "the rollback's result"

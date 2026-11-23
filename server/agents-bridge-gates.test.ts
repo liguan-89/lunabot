@@ -19,7 +19,7 @@ import { turnStdioMcpServers } from "./drivers/turn-mcp.ts";
 import { gateServer } from "./mcp-gate-config.ts";
 import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { waitForExit } from "./testing/cleanup.ts";
-import { childEnv } from "./testing/omb-env.ts";
+import { childEnv } from "./testing/lunabot-env.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 type Server = { command: string; args: string[]; env: Record<string, string> };
@@ -28,7 +28,7 @@ type Server = { command: string; args: string[]; env: Record<string, string> };
 const BRIDGED: Server = {
   command: process.execPath,
   args: [join(HERE, "drivers", "agents-proxy.ts")],
-  env: { OMB_HARNESS_URL: "http://127.0.0.1:9", OMB_BOT_ID: "bot-gated", OMB_THREAD_ID: "thread-gated", OMB_COMMS_TOKEN: "unused", OMB_TURN_DEPTH: "0", [TOOL_BRIDGE_ENV]: "1" },
+  env: { LUNABOT_HARNESS_URL: "http://127.0.0.1:9", LUNABOT_BOT_ID: "bot-gated", LUNABOT_THREAD_ID: "thread-gated", LUNABOT_COMMS_TOKEN: "unused", LUNABOT_TURN_DEPTH: "0", [TOOL_BRIDGE_ENV]: "1" },
 };
 const DENY_VM: ToolScope = { deny: ["mcp:agents:vm_exec"] };
 const ONLY_LIST_BOTS: ToolScope = { allow: ["mcp:agents:list_bots"] };
@@ -74,7 +74,7 @@ const call = (ask: Ask, name: string, args: unknown) => ask("tools/call", { name
 const use = (ask: Ask, name: string, args: unknown = {}) => call(ask, "use_tool", { name, arguments: args });
 /** The server a gate was told to start. */
 const upstreamOf = (gate: { env: Record<string, string> }, configEnvName?: string): Server =>
-  JSON.parse((configEnvName ? JSON.parse(gate.env[configEnvName]!) as Record<string, string> : gate.env).OMB_GATE_UPSTREAM!) as Server;
+  JSON.parse((configEnvName ? JSON.parse(gate.env[configEnvName]!) as Record<string, string> : gate.env).LUNABOT_GATE_UPSTREAM!) as Server;
 
 describe("a gate's upstream", () => {
   const mount = (toolScope: ToolScope | undefined, extra: Partial<Parameters<typeof gateServer>[0]> = {}) =>
@@ -88,7 +88,7 @@ describe("a gate's upstream", () => {
       expect(upstream, JSON.stringify(toolScope)).toEqual({ ...BRIDGED, env: { ...BRIDGED.env, [TOOL_BRIDGE_ENV]: "0" } });
     }
     // Codex hands each mount its settings under a private name
-    const configEnvName = `OMB_GATE_CONFIG_${"a".repeat(64)}`;
+    const configEnvName = `LUNABOT_GATE_CONFIG_${"a".repeat(64)}`;
     expect(upstreamOf(mount(DENY_VM, { configEnvName })!, configEnvName).env[TOOL_BRIDGE_ENV]).toBe("0");
     // the integration the turn holds is not rewritten: the prompt was built from it
     expect(BRIDGED.env[TOOL_BRIDGE_ENV]).toBe("1");
@@ -214,7 +214,7 @@ describe("the gate and the proxy as processes", () => {
     const forgetful = (toolScope: ToolScope): Server => ({
       command: process.execPath,
       args: [SPAWNED_PROXIES.mcpGate],
-      env: { OMB_GATE_NAME: "agents", OMB_GATE_UPSTREAM: JSON.stringify(BRIDGED), OMB_GATE_BUDGET: "0", OMB_GATE_TOOL_SCOPE: JSON.stringify(toolScope) },
+      env: { LUNABOT_GATE_NAME: "agents", LUNABOT_GATE_UPSTREAM: JSON.stringify(BRIDGED), LUNABOT_GATE_BUDGET: "0", LUNABOT_GATE_TOOL_SCOPE: JSON.stringify(toolScope) },
     });
     await withServer(forgetful(DENY_VM), async (ask) => {
       expect(namesOf(await ask("tools/list")).slice(-2)).toEqual(["find_tool", "use_tool"]);

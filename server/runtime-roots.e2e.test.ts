@@ -111,7 +111,7 @@ async function composioStub() {
   await new Promise<void>((resolve) => stub.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${(stub.address() as AddressInfo).port}`;
   return {
-    env: { OMB_COMPOSIO_API: `${origin}/api/v3.1`, OMB_COMPOSIO_TOOLKITS_API: `${origin}/api/v3` },
+    env: { LUNABOT_COMPOSIO_API: `${origin}/api/v3.1`, LUNABOT_COMPOSIO_TOOLKITS_API: `${origin}/api/v3` },
     connect: (slug: string) => connected.add(slug),
     close: async () => { stub.closeAllConnections(); await new Promise<void>((resolve) => stub.close(() => resolve())); },
   };
@@ -191,10 +191,10 @@ async function scenario(test: (f: any) => Promise<void>, options: { env?: Record
       let env: Record<string, string> | undefined;
       await expect.poll(() => {
         env = piTurns(dump).map((turn) => turn.launch?.mcpConfig?.mcpServers?.[server]?.env)
-          .find((candidate) => candidate && (server === "agents" ? candidate.OMB_COMMS_TOKEN : candidate.OMB_CONNECTOR_TOKEN));
+          .find((candidate) => candidate && (server === "agents" ? candidate.LUNABOT_COMMS_TOKEN : candidate.LUNABOT_CONNECTOR_TOKEN));
         return Boolean(env);
       }, { timeout: 20_000 }).toBe(true);
-      return (server === "agents" ? env!.OMB_COMMS_TOKEN : env!.OMB_CONNECTOR_TOKEN) as string;
+      return (server === "agents" ? env!.LUNABOT_COMMS_TOKEN : env!.LUNABOT_CONNECTOR_TOKEN) as string;
     };
     const internal = async (path: string, body: unknown, bearer: string) => {
       const response = await fetch(`${url}${path}`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
@@ -432,9 +432,9 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
   };
   const dumpFor = (botId: string): Promise<any> => until((): any => {
     // pi's launch log appends one launch line per process boot; the latest one for this bot's seat carries the gate.
-    return piTurns(dumpFile).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId)).at(-1)?.launch ?? null;
+    return piTurns(dumpFile).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.LUNABOT_CONTROL_URL?.includes(botId)).at(-1)?.launch ?? null;
   }, Boolean);
-  const gate = (sent: any) => createControlClient({ url: sent.mcpConfig.mcpServers.computer.env.OMB_CONTROL_URL, token: sent.mcpConfig.mcpServers.computer.env.OMB_CONTROL_TOKEN }).state(true);
+  const gate = (sent: any) => createControlClient({ url: sent.mcpConfig.mcpServers.computer.env.LUNABOT_CONTROL_URL, token: sent.mcpConfig.mcpServers.computer.env.LUNABOT_CONTROL_TOKEN }).state(true);
   const taskOf = (botId: string, threadId: string) => api("GET", "/api/bots?messages=0").then(({ body }) =>
     body.bots.find((bot: any) => bot.id === botId)?.tasks.find((task: any) => task.threadId === threadId));
   const roots = () => readRuntimeDb(data).assignments.filter((row) => !row.parentId);
@@ -457,10 +457,10 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
       "--import", pathToFileURL(join(ROOT, "server/testing/desktop-parent.mjs")).href, join(ROOT, "server/index.ts")], {
       cwd: ROOT, env: {
         PATH: dirname(process.execPath), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data, APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
-        TEMP: home, TMP: home, TMPDIR: home, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui, OMB_TEST_VM_STATE: stateFile,
-        OMB_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json"), OMB_COMPUTER_CALL_WAIT_MS: "4000", OMB_COMPUTER_CALL_ACT_WITHIN_MS: "1000",
-        OMB_COMPUTER_WAIT_MAX_MS: String(CEILING_MS),
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data, APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
+        TEMP: home, TMP: home, TMPDIR: home, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: ui, LUNABOT_TEST_VM_STATE: stateFile,
+        LUNABOT_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json"), LUNABOT_COMPUTER_CALL_WAIT_MS: "4000", LUNABOT_COMPUTER_CALL_ACT_WITHIN_MS: "1000",
+        LUNABOT_COMPUTER_WAIT_MAX_MS: String(CEILING_MS),
       }, stdio: ["ignore", "pipe", "pipe"],
     });
     child = proc;
@@ -747,7 +747,7 @@ it("T11 does not rerun a cut turn that already pushed: the root ends with what i
   }
 }, hostTimeout(90_000));
 
-const STALL_CLOCK = { OMB_TEST_STALL_CLOCK: "1" };
+const STALL_CLOCK = { LUNABOT_TEST_STALL_CLOCK: "1" };
 
 type CardState = { status?: string; stopped?: boolean; resumed?: boolean };
 type StallFixture = {

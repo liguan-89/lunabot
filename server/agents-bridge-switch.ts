@@ -16,13 +16,13 @@ export { TOOL_BRIDGE_ENV };
 export const agentsProxyLaunch = () => ({ command: process.execPath, args: [SPAWNED_PROXIES.agents] });
 
 /** Every agents proxy's starting environment. The bridge is always set, never inherited: an engine may
- * hand its MCP children this server's environment, where OMB_AGENTS_TOOL_BRIDGE=1 is the operator switch. */
+ * hand its MCP children this server's environment, where LUNABOT_AGENTS_TOOL_BRIDGE=1 is the operator switch. */
 export const AGENTS_PROXY_ENV = { ...AGENTS_NODE_FLAG, [TOOL_BRIDGE_ENV]: "0" } as const;
 
 type BridgeConfig = { features?: { agentsToolBridge?: boolean } };
 
 /** The workspace switch: `{"features": {"agentsToolBridge": true}}` in ~/.lunabot/config.json, or
- * OMB_AGENTS_TOOL_BRIDGE set to exactly "1" or "0", which wins over the saved setting. */
+ * LUNABOT_AGENTS_TOOL_BRIDGE set to exactly "1" or "0", which wins over the saved setting. */
 export function agentsToolBridgeEnabled(cfg: BridgeConfig, env: NodeJS.ProcessEnv = process.env): boolean {
   const override = env[TOOL_BRIDGE_ENV];
   if (override === "1") return true;
@@ -31,7 +31,7 @@ export function agentsToolBridgeEnabled(cfg: BridgeConfig, env: NodeJS.ProcessEn
 }
 
 /** A model on this machine or network reads the whole list on every turn, out of a small window and at laptop speed:
- * about 15,000 tokens before the person has said anything. OMB_AGENTS_TOOL_BRIDGE=0 still wins. */
+ * about 15,000 tokens before the person has said anything. LUNABOT_AGENTS_TOOL_BRIDGE=0 still wins. */
 function runsLocalModel(bot: { modelSelection?: { model?: unknown } } | null | undefined, engine: BridgeEngine | null | undefined): boolean {
   const model = bot?.modelSelection?.model;
   if (typeof model === "string" && decodeInjectId(model)) return true;

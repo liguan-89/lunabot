@@ -92,7 +92,7 @@ export function createLocalVmUpdater(deps: LocalVmUpdaterDeps) {
   const entries = new Map<string, Entry>();
   const fine = new Set<string>();
   const pollMs = deps.pollMs ?? 1_000;
-  const waitMs = deps.waitMs ?? Math.max(1_000, Number(process.env.OMB_LOCAL_VM_UPDATE_WAIT_MS) || 20 * 60_000);
+  const waitMs = deps.waitMs ?? Math.max(1_000, Number(process.env.LUNABOT_LOCAL_VM_UPDATE_WAIT_MS) || 20 * 60_000);
   const keepSignIns = deps.keepSignIns ?? keepFirefoxProfileBeforeRemove;
   const keepApps = deps.keepApps ?? keepInstalledAppsBeforeRemove;
   const workspaceExists = deps.workspaceExists ?? localVmWorkspaceExists;

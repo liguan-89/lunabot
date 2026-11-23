@@ -188,7 +188,7 @@ Read at the commit that adds the customer-run mode. "Built" means the code is in
 - **Pausing is a command.** `mausbot-connector pause`; a switch in Settings is planned. The heartbeat keeps going
   while paused.
 - **Emailed sign-in codes pass through us unless the customer sets a mail server.** Pairing codes never do. So
-  principle 2 holds for sign-in by pairing code always, and by emailed code only with `OMB_SIGNIN_SMTP_URL`.
+  principle 2 holds for sign-in by pairing code always, and by emailed code only with `LUNABOT_SIGNIN_SMTP_URL`.
 - **The home's own traffic is unchanged by connecting.** A report a person sends by tagging `@devs` carries their
   message, the bot's name and recent log lines to us, and its status is asked hourly while it is open; browser
   analytics are on until a person turns them off. Principle 6 is about the connector; these are the docs page's

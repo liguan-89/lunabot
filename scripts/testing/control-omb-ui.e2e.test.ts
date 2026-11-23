@@ -1,6 +1,6 @@
 // Drives the real <App/> through `control-omb ui` and reads outcomes from the
 // accessibility tree. Needs the pinned agent-browser binary: runs when one
-// resolves (tools directory, OMB_AGENT_BROWSER_PATH or PATH) or OMB_UI_E2E=1
+// resolves (tools directory, LUNABOT_AGENT_BROWSER_PATH or PATH) or LUNABOT_UI_E2E=1
 // asks for the verified download; otherwise skipped.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs";
@@ -17,11 +17,11 @@ import { fixtureApi } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const CLI = join(ROOT, "scripts", "control-omb.ts");
-const forced = process.env.OMB_UI_E2E === "1";
+const forced = process.env.LUNABOT_UI_E2E === "1";
 const binary = resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env });
 const enabled = forced || Boolean(binary);
 if (!enabled) {
-  console.log(`skipping control-omb ui e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, OMB_AGENT_BROWSER_PATH and PATH); set OMB_UI_E2E=1 to install the pinned release`);
+  console.log(`skipping control-omb ui e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, LUNABOT_AGENT_BROWSER_PATH and PATH); set LUNABOT_UI_E2E=1 to install the pinned release`);
 }
 const run = enabled ? it : it.skip;
 // A forced run may still have Chrome for Testing to download even when
@@ -37,9 +37,9 @@ const TOOL_CALLS = JSON.stringify([
 const REPLY = "Hello from pi"; // the fake pi's default reply text
 // A launch with --tool-calls runs the fake pi in its retired-Claude compatibility mode, whose default reply is this one.
 const COMPAT_REPLY = "hello from fake claude";
-// OMB_UI_EVIDENCE_DIR keeps the screenshot (CI uploads it); otherwise it is temporary.
-const evidenceDir = process.env.OMB_UI_EVIDENCE_DIR ? resolve(ROOT, process.env.OMB_UI_EVIDENCE_DIR) : mkdtempSync(join(tmpdir(), "omb-ui-evidence-"));
-const ownsEvidenceDir = !process.env.OMB_UI_EVIDENCE_DIR;
+// LUNABOT_UI_EVIDENCE_DIR keeps the screenshot (CI uploads it); otherwise it is temporary.
+const evidenceDir = process.env.LUNABOT_UI_EVIDENCE_DIR ? resolve(ROOT, process.env.LUNABOT_UI_EVIDENCE_DIR) : mkdtempSync(join(tmpdir(), "omb-ui-evidence-"));
+const ownsEvidenceDir = !process.env.LUNABOT_UI_EVIDENCE_DIR;
 
 interface Launched {
   child: ReturnType<typeof spawn>;

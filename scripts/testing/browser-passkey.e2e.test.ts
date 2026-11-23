@@ -14,8 +14,8 @@ import { removeTempDir } from "../../server/testing/cleanup.ts";
 import { openOwnPageAsBot, withBotBrowser, type BotCall } from "../verify-browser-identity.ts";
 import { ensureUiBrowser, UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
-const enabled = process.env.OMB_UI_E2E === "1" || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
-if (!enabled) console.log("skipping browser passkey e2e: no agent-browser binary resolves; set OMB_UI_E2E=1 to install the pinned release");
+const enabled = process.env.LUNABOT_UI_E2E === "1" || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
+if (!enabled) console.log("skipping browser passkey e2e: no agent-browser binary resolves; set LUNABOT_UI_E2E=1 to install the pinned release");
 const out = mkdtempSync(join(tmpdir(), "omb-passkey-e2e-"));
 const home = userInfo().homedir;
 const machineEnv = { ...process.env, HOME: home, USERPROFILE: home };
@@ -56,14 +56,14 @@ describe.skipIf(!enabled)("a passkey step in a bot's headless browser on agent-b
   afterAll(async () => { await fx?.close(); });
 
   it("ends the passkey request at once, so Try another way opens the other ways", async () => {
-    const picked = process.env.OMB_CHROME_PATH?.trim() || (() => {
+    const picked = process.env.LUNABOT_CHROME_PATH?.trim() || (() => {
       const plan = new ChromeLauncher({ dataDir: out, env: machineEnv, engine: () => ({ managed: true }), log: () => {} }).plan();
       return plan.kind === "chrome" ? plan.chrome.path : null;
     })();
     const engine = picked ? resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }) : null;
     const browser = engine ? { binary: engine, chrome: picked } : await ensureUiBrowser(process.env, () => {}, UI_TOOLS_DIR);
     const chrome = picked || browser.chrome || installedGoogleChrome(chromeHost({ dataDir: out, env: machineEnv }));
-    if (!chrome || isHeadlessShell(chrome)) throw new Error(`a full Chrome is needed, not ${chrome ?? "nothing"}: set OMB_CHROME_PATH`);
+    if (!chrome || isHeadlessShell(chrome)) throw new Error(`a full Chrome is needed, not ${chrome ?? "nothing"}: set LUNABOT_CHROME_PATH`);
     await withBotBrowser({ engine: browser.binary, chrome, out, sessionPrefix: "omb-pk-e2e" }, async (call) => {
       expect(await openOwnPageAsBot(call, fx.crossSiteUrl("/v3/signin/challenge/pk/presend"), (line) => console.log(line))).toBeNull();
       expect(await pageSays(call, "document.getElementById('state').textContent", (state) => !state.includes("Waiting"))).toContain("Something went wrong: NotAllowedError");

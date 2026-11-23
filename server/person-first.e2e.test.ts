@@ -26,7 +26,7 @@ it("stops a turn that keeps the person's message unread in a long tool call, and
     headers: { ...Object.fromEntries(new Headers(init.headers)), "x-lunabot-desktop-owner": owner } });
   // The scripted calls and marker replies ride the fake pi's compat bridge (the launcher turns it on for a retired
   // Claude knob name), which is how a turn runs the calls a recipe scripts.
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_DESKTOP_OWNER_TOKEN: owner, OMB_PERSON_FIRST_MS: "1500",
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_DESKTOP_OWNER_TOKEN: owner, LUNABOT_PERSON_FIRST_MS: "1500",
     FAKE_CLAUDE_TOOL_CALLS_FILE: calls, FAKE_CLAUDE_MARKER_REPLIES: markers });
   try {
     const api = async (method: string, path: string, body?: unknown) => {

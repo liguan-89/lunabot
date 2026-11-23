@@ -1,4 +1,4 @@
-import "../testing/scrub-ambient-omb-env.ts";
+import "../testing/scrub-ambient-lunabot-env.ts";
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,8 +16,8 @@ describe("the server and the credential", () => {
   it("takes flags before the environment, and --url before --port", () => {
     expect(namedServer({ url: "https://a.example", port: "1" }, { LUNABOT_URL: "https://b.example" })).toEqual({ url: "https://a.example" });
     expect(namedServer({ port: "19990" }, { LUNABOT_URL: "https://b.example" })).toEqual({ port: "19990" });
-    expect(namedServer({}, { LUNABOT_URL: "https://b.example", OMB_PORT: "1" })).toEqual({ url: "https://b.example" });
-    expect(namedServer({}, { OMB_PORT: "8123" })).toEqual({ port: "8123" });
+    expect(namedServer({}, { LUNABOT_URL: "https://b.example", LUNABOT_PORT: "1" })).toEqual({ url: "https://b.example" });
+    expect(namedServer({}, { LUNABOT_PORT: "8123" })).toEqual({ port: "8123" });
     expect(namedServer({}, {})).toBeUndefined();
   });
 

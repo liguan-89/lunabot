@@ -25,7 +25,9 @@ answer() { # the updater's exit code, for the connector to read
   printf 'id=%s\ncode=%s\n' "$id" "$1" >"$DIR/result.tmp" && mv "$DIR/result.tmp" "$DIR/result"
 }
 
-if ! printf '%s' "$image" | grep -Eqx 'ghcr\.io/milind-soni/openmausbot@sha256:[0-9a-f]{64}'; then
+# The connector deploys images from both registries across the rename: existing installs run the
+# old one, everything it pushes from now on carries the new one. Accept exactly the pair it accepts.
+if ! printf '%s' "$image" | grep -Eqx 'ghcr\.io/(liguan-89/lunabot|milind-soni/openmausbot)@sha256:[0-9a-f]{64}'; then
   answer 4
   exit 0
 fi

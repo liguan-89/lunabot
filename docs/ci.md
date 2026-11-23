@@ -99,7 +99,7 @@ eight shards each, macOS four (the full lane only); `scripts/ci-scope.mjs`
 builds the matrix.
 
 **Files at once.** A Linux shard runs four files at a time (`VITEST_WORKERS`,
-`OMB_VITEST_WORKERS` in `vite.config.ts`), one for each of the runner's vCPUs.
+`LUNABOT_VITEST_WORKERS` in `vite.config.ts`), one for each of the runner's vCPUs.
 Most of a shard's time is waiting on real servers and fake engines: one file at
 a time it took 16 minutes with the machine 70% idle, and four at a time 5.
 A Windows shard runs two files at a time: one at a time it took 9 to 14
@@ -113,7 +113,7 @@ timeouts double there, as on Windows (`server/testing/host-timeout.ts`).
 **Which files run where.** Linux runs every file. Most e2e files drive
 OMB's own logic through a real server and fake engines, which is the same on
 every OS, and they were 70% of a Windows shard's time, so only Linux runs
-them: the Windows and macOS shards set `OMB_VITEST_E2E=host`, and
+them: the Windows and macOS shards set `LUNABOT_VITEST_E2E=host`, and
 `vite.config.ts` then leaves out every e2e file not listed in
 `scripts/testing/host-e2e.ts`. The list keeps an e2e file on every host when
 it has a test that never runs on Linux (Auto on the person's own desktop, the
@@ -150,29 +150,29 @@ To reproduce a failing Vitest job locally:
 2. Use the same OS. Shard weights are platform-specific, so Windows shard 3
    and Linux shard 3 do not contain the same files.
 3. Copy the expanded command from **Run tests**, including any file filters
-   and the complete `--shard=n/count` fraction. Copy its `OMB_VITEST_E2E`,
-   `OMB_VITEST_SUBSET` and `OMB_VITEST_WORKERS` environment values too. On Boat, the static job
+   and the complete `--shard=n/count` fraction. Copy its `LUNABOT_VITEST_E2E`,
+   `LUNABOT_VITEST_SUBSET` and `LUNABOT_VITEST_WORKERS` environment values too. On Boat, the static job
    contains each shard's output in a `vitest (ubuntu-latest, ...)` lane's
    log group; the lane uses the same matrix values.
 
 For example, a full Windows shard 3/8 uses PowerShell syntax:
 
 ```powershell
-$env:OMB_VITEST_E2E = "host"
-$env:OMB_VITEST_SUBSET = ""
-$env:OMB_VITEST_WORKERS = "2"
+$env:LUNABOT_VITEST_E2E = "host"
+$env:LUNABOT_VITEST_SUBSET = ""
+$env:LUNABOT_VITEST_WORKERS = "2"
 pnpm exec vitest run --shard=3/8
 ```
 
 The full Linux shard 3/8 uses a POSIX shell:
 
 ```sh
-OMB_VITEST_E2E=all OMB_VITEST_SUBSET= OMB_VITEST_WORKERS=4 pnpm exec vitest run --shard=3/8
+LUNABOT_VITEST_E2E=all LUNABOT_VITEST_SUBSET= LUNABOT_VITEST_WORKERS=4 pnpm exec vitest run --shard=3/8
 ```
 
 Docs and locale jobs select smaller file lists and have their own shard
 counts. Keep their file filters: removing them changes the set the sequencer
-divides, even with the same `--shard`. `OMB_VITEST_SUBSET` suppresses the CI
+divides, even with the same `--shard`. `LUNABOT_VITEST_SUBSET` suppresses the CI
 warning about missing weighted files; the command's file filters select the
 tests. Copy the current job's list rather than assuming it is the full suite.
 
@@ -264,14 +264,14 @@ options and a code, and no passkey registered) and
 answered by an upload, a dropdown list drawn by the viewer, a download served
 to it, the page's cursor and copied text).
 
-- The job uses the runner's installed Google Chrome (`OMB_CDP_E2E=1`) on the
+- The job uses the runner's installed Google Chrome (`LUNABOT_CDP_E2E=1`) on the
   same platforms as the vitest shards: Linux, and Windows where a PR runs it,
   on PRs, all three in the full lane. Pushes to main and merge groups leave it
   out. Linux runs
   under Xvfb so the headed-identity case has a display.
 - On Linux it then builds the server image's `runtime` stage and runs the
   suites inside it as a non-root user against the image's Chrome for
-  Testing, with `OMB_BROWSER_SANDBOX=0` because the image has no setuid
+  Testing, with `LUNABOT_BROWSER_SANDBOX=0` because the image has no setuid
   sandbox helper yet.
 - It is advisory, outside the `CI` gate, until it has run green for a while.
 - The latency targets hold wherever Chrome itself can meet them. The suite
@@ -285,11 +285,11 @@ to it, the page's cursor and copied text).
   release, and the GoogleUpdater it starts swaps the new version into the app
   about a minute and a half after Chrome first runs, in the middle of the
   suites.
-- Locally: `OMB_CDP_CHROME=<chrome executable> pnpm exec vitest run
+- Locally: `LUNABOT_CDP_CHROME=<chrome executable> pnpm exec vitest run
   server/browser/cdp/s4- server/browser/checklist.e2e server/browser/passkey-wall.e2e
   server/browser/viewers/viewers.e2e server/browser/viewers/stream-v2.e2e` (or
-  `OMB_CDP_E2E=1` for the installed Google Chrome). Without either the suites
-  skip. `OMB_CDP_TEST_TMP` moves the throwaway profiles.
+  `LUNABOT_CDP_E2E=1` for the installed Google Chrome). Without either the suites
+  skip. `LUNABOT_CDP_TEST_TMP` moves the throwaway profiles.
 - `pnpm bench:browser-stream` measures the panel's stream on the installed
   Google Chrome with this computer's display: frame and page sizes, input to
   photon, frame rate, bytes and CPU. It is not part of CI.

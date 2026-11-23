@@ -9,7 +9,9 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  PHONE_SECRET_AAD_V1,
   PHONE_SECRET_INFO,
+  PHONE_SECRET_INFO_LEGACY,
   PhoneSecretBridge,
   PhoneSecretError,
   PhoneSecretSubmissionRegistry,
@@ -104,7 +106,8 @@ describe("PhoneSecretBridge", () => {
       messageId: "message-1",
       target: "ttsKey",
       requestKey: "credential-request-1",
-      // Sealed by Apple CryptoKit (HPKE P256_SHA256_AES_GCM_256) with this server's PHONE_SECRET_INFO, as the iOS app does.
+      // Sealed by Apple CryptoKit (HPKE P256_SHA256_AES_GCM_256) with the pre-rename v1 info and AAD, as iOS apps
+      // paired before the lunabot rename do: opening it exercises the legacy fallback path.
       encapsulatedKey: "BH693m3BP8PFvSvhNjX7Y6wqliRvHoeabIWlAKDin5ltDoh29R2NNJaj4F1jCo-2JH9plmBvDwUVDg8u2kNCXA8",
       ciphertext: "DHanpLjxXORBAWEhco0nI06P7tdx70tp9E15Kfxx-tBF6Jh6",
     })).resolves.toBeUndefined();
@@ -120,6 +123,25 @@ describe("PhoneSecretBridge", () => {
     await expect(bridge.open(envelope)).resolves.toBe("sk_live_phone_canary");
     await expect(bridge.open({ ...envelope, messageId: "message-2" })).rejects.toMatchObject({ message: "The encrypted credential could not be verified" });
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("still opens an envelope a pre-rename phone sealed with the v1 info and AAD", async () => {
+    const material = await keyMaterial();
+    const send = vi.fn(() => true);
+    const bridge = new PhoneSecretBridge(send, 50);
+    bridge.receive(material.message);
+    const encrypted = await suite.seal(
+      { recipientPublicKey: material.publicKey, info: new TextEncoder().encode(PHONE_SECRET_INFO_LEGACY) },
+      new TextEncoder().encode("sk_live_legacy_canary"),
+      phoneSecretAAD({ ...baseContext(material.keyId), target: "customSecret" }, PHONE_SECRET_AAD_V1),
+    );
+    const envelope: PhoneSecretContext = {
+      ...baseContext(material.keyId),
+      target: "customSecret",
+      encapsulatedKey: Buffer.from(encrypted.enc).toString("base64url"),
+      ciphertext: Buffer.from(encrypted.ct).toString("base64url"),
+    };
+    await expect(bridge.open(envelope)).resolves.toBe("sk_live_legacy_canary");
   });
 
   it("opens the card-bound envelope and saves through the private parent", async () => {
@@ -243,6 +265,16 @@ describe("PhoneSecretBridge", () => {
 describe("phoneSecretAAD", () => {
   it("has the exact stable cross-platform serialization", () => {
     expect(new TextDecoder().decode(phoneSecretAAD(baseContext("AAAAAAAAAAAAAAAAAAAAAA")))).toBe([
+      "lunabot-phone-credential-v2",
+      "AAAAAAAAAAAAAAAAAAAAAA",
+      "paired-device-1",
+      "bot-1",
+      "thread-1",
+      "message-1",
+      "ttsKey",
+      "credential-request-1",
+    ].join("\n"));
+    expect(new TextDecoder().decode(phoneSecretAAD(baseContext("AAAAAAAAAAAAAAAAAAAAAA"), PHONE_SECRET_AAD_V1))).toBe([
       "openmausbot-phone-credential-v1",
       "AAAAAAAAAAAAAAAAAAAAAA",
       "paired-device-1",

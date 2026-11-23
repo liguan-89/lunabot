@@ -211,8 +211,8 @@ export function createTeamAway(deps: TeamAwayDeps) {
     const body = JSON.stringify(request);
     const timestamp = String(Math.floor(now() / 1000)), nonce = randomBytes(18).toString("base64url");
     const response = await fetcher(`${deps.adminOrigin}${TEAM_AWAY_ADMIN_PATH}`, { method: "POST", redirect: "error", cache: "no-store", body, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: {
-      accept: "application/json", "content-type": "application/json", "x-omb-cloud-machine": deps.machineId, "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-      "x-omb-cloud-signature": `v1=${teamAwaySignature(deps.secret, deps.machineId, timestamp, nonce, body)}`,
+      accept: "application/json", "content-type": "application/json", "x-lunabot-cloud-machine": deps.machineId, "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+      "x-lunabot-cloud-signature": `v1=${teamAwaySignature(deps.secret, deps.machineId, timestamp, nonce, body)}`,
     } });
     const json = /^application\/json\b/i.test(response.headers.get("content-type") ?? "");
     if (response.status !== 200 || !json) { await response.body?.cancel().catch(() => {}); return { status: response.status, answer: null }; }

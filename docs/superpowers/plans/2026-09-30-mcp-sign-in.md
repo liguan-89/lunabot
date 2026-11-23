@@ -175,5 +175,5 @@
 
 - [ ] `npx tsc -p tsconfig.server.json --noEmit` and `npx tsc -p tsconfig.json --noEmit` — clean.
 - [ ] `npx vitest run server/mcp-* server/index.test.ts src/components/McpServers*` — PASS.
-- [ ] Live check against Higgsfield with a scratch data dir (`OMB_DATA_DIR`): probe → needs sign-in; start → authorization URL on `clerk.higgsfield.ai` (sign-in itself needs Omkar).
+- [ ] Live check against Higgsfield with a scratch data dir (`LUNABOT_DATA_DIR`): probe → needs sign-in; start → authorization URL on `clerk.higgsfield.ai` (sign-in itself needs Omkar).
 - [ ] Hand-off: OMB2 side-by-side build for Omkar to sign in and run a bot turn.

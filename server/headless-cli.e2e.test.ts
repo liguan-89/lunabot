@@ -18,7 +18,7 @@ let dir: string;
 function cli(args: string[], env: NodeJS.ProcessEnv = {}): Promise<Ran> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ["--experimental-strip-types", ENTRY, ...args], {
-      env: { ...process.env, LUNABOT_TOKEN: "", OMB_PORT: "", LUNABOT_URL: session.info.url, ...env },
+      env: { ...process.env, LUNABOT_TOKEN: "", LUNABOT_PORT: "", LUNABOT_URL: session.info.url, ...env },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -35,7 +35,7 @@ const botsNow = async () => json(await cli(["bots", "--json"])).bots as any[];
 
 beforeAll(async () => {
   // A port range of its own (19975-19999), and a scripted fake engine.
-  session = await launchVerificationServer({ ...process.env, OMB_TEST_PORTS: "19975-19999" }, undefined, undefined, undefined, undefined, { scripted: true });
+  session = await launchVerificationServer({ ...process.env, LUNABOT_TEST_PORTS: "19975-19999" }, undefined, undefined, undefined, undefined, { scripted: true });
   dir = mkdtempSync(join(tmpdir(), "omb-headless-cli-"));
 }, 60_000);
 

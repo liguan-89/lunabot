@@ -1,7 +1,7 @@
 // Warm summary end to end on pi: the real server drives the fake pi CLI, which
 // reports a 60k-token context — past the native plan's floor (min(100k,
 // (128k−16.4k)/2) ≈ 55.8k) but under its soon line — so the host schedules the
-// summary on the idle timer (3 min at OMB_WARM_SUMMARY_TIME_SCALE=0.01 → ~1.8 s),
+// summary on the idle timer (3 min at LUNABOT_WARM_SUMMARY_TIME_SCALE=0.01 → ~1.8 s),
 // clones the session onto a fork and runs pi's own `compact` on it.
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,7 +19,7 @@ async function setup(extra: NodeJS.ProcessEnv = {}) {
   const env = {
     ...process.env,
     FAKE_PI_CONTEXT_TOKENS: "60000",
-    OMB_WARM_SUMMARY_TIME_SCALE: "0.01",
+    LUNABOT_WARM_SUMMARY_TIME_SCALE: "0.01",
     ...extra,
   };
   const session = await launchVerificationServer(env);

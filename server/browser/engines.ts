@@ -94,7 +94,7 @@ export class ChromeEngine {
       sandbox,
       ...(options.log ? { log: options.log } : {}),
     });
-    const maxRunning = Number(env.OMB_BROWSER_MAX_RUNNING) || MAX_RUNNING[options.host];
+    const maxRunning = Number(env.LUNABOT_BROWSER_MAX_RUNNING) || MAX_RUNNING[options.host];
     this.service = new BrowserService({
       dataDir: options.dataDir,
       backend: () => backend,

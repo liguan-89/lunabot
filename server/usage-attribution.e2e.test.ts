@@ -62,7 +62,7 @@ async function start(knobs: (gate: string) => Record<string, string> = () => ({}
     cwd: join(SERVER_DIR, ".."),
     env: {
       ...(process.env.PATH ? { PATH: process.env.PATH } : {}), HOME: home, USERPROFILE: home,
-      OMB_DATA_DIR: dataDir, OMB_PORT: String(PORT),
+      LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(PORT),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

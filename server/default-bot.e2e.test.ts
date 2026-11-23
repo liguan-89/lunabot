@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
-import { childEnv } from "./testing/omb-env.ts";
+import { childEnv } from "./testing/lunabot-env.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 type McpServer = { command: string; args: string[]; env: Record<string, string> };
@@ -89,7 +89,7 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
     await control(["send", "--bot", maus.id, "--text", "Stay active."]);
     const launched = await launchHolding("Stay active.");
     const agents = launched.mcpServers.agents!;
-    expect(agents.env.OMB_CHIEF_OF_STAFF).toBe("1");
+    expect(agents.env.LUNABOT_CHIEF_OF_STAFF).toBe("1");
     expect(launched.systemPrompt).toContain("You are also this person's Luna Bot");
     expect(launched.systemPrompt).toContain("but you are not the Chief");
     const created = await callTool(agents, "create_bot", { name: "Scout", role: "Researcher", instructions: "Find what the person asks for." });
@@ -127,7 +127,7 @@ it("lets Luna Bot read the unread notifications and mark finished work read, not
   try {
     const [maus] = (await api("/api/bots")).bots as any[];
     const agents = await launch(maus.id);
-    expect(agents.env.OMB_MAUSBOT).toBe("1");
+    expect(agents.env.LUNABOT_MAUSBOT).toBe("1");
 
     const unread = await callTool(agents, "list_unread_notifications", {});
     expect(unread.result?.isError, text(unread)).toBeFalsy();
@@ -149,7 +149,7 @@ it("lets Luna Bot read the unread notifications and mark finished work read, not
 
     const { bot: clive } = await control(["new-bot", "--name", "Clive"]);
     const other = await launch(clive.id);
-    expect(other.env.OMB_MAUSBOT).toBe("0");
+    expect(other.env.LUNABOT_MAUSBOT).toBe("0");
     expect((await callTool(other, "list_unread_notifications", {})).result?.isError ?? true).toBe(true);
     expect((await callTool(other, "mark_notifications_read", { ids: ["no-such-notification"] })).result?.isError ?? true).toBe(true);
     await control(["interrupt", "--bot", maus.id]);

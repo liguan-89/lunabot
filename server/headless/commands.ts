@@ -36,7 +36,7 @@ async function doctorOnce(ctx: VerbContext): Promise<VerbOutcome> {
   ]);
   const problems: string[] = [];
   const warnings: string[] = [];
-  const isOmb = health.app === "dexbot" || health.app === "openmausbot";
+  const isOmb = health.app === "lunabot" || health.app === "dexbot" || health.app === "openmausbot";
   if (!isOmb) problems.push(`${client.baseUrl} answered, but it is not Luna Bot`);
   const tooOld = Boolean(server) && server!.capabilities?.jobs !== true;
   if (tooOld) problems.push(`Luna Bot ${server!.version ?? "(unknown version)"} is too old for the headless commands: it cannot report a conversation's job`);

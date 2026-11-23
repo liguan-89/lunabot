@@ -51,7 +51,7 @@ export interface BrandStatus {
 }
 
 export function brandFile(): string {
-  return process.env.OMB_BRAND_FILE || join(DATA_DIR, "brand.json");
+  return process.env.LUNABOT_BRAND_FILE || join(DATA_DIR, "brand.json");
 }
 
 /** Never throws. */

@@ -32,13 +32,13 @@ CUA supply-chain work is tracked in [issue #113](https://github.com/milind-soni/
 
 Choose one Ubuntu 24.04 x86_64 package from the latest release:
 
-- [Debian package (`OpenMausBot-amd64.deb`)](https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-amd64.deb) — recommended; APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
-- [Portable AppImage (`OpenMausBot.AppImage`)](https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage) — does not install system files.
+- [Debian package (`LUNABOT-amd64.deb`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-amd64.deb) — recommended; APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
+- [Portable AppImage (`LUNABOT.AppImage`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT.AppImage) — does not install system files.
 - [RPM package (`LUNABOT-x86_64.rpm`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-x86_64.rpm) — for Fedora; see [below](#fedora-and-other-rpm-distributions).
-- [SHA-256 checksums](https://github.com/milind-soni/OpenMausBot/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
+- [SHA-256 checksums](https://github.com/liguan-89/lunabot/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
 Versioned packages and previous releases remain available on the
-[releases page](https://github.com/milind-soni/OpenMausBot/releases).
+[releases page](https://github.com/liguan-89/lunabot/releases).
 
 ## Build packages
 
@@ -49,8 +49,8 @@ Requirements for building from source:
 - pnpm 10.33.0 (Corepack can install the version declared by the project)
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot.git
-cd OpenMausBot
+git clone https://github.com/liguan-89/lunabot.git
+cd lunabot
 corepack enable
 pnpm install --frozen-lockfile
 pnpm package:linux
@@ -58,9 +58,9 @@ pnpm package:linux
 
 The build creates:
 
-- `release/Luna Bot-<version>-amd64.deb`
-- `release/Luna Bot-<version>-x86_64.rpm`
-- `release/Luna Bot-<version>-x86_64.AppImage`
+- `release/LUNABOT-<version>-amd64.deb`
+- `release/LUNABOT-<version>-x86_64.rpm`
+- `release/LUNABOT-<version>-x86_64.AppImage`
 
 The AppImage uses a static runtime and does not require the legacy `libfuse2` package.
 
@@ -69,7 +69,7 @@ The AppImage uses a static runtime and does not require the legacy `libfuse2` pa
 Install a downloaded Debian package with APT so its desktop dependencies are resolved:
 
 ```sh
-sudo apt install ./OpenMausBot-amd64.deb
+sudo apt install ./LUNABOT-amd64.deb
 ```
 
 Then open **Luna Bot** from the GNOME application launcher. To remove it:
@@ -81,11 +81,11 @@ sudo apt remove lunabot
 The portable AppImage does not install system files:
 
 ```sh
-chmod +x release/Luna Bot-*-x86_64.AppImage
-./release/Luna Bot-*-x86_64.AppImage
+chmod +x release/LUNABOT-*-x86_64.AppImage
+./release/LUNABOT-*-x86_64.AppImage
 ```
 
-For a downloaded release AppImage, use `OpenMausBot.AppImage` in place of the versioned path above.
+For a downloaded release AppImage, use `LUNABOT.AppImage` in place of the versioned path above.
 
 ### Fedora and other RPM distributions
 
@@ -96,7 +96,7 @@ The `.rpm` is community-supported: every release builds and checks it, but it is
 sudo dnf install ./LUNABOT-x86_64.rpm
 ```
 
-Remove it with `sudo dnf remove dexbot`. Updates are downloaded by the app, which then copies the `rpm` install
+Remove it with `sudo dnf remove lunabot`. Updates are downloaded by the app, which then copies the `rpm` install
 command and opens a terminal for you to run it. Other RPM distributions (RHEL, openSUSE) and image-based Fedora
 editions such as Silverblue are untested; use the AppImage there.
 
@@ -121,8 +121,8 @@ A minimal Arch install lacks the FUSE helper and some desktop libraries the AppI
 
 ```sh
 sudo pacman -S --needed fuse3 gtk3 nss alsa-lib libcups mesa
-chmod +x OpenMausBot.AppImage
-./OpenMausBot.AppImage
+chmod +x LUNABOT.AppImage
+./LUNABOT.AppImage
 ```
 
 A full desktop install (for example EndeavourOS with KDE or GNOME) usually has all of these already, and
@@ -139,7 +139,7 @@ The app checks for updates in the background and downloads them by itself. Nothi
   root-only folder and checked against the checksum in the update feed first; a file that does not match is
   refused and nothing is installed. Closing the prompt leaves the update ready to try again. If the session cannot
   show a prompt (SSH, no desktop, no `pkexec`), the app falls back to copying the `sudo apt-get install` command
-  and opening a terminal, and says why. Set `OMB_UPDATE_INSTALL=terminal` to always use the terminal.
+  and opening a terminal, and says why. Set `LUNABOT_UPDATE_INSTALL=terminal` to always use the terminal.
 - **AppImage.** The update replaces the AppImage when you restart; no password is needed.
 - **rpm and pacman packages** still use the terminal hand-off.
 
@@ -194,7 +194,7 @@ It also probes the login shell in the background. If a CLI still is not detected
 path before launching the app from a terminal and verify it there:
 
 ```sh
-OMB_EXTRA_PATH=/your/custom/bin ./release/Luna Bot-*-x86_64.AppImage
+LUNABOT_EXTRA_PATH=/your/custom/bin ./release/LUNABOT-*-x86_64.AppImage
 ```
 
 Restart Luna Bot after installing or signing in to a CLI.
@@ -228,8 +228,8 @@ to **This computer**. No driver download, terminal command, `chmod`, or daemon s
 starts with `--no-overlay`, so Cua's decorative full-screen X11 cursor surface is never created. Luna Bot also
 uses Electron software rendering when the NVIDIA driver is loaded, to avoid the reproduced NVIDIA/libGLES
 GPU-process failure that could leave an invisible focused app window receiving input. Other GPUs keep hardware
-acceleration, because software rendering costs about a CPU core while the window animates. Set `OMB_LINUX_GPU=off`
-to force software rendering or `OMB_LINUX_GPU=on` to force the GPU.
+acceleration, because software rendering costs about a CPU core while the window animates. Set `LUNABOT_LINUX_GPU=off`
+to force software rendering or `LUNABOT_LINUX_GPU=on` to force the GPU.
 
 Cua actions use a private logical cursor. With the decorative overlay disabled, `move_cursor` does not move the
 user's physical pointer; approved click and typing actions still target the requested window, while the user's own
@@ -346,7 +346,7 @@ contract without activating it in a packaged app. Only a real-seat acceptance ma
 ### An agent CLI is missing
 
 Run the CLI directly in a terminal, finish its sign-in flow, then restart Luna Bot. If it lives outside the
-common directories above, use `OMB_EXTRA_PATH` while testing and report the install location so it can be
+common directories above, use `LUNABOT_EXTRA_PATH` while testing and report the install location so it can be
 considered for automatic discovery.
 
 ### A bot needs computer tools

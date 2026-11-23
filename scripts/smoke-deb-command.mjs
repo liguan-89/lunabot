@@ -11,8 +11,8 @@ import path from "node:path";
 
 import { packageInstallCommand } from "../electron/package-install-command.mjs";
 
-const IMAGE = process.env.OMB_DEB_SMOKE_IMAGE || "ubuntu:24.04";
-const RUNTIME = process.env.OMB_DEB_SMOKE_RUNTIME || "docker";
+const IMAGE = process.env.LUNABOT_DEB_SMOKE_IMAGE || "ubuntu:24.04";
+const RUNTIME = process.env.LUNABOT_DEB_SMOKE_RUNTIME || "docker";
 if (!["docker", "podman"].includes(RUNTIME)) throw new Error("unsupported container runtime");
 
 function fail(message) {
@@ -67,7 +67,7 @@ const installed = inContainer(
   [
     prepare,
     command,
-    'dpkg-query -W -f="INSTALLED=\\${Version} \\${db:Status-Abbrev}\\n" dexbot',
+    'dpkg-query -W -f="INSTALLED=\\${Version} \\${db:Status-Abbrev}\\n" lunabot',
     'test -x "/opt/LunaBot/lunabot" && echo "EXECUTABLE=yes"',
   ].join("\n"),
 );

@@ -98,7 +98,7 @@ export JAVA_HOME=/path/to/jdk-17
    常见 instance 在模型选择器里显示中文名；用户自定义的「词元交易市场」等名字保留。
 10. **Markdown 表格**：新增 GFM 表格解析（`| 表头 |` + `|---|` + 行），聊天里直接渲染成
     可横向滚动的表格，不再把整张表压成一行 `|` 乱码。`core` 里补了三个表格单测，
-    `./gradlew :core:test --tests "com.openmausbot.companion.core.MarkdownTest"` 通过。
+    `./gradlew :core:test --tests "com.lunabot.companion.core.MarkdownTest"` 通过。
 11. **系统栏同色**：Minis 那种“全黑”不是把状态栏涂黑，而是 edge-to-edge：状态栏/手势栏透明、
     关闭 Android 15+ 的 contrast scrim、窗口底色跟随页面（深色纯黑 / 浅色纯白），系统图标明暗
     跟随主题。现在顶部和底部不再露出 `#1C1C1E` 的灰边。
@@ -318,7 +318,7 @@ export JAVA_HOME=/path/to/jdk-17
 ## 第九轮：DexBot 改名、点截图看实时画面、四类卡片回归
 
 1. **改名 DexBot**：应用名、常驻通知、设置文案、未配对首页标题和 README 统一为 DexBot；
-   包名仍是 `com.openmausbot.companion`，覆盖安装保留配对与聊天记录。
+   包名仍是 `com.lunabot.companion`，覆盖安装保留配对与聊天记录。
 2. **点聊天里的截图 → 同一台电脑的实时画面**：截图上新增「实时画面」角标，点开进入现有的电脑页。
    这张静帧仍先作为兜底，机器人开始操作后自动换成实时帧；房间会话没有单一 bot，保持只读静帧。
 3. **四类卡片不再消失**：`connector`、`secret`、`routine.run`、`goal.run` 现在有自己的消息 kind 和卡片。

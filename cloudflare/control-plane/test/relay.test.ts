@@ -326,7 +326,7 @@ describe("a Worker deployed before migration 0015", () => {
     const release = env.TEST_MIGRATIONS.findIndex((migration) => migration.name.startsWith("0015_"));
     expect(release).toBeGreaterThan(0);
     await applyD1Migrations(db, env.TEST_MIGRATIONS.slice(0, release));
-    const oldEnv = { ...relayEnv({ RELAY_TUNNEL_RELEASE_PERCENT: "100", TUNNEL_LEGACY_PHONE_CUTOFF_PERCENT: "100", OMB_TUNNEL_RECLAIM_PREVIEW_DAYS: "1" }), DB: db } as unknown as Env;
+    const oldEnv = { ...relayEnv({ RELAY_TUNNEL_RELEASE_PERCENT: "100", TUNNEL_LEGACY_PHONE_CUTOFF_PERCENT: "100", LUNABOT_TUNNEL_RECLAIM_PREVIEW_DAYS: "1" }), DB: db } as unknown as Env;
     const now = Date.now();
     const lookup = b64u(crypto.getRandomValues(new Uint8Array(16)));
     const credential = `omb_install_${lookup}.${b64u(crypto.getRandomValues(new Uint8Array(32)))}`;

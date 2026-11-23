@@ -22,7 +22,7 @@ directly; it serves the same tools:
 ```json
 {
   "mcpServers": {
-    "lunabot": { "command": "lunabot", "args": ["mcp"], "env": { "OMB_PORT": "8799" } }
+    "lunabot": { "command": "lunabot", "args": ["mcp"], "env": { "LUNABOT_PORT": "8799" } }
   }
 }
 ```
@@ -69,8 +69,8 @@ client:
    ```json
    "env": {
      "ELECTRON_RUN_AS_NODE": "1",
-     "OMB_PORT": "8799",
-     "OPENMAUSBOT_TOKEN": "omb_sess_..."
+     "LUNABOT_PORT": "8799",
+     "LUNABOT_TOKEN": "omb_sess_..."
    }
    ```
 
@@ -109,12 +109,12 @@ With no configuration, the MCP process probes Luna Bot's three desktop ports (`8
 and accepts only a health response that identifies itself as Luna Bot. This handles the desktop's normal
 fallback when another local process already owns port 8799.
 
-Set `OMB_PORT` to force one local port, or `OPENMAUSBOT_URL` to use an explicit HTTP(S) origin. Plain HTTP is
+Set `LUNABOT_PORT` to force one local port, or `LUNABOT_URL` to use an explicit HTTP(S) origin. Plain HTTP is
 accepted only for loopback and private networks (LAN addresses, Tailscale, `*.local`); anything else needs HTTPS. An optional
-`OPENMAUSBOT_TOKEN` is sent as a bearer token for authenticated reverse proxies. When a token is set, an
-explicit `OPENMAUSBOT_URL` or `OMB_PORT` is required so the credential is never sent while probing unrelated
-local ports. `OPENMAUSBOT_MCP_TIMEOUT_MS` can set an HTTP timeout between 1,000 and 120,000 milliseconds.
-In packaged builds, `OPENMAUSBOT_TOKEN` is required for mutating tools as
+`LUNABOT_TOKEN` is sent as a bearer token for authenticated reverse proxies. When a token is set, an
+explicit `LUNABOT_URL` or `LUNABOT_PORT` is required so the credential is never sent while probing unrelated
+local ports. `LUNABOT_MCP_TIMEOUT_MS` can set an HTTP timeout between 1,000 and 120,000 milliseconds.
+In packaged builds, `LUNABOT_TOKEN` is required for mutating tools as
 described above; it is not a generic reverse-proxy secret.
 
 ## Tools

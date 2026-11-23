@@ -385,7 +385,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "delegate_coding",
     description:
-      "Delegate a coding task to a separate job on yourself that edits an isolated git worktree, never the person's live checkout: the repo gets a fresh dexbot/job-* branch in a worktree under your data dir, a thread opens with your instruction, and its result returns here and resumes you (same as start_thread report_back — end your turn after calling). Use it when coding work should run in parallel or must not touch what the person has open: refactors, fixes with tests, a PR's worth of changes. The brief tells the job to commit everything on its branch; read commits and the diff summary afterwards with coding_job_status. repo must be an absolute path to a git repository on this computer.",
+      "Delegate a coding task to a separate job on yourself that edits an isolated git worktree, never the person's live checkout: the repo gets a fresh lunabot/job-* branch in a worktree under your data dir, a thread opens with your instruction, and its result returns here and resumes you (same as start_thread report_back — end your turn after calling). Use it when coding work should run in parallel or must not touch what the person has open: refactors, fixes with tests, a PR's worth of changes. The brief tells the job to commit everything on its branch; read commits and the diff summary afterwards with coding_job_status. repo must be an absolute path to a git repository on this computer.",
     inputSchema: {
       type: "object",
       additionalProperties: false,

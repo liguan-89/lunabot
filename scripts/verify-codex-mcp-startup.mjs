@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 const startupDelayMs = Number(process.env.PROBE_MCP_DELAY_MS) || 3000;
 const root = mkdtempSync(join(tmpdir(), "omb-native-mcp-startup-"));
-process.env.OMB_DATA_DIR = join(root, "omb");
+process.env.LUNABOT_DATA_DIR = join(root, "omb");
 mkdirSync(join(root, "omb", "native"), { recursive: true });
 console.log(`Evidence: ${root}`);
 const { CodexDriver } = await import("../server/drivers/codex.ts");

@@ -1,4 +1,4 @@
-// The browser service on the real Chrome the driver's suites use (OMB_CDP_CHROME, or OMB_CDP_E2E=1 for the installed
+// The browser service on the real Chrome the driver's suites use (LUNABOT_CDP_CHROME, or LUNABOT_CDP_E2E=1 for the installed
 // one): pages from a loopback fixture server, a calibrated identity, and a data folder of its own.
 import { mkdtempSync } from "node:fs";
 import { join } from "node:path";

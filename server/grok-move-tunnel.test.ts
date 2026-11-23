@@ -122,12 +122,12 @@ describe("the Grok Bot link", () => {
     // Packaged, only the copy shipped in Resources counts.
     const resources = mkdtempSync(join(tmpdir(), "omb-grok-move-test-"));
     const shipped = join(resources, "cloudflared", process.platform === "win32" ? "cloudflared.exe" : "cloudflared");
-    expect(grokMoveCloudflared({ PATH: dirname(process.execPath), OMB_CLOUDFLARED_PATH: process.execPath, OMB_RESOURCES_PATH: resources }, false)).toBeNull();
+    expect(grokMoveCloudflared({ PATH: dirname(process.execPath), LUNABOT_CLOUDFLARED_PATH: process.execPath, LUNABOT_RESOURCES_PATH: resources }, false)).toBeNull();
     mkdirSync(dirname(shipped));
     writeFileSync(shipped, "");
-    expect(grokMoveCloudflared({ OMB_RESOURCES_PATH: resources }, false)).toBe(shipped);
+    expect(grokMoveCloudflared({ LUNABOT_RESOURCES_PATH: resources }, false)).toBe(shipped);
     rmSync(resources, { recursive: true, force: true });
-    expect(grokMoveCloudflared({ PATH: "/nonexistent", OMB_CLOUDFLARED_PATH: process.execPath }, true)).toBe(process.execPath);
+    expect(grokMoveCloudflared({ PATH: "/nonexistent", LUNABOT_CLOUDFLARED_PATH: process.execPath }, true)).toBe(process.execPath);
 
     const silent = harness({ says: "INF Requesting new quick Tunnel", startTimeoutMs: 300 });
     await expect(silent.move.connect()).rejects.toThrow("The link could not be made: cloudflared did not open a tunnel in time.");

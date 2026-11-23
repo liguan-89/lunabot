@@ -5,7 +5,7 @@
 // turn under way, two quick clicks), a workspace's menu (Rename, Colour, Remove asked first, the open one, the last one), an
 // app restart, the rail past eight, the cloud badge in both looks, and a person with no Cloud, whose rail appears with a second
 // place. Each picture is the window as the person sees it: the rail's own page over or beside the page the window shows.
-// Pictures go to OMB_ONE_WORKSPACE_SHOTS, else the fixture's folder.
+// Pictures go to LUNABOT_ONE_WORKSPACE_SHOTS, else the fixture's folder.
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -21,8 +21,8 @@ import { ensureUiBrowser, UI_TOOLS_DIR } from "./control-omb-ui.ts";
 import { launchHomeWorld, shotsDir, welcomed, type HomeWorld } from "./one-workspace-fixture.ts";
 import { decodePng, encodePng } from "./png.ts";
 
-const enabled = process.env.OMB_UI_E2E === "1" || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
-if (!enabled) console.info("skipping the rail workspaces UI e2e: set OMB_UI_E2E=1 to install the pinned browser");
+const enabled = process.env.LUNABOT_UI_E2E === "1" || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
+if (!enabled) console.info("skipping the rail workspaces UI e2e: set LUNABOT_UI_E2E=1 to install the pinned browser");
 
 const MAC = '[data-rail-place="profile:default"]';
 const WIDTH = 1280, HEIGHT = 800;

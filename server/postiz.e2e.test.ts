@@ -15,7 +15,7 @@ type Mounted = { url?: string; alwaysLoad?: boolean; command?: string; args?: st
 type Dump = { prompt: string; systemPrompt: string; mcpConfig: { mcpServers: Record<string, Mounted> } };
 /** pi mounts a URL server behind the remote proxy, which carries the address (and the token) in its own environment. */
 const mountedUrl = (server: Mounted | undefined) => {
-  const spec = server?.env?.OMB_REMOTE_MCP_SERVER;
+  const spec = server?.env?.LUNABOT_REMOTE_MCP_SERVER;
   if (!spec) return undefined;
   try { return (JSON.parse(spec) as { url?: string }).url; } catch { return undefined; }
 };
@@ -88,7 +88,7 @@ beforeAll(async () => {
   scratch = mkdtempSync(join(tmpdir(), "omb-postiz-e2e-"));
   writeFileSync(join(scratch, "tool-calls.json"), "[]");
   // The fake pi's compatibility turns run the scripted calls a tool-calls file lists before they reply.
-  fixture = await launchVerificationServer({ ...process.env, OMB_POSTIZ_CLOUD_URL: cloud.url, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS_FILE: join(scratch, "tool-calls.json") });
+  fixture = await launchVerificationServer({ ...process.env, LUNABOT_POSTIZ_CLOUD_URL: cloud.url, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS_FILE: join(scratch, "tool-calls.json") });
 }, 60_000);
 
 afterAll(async () => {

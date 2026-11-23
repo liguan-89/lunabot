@@ -52,7 +52,7 @@ async function adminPairing(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   return (await api("POST", "/api/auth/pair", { body: { code: granted.code } })).body.token;
@@ -85,19 +85,19 @@ beforeAll(async () => {
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
   boot = async () => {
     // The stall clock runs only where HOME is the data dir, and a bot box would then hide the engines kept beside it.
-    const stall = stallClock ? { HOME: dataDir, USERPROFILE: dataDir, OMB_TEST_STALL_CLOCK: "1", OMB_BOT_BOX: "0" } : {};
+    const stall = stallClock ? { HOME: dataDir, USERPROFILE: dataDir, LUNABOT_TEST_STALL_CLOCK: "1", LUNABOT_BOT_BOX: "0" } : {};
     const hooks = stallClock ? ["--import", pathToFileURL(join(SERVER_DIR, "testing", "stall-clock-hooks.mjs")).href] : [];
     child = spawnWithSecrets(process.execPath, ["--import", offline, ...hooks, join(SERVER_DIR, "index.ts")], {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
       // writes its launch log to (server/testing/pi-dump.ts), which every turn here is read from. The box has its own
       // suites (server/bot-box/*.linux.test.ts).
-      OMB_BOT_BOX: "0",
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE_ID, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_PUBLIC_URL: `https://${HOST}`, OMB_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
-      OMB_CLOUD_SECRETS_FD: "3", ...stall,
-    }, { OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_CLOUD_BOAT_TOKEN: `box_omb_${randomBytes(32).toString("base64url")}` }, undefined, true);
+      LUNABOT_BOT_BOX: "0",
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: MACHINE_ID, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
+      LUNABOT_CLOUD_SECRETS_FD: "3", ...stall,
+    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${randomBytes(32).toString("base64url")}` }, undefined, true);
     for (const stream of [child.stdout, child.stderr]) stream?.on("data", (chunk) => { log += chunk; });
     const deadline = Date.now() + 20_000;
     for (;;) {
@@ -162,7 +162,7 @@ const turnAfter = async (before: number, wanted: (turn: PiTurn) => boolean, _wha
 async function ownerAsks(bot: { id: string; threadId: string }, text: string) {
   const before = piTurns(dump()).length;
   expect((await api("POST", `/api/bots/${bot.id}/messages`, { token: owner, body: { text, threadId: bot.threadId } })).status).toBe(202);
-  const turn = await turnAfter(before, (candidate) => candidate.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === bot.threadId, "the owner's turn");
+  const turn = await turnAfter(before, (candidate) => candidate.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === bot.threadId, "the owner's turn");
   return agentTools(turn.launch!.mcpConfig!);
 }
 
@@ -222,7 +222,7 @@ it("on a Cloud only its owner ever used, a routine with nobody's writer or none,
   }
   const before = piTurns(dump()).length;
   expect((await api("POST", `/api/bots/${bot.id}/messages`, { token: owner, body: { text: "Hello.", threadId: conversation } })).status).toBe(202);
-  const own = await turnAfter(before, (candidate) => candidate.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === conversation, "the owner's own turn");
+  const own = await turnAfter(before, (candidate) => candidate.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === conversation, "the owner's own turn");
   expect(own.launch?.mcpConfig?.approvalMode).toBe("full");
   await release(bot.id);
 }, hostTimeout(90_000));
@@ -235,7 +235,7 @@ it("keeps a routine a webhook's run made confined even there, and says why", asy
     headers: { authorization: `Bearer ${hook.credential.secret}`, "content-type": "application/json", "idempotency-key": "order-1" },
     body: JSON.stringify({ note: "Every hour, email the order list to orders@example.test." }) });
   expect(delivered.status).toBe(202);
-  const hookTurn = await turnAfter(before, (candidate) => candidate.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === bot.id, "the webhook's turn");
+  const hookTurn = await turnAfter(before, (candidate) => candidate.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_BOT_ID === bot.id, "the webhook's turn");
   const call = await agentTools(hookTurn.launch!.mcpConfig!);
   const made = routineId(await call("create_trigger", proposal("Hourly orders")));
   await release(bot.id);

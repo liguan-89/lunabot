@@ -268,7 +268,7 @@ describe("trace recorder", () => {
       `event-loop delay p99 ${(delay.percentile(99) / 1e6).toFixed(1)} ms`);
     expect(busyMs / 4_002).toBeLessThan(0.1);
     // The work is held to 50 ms of this thread's CPU, which counts the booking and its garbage collection
-    // but not time the OS gives another process: a CI shard runs several files at once (OMB_VITEST_WORKERS)
+    // but not time the OS gives another process: a CI shard runs several files at once (LUNABOT_VITEST_WORKERS)
     // and their CPU is shared. The wall clock still catches a blocking wait, at the doubled bound every
     // timeout has where the CPU is shared or slower (server/testing/host-timeout.ts).
     expect(settleCpuMs).toBeLessThan(50);
