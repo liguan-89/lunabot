@@ -16,7 +16,7 @@ export function dataHome(): string {
 /** The data folder's name under the home: `~/.lunabot`. */
 export const DATA_DIR_NAME = ".lunabot";
 /** The names earlier releases used, newest first. A person who updates keeps their bots and chats, so each is moved, once, in place. */
-export const LEGACY_DATA_DIR_NAMES = [".lunabot", ".dexbot"] as const;
+export const LEGACY_DATA_DIR_NAMES = [".openmausbot", ".dexbot"] as const;
 
 export interface DataDirDefaults {
   /** The home it sits under; the server's own by default. */

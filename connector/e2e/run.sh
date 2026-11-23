@@ -115,7 +115,7 @@ printf '%s\n' "$reply" >"$OUT/start.json"
 expect ".ok and .result.home.state == \"running\" and .result.home.image == \"$HOME_A\" and .result.home.health.ok" "$reply" "start"
 status=$(box_checks)
 printf '%s\n' "$status" >"$OUT/status-start.json"
-expect '.result.home.health.box | .box == "bwrap" and .checks == "32/32" and .failed == []' "$status" "the box passes 32/32"
+expect '.result.home.health.box | .box == "bwrap" and .checks == "33/33" and .failed == []' "$status" "the box passes 33/33"
 settings=$(home_settings)
 printf '%s\n' "$settings" >"$OUT/home-settings.json"
 expect '.apparmor == "omb-home-narrow" and .stopTimeout == 30' "$settings" "the home's AppArmor profile and stop timeout"
@@ -130,7 +130,7 @@ reply=$(job update "$(jq -cn --arg image "$HOME_B" '{image: $image}')" update-1)
 printf '%s\n' "$reply" >"$OUT/update.json"
 expect ".ok and .result.previousImage == \"$HOME_A\" and .result.home.image == \"$HOME_B\" and .result.home.health.ok and .result.snapshot.kind == \"snapshot\"" "$reply" "update"
 status=$(box_checks)
-expect '.result.home.health.box.checks == "32/32"' "$status" "the box after the update"
+expect '.result.home.health.box.checks == "33/33"' "$status" "the box after the update"
 [ "$(docker exec -u maus lunabot-home cat /data/e2e-marker)" = kept ] || fail "the data did not survive the update"
 docker volume inspect lunabot-snapshot >/dev/null || fail "the update kept no safety copy"
 
@@ -175,7 +175,7 @@ expect ".result.home.image == \"$HOME_B\" and .result.home.health.ok" "$status" 
 [ "$(docker exec -u maus lunabot-home cat /data/e2e-marker)" = kept ] || fail "the data from before the update is gone"
 if docker exec lunabot-home test -e /data/e2e-after-swap; then fail "what was written after the swap survived the rollback"; fi
 status=$(box_checks)
-expect '.result.home.health.box.checks == "32/32"' "$status" "the box after the rollback"
+expect '.result.home.health.box.checks == "33/33"' "$status" "the box after the rollback"
 
 step "nothing secret in the connector's log"
 docker logs mausbot-connector >"$OUT/connector.log" 2>&1
