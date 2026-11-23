@@ -4,7 +4,7 @@
 #
 #   curl -fsSL https://cloud.lunabot.com/install.sh | sudo sh -s -- <code>
 #
-# On a server where you already installed MausBot yourself (deploy/install.sh, in /opt/openmausbot) it connects that
+# On a server where you already installed MausBot yourself (deploy/install.sh, in /opt/lunabot) it connects that
 # MausBot instead of starting another: the connector then runs in customer-run mode, where MausBot may only start,
 # stop, update and back up your server and learns only its versions, health and seat count (connector/src/customer-run.ts).
 #
@@ -29,7 +29,7 @@ DATA_VOLUME=mausbot-data
 STATE_VOLUME=mausbot-connector
 SNAPSHOT_VOLUME=mausbot-snapshot
 ROLE_LABEL=com.mausbot.role
-INSTALL_DIR="${MAUSBOT_INSTALL_DIR:-/opt/openmausbot}"
+INSTALL_DIR="${MAUSBOT_INSTALL_DIR:-/opt/lunabot}"
 UPDATE_DIR="${MAUSBOT_UPDATE_DIR:-/var/lib/mausbot/update}"
 SBIN_DIR="${MAUSBOT_SBIN_DIR:-/usr/local/sbin}"
 SYSTEMD_DIR="${MAUSBOT_SYSTEMD_DIR:-/etc/systemd/system}"

@@ -79,7 +79,7 @@ try {
   await rpc("initialize", {
     protocolVersion: "2024-11-05",
     capabilities: {},
-    clientInfo: { name: "openmausbot-container-smoke", version: "1" },
+    clientInfo: { name: "lunabot-container-smoke", version: "1" },
   });
   child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
 

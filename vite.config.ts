@@ -108,7 +108,7 @@ export default defineConfig({
         proxyTimeout: 1_600_000,
         target: `http://127.0.0.1:${process.env.LUNABOT_PORT || process.env.OGB_PORT || 8799}`,
       },
-      "/.well-known/openmausbot/environment": {
+      "/.well-known/lunabot/environment": {
         target: `http://127.0.0.1:${process.env.LUNABOT_PORT || process.env.OGB_PORT || 8799}`,
       },
     },

@@ -15,7 +15,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=${OUT:-$(mktemp -d)}
 mkdir -p "$OUT"
 DOMAIN=installer-e2e.internal
-DIR=/opt/openmausbot
+DIR=/opt/lunabot
 SETTINGS=(LUNABOT_INSTALL_SKIP_DNS=1 LUNABOT_INSTALL_HTTPS_WAIT_S=20 "LUNABOT_INSTALL_SOURCE=file://$ROOT")
 # Without a version asked for: what a person's later run is, which must keep the version update.sh pinned.
 PLAIN_INSTALL=(sudo env "${SETTINGS[@]}" sh "$ROOT/deploy/install.sh")
@@ -40,7 +40,7 @@ fail() {
 through_caddy() { # what happened
   local _
   for _ in $(seq 1 60); do
-    if curl -sk --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" 2>/dev/null | grep -qxE '\{"app":"(dexbot|openmausbot)"\}' &&
+    if curl -sk --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" 2>/dev/null | grep -qxE '\{"app":"(lunabot|dexbot|openmausbot)"\}' &&
       [ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/bots")" = 403 ]; then
       echo "HTTPS through Caddy answers after: $1"
       return 0
@@ -73,7 +73,7 @@ install_until_https() { # evidence-file [the install command, when not the usual
   [ "$status" = 1 ] || fail "the install exited $status, not 1"
   contains "$1" "MausBot is running, but https://$DOMAIN did not answer within 20 seconds" "the install did not end at the certificate"
   [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$(cd "$DIR" && sudo docker compose ps -q omb)")" = healthy ] || fail "the server is not healthy"
-  (cd "$DIR" && sudo docker compose exec -T omb curl -sf http://127.0.0.1:8799/api/health) | grep -qE 'dexbot|openmausbot' || fail "the server does not answer inside its container"
+  (cd "$DIR" && sudo docker compose exec -T omb curl -sf http://127.0.0.1:8799/api/health) | grep -qE 'lunabot|dexbot|openmausbot' || fail "the server does not answer inside its container"
   curl -sS -o /dev/null -w '%{http_code}' --max-time 10 -H "Host: $DOMAIN" http://127.0.0.1/ | grep -qx 308 || fail "Caddy does not redirect port 80 to HTTPS"
   through_caddy "the install"
 }
@@ -100,6 +100,7 @@ step "install: the server is healthy behind Caddy, on a pinned release, with its
 install_until_https "$OUT/install.txt"
 image=$(sudo sed -n 's/^LUNABOT_IMAGE=//p' "$DIR/.env")
 case "$image" in
+  ghcr.io/liguan-89/lunabot:stable | ghcr.io/liguan-89/lunabot:v[0-9]* | \
   ghcr.io/milind-soni/openmausbot:stable | ghcr.io/milind-soni/openmausbot:v[0-9]*) ;;
   *) [ "$image" = "${LUNABOT_INSTALL_IMAGE:-}" ] || fail "the install pinned $image" ;;
 esac
@@ -155,7 +156,7 @@ healthy_again && through_caddy "kill -9 of the server process"
 step "the documented backup and restore, each with the whole project stopped and started"
 echo before-backup | sudo tee "$DIR/data/e2e-backup" >/dev/null
 # docs/deploy-vps.md, "Back up", with the installer: exactly as written there.
-(cd /opt/openmausbot && sudo docker compose stop && sudo sh -c 'set -e; install -d -m 700 backups; f="backups/backup-$(date -u +%Y%m%dT%H%M%SZ).tgz"; (umask 077; tar --warning=no-file-ignored -czf "$f" data .env); chmod 600 "$f"'; sudo docker compose start) >"$OUT/backup.txt" 2>&1
+(cd /opt/lunabot && sudo docker compose stop && sudo sh -c 'set -e; install -d -m 700 backups; f="backups/backup-$(date -u +%Y%m%dT%H%M%SZ).tgz"; (umask 077; tar --warning=no-file-ignored -czf "$f" data .env); chmod 600 "$f"'; sudo docker compose start) >"$OUT/backup.txt" 2>&1
 archive=$(cd "$DIR" && sudo sh -c 'ls backups/backup-*.tgz' | head -n 1)
 [ -n "$archive" ] || fail "the backup made no archive: $(cat "$OUT/backup.txt")"
 grep -q "socket ignored" "$OUT/backup.txt" && fail "tar listed sockets: $(cat "$OUT/backup.txt")"
@@ -163,14 +164,14 @@ grep -q "socket ignored" "$OUT/backup.txt" && fail "tar listed sockets: $(cat "$
 [ "$(sudo stat -c %a "$DIR/backups")" = 700 ] || fail "the backups folder is open to others"
 healthy_again && through_caddy "the backup"
 echo after-backup | sudo tee "$DIR/data/e2e-backup" >/dev/null
-(cd /opt/openmausbot && sudo docker compose stop && sudo sh -c "set -e; tar -tzf $archive data/ >/dev/null; rm -rf data.before-restore; mv data data.before-restore; tar -xzpf $archive data"; sudo docker compose start) >"$OUT/restore.txt" 2>&1
+(cd /opt/lunabot && sudo docker compose stop && sudo sh -c "set -e; tar -tzf $archive data/ >/dev/null; rm -rf data.before-restore; mv data data.before-restore; tar -xzpf $archive data"; sudo docker compose start) >"$OUT/restore.txt" 2>&1
 [ "$(sudo cat "$DIR/data/e2e-backup")" = before-backup ] || fail "the restore did not put the data back: $(cat "$OUT/restore.txt")"
 [ "$(sudo stat -c '%u:%a' "$DIR/data")" = "$(sudo stat -c '%u:%a' "$DIR/data.before-restore")" ] || fail "the restore changed the data folder's owner or mode"
 sudo rm -rf "$DIR/data.before-restore" "$DIR/$archive"
 healthy_again && through_caddy "the restore"
 
 step "the first admin's sign-in link, made the way the installer says"
-(cd "$DIR" && sudo docker compose exec -T omb openmausbot pair --label "First admin") >"$OUT/pair.txt" 2>&1 || fail "pair failed: $(cat "$OUT/pair.txt")"
+(cd "$DIR" && sudo docker compose exec -T omb lunabot pair --label "First admin") >"$OUT/pair.txt" 2>&1 || fail "pair failed: $(cat "$OUT/pair.txt")"
 grep -q "https://$DOMAIN/pair#code=" "$OUT/pair.txt" || fail "pair printed no link for $DOMAIN"
 rm -f "$OUT/pair.txt"
 
@@ -212,7 +213,7 @@ services:
       LUNABOT_PUBLIC_URL: https://${DOMAIN}
       LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-${DOMAIN}}
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -230,7 +231,7 @@ services:
       - ./caddy/data:/data
       - ./caddy/config:/config
 OLD
-sudo sed -i 's#unix//run/openmausbot/hooks.sock#127.0.0.1:8800#; s#unix//run/openmausbot/http.sock#127.0.0.1:8799#' "$DIR/Caddyfile"
+sudo sed -i 's#unix//run/lunabot/hooks.sock#127.0.0.1:8800#; s#unix//run/lunabot/http.sock#127.0.0.1:8799#' "$DIR/Caddyfile"
 (cd "$DIR" && sudo docker compose up -d --remove-orphans >/dev/null 2>&1) && healthy_again
 (cd "$DIR" && sudo docker compose restart >/dev/null 2>&1) && healthy_again
 if curl -sk --max-time 5 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" >/dev/null 2>&1; then
@@ -245,7 +246,7 @@ sudo grep -q network_mode "$DIR/compose.yaml" && fail "the run left Caddy in the
 step "uninstall: the server stops, the data stays"
 sudo sh "$ROOT/deploy/install.sh" --uninstall | tee "$OUT/uninstall.txt"
 contains "$OUT/uninstall.txt" "Your data is kept in $DIR/data" "uninstall did not say where the data is"
-[ -z "$(sudo docker ps -aq --filter label=com.docker.compose.project=openmausbot)" ] || fail "uninstall left a container"
+[ -z "$(sudo docker ps -aq --filter label=com.docker.compose.project=lunabot)" ] || fail "uninstall left a container"
 [ "$(sudo cat "$DIR/data/e2e-marker")" = kept ] || fail "uninstall touched the data"
 
 step "install again on the kept data"

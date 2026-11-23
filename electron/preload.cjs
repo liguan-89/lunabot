@@ -2,7 +2,7 @@
 const { contextBridge, ipcRenderer, webFrame, webUtils } = require("electron");
 
 // Sandboxed preloads get Electron's restricted `require`, which cannot load sibling CommonJS files.
-const desktopRemoteClient = process.argv.includes("--openmausbot-remote-client");
+const desktopRemoteClient = process.argv.includes("--lunabot-remote-client");
 
 let pendingPackageInstallUrl = null;
 const packageInstallListeners = new Set();

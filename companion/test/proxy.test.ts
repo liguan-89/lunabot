@@ -242,7 +242,7 @@ describe("the sidecar in front of an unmodified harness", () => {
   it("serves a minimal, non-cacheable companion health identity", async () => {
     const health = await device("GET", "/api/health", { token: null });
     expect(health.status).toBe(200);
-    expect(health.body).toEqual({ app: "dexbot" });
+    expect(health.body).toEqual({ app: "lunabot" });
     expect(health.headers.get("cache-control")).toBe("private, no-store");
     expect(health.headers.get("cdn-cache-control")).toBe("no-store");
     expect(JSON.stringify(health.body)).not.toContain("pid");
@@ -250,9 +250,9 @@ describe("the sidecar in front of an unmodified harness", () => {
   });
 
   it("tells a paired device the desktop's version, and nobody else", async () => {
-    expect(await fetch(`${HARNESS}/api/health`).then((reply) => reply.json())).toMatchObject({ app: "dexbot", version: DESKTOP_VERSION });
-    expect((await device("GET", "/api/health")).body).toEqual({ app: "dexbot", version: DESKTOP_VERSION });
-    expect((await device("GET", "/api/health", { token: "omb_wrong" })).body).toEqual({ app: "dexbot" });
+    expect(await fetch(`${HARNESS}/api/health`).then((reply) => reply.json())).toMatchObject({ app: "lunabot", version: DESKTOP_VERSION });
+    expect((await device("GET", "/api/health")).body).toEqual({ app: "lunabot", version: DESKTOP_VERSION });
+    expect((await device("GET", "/api/health", { token: "omb_wrong" })).body).toEqual({ app: "lunabot" });
     expect((await device("GET", "/api/companion/endpoints")).body).toEqual({ serverName: "Test computer", endpoints: [], version: DESKTOP_VERSION });
   });
 

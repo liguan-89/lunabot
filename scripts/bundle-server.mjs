@@ -98,7 +98,7 @@ await build({
   plugins: [serverLocalePlugin],
 });
 
-// `openmausbot serve --tunnel` spawns the connector guardian as its own
+// `lunabot serve --tunnel` spawns the connector guardian as its own
 // process, so it must exist as a file beside the server.
 await build({
   entryPoints: [join(root, "electron", "managed-companion-guardian-main.mjs")],

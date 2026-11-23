@@ -22,6 +22,7 @@ const digest = (letter: string) => `ghcr.io/milind-soni/openmausbot@sha256:${let
 const CLOUD_HOME = `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"c".repeat(64)}`;
 const CONNECTOR = `ghcr.io/milind-soni/mausbot-connector@sha256:${"1".repeat(64)}`;
 const RUNNING = "ghcr.io/milind-soni/openmausbot:v0.1.151";
+const RUNNING_RENAMED = "ghcr.io/liguan-89/lunabot:v2.1.5";
 const NEXT = digest("b");
 const OLDER = digest("a");
 const UNNAMED = digest("d");
@@ -248,6 +249,11 @@ describe("a customer-run server: what leaves it", () => {
     // On or off, nothing else: a server without the field, or with anything else in it, says nothing about its box.
     expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot", box: "off" })}\n\u001e\n`).box).toBe("off");
     expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot", box: { checks: "33/33" } })}\n\u001e\n`).box).toBeNull();
+    // this fleet's server answers its own generation's app name
+    expect(parseHomeReads(`${JSON.stringify({ app: "lunabot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "dexbot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "someone-else" })}\n\u001e\n`).answers).toBe(false);
   });
 
   it("sends a heartbeat of versions, states, counts and the seat count, with no address, name or sentence in it", async () => {

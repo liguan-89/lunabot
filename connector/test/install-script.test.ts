@@ -144,7 +144,7 @@ describe("install.sh", () => {
   it("starts a customer-run connector with its mode and the updater's folder, and only where MausBot is already installed", () => {
     expect(script).toContain('set -- "$@" -e MAUSBOT_MODE=customer-run -v "$UPDATE_DIR:/var/lib/mausbot/update"');
     expect(PATHS.update).toBe("/var/lib/mausbot/update");
-    expect(script).toContain('INSTALL_DIR="${MAUSBOT_INSTALL_DIR:-/opt/openmausbot}"');
+    expect(script).toContain('INSTALL_DIR="${MAUSBOT_INSTALL_DIR:-/opt/lunabot}"');
     expect(script).toContain("PathExists=$UPDATE_DIR/request");
     expect(script).toContain("ExecStart=$SBIN_DIR/$UPDATE_RUNNER");
   });

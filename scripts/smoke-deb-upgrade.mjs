@@ -17,11 +17,18 @@ const candidate = path.resolve(process.argv[2] ?? "");
 if (!candidate.endsWith(".deb") || !fs.existsSync(candidate)) fail("pass the newly built DEB path");
 
 try {
-  const status = execFileSync("dpkg-query", ["-W", "-f=${db:Status-Abbrev}", "dexbot"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  }).trim();
-  if (status.startsWith("ii")) fail("refusing to replace a pre-existing Luna Bot installation");
+  for (const name of ["dexbot", "lunabot"]) {
+    let status = "";
+    try {
+      status = execFileSync("dpkg-query", ["-W", "-f=${db:Status-Abbrev}", name], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    } catch {
+      continue; // not installed
+    }
+    if (status.startsWith("ii")) fail(`refusing to replace a pre-existing ${name} installation`);
+  }
 } catch (error) {
   if (String(error?.message ?? error).includes("refusing to replace")) throw error;
 }
@@ -101,7 +108,7 @@ try {
   ) {
     fail(`upgraded Chromium sandbox is not root:root 4755: ${chromiumSandbox}`);
   }
-  const installedVersion = execFileSync("dpkg-query", ["-W", "-f=${Version}", "dexbot"], {
+  const installedVersion = execFileSync("dpkg-query", ["-W", "-f=${Version}", "lunabot"], {
     encoding: "utf8",
   }).trim();
   console.log(

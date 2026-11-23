@@ -78,7 +78,7 @@ test("another computer's desktop app (its Remote access answers 401) is named as
   const desktop = () => new Response(JSON.stringify({ error: "pair this device from Remote access settings on the host computer" }), { status: 401, headers: { "content-type": "application/json" } });
   assert.deepEqual(await probeServer({ address: "192.168.1.30:8799", fetch: fakeFetch({ "http://192.168.1.30:8799": desktop }).fetch, platform: "linux" }), { outcome: "problem", problem: "desktopApp", host: "192.168.1.30:8799" });
   assert.deepEqual(await probeServer({ address: "192.168.1.30:8799", fetch: fakeFetch({ "https://192.168.1.30:8799": desktop }).fetch, platform: "linux" }), { outcome: "problem", problem: "desktopApp", host: "192.168.1.30:8799" });
-  // Any other refusal still reads as no DexBot server.
+  // Any other refusal still reads as no Luna Bot server.
   const otherRefusal = () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
   assert.equal((await probeServer({ address: "maus.example.com", fetch: fakeFetch({ "https://maus.example.com": otherRefusal }).fetch })).problem, "notMausBot");
   const oddError = () => new Response(JSON.stringify({ error: { toString: null } }), { status: 401 });

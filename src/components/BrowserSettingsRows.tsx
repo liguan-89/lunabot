@@ -68,7 +68,7 @@ export function BuiltInBrowserRow() {
 }
 
 /** Self-hosted servers only, for the owner: browserEngine.egress.localNetwork lets bots' browsers open this server's
- * own sites and its local network. OpenMausBot's own ports, cloud metadata and link-local addresses stay closed. */
+ * own sites and its local network. Luna Bot's own ports, cloud metadata and link-local addresses stay closed. */
 export function ServerSitesRow() {
   const { state } = useStore();
   const owner = useOwnerOrAdmin();

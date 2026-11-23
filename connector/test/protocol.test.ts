@@ -33,6 +33,10 @@ describe("the connector protocol", () => {
     const image = (type: "start" | "update" | "self-update", value: string) => checkJob({ id: "j", type, args: type === "start" ? { image: value, env } : { image: value } }).ok;
     expect(image("start", HOME)).toBe(true);
     expect(image("update", HOME)).toBe(true);
+    // the repository's images also come pinned under the post-rename path
+    const RENAMED_HOME = `ghcr.io/liguan-89/lunabot-cloud-home@sha256:${"a".repeat(64)}`;
+    expect(image("start", RENAMED_HOME)).toBe(true);
+    expect(image("update", RENAMED_HOME)).toBe(true);
     expect(image("self-update", CONNECTOR)).toBe(true);
     for (const value of [
       "ghcr.io/milind-soni/openmausbot-cloud-home:latest", "ghcr.io/milind-soni/openmausbot-cloud-home:v0.1.130",

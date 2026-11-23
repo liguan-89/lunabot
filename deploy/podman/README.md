@@ -1,12 +1,12 @@
 # Self-host the full stack with rootless Podman
 
-Run the OpenMausBot server, Caddy, and per-bot Linux desktops with one Podman
+Run the Luna Bot server, Caddy, and per-bot Linux desktops with one Podman
 engine. Docker Engine, Docker Desktop, and Docker Compose are not required;
 `podman-compose` provides the Compose commands. The existing
 [`deploy/docker-compose.yml`](../docker-compose.yml) remains an independent option.
 
 ```text
-Browser -> loopback Caddy :8080 -> OpenMausBot :8799
+Browser -> loopback Caddy :8080 -> Luna Bot :8799
                                     |
                              rootless Podman socket
                                     |
@@ -31,12 +31,12 @@ that WSL can access through `/mnt/c`, `/mnt/d`, etc. From the repository root:
 .\deploy\podman\lunabot.ps1 ps
 ```
 
-Setup creates/starts a WSL2 machine named `openmausbot` (4 CPUs, 10 GiB RAM,
+Setup creates/starts a WSL2 machine named `lunabot` (4 CPUs, 10 GiB RAM,
 60 GiB requested disk), installs `podman-compose` inside it if missing, enables
 the user socket, and generates `.env`. WSL resource limits still apply.
 It preserves an existing `.env`. Use `LUNABOT_PODMAN_MACHINE` to select a different
 machine. The wrapper refuses a stopped machine for normal Compose commands;
-after a reboot, use `podman machine start openmausbot` before `up -d`.
+after a reboot, use `podman machine start lunabot` before `up -d`.
 
 Compose runs **inside** the machine, so the socket and bind paths have the same
 meaning for the server and the engine. `LUNABOT_PODMAN_ENV_FILE` selects an alternate
@@ -78,7 +78,7 @@ Each desktop gets 4 GiB / 2 CPUs unless `localVm.memoryGb` and `localVm.cpus` sa
 and build as well as all concurrent desktops. See the
 [Local VM guide](../../apps/docs/content/docs/computers/local-vm.mdx).
 
-The server's `maus` user (1001) and each desktop's `cua` user (1000) map to the same
+The server's `lunabot` user (1001) and each desktop's `cua` user (1000) map to the same
 rootless host user through separate `keep-id` namespaces. The server mounts the
 data root at the **same absolute path** on both sides so desktop workspace paths
 resolve on the engine host. Do not replace that mount with an unrelated named
@@ -92,7 +92,7 @@ existing data.
 Caddy listens on loopback only. To use Tailscale Serve, route the tailnet HTTPS
 endpoint to `http://127.0.0.1:8080`, set `LUNABOT_PUBLIC_URL` to that HTTPS URL and
 `LUNABOT_HTTPS_HOST` to its hostname, then recreate the services with `up -d`.
-Mint a pairing code with `lunabot.ps1 exec omb openmausbot pair`.
+Mint a pairing code with `lunabot.ps1 exec omb lunabot pair`.
 The proxy forwards the client address and scheme so the server's pairing checks
 remain in force. Do not publish the server, webhook listener, or Podman socket
 directly. For public-domain HTTPS, use the existing Docker deployment or design

@@ -6,13 +6,13 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const SCRIPT = join(import.meta.dirname, "..", "..", "deploy", "update.sh");
 const FAKE = join(import.meta.dirname, "fake-compose-docker.mjs");
-const REPO = "ghcr.io/milind-soni/openmausbot";
+const REPO = "ghcr.io/liguan-89/lunabot";
 const posix = process.platform !== "win32";
 
 const id = (letter: string) => `sha256:${letter.repeat(64)}`;
 const OLD = { id: id("a"), refs: [`${REPO}:latest`, `${REPO}@${id("1")}`], version: "0.1.150", local: true, engine: true };
 const NEW = { id: id("b"), refs: [`${REPO}@${id("2")}`, `${REPO}:v0.1.151`], version: "0.1.151", local: false, engine: true };
-const ENV = "DOMAIN=maus.example.test\nOMB_SIGNIN_EMAILS=owner@example.test\n";
+const ENV = "DOMAIN=maus.example.test\nLUNABOT_SIGNIN_EMAILS=owner@example.test\n";
 /** .env after a rollback: as it was, with the version that ran before pinned by its digest, so a tag that moved since
  * (the installer's `stable`) cannot bring the undone version back on a later run of the installer. */
 const ROLLED_BACK = `${ENV}LUNABOT_IMAGE=${OLD.refs[1]}\n`;
@@ -371,7 +371,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     expect(moving.env()).toBe(`${ENV}LUNABOT_IMAGE=${OLD.refs[1]}\n`);
   });
 
-  // A hardened server answers `openmausbot doctor` without a session with a refusal, so before the server's own count
+  // A hardened server answers `lunabot doctor` (once `openmausbot doctor`) without a session with a refusal, so before the server's own count
   // the check that a bot can still start never ran there.
   it("checks a hardened version's engines with the server's own count, where doctor is refused", () => {
     const hardened = { counts: true, doctor: false };
@@ -406,8 +406,8 @@ services:
     expect(done.said).toContain("Caddy moves to its own container, so HTTPS stays up whenever the server restarts on its own.");
     const compose = readFileSync(join(box.deploy, "compose.yaml"), "utf8");
     expect(compose).not.toContain("network_mode");
-    expect(compose).toContain("- edge:/run/openmausbot");
-    expect(readFileSync(join(box.deploy, "Caddyfile"), "utf8")).toContain("reverse_proxy unix//run/openmausbot/http.sock");
+    expect(compose).toContain("- edge:/run/lunabot");
+    expect(readFileSync(join(box.deploy, "Caddyfile"), "utf8")).toContain("reverse_proxy unix//run/lunabot/http.sock");
     expect(box.run(["--rollback", "--yes"]).status).toBe(0);
     expect(readFileSync(join(box.deploy, "compose.yaml"), "utf8")).toBe(oldCompose);
     expect(readFileSync(join(box.deploy, "Caddyfile"), "utf8")).toBe(oldCaddyfile);

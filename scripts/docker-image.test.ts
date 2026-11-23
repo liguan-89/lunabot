@@ -115,7 +115,7 @@ describe("container images", () => {
     expect(home.filter(step => step.args.includes("--from=build")).map(step => step.args)).toEqual([
       "/src/dist-native/duckdb/target ./duckdb", "/src/dist-server ./dist-server", "/src/dist ./dist", "/src/skills ./skills",
     ].map(path => `--from=build ${path}`));
-    expect(chain("server").filter(step => step.args.includes("--from=build")).every(step => step.args.startsWith("--from=build --chown=maus:maus "))).toBe(true);
+    expect(chain("server").filter(step => step.args.includes("--from=build")).every(step => step.args.startsWith("--from=build --chown=lunabot:lunabot "))).toBe(true);
   });
 
   it("installs the pinned Grok in Cloud home only, beneath the engines and the app, from a home the same step removes", () => {
@@ -150,7 +150,7 @@ describe("container images", () => {
   it("keeps each image's runtime contract", () => {
     const last = (steps: Step[], op: string) => steps.filter(step => step.op === op).at(-1)?.args;
     const server = chain("server");
-    expect(last(server, "USER")).toBe("maus");
+    expect(last(server, "USER")).toBe("lunabot");
     expect(last(server, "VOLUME")).toBe('["/data"]');
     expect(last(server, "CMD")).toBe('["node", "dist-server/server-launcher.js"]');
     expect(last(server, "HEALTHCHECK")).toContain("http://127.0.0.1:8799/api/health");
@@ -261,7 +261,7 @@ describe("container images", () => {
 
   it("builds Cloud home from the same Dockerfile in CI, with its own layer cache", () => {
     const smoke = workflow.jobs["build-and-smoke"].steps.map((step: { run?: string }) => step.run ?? "").join("\n");
-    expect(smoke).toContain("docker build --target cloud-home --build-arg CLOUD_HOME_ENGINES= -t omb-cloud-home:ci .");
+    expect(smoke).toContain("docker build --target cloud-home --build-arg CLOUD_HOME_ENGINES= -t lunabot-cloud-home:ci .");
     const steps = workflow.jobs.publish.steps as { id?: string; uses?: string; with?: Record<string, string> }[];
     const server = steps.find(step => step.uses?.startsWith("docker/build-push-action@") && step.id !== "home")!;
     const home = steps.find(step => step.id === "home")!;
@@ -323,7 +323,7 @@ describe("container images", () => {
   });
 
   // An init collects browser processes whose parents exit, and Chrome gets the
-  // shared memory OpenMausBot's desktop containers give it.
+  // shared memory Luna Bot's desktop containers give it.
   it("runs every compose service of the server image with an init and Chrome's shared memory", () => {
     for (const file of ["../compose.yaml", "../deploy/docker-compose.yml", "../deploy/podman/compose.yaml"]) {
       const service = parse(readFileSync(new URL(file, import.meta.url), "utf8")).services.omb;
@@ -344,11 +344,11 @@ describe("container images", () => {
       expect(Object.keys(services.caddy.environment ?? {}), file).not.toContain("LUNABOT_PHONE_RELAY");
       expect(services.omb.ports, file).toBeUndefined();
       expect(services.caddy.ports.length, file).toBeGreaterThan(0);
-      expect(services.omb.volumes, file).toContain("edge:/run/openmausbot");
-      expect(services.caddy.volumes, file).toContain("edge:/run/openmausbot");
+      expect(services.omb.volumes, file).toContain("edge:/run/lunabot");
+      expect(services.caddy.volumes, file).toContain("edge:/run/lunabot");
       expect(volumes.edge.driver_opts.type, file).toBe("tmpfs");
       const { LUNABOT_TUNNEL_SOCKET: api, LUNABOT_WEBHOOK_SOCKET: hooks } = services.omb.environment;
-      expect([api, hooks], file).toEqual(["/run/openmausbot/http.sock", "/run/openmausbot/hooks.sock"]);
+      expect([api, hooks], file).toEqual(["/run/lunabot/http.sock", "/run/lunabot/hooks.sock"]);
       const proxied = [...readFileSync(new URL(caddyfile, import.meta.url), "utf8").matchAll(/reverse_proxy (\S+)/g)].map((m) => m[1]);
       expect(proxied, caddyfile).toEqual([`unix/${hooks}`, `unix/${api}`]);
     }

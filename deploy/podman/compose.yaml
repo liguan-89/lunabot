@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-openmausbot-podman}
+name: ${COMPOSE_PROJECT_NAME:-lunabot-podman}
 services:
   omb:
     build:
@@ -6,7 +6,7 @@ services:
       dockerfile: deploy/podman/Containerfile
       args:
         ENGINES: ${ENGINES:-}
-    image: localhost/openmausbot-podman:${LUNABOT_IMAGE_TAG:-local}
+    image: localhost/lunabot-podman:${LUNABOT_IMAGE_TAG:-local}
     # Collects exited browser processes; Chrome's shared memory as on the
     # desktop containers (docs/browser-packaging.md, "Process hygiene").
     init: true
@@ -19,18 +19,18 @@ services:
     network_mode: host
     volumes:
       - ${LUNABOT_DATA_ROOT:?Run setup.sh first}:${LUNABOT_DATA_ROOT}
-      - ${PODMAN_SOCKET:?Run setup.sh first}:/run/omb-podman.sock
+      - ${PODMAN_SOCKET:?Run setup.sh first}:/run/lunabot-podman.sock
     environment:
       HOME: ${LUNABOT_DATA_ROOT}
       LUNABOT_DATA_DIR: ${LUNABOT_DATA_ROOT}/.lunabot
       LUNABOT_STATIC_DIR: /app/dist
-      CONTAINER_HOST: unix:///run/omb-podman.sock
+      CONTAINER_HOST: unix:///run/lunabot-podman.sock
       LUNABOT_PORT: ${LUNABOT_PORT:-8799}
       LUNABOT_WEBHOOK_PORT: ${LUNABOT_WEBHOOK_PORT:-8800}
       LUNABOT_PUBLIC_URL: ${LUNABOT_PUBLIC_URL:-http://localhost:8080}
       LUNABOT_WEBHOOK_PUBLIC_URL: ${LUNABOT_PUBLIC_URL:-http://localhost:8080}
     healthcheck:
-      test: [CMD-SHELL, 'curl -fsS http://127.0.0.1:$$LUNABOT_PORT/api/health | grep -qE "dexbot|openmausbot"']
+      test: [CMD-SHELL, 'curl -fsS http://127.0.0.1:$$LUNABOT_PORT/api/health | grep -q lunabot']
       interval: 15s
       timeout: 5s
       start_period: 30s

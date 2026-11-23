@@ -17,7 +17,7 @@ const TOKEN = "t0ken-of-the-registry";
 const CODE = "ABCD-1234-EFGH";
 const BOX_PASSED = '{"box":"bwrap","total":31,"passed":31,"failed":[],"results":[{"id":"config-hidden","ok":true},{"id":"messages-db-hidden","ok":true}]}';
 const BOX_FAILED = '{"box":"bwrap","total":31,"passed":30,"failed":["config-hidden"],"results":[{"id":"config-hidden","ok":false}]}';
-const FILES = "https://raw.githubusercontent.com/milind-soni/OpenMausBot";
+const FILES = "https://raw.githubusercontent.com/liguan-89/lunabot";
 const SOURCE = `${FILES}/v0.1.151`;
 const REAL_TOOLS = ["sed", "awk", "grep", "cat", "head", "tail", "tr", "sort", "cut", "mkdir", "mktemp", "chmod", "chown", "mv", "rm", "dirname", "sh"];
 
@@ -25,7 +25,7 @@ const REAL_TOOLS = ["sed", "awk", "grep", "cat", "head", "tail", "tr", "sort", "
 const HEALTHY = {
   FAKE_UID: "0", FAKE_ARCH: "x86_64", FAKE_CPUS: "4", FAKE_FREE_GB: "80", FAKE_DOCKER: "27.3.1", FAKE_SECURITY: '["name=apparmor","name=seccomp,profile=builtin"]',
   FAKE_COMPOSE: "0", FAKE_PUBLIC_IP: "203.0.113.7", FAKE_LOCAL_IP: "10.0.0.5", FAKE_DNS: "203.0.113.7", FAKE_NOW: "1794268800", FAKE_THEIRS: "1794268790",
-  FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "dexbot",
+  FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "lunabot",
   FAKE_IMAGE_ENV: '["PATH=/usr/bin","HOME=/data","LUNABOT_IMAGE=server"]', FAKE_BOX_CHECK: BOX_PASSED, FAKE_SOURCE: "published",
 };
 
@@ -95,7 +95,7 @@ case "$*" in
   "info --format {{json .SecurityOptions}}") echo "$FAKE_SECURITY" ;;
   "info --format {{.DockerRootDir}}") echo /nonexistent/docker ;;
   "compose version") exit "$FAKE_COMPOSE" ;;
-  "ps -q --filter label=com.docker.compose.project=openmausbot --filter publish="*) printf '%s' "\${FAKE_OURS:-}" ;;
+  "ps -q --filter label=com.docker.compose.project=lunabot --filter publish="*) printf '%s' "\${FAKE_OURS:-}" ;;
   "ps -aq --filter name=mausbot-connector") printf '%s' "\${FAKE_CONNECTOR:-}" ;;
   "run --rm --network none --entrypoint id "*" -u") /usr/bin/id -u ;;
   "run --rm --network none --entrypoint id "*" -g") /usr/bin/id -g ;;
@@ -123,7 +123,7 @@ function run(args: string[], server: Server = {}, kept?: { dir: string }) {
   if (!kept) dirs.push(dir);
   const bin = join(dir, "bin");
   const sysroot = join(dir, "sysroot");
-  const install = join(dir, "opt", "openmausbot");
+  const install = join(dir, "opt", "lunabot");
   const log = join(dir, "calls.log");
   rmSync(bin, { recursive: true, force: true });
   rmSync(log, { force: true });
@@ -231,7 +231,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     ["a clock an hour off", { env: { FAKE_THEIRS: "1794265200" } }, /^This server's clock is 60 minutes off, so HTTPS certificates will be refused\. Run: sudo timedatectl set-ntp true/],
     ["a release without an image", { env: { FAKE_RELEASE_STATUS: "404" } }, /^MausBot v0\.1\.151 has no server image yet/],
     ["a registry that is throttling", { env: { FAKE_RELEASE_STATUS: "429" } }, /^The image registry ghcr\.io did not say whether it has MausBot v0\.1\.151 \(it answered 429\)\. Run this again in a few minutes\.$/],
-    ["the latest tag asked for", { env: { LUNABOT_INSTALL_IMAGE: "ghcr.io/milind-soni/openmausbot:latest" } }, /^LUNABOT_INSTALL_IMAGE names the latest tag/],
+    ["the latest tag asked for", { env: { LUNABOT_INSTALL_IMAGE: "ghcr.io/liguan-89/lunabot:latest" } }, /^LUNABOT_INSTALL_IMAGE names the latest tag/],
   ])("--check on %s prints the one thing to fix", (_name, server, sentence) => {
     const result = run(["--check", "--domain", "maus.example.com"], server);
     expect(result.fixes).toHaveLength(1);
@@ -280,7 +280,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
 
   it("installs only as root, and only once every check passes", () => {
     const user = run(["--domain", "maus.example.com"], { env: { FAKE_UID: "1000" } });
-    expect(user.stderr).toContain("Please run this as root: put sudo before sh, like this: curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh | sudo sh -s -- --domain maus.example.com");
+    expect(user.stderr).toContain("Please run this as root: put sudo before sh, like this: curl -fsSL https://raw.githubusercontent.com/liguan-89/lunabot/main/deploy/install.sh | sudo sh -s -- --domain maus.example.com");
     expect(user.calls).toEqual([]);
     const small = run(["--domain", "maus.example.com"], { env: { FAKE_CPUS: "1" } });
     expect(small.status).toBe(1);
@@ -304,25 +304,25 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     const result = run(["--domain", "maus.example.com", "--email", "owner@example.com"]);
     expect(result.all).toContain("MausBot is running at https://maus.example.com");
     expect(result.status).toBe(0);
-    expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("DOMAIN=maus.example.com\nOMB_IMAGE=ghcr.io/milind-soni/openmausbot:v0.1.151\nOMB_SIGNIN_EMAILS=owner@example.com\n");
+    expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("DOMAIN=maus.example.com\nLUNABOT_IMAGE=ghcr.io/liguan-89/lunabot:v0.1.151\nLUNABOT_SIGNIN_EMAILS=owner@example.com\n");
     expect(statSync(join(result.install, ".env")).mode & 0o777).toBe(0o600);
     expect(statSync(join(result.install, "data")).mode & 0o777).toBe(0o700);
     for (const file of ["compose.yaml", "Caddyfile", "caddy/data", "caddy/config"]) expect(existsSync(join(result.install, file)), file).toBe(true);
     const changes = result.docker.filter((call) => !READS.test(call) && !call.includes(" ps -q omb") && !call.startsWith("docker inspect"));
     expect(changes).toEqual([
       "docker compose pull -q",
-      'docker image inspect -f {{index .Config.Labels "org.opencontainers.image.version"}} ghcr.io/milind-soni/openmausbot:v0.1.151',
-      "docker image inspect -f {{json .Config.Env}} ghcr.io/milind-soni/openmausbot:v0.1.151",
-      'docker image inspect -f {{index .Config.Labels "org.opencontainers.image.version"}} ghcr.io/milind-soni/openmausbot:v0.1.151',
-      "docker run --rm --network none --entrypoint id ghcr.io/milind-soni/openmausbot:v0.1.151 -u",
-      "docker run --rm --network none --entrypoint id ghcr.io/milind-soni/openmausbot:v0.1.151 -g",
+      'docker image inspect -f {{index .Config.Labels "org.opencontainers.image.version"}} ghcr.io/liguan-89/lunabot:v0.1.151',
+      "docker image inspect -f {{json .Config.Env}} ghcr.io/liguan-89/lunabot:v0.1.151",
+      'docker image inspect -f {{index .Config.Labels "org.opencontainers.image.version"}} ghcr.io/liguan-89/lunabot:v0.1.151',
+      "docker run --rm --network none --entrypoint id ghcr.io/liguan-89/lunabot:v0.1.151 -u",
+      "docker run --rm --network none --entrypoint id ghcr.io/liguan-89/lunabot:v0.1.151 -g",
       "docker compose up -d --remove-orphans",
       "docker compose exec -T omb node dist-server/bot-box/box-check.js --public=none",
     ]);
-    expect(result.stdout).toContain(`  cd ${result.install} && sudo docker compose exec omb openmausbot pair --label "First admin"`);
+    expect(result.stdout).toContain(`  cd ${result.install} && sudo docker compose exec omb lunabot pair --label "First admin"`);
     // Not a terminal, as here: the admin's sign-in link is not made, so no log holds it, and the output says why.
     expect(result.stdout).toContain("(The link is not made here because this output is not a terminal");
-    expect(result.docker.some((call) => call.includes("openmausbot pair"))).toBe(false);
+    expect(result.docker.some((call) => call.includes("lunabot pair"))).toBe(false);
     expect(result.stdout).toContain("Or open https://maus.example.com/pair and sign in with an emailed code as: owner@example.com");
     expect(result.stdout).toContain(`Your data: ${result.install}/data`);
   });
@@ -341,9 +341,9 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     const without = run(["--check", "--domain", "maus.example.com"], registry(""));
     expect(without.stdout).toContain("  ok    version: v0.1.151, the newest release\n  note  This version has no bots' sandbox");
     expect(without.calls.filter((call) => call.includes("-fsSL")).map((call) => call.replace(/^.* (\S+)$/, "$1"))).toEqual([
-      "https://ghcr.io/v2/milind-soni/openmausbot/manifests/v0.1.151",
-      `https://ghcr.io/v2/milind-soni/openmausbot/manifests/${digest("b")}`,
-      `https://ghcr.io/v2/milind-soni/openmausbot/blobs/${digest("d")}`,
+      "https://ghcr.io/v2/liguan-89/lunabot/manifests/v0.1.151",
+      `https://ghcr.io/v2/liguan-89/lunabot/manifests/${digest("b")}`,
+      `https://ghcr.io/v2/liguan-89/lunabot/blobs/${digest("d")}`,
     ]);
     expect(run(["--check", "--domain", "maus.example.com"], registry("LUNABOT_IMAGE=server")).stdout).not.toContain("no bots' sandbox");
     // Asked for no sandbox, or a registry that does not say: nothing to add.
@@ -354,7 +354,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
   it("uses the stable channel once it is published, and never the latest tag", () => {
     const result = run(["--domain", "maus.example.com"], { env: { FAKE_STABLE: "200" } });
     expect(result.stdout).toContain("  ok    version: the stable channel");
-    expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot:stable\n");
+    expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("LUNABOT_IMAGE=ghcr.io/liguan-89/lunabot:stable\n");
     expect(script).not.toMatch(/lunabot:latest/);
     expect(result.calls.some((call) => call.includes("releases/latest"))).toBe(false);
   });
@@ -402,9 +402,9 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(second.all).toContain("MausBot is running at https://maus.example.com");
     expect(second.status).toBe(0);
     expect(readFileSync(env, "utf8").split("\n").filter((line) => /^[A-Z_]+=/.test(line))).toEqual([
-      "LUNABOT_SIGNIN_SMTP_URL=smtps://mail.example.com", "DOMAIN=maus.example.com", "LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot:v0.1.152", "COMPOSE_FILE=compose.yaml:compose.box.yaml",
+      "LUNABOT_SIGNIN_SMTP_URL=smtps://mail.example.com", "DOMAIN=maus.example.com", "LUNABOT_IMAGE=ghcr.io/liguan-89/lunabot:v0.1.152", "COMPOSE_FILE=compose.yaml:compose.box.yaml",
     ]);
-    expect(readFileSync(join(first.install, "compose.yaml"), "utf8")).toContain("name: openmausbot");
+    expect(readFileSync(join(first.install, "compose.yaml"), "utf8")).toContain("name: lunabot");
     expect(readFileSync(join(first.install, "data", "messages.db"), "utf8")).toBe("chats");
     const after = statSync(join(first.install, "data"));
     expect([after.mode, after.uid, after.gid]).toEqual([before.mode, before.uid, before.gid]);
@@ -559,8 +559,8 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(statSync(join(first.install, "update.sh")).mode & 0o777).toBe(0o755);
     expect(first.stdout).toContain(`To update later, with a backup first and a way back:  sudo ${first.install}/update.sh`);
     const env = join(first.install, ".env");
-    const pin = `ghcr.io/milind-soni/openmausbot@sha256:${"a".repeat(64)}`;
-    writeFileSync(env, readFileSync(env, "utf8").replace("LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot:stable", `LUNABOT_IMAGE=${pin}`));
+    const pin = `ghcr.io/liguan-89/lunabot@sha256:${"a".repeat(64)}`;
+    writeFileSync(env, readFileSync(env, "utf8").replace("LUNABOT_IMAGE=ghcr.io/liguan-89/lunabot:stable", `LUNABOT_IMAGE=${pin}`));
     const again = run([], { env: { FAKE_STABLE: "200" } }, { dir: first.dir });
     expect(again.status).toBe(0);
     expect(again.stdout).toContain("  ok    version: the one update.sh pinned here; it stays until update.sh changes it");
@@ -591,8 +591,8 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(settings(written)).toEqual(settings(manual));
     // The sign-in lists and mail server are passed only when .env sets them: an empty one would still be set.
     for (const name of ["LUNABOT_SIGNIN_EMAILS", "LUNABOT_SIGNIN_MEMBER_EMAILS", "LUNABOT_SIGNIN_SMTP_URL", "LUNABOT_SIGNIN_SMTP_FROM", "LUNABOT_PHONE_RELAY"]) expect(settings(written)).toContain(`${name}:`);
-    for (const line of [`test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]`, "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
-      "- edge:/run/openmausbot", "type: tmpfs"]) {
+    for (const line of [`test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]`, "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
+      "- edge:/run/lunabot", "type: tmpfs"]) {
       expect(written).toContain(line);
       expect(manual).toContain(line);
     }

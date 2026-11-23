@@ -1,4 +1,4 @@
-# OMB Cloud Pro home machine: one Fly app per customer (docs/cloud-pro.md).
+# Luna Bot Cloud Pro home machine: one Fly app per customer (docs/cloud-pro.md).
 # The Admin creates it through the Machines API with these settings; this file
 # is the same shape for a manual deploy. Fill the {{…}} values per customer.
 # Create each app in its own private network (`fly apps create --network
@@ -25,7 +25,7 @@ kill_timeout = "30s"
   LUNABOT_PUBLIC_URL = "https://{{FLY_APP}}.fly.dev"
 
 [[mounts]]
-  source = "omb_home"
+  source = "lunabot_home"
   destination = "/data"
   initial_size = "10gb"
   snapshot_retention = 7

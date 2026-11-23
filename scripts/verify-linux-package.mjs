@@ -426,7 +426,7 @@ const fields = execFileSync(
   { encoding: "utf8" },
 );
 for (const expected of [
-  "Package: dexbot",
+  "Package: lunabot",
   "Architecture: amd64",
   "Maintainer: Luna Bot",
   "Section: utils",
@@ -499,7 +499,7 @@ const rpmFields = execFileSync(
   { encoding: "utf8" },
 );
 for (const expected of [
-  "Name: dexbot",
+  "Name: lunabot",
   "Arch: x86_64",
   `Version: ${JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version}`,
 ]) {

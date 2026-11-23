@@ -17,7 +17,7 @@ export type TalkUpdate =
   | { kind: "done"; ok: boolean; text: string };
 export interface TalkBot { id: string; defaultBot?: { person?: string }; chiefOfStaff?: boolean; hidden?: boolean }
 /** This computer's own MausBot (not a Team Cloud member's), else the Chief of Staff. */
-export declare function findDexBot<T extends TalkBot>(bots: readonly T[]): T | null;
+export declare function findBuiltInBot<T extends TalkBot>(bots: readonly T[]): T | null;
 /** Server-sent events whose data is JSON; `signal` cancels the stream. */
 export declare function readFrames(body: ReadableStream<Uint8Array>, onFrame: (frame: object) => void, signal?: AbortSignal): Promise<void>;
 /** Follows the frames of one ask: from its own echoed message, through the turn that answers it. That turn is the

@@ -3,13 +3,13 @@ $ErrorActionPreference = 'Stop'
 if (-not $args.Count -or $args[0] -in @('--help', '-h', 'help')) {
     Write-Output 'Usage: .\deploy\podman\lunabot.ps1 setup | <compose arguments>'
     Write-Output 'Example: .\deploy\podman\lunabot.ps1 up -d --build'
-    Write-Output 'Options: LUNABOT_PODMAN_MACHINE (default openmausbot), LUNABOT_PODMAN_ENV_FILE (default .env)'
+    Write-Output 'Options: LUNABOT_PODMAN_MACHINE (default lunabot), LUNABOT_PODMAN_ENV_FILE (default .env)'
     exit 0
 }
 $podmanCommand = Get-Command podman.exe -ErrorAction SilentlyContinue
 $podman = if ($podmanCommand) { $podmanCommand.Source } else { 'C:\Program Files\RedHat\Podman\podman.exe' }
 if (-not (Test-Path -LiteralPath $podman)) { throw 'Install Podman and WSL2 first; then reopen PowerShell.' }
-$machine = if ($env:LUNABOT_PODMAN_MACHINE) { $env:LUNABOT_PODMAN_MACHINE } else { 'openmausbot' }
+$machine = if ($env:LUNABOT_PODMAN_MACHINE) { $env:LUNABOT_PODMAN_MACHINE } else { 'lunabot' }
 if ($machine -notmatch '^[a-zA-Z0-9_-]+$') { throw 'Invalid Podman machine name.' }
 if ($PSScriptRoot -notmatch '^([A-Za-z]):\\(.+)$') { throw 'Place the repository on a Windows drive accessible to WSL2.' }
 $linuxProject = '/mnt/' + $Matches[1].ToLower() + '/' + $Matches[2].Replace('\', '/')

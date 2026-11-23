@@ -1301,7 +1301,7 @@ function openDesktopViewer(owner, rawUrl, rawTitle, contextId) {
       contextIsolation: true,
       sandbox: true,
       // Non-persistent partition: provider cookies stay out of the app renderer and die on exit.
-      partition: "openmausbot-desktop-viewer",
+      partition: "lunabot-desktop-viewer",
     },
   });
   desktopViewerWindow = viewer;
@@ -1374,7 +1374,7 @@ function ensureDesktopWorkspace(owner) {
   const manager = createDesktopWorkspaceManager({
     owner,
     createView: (options) => new WebContentsView(options),
-    partitionPrefix: `openmausbot-desktop-workspace-${randomUUID()}`,
+    partitionPrefix: `lunabot-desktop-workspace-${randomUUID()}`,
     notify: (state) => {
       if (!owner.isDestroyed() && !owner.webContents.isDestroyed()) {
         owner.webContents.send("desktop-workspace:state", state);
@@ -1799,7 +1799,7 @@ async function addServerFromClipboard() {
 }
 
 const serverConnect = createServerConnect({ fetch: (...args) => session.defaultSession.fetch(...args), t: nativeT,
-  ownEnvironmentId: async () => (await (await localServerRequest("/.well-known/dexbot/environment")).json())?.environmentId ?? null,
+  ownEnvironmentId: async () => (await (await localServerRequest("/.well-known/lunabot/environment")).json())?.environmentId ?? null,
   ask: async (found) => (await dialog.showMessageBox({ type: "question", buttons: [nativeT("native.dialog.connect.button"), nativeT("native.common.cancel")], defaultId: 0, cancelId: 1,
     message: nativeT("native.dialog.connect.title", { host: found.label }), detail: nativeT(found.code || found.credential ? "native.dialog.connect.withCode" : "native.dialog.connect.noCode") })).response === 0,
   open: (found, name) => {
@@ -1939,7 +1939,7 @@ function showContextMenu(win, params) {
   Menu.buildFromTemplate(contextMenuTemplate(params, { webContents: win.webContents, clipboard, downloads: mediaDownloads, t: nativeT })).popup({ window: win, frame: params.frame });
 }
 const mediaDownloads = createMediaDownloads({ dialog, shell, t: (...args) => nativeT(...args), log: slog,
-  openDir: () => path.join(app.getPath("temp"), "openmausbot-open-media"), downloadsDir: () => app.getPath("downloads") });
+  openDir: () => path.join(app.getPath("temp"), "lunabot-open-media"), downloadsDir: () => app.getPath("downloads") });
 
 function createWindow({ deferNavigation = false } = {}) {
   const waitsForSkinSync = process.platform === "win32";
