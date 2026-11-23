@@ -19,32 +19,32 @@ Timestamp=Nov 23, 2026 at 12:00:00
 Signature size=4789
 `;
 
-test("an app with no signing identity is adhoc, whichever line says it", () => {
+test("an app with no signing identity is adhoc, whichever line says it", async () => {
   for (const report of [ADHOC, "Identifier=com.lunabot.app\nCodeDirectory v=20500 flags=0x10002(adhoc,runtime)\n"]) {
-    assert.equal(appSignatureKind({ platform: "darwin", report: () => report }), "adhoc");
+    assert.equal(await appSignatureKind({ platform: "darwin", report: () => report }), "adhoc");
   }
 });
 
-test("an app carrying an identity is signed and keeps the native updater", () => {
-  assert.equal(appSignatureKind({ platform: "darwin", report: () => SIGNED }), "signed");
+test("an app carrying an identity is signed and keeps the native updater", async () => {
+  assert.equal(await appSignatureKind({ platform: "darwin", report: () => SIGNED }), "signed");
 });
 
-test("a report this does not understand leaves the native updater alone", () => {
+test("a report this does not understand leaves the native updater alone", async () => {
   for (const report of ["", "codesign: not found", "Executable=/x\n"]) {
-    assert.equal(appSignatureKind({ platform: "darwin", report: () => report }), "unknown");
+    assert.equal(await appSignatureKind({ platform: "darwin", report: () => report }), "unknown");
   }
 });
 
-test("only macOS is asked about a signature", () => {
+test("only macOS is asked about a signature", async () => {
   let asked = 0;
   for (const platform of ["win32", "linux", "freebsd"]) {
-    assert.equal(appSignatureKind({ platform, report: () => { asked += 1; return ADHOC; } }), "unknown");
+    assert.equal(await appSignatureKind({ platform, report: () => { asked += 1; return ADHOC; } }), "unknown");
   }
   assert.equal(asked, 0);
 });
 
-test("the report is taken from the running executable", () => {
+test("the report is taken from the running executable", async () => {
   let asked = null;
-  appSignatureKind({ platform: "darwin", execPath: "/Applications/Luna Bot.app/Contents/MacOS/Luna Bot", report: (path) => { asked = path; return SIGNED; } });
+  await appSignatureKind({ platform: "darwin", execPath: "/Applications/Luna Bot.app/Contents/MacOS/Luna Bot", report: (path) => { asked = path; return SIGNED; } });
   assert.equal(asked, "/Applications/Luna Bot.app/Contents/MacOS/Luna Bot");
 });

@@ -165,10 +165,18 @@ export function startUpdater(signals = null) {
   // The coordinator starts each download itself, so it owns macOS staging and quiet failures.
   autoUpdater.autoDownload = false;
   autoUpdater.logger = updaterLogger();
+  // Asking codesign must stay off the main thread, so the rest of the setup follows once it answers.
+  void beginUpdater(signals).catch((error) => {
+    updaterCoordinator = null;
+    autoUpdater?.logger?.error?.(`Updater setup failed: ${error?.stack ?? error}`);
+    setState({ status: "error", message: UPDATE_TEXT.unavailable, messageCode: "unavailable" });
+  });
+}
 
+async function beginUpdater(signals) {
   // Squirrel.Mac can never install over an adhoc-signed app — its designated requirement is that build's cdhash — so
   // those updates arrive as the release's disk image instead. Every other app keeps the native updater.
-  const image = process.platform === "darwin" && appSignatureKind() === "adhoc";
+  const image = process.platform === "darwin" && (await appSignatureKind()) === "adhoc";
   // Broadcast the install flavour before the first check so the banner never offers a restart it cannot deliver.
   const packageType = linuxPackageType({ readMarker: (file) => (existsSync(file) ? readFileSync(file, "utf8") : null) });
   const handOff = !image && HAND_OFF_TYPES.has(packageType);
