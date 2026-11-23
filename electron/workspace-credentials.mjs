@@ -8,7 +8,7 @@ export const WORKSPACE_CREDENTIALS = [
   { section: "cerebras", field: "key", name: "cerebrasApiKey", env: "CEREBRAS_API_KEY" },
   { section: "groq", field: "key", name: "groqApiKey", env: "LUNABOT_GROQ_API_KEY" },
   { section: "greenference", field: "key", name: "greenferenceApiKey", env: "LUNABOT_GREENFERENCE_API_KEY" },
-  { section: "modelgo", field: "key", name: "modelgoApiKey", env: "LUNABOT_MODELGO_API_KEY" },
+  { section: "tk1688", field: "key", name: "tk1688ApiKey", env: "LUNABOT_TK1688_API_KEY" },
   { section: "meta", field: "key", name: "metaApiKey", env: "LUNABOT_META_API_KEY" },
   { section: "deepseek", field: "key", name: "deepseekApiKey", env: "LUNABOT_DEEPSEEK_API_KEY" },
   { section: "openaiCompat", field: "key", name: "openaiCompatApiKey", env: "OPENAI_COMPAT_API_KEY" },

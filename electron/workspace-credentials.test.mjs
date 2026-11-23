@@ -170,7 +170,7 @@ const AI_PROVIDER_KEYS = [
   ["cerebras", "cerebrasApiKey", "CEREBRAS_API_KEY"],
   ["groq", "groqApiKey", "LUNABOT_GROQ_API_KEY"],
   ["greenference", "greenferenceApiKey", "LUNABOT_GREENFERENCE_API_KEY"],
-  ["modelgo", "modelgoApiKey", "LUNABOT_MODELGO_API_KEY"],
+  ["tk1688", "tk1688ApiKey", "LUNABOT_TK1688_API_KEY"],
   ["meta", "metaApiKey", "LUNABOT_META_API_KEY"],
   ["deepseek", "deepseekApiKey", "LUNABOT_DEEPSEEK_API_KEY"],
   ["openaiCompat", "openaiCompatApiKey", "OPENAI_COMPAT_API_KEY"],

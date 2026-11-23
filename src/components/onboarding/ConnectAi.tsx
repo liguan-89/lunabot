@@ -3,11 +3,11 @@ import { Check, ChevronDown, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { EngineSetup } from "@/components/EngineSetup";
 import { engineReady } from "@/components/EngineLibrary";
 import { hasProviderMark, InstanceProviderMark } from "@/components/ProviderIcons";
-import { ModelgoOption } from "@/components/ModelgoOffer";
+import { Tk1688Option } from "@/components/Tk1688Offer";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { engineDisplayName } from "@/lib/engine-name";
-import { modelgoOfferable } from "@/lib/modelgo-offer";
+import { tk1688Offerable } from "@/lib/tk1688-offer";
 import { aiChoices, aiWorks, organisationSignIn, plainSignIn } from "@/lib/onboarding";
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { freeFallback } from "../../../shared/ai-ranking";
@@ -81,11 +81,11 @@ export function ConnectAi({ hosted = false, tested }: { hosted?: boolean; tested
   const connected = tested && aiWorks(tested) ? tested.instance : undefined;
   const backup = state.instances.find((instance) => engineReady(instance) && freeFallback(instance));
   const { recommended, others } = aiChoices(state.instances.filter((instance) => instance.install && !engineReady(instance)));
-  const modelgoReady = state.instances.some((instance) => instance.driverKind === "modelgo" && engineReady(instance));
+  const tk1688Ready = state.instances.some((instance) => instance.driverKind === "tk1688" && engineReady(instance));
   // Hosted: the organization provides the AI and refuses a key of the person's own.
-  const showModelgo = !hosted && !modelgoReady && modelgoOfferable(state.config?.managedPolicy);
-  const modelgo = others.find((instance) => instance.driverKind === "modelgo");
-  const otherRows = others.filter((instance) => !(showModelgo && instance === modelgo));
+  const showTk1688 = !hosted && !tk1688Ready && tk1688Offerable(state.config?.managedPolicy);
+  const tk1688 = others.find((instance) => instance.driverKind === "tk1688");
+  const otherRows = others.filter((instance) => !(showTk1688 && instance === tk1688));
 
   return (
     <div className="flex w-full flex-col">
@@ -133,7 +133,7 @@ export function ConnectAi({ hosted = false, tested }: { hosted?: boolean; tested
       )}
       {failed && <p role="alert" className="mt-2 text-[13px] text-danger">{t("onboarding.engines.error")}</p>}
 
-      {(organisation || otherRows.length > 0 || showModelgo) && (
+      {(organisation || otherRows.length > 0 || showTk1688) && (
         <div className="mt-3 w-full divide-y divide-hairline/40 overflow-hidden rounded-2xl bg-card text-left">
           {organisation && (
             <OrganisationRow
@@ -142,9 +142,9 @@ export function ConnectAi({ hosted = false, tested }: { hosted?: boolean; tested
               onConnected={() => void refresh()}
             />
           )}
-          {showModelgo && <ModelgoOption open={open === "modelgo"} onToggle={() => setOpen(open === "modelgo" ? null : "modelgo")}>
-            {modelgo && <EngineSetup instance={modelgo} {...setupFor(modelgo)} className="mx-4 mb-3.5 border-0 bg-inset" />}
-          </ModelgoOption>}
+          {showTk1688 && <Tk1688Option open={open === "tk1688"} onToggle={() => setOpen(open === "tk1688" ? null : "tk1688")}>
+            {tk1688 && <EngineSetup instance={tk1688} {...setupFor(tk1688)} className="mx-4 mb-3.5 border-0 bg-inset" />}
+          </Tk1688Option>}
           {otherRows.map((instance) => (
             <OtherWay key={instance.instanceId} instance={instance} open={open === instance.instanceId}
               onToggle={() => setOpen(open === instance.instanceId ? null : instance.instanceId)} />

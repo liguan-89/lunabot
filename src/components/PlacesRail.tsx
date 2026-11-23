@@ -368,7 +368,7 @@ function MorePlaces({ places, canPair, onOpen, onMenu, onClose }: { places: Rail
   const search = t(places.some((place) => place.profile) ? "rail.searchAny" : "rail.search");
   return <div role="dialog" aria-label={search} data-rail-more className={cn("absolute bottom-0 left-full z-50 ml-2 w-64", MENU_SHEET)}
     onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
-    <label className="flex h-8 items-center gap-2 rounded-md bg-ink/[0.05] px-2">
+    <label className="flex h-8 items-center gap-2 rounded-md border border-hairline/45 bg-inset/75 px-2 transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20">
       <Search size={14} aria-hidden="true" className="shrink-0 text-ink-secondary" />
       <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={search} aria-label={search}
         onKeyDown={(event) => { if (event.key === "Enter" && found[0] && placeActs(found[0], canPair)) { onOpen(found[0]); onClose(); } }}
@@ -504,7 +504,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
           style={{ left, top }}
           className={cn("absolute w-[248px] max-w-[calc(100vw-24px)] rounded-2xl p-1.5", MENU_SHEET)}>
           {places.length > 5 && (
-            <label className="mb-1.5 flex h-8 items-center gap-2 rounded-lg bg-ink/[0.05] px-2.5">
+            <label className="mb-1.5 flex h-8 items-center gap-2 rounded-lg border border-hairline/45 bg-inset/75 px-2.5 transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20">
               <Search size={14} aria-hidden="true" className="shrink-0 text-ink-secondary" />
               <input autoFocus value={popoverQuery} onChange={(event) => setPopoverQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel}
                 onKeyDown={(event) => { if (event.key === "Enter" && found[0] && placeActs(found[0], canPair)) open(found[0]); }}

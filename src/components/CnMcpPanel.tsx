@@ -27,7 +27,7 @@ interface CnCatalog {
 }
 
 const GROUPS = ["life", "social", "work", "dev"] as const;
-const PILL = "inline-flex h-7 shrink-0 items-center justify-center gap-2 rounded-full px-3 text-[13px] font-medium leading-5 transition-colors";
+const PILL = "inline-flex h-7 shrink-0 items-center justify-center gap-2 rounded-full border border-hairline/45 px-3 text-[13px] font-medium leading-5 transition-colors";
 
 const listed = (result: { servers?: McpServerListing[] } | undefined): McpServerListing[] => result?.servers ?? [];
 
@@ -254,7 +254,7 @@ export function CnMcpPanel({ refreshKey = 0 }: { refreshKey?: number }) {
                   type="button"
                   disabled={busy !== null}
                   onClick={() => void addRegistryServer(server)}
-                  className={cn(PILL, "min-w-[64px] bg-control/80 text-ink hover:bg-raised-hover disabled:opacity-40")}
+                  className={cn(PILL, "min-w-[64px] bg-control/80 text-ink hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55")}
                 >
                   {busy === server.url ? <Loader2 size={14} className="animate-spin" /> : t("cnMcp.registry.add")}
                 </button>
@@ -290,7 +290,7 @@ export function CnMcpPanel({ refreshKey = 0 }: { refreshKey?: number }) {
             type="button"
             disabled={busy !== null}
             onClick={() => void (connected ? disconnect(app) : connect(app))}
-            className={cn(PILL, "min-w-[64px] bg-control/80 text-ink hover:bg-raised-hover disabled:opacity-40")}
+            className={cn(PILL, "min-w-[64px] bg-control/80 text-ink hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55")}
           >
             {mine ? <Loader2 size={14} className="animate-spin" /> : t(connected ? "cnMcp.disconnect" : "cnMcp.connect")}
           </button>
@@ -308,7 +308,7 @@ export function CnMcpPanel({ refreshKey = 0 }: { refreshKey?: number }) {
                 placeholder={t("cnMcp.keyPlaceholder", { service: app.label })}
                 onChange={(event) => { const value = event.target.value; setKeys((current) => ({ ...current, [app.id]: value })); }}
                 onKeyDown={(event) => { if (event.key === "Enter") void connect(app); }}
-                className="h-8 w-full min-w-0 rounded-lg bg-inset px-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none focus:ring-1 focus:ring-accent/50"
+                className="h-8 w-full min-w-0 rounded-lg border border-hairline/45 bg-inset/80 px-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:border-accent focus:bg-menu focus:outline-none focus:ring-2 focus:ring-accent/20"
               />
               <button
                 type="button"

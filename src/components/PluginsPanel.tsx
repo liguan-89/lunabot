@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Loader2, RefreshCw, Search, Server, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Info, Loader2, RefreshCw, Search, Server, TriangleAlert, X } from "lucide-react";
 import { api, useStore, type Bot, type InstanceInfo } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { glassPopupFrameStyle } from "@/lib/glass-popup";
@@ -434,10 +434,10 @@ export function PluginsPanel() {
       : filter === "cn"
         ? t("cnMcp.title")
         : category ? appCategoryLabel(category) : (sections.length > 1 ? t("apps.section.all") : t("connectors.section.available"));
-  const pill = "inline-flex h-7 shrink-0 items-center justify-center gap-2 rounded-full px-3 text-[13px] font-medium leading-5 transition-colors";
+  const pill = "inline-flex h-7 shrink-0 items-center justify-center gap-2 rounded-full border px-3 text-[13px] font-medium leading-5 transition-colors";
   const pillTone = (selected: boolean) => selected
-    ? "bg-ink text-app"
-    : "bg-control/70 text-ink-secondary hover:bg-raised-hover hover:text-ink";
+    ? "border-transparent bg-ink text-app"
+    : "border-hairline/40 bg-control/60 text-ink-secondary hover:border-hairline/60 hover:bg-raised-hover hover:text-ink";
 
   return (
     <div
@@ -456,7 +456,7 @@ export function PluginsPanel() {
         tabIndex={-1}
         className="glass-surface glass-popup animate-pop-in relative flex max-w-[780px] flex-col overflow-hidden rounded-2xl"
       >
-        <header className="flex flex-col gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
+        <header className="flex flex-col gap-3.5 border-b border-hairline/35 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
           <div>
           <div className="flex items-center justify-between gap-3">
             <h2 id="plugins-title" className="min-w-0 truncate text-[20px] font-semibold leading-7 tracking-[-0.01em] text-ink">{t("apps.title")}</h2>
@@ -506,7 +506,7 @@ export function PluginsPanel() {
           <p className="mt-0.5 text-[13px] leading-5 text-ink-secondary">{t("apps.subtitle")}</p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-control/70 px-3.5 focus-within:ring-1 focus-within:ring-accent">
+            <label className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-hairline/55 bg-inset/80 px-3.5 transition-colors focus-within:border-accent focus-within:bg-menu focus-within:ring-2 focus-within:ring-accent/20">
               <Search size={15} className="shrink-0 text-ink-secondary" />
               <input
                 value={search}
@@ -539,6 +539,15 @@ export function PluginsPanel() {
                 {appCategoryLabel(name)}
               </button>
             ))}
+            <button
+              type="button"
+              data-apps-filter="cn"
+              aria-pressed={filter === "cn"}
+              onClick={() => chooseFilter(filter === "cn" ? "all" : "cn")}
+              className={cn(pill, pillTone(filter === "cn"))}
+            >
+              {t("cnMcp.filter")}
+            </button>
             {moreCategories.length > 0 && (
               <SidebarPopoverMenu
                 ariaLabel={t("apps.moreCategories")}
@@ -551,15 +560,7 @@ export function PluginsPanel() {
                 )}
               />
             )}
-            <button
-              type="button"
-              data-apps-filter="cn"
-              aria-pressed={filter === "cn"}
-              onClick={() => chooseFilter(filter === "cn" ? "all" : "cn")}
-              className={cn(pill, pillTone(filter === "cn"))}
-            >
-              {t("cnMcp.filter")}
-            </button>
+            <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-hairline/45" />
             <button
               type="button"
               data-apps-filter="mcp"
@@ -573,9 +574,9 @@ export function PluginsPanel() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-7 sm:px-7">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-7 pt-4 sm:px-7">
           {stale ? (
-            <div className="mb-3 flex items-start gap-2 rounded-xl bg-warning/10 px-3 py-2 text-[13px] text-warning">
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-[13px] text-warning">
               <TriangleAlert size={14} className="mt-px shrink-0" />
               <span>
                 {t("connectors.stale")}
@@ -588,17 +589,26 @@ export function PluginsPanel() {
           {setupNotice && filter !== "mcp" && filter !== "cn" && (
             <div
               className={cn(
-                "mb-3 rounded-xl px-4 py-3 text-[13px]",
-                setupNotice.tone === "warning" ? "bg-warning/10 text-warning" : "bg-control/50 text-ink-secondary",
+                "mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-[13px]",
+                setupNotice.tone === "warning"
+                  ? "border-warning/30 bg-warning/10 text-warning"
+                  : "border-hairline/45 bg-panel/80 text-ink-secondary",
               )}
             >
-              {connectedHosted.length > 0
-                ? t("hostedMcp.otherAppsSetup", { services: new Intl.ListFormat(activeLocale(), { style: "long", type: "conjunction" }).format(connectedHosted.map((app) => app.label)) })
-                : t(setupNotice.key)}{" "}
+              <div className="flex min-w-0 flex-1 items-start gap-2.5 leading-5">
+                {setupNotice.tone === "warning"
+                  ? <TriangleAlert size={15} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
+                  : <Info size={15} className="mt-0.5 shrink-0 text-ink-secondary" aria-hidden="true" />}
+                <span>
+                  {connectedHosted.length > 0
+                    ? t("hostedMcp.otherAppsSetup", { services: new Intl.ListFormat(activeLocale(), { style: "long", type: "conjunction" }).format(connectedHosted.map((app) => app.label)) })
+                    : t(setupNotice.key)}
+                </span>
+              </div>
               <button
+                type="button"
                 className={cn(
-                  "font-medium underline underline-offset-2",
-                  setupNotice.tone === "info" && "text-ink",
+                  "shrink-0 rounded-full border border-hairline/55 bg-menu px-3 py-1 text-[12px] font-medium text-ink transition-colors hover:bg-raised",
                   remoteClient && "hidden",
                 )}
                 onClick={() => { close(); dispatch(openKeySettings("composio")); }}
@@ -783,7 +793,7 @@ export function PluginsPanel() {
       <div
         key={card.slug}
         data-app-tile={card.slug}
-        className="flex min-w-0 flex-col rounded-xl px-2 py-2 transition-colors hover:bg-raised/40"
+        className="flex min-w-0 flex-col rounded-xl px-2 py-2 transition-colors hover:bg-raised/60"
       >
         <div className="flex items-center gap-3">
           <ServiceIcon card={card} className="size-10 shrink-0 rounded-[8px]" />
@@ -836,7 +846,7 @@ export function PluginsPanel() {
                 setAliasDraft("");
               }
             }}
-            className="inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center gap-2 rounded-full bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink transition-colors hover:bg-raised-hover disabled:opacity-40"
+            className="inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center gap-2 rounded-full border border-hairline/45 bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink transition-colors hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55"
           >
             {unavailableReason ? (
               t("connectors.selfHostOnly")
