@@ -733,14 +733,14 @@ it("reads a capability bit the way the kernel writes it", () => {
 });
 
 it("takes an own server's secrets from the root-only file the connector mounts, and only the secrets it knows", () => {
-  const file = "/run/mausbot/secrets.json";
+  const file = "/run/lunabot/secrets.json";
   const fs = (overrides: { file?: { uid: number; mode: number; symlink?: boolean }; dir?: { uid: number; mode: number }; text?: string; exists?: boolean } = {}) => ({
     exists: () => overrides.exists ?? true,
     lstat: () => {
       const entry = overrides.file ?? { uid: 0, mode: 0o100400 };
       return { ...entry, isFile: () => !entry.symlink, isSymbolicLink: () => Boolean(entry.symlink) };
     },
-    stat: (path: string) => (path === file ? overrides.file ?? { uid: 0, mode: 0o100400 } : path === "/run/mausbot" ? overrides.dir ?? { uid: 0, mode: 0o40700 } : { uid: 0, mode: 0o40755 }),
+    stat: (path: string) => (path === file ? overrides.file ?? { uid: 0, mode: 0o100400 } : path === "/run/lunabot" ? overrides.dir ?? { uid: 0, mode: 0o40700 } : { uid: 0, mode: 0o40755 }),
     read: () => overrides.text ?? JSON.stringify({
       LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40),
       LUNABOT_PUBLIC_URL: "https://elsewhere.example", PATH: "/tmp",
@@ -750,7 +750,7 @@ it("takes an own server's secrets from the root-only file the connector mounts, 
   expect(readCloudSecretsFile("/data", file, fs({ exists: false }))).toEqual({});
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 0, mode: 0o100644 } }))).toThrow("readable by others than root");
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 1001, mode: 0o100400 } }))).toThrow(`${file} is not root's`);
-  expect(() => readCloudSecretsFile("/data", file, fs({ dir: { uid: 0, mode: 0o40777 } }))).toThrow("/run/mausbot is writable by others than root");
+  expect(() => readCloudSecretsFile("/data", file, fs({ dir: { uid: 0, mode: 0o40777 } }))).toThrow("/run/lunabot is writable by others than root");
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 0, mode: 0o120777, symlink: true } }))).toThrow("is not a plain file");
   expect(() => readCloudSecretsFile("/data", file, fs({ text: "[1]" }))).toThrow("is not a JSON object");
   expect(() => readCloudSecretsFile("/data", "/data/secrets.json", fs())).toThrow("is on the volume");

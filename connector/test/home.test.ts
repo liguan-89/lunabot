@@ -45,7 +45,7 @@ function fixture(options: { free?: number } = {}) {
     const home = docker.container("mausbot-home");
     if (!home || home.status !== "running") return { status: 0, report: null };
     // As the launcher does: its environment, and the secrets file when one is mounted.
-    const secrets = home.spec.HostConfig.Mounts?.find((mount) => mount.Target === "/run/mausbot");
+    const secrets = home.spec.HostConfig.Mounts?.find((mount) => mount.Target === "/run/lunabot");
     const homeEnv: Record<string, string> = {
       ...Object.fromEntries((home.spec.Env ?? []).map((entry) => [entry.slice(0, entry.indexOf("=")), entry.slice(entry.indexOf("=") + 1)])),
       ...(secrets ? JSON.parse(readFileSync(join(secrets.Source, "secrets.json"), "utf8")) as Record<string, string> : {}),
@@ -146,7 +146,7 @@ describe("the home on an own server", () => {
     ]);
     expect(spec.HostConfig.Mounts).toEqual([
       { Type: "volume", Source: "mausbot-data", Target: "/data" },
-      { Type: "bind", Source: secretsDir, Target: "/run/mausbot", ReadOnly: true },
+      { Type: "bind", Source: secretsDir, Target: "/run/lunabot", ReadOnly: true },
     ]);
     expect(spec.HostConfig.CapAdd).toEqual(["CHOWN", "SETUID", "SETGID", "KILL", "SYS_ADMIN", "SETPCAP"]);
     expect(readdirSync(secretsDir)).toEqual(["secrets.json"]);

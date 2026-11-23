@@ -42,7 +42,7 @@ it("delegates coding into an isolated worktree thread", async () => {
     const job = Object.values((JSON.parse(readFileSync(jobsFile, "utf8")) as { jobs: Record<string, { worktree: string; branch: string; repo: string }> }).jobs)[0]!;
     expect(existsSync(join(job.worktree, ".git"))).toBe(true);
     expect(realpathSync(job.repo)).toBe(realpathSync(repo));
-    expect(job.branch).toMatch(/^dexbot\/job-/);
+    expect(job.branch).toMatch(/^lunabot\/job-/);
     // `+ ` marks a branch checked out in a linked worktree — the isolation this test exists for.
     expect(execFileSync("git", ["-C", repo, "branch", "--list", job.branch], { encoding: "utf8" }).trim()).toBe(`+ ${job.branch}`);
   } finally {

@@ -9,9 +9,9 @@ describe("the npm cache an MCP command gets", () => {
   it("swaps a cache the server cannot write for its own, whatever the variable's case", () => {
     const env = mcpCommandEnvironment({ NPM_CONFIG_CACHE: "/data/.npm", PATH: "/bin" }, {}, () => false);
     expect(env.NPM_CONFIG_CACHE).toBeUndefined();
-    expect(env.npm_config_cache).toContain("openmausbot-mcp-npm-");
+    expect(env.npm_config_cache).toContain("lunabot-mcp-npm-");
     expect(env.PATH).toBe("/bin");
-    expect(mcpCommandEnvironment({ HOME: "/data", LOCALAPPDATA: "C:\\data" }, {}, () => false).npm_config_cache).toContain("openmausbot-mcp-npm-");
+    expect(mcpCommandEnvironment({ HOME: "/data", LOCALAPPDATA: "C:\\data" }, {}, () => false).npm_config_cache).toContain("lunabot-mcp-npm-");
   });
 
   it("keeps a cache that works, and a server's own setting always wins", () => {

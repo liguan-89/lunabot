@@ -81,7 +81,7 @@ export const HOME_SECRET_ENV = [
   "LUNABOT_CLOUD_CONNECTED_APPS_GRANT", "LUNABOT_CLOUD_X_TOKEN", "LUNABOT_CLOUD_TUNNEL_TOKEN",
 ] as const;
 /** In the home: a read-only folder holding only `secrets.json`, root's alone. The launcher reads it at start. */
-export const HOME_SECRETS_TARGET = "/run/mausbot";
+export const HOME_SECRETS_TARGET = "/run/lunabot";
 /** In the connector's state volume: the folder mounted at HOME_SECRETS_TARGET. */
 export const HOME_SECRETS_DIR = "home-secrets";
 export const HOME_SECRETS_FILE = "secrets.json";
