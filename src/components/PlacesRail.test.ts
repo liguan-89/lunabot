@@ -63,7 +63,7 @@ it("a circle per place, with its initials on its colour; the place on screen is 
 });
 
 it("marks the place on screen with a pill on the rail's edge, a short one on hover for a place that opens, and no ring round a tile", async () => {
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const pill = (id: string) => host.querySelector(`[data-rail-place="${id}"] [data-rail-pill]`);
   expect(pill("home")?.getAttribute("data-rail-pill")).toBe("page");
   expect(pill("home")?.getAttribute("class")).toEqual(expect.stringContaining("h-4"));
@@ -90,7 +90,7 @@ const pending = () => [...host.querySelectorAll("[data-rail-pending]")].map((ele
 const openWaits = () => { const answer = deferred<undefined>(); workspaces.open.mockImplementationOnce(() => answer.promise); return answer; };
 
 it("the place clicked shows as the one on screen from the click itself, before main has answered, with a pending ring, and the old one stops looking chosen", async () => {
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const main = openWaits();
   await click(tile("a"));
   expect(workspaces.open.mock.calls).toEqual([["a"]]);
@@ -103,7 +103,7 @@ it("the place clicked shows as the one on screen from the click itself, before m
 });
 
 it("a click during a switch replaces it at once, and is not lost: the last click is the one left pending", async () => {
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const first = openWaits(), second = openWaits(), third = openWaits();
   await click(tile("a"));
   await click(tile("vps"));
@@ -119,7 +119,7 @@ it("a click during a switch replaces it at once, and is not lost: the last click
 });
 
 it("the same place clicked twice while it is pending is one click; the place on screen clicked meanwhile is the last click, and it is not lost", async () => {
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const first = openWaits(), back = openWaits();
   await click(tile("a"));
   await click(tile("a"));
@@ -133,7 +133,7 @@ it("the same place clicked twice while it is pending is one click; the place on 
 });
 
 it("on the window's own rail the new place's shell covers the page at once and says waking when main does; a place waiting on a bot keeps its ring only", async () => {
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   Object.assign(window, { ogb: { workspaces, cloudAdd, rail: { expand: vi.fn(async () => {}) } } });
   const main = openWaits();
   await click(tile("a"));
@@ -148,27 +148,11 @@ it("on the window's own rail the new place's shell covers the page at once and s
   await act(async () => { main.resolve(undefined); await main.promise; });
 });
 
-it("a rail drawn on a page draws no shell of its own: its page is the one going away", async () => {
-  await mount(createElement(PlacesRail));
-  const main = openWaits();
-  await click(tile("a"));
-  expect(pending()).toEqual(["a"]);
-  expect(host.querySelector("[data-rail-veil]")).toBeNull();
-  await act(async () => { main.resolve(undefined); await main.promise; });
-});
-
 it("one place or none, an older app, or a browser: no rail, and the switcher stays", async () => {
   rail = { places: [], add: { cloud: true, link: true, address: true } };
   await mount(createElement("div", null, createElement(PlacesRail), createElement(DesktopWorkspaceSwitcher, { inline: true })));
   expect(host.querySelector("[data-places-rail]")).toBeNull();
-  expect(host.querySelector("[data-switcher-beside-rail]")).toBeNull();
   expect(host.querySelector('[data-workspace-switcher="inline"]')).toBeTruthy();
-});
-
-it("beside the rail, the switcher at the top of the sidebar steps aside on a wide window", async () => {
-  await mount(createElement("div", null, createElement(PlacesRail), createElement(DesktopWorkspaceSwitcher, { inline: true })));
-  expect(host.querySelector("[data-places-rail]")?.className).toContain("md:flex");
-  expect(host.querySelector("[data-switcher-beside-rail]")?.className).toContain("md:hidden");
 });
 
 it("past eight places, ⋯ opens every place, searchable; the place on screen stays among the circles", async () => {
@@ -488,7 +472,7 @@ it("a server of the person's own on an older release than the newest has a quiet
 it("the window's own rail: drawn at every width, 36px wide with small rounded tiles named on hover, and its sheets cover the window while open", async () => {
   const expand = vi.fn(async () => {});
   Object.assign(window, { ogb: { workspaces, cloudAdd, rail: { expand, onSkin: () => () => {} } } });
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const nav = host.querySelector("[data-places-rail]")!;
   expect(nav.className).toContain("flex h-full");
   expect(nav.className.split(" "), "as thin as its tiles allow; beside a window with its own title bar, in the sidebar's colour as before the frame")
@@ -506,17 +490,6 @@ it("the window's own rail: drawn at every width, 36px wide with small rounded ti
   expect(expand.mock.calls.at(-1), "and gives it back once closed").toEqual([false]);
 });
 
-it("beside the window's own rail (main says so; the page never reads the list), the sidebar's switcher and Switch to… step aside at every width", async () => {
-  rail = { places: [], add: { cloud: false, link: false, address: false }, beside: true };
-  await mount(createElement("div", null, createElement(PlacesRail), createElement(DesktopWorkspaceSwitcher, { inline: true })));
-  expect(host.querySelector("[data-places-rail]"), "no rail drawn on the page itself").toBeNull();
-  expect(host.querySelector("[data-switcher-beside-rail]")?.className).toBe("hidden");
-  const { placeMenuItems } = await import("./SidebarProfileMenu");
-  const place = { bridge: workspaces, current: { local: false, name: "Office" }, cloudHome: false, onLine: "", openMenu: () => {}, switchable: true } as never;
-  expect(placeMenuItems(place, { owner: null, onCloudSettings: () => {} }).map((item) => item.key)).toEqual(["place", "switch-place"]);
-  expect(placeMenuItems(place, { owner: null, onCloudSettings: () => {}, besideRail: true }).map((item) => item.key), "one switcher: the rail").toEqual(["place"]);
-});
-
 it("a right-click on a circle opens its place's menu: its colour, saved by main whatever its server runs, This computer's too; a member sees who may change it", async () => {
   const expand = vi.fn(async () => {});
   const recolor = vi.fn(async () => ({ outcome: "saved" as const, look: null }));
@@ -526,7 +499,7 @@ it("a right-click on a circle opens its place's menu: its colour, saved by main 
     place("acme", "Acme", { kind: "team", color: "purple", paint: { swatch: "violet", locked: "member" } }),
   ], add: { cloud: false, link: true, address: false } };
   Object.assign(window, { ogb: { workspaces: { ...workspaces, recolor }, cloudAdd, rail: { expand, onSkin: () => () => {} } } });
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const settle = () => act(async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); });
   const menuOf = async (id: string) => {
     await act(async () => { host.querySelector(`[data-rail-place="${id}"]`)!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
@@ -564,7 +537,7 @@ it("a Cloud of the person's own that ended says so on its circle, and its menu o
     place("a", "Client A", { paint: { swatch: "green" } }),
   ], add: { cloud: false, link: false, address: false } };
   Object.assign(window, { ogb: { workspaces: { ...workspaces, remove }, cloudAdd, rail: { expand: vi.fn(async () => {}), onSkin: () => () => {} } } });
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const settle = () => act(async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); });
   const menuOf = async (id: string) => {
     await act(async () => { host.querySelector(`[data-rail-place="${id}"]`)!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
@@ -598,7 +571,7 @@ it("a server of the person's own that main offers as home: its menu's one tap st
     place("office", "Office", { kind: "server", paint: { swatch: null } }),
   ], add: { cloud: false, link: true, address: false } };
   Object.assign(window, { ogb: { workspaces: { ...workspaces, makeHome }, cloudAdd, rail: { expand: vi.fn(async () => {}), onSkin: () => () => {} } } });
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const settle = () => act(async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); });
   const menuOf = async (id: string) => {
     await act(async () => { host.querySelector(`[data-rail-place="${id}"]`)!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });
@@ -823,7 +796,7 @@ it("a workspace's menu: Rename (Enter saves, Escape leaves it), its colour, and 
   rail = { places: [place("profile:default", "This computer", { kind: "computer", profile: "default", paint: { swatch: null } }),
     place("profile:work", "Work", { kind: "computer", profile: "work", named: true, active: true, paint: { swatch: "green" } }), ...PLACES], add: { cloud: true, link: true, address: false, local: true } };
   Object.assign(window, { ogb: { workspaces: { ...workspaces, local: { create: vi.fn(), edit, remove } }, cloudAdd, platform: "darwin", rail: { expand: vi.fn(async () => {}), onSkin: () => () => {} } } });
-  await mount(createElement(PlacesRail, { chrome: true }));
+  await mount(createElement(PlacesRail));
   const settle = () => act(async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); });
   const menuOf = async (id: string) => {
     await act(async () => { host.querySelector(`[data-rail-place="${id}"]`)!.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })); });

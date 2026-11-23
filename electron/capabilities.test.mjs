@@ -73,22 +73,10 @@ describe("desktop capabilities", () => {
     expect(localComputer).toMatchObject({ available: false, enabled: false, status: "unavailable" });
   });
 
-  it("reports the renderer-caption window chrome on Windows when framed", () => {
-    const capabilities = desktopCapabilities({
-      platform: "win32",
-      frame: true,
-      env: { DISPLAY: ":0" },
-      localConnection: readyConnection(),
-    });
-
-    expect(capabilities.windowChrome).toBe("win-caption");
-    expect(capabilities.windowFrame).toBe(true);
-  });
-
-  it("reports the frame as the window draws it: macOS keeps its inset title bar, Windows its own title bar once made without the frame", () => {
-    expect(desktopCapabilities({ platform: "darwin", frame: false })).toMatchObject({ windowChrome: "mac-inset", windowFrame: false });
-    expect(desktopCapabilities({ platform: "win32", frame: false })).toMatchObject({ windowChrome: "native", windowFrame: false });
-    expect(desktopCapabilities({ platform: "linux", frame: false })).toMatchObject({ windowChrome: "native", windowFrame: false });
+  it("reports the window's chrome as it is: macOS's inset title bar, the system's own elsewhere", () => {
+    expect(desktopCapabilities({ platform: "darwin" })).toMatchObject({ windowChrome: "mac-inset" });
+    expect(desktopCapabilities({ platform: "win32" })).toMatchObject({ windowChrome: "native" });
+    expect(desktopCapabilities({ platform: "linux" })).toMatchObject({ windowChrome: "native" });
   });
 
   it("offers Windows local control once the driver is connected", () => {

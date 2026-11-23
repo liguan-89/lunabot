@@ -52,7 +52,7 @@ function Gallery() {
   return (
     <StoreContext.Provider value={value}>
       <div className="flex h-screen bg-panel text-ink">
-        <div className="relative flex w-[60px] shrink-0 flex-col items-center border-e border-hairline/60 pt-3"><PlacesRail chrome /></div>
+        <div className="relative flex w-[60px] shrink-0 flex-col items-center border-e border-hairline/60 pt-3"><PlacesRail /></div>
         <div className="flex w-[280px] shrink-0 flex-col justify-end border-e border-hairline/60 bg-sidebar">
           <SidebarFooter density="comfortable" simple toolsCollapsed={false} />
         </div>

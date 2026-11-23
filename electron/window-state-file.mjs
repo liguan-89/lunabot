@@ -28,7 +28,7 @@ export function createWindowStateFile({ file, log = () => {} }) {
       log(`window state save failed: ${error?.message ?? error}`);
     }
   }
-  /** Saves the window a quarter second after it moves or resizes, and as it closes; tells its page when it is maximized. */
+  /** Saves the window a quarter second after it moves or resizes, and as it closes. */
   function install(win) {
     let timer = null;
     const flush = () => {
@@ -43,13 +43,6 @@ export function createWindowStateFile({ file, log = () => {} }) {
     };
     win.on("resize", schedule);
     win.on("move", schedule);
-    const pushMaximized = () => {
-      try {
-        if (!win.isDestroyed()) win.webContents.send("window:maximized-changed", win.isMaximized());
-      } catch {}
-    };
-    win.on("maximize", pushMaximized);
-    win.on("unmaximize", pushMaximized);
     win.on("maximize", schedule);
     win.on("unmaximize", schedule);
     win.on("close", flush);

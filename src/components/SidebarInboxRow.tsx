@@ -7,16 +7,14 @@ import { t } from "@/lib/i18n";
 import { closeInbox, openInbox, useInboxPanel, useInboxSupport, useInboxView } from "@/state/inbox";
 import { useTeamPeople } from "@/state/team-people";
 import { inboxFixes, waitingCount } from "./inbox/inbox-view";
-import { SIMPLE_CORNER_BUTTON, SIMPLE_TOP_BUTTON } from "./SidebarSimpleTop";
+import { SIMPLE_TOP_BUTTON } from "./SidebarSimpleTop";
 
-export function SidebarInboxRow({ icons = false, large = false, compact = false, corner = false, running, onOpened }: {
+export function SidebarInboxRow({ icons = false, large = false, compact = false, running, onOpened }: {
   icons?: boolean;
   /** Simple's row, sized as its bots' rows are. */
   large?: boolean;
   /** Simple's top-row button, beside search and new: the icon alone, with its count. */
   compact?: boolean;
-  /** In the framed window's top corner, where search and new are 26px squares rather than 36px circles. */
-  corner?: boolean;
   running: boolean;
   onOpened?: () => void;
 }) {
@@ -36,8 +34,8 @@ export function SidebarInboxRow({ icons = false, large = false, compact = false,
   if (compact) {
     return (
       <button type="button" data-sidebar-inbox={count} aria-label={label} title={label} aria-pressed={open} onClick={toggle}
-        className={cn(corner ? SIMPLE_CORNER_BUTTON : SIMPLE_TOP_BUTTON, "relative", open && (corner ? "bg-ink/[0.06] text-ink" : "bg-raised text-ink"))}>
-        <Inbox size={corner ? 16 : 18} strokeWidth={1.5} aria-hidden="true" />
+        className={cn(SIMPLE_TOP_BUTTON, "relative", open && "bg-raised text-ink")}>
+        <Inbox size={18} strokeWidth={1.5} aria-hidden="true" />
         {count > 0 && <span aria-hidden="true" data-inbox-count className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-warning px-0.5 text-[10px] font-semibold leading-4 text-panel">{shown}</span>}
         {dot}
       </button>
