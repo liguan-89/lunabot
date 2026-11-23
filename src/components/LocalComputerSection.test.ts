@@ -367,8 +367,7 @@ describe("cloud computer inventory UI", () => {
   it("keeps cloud badge meaning and delete requests stable when the language changes", () => {
     const englishPlan = cloudComputerActionPlan("delete", ownedCloudComputer);
     for (const [locale, running, sleeping] of [
-      ["pt-br", "Em execução", "Dormindo"],
-      ["ja", "実行中", "スリープ中"],
+      ["zh", "运行中", "休眠中"],
     ]) {
       setLocale(locale);
       expect(renderCard({ instances: [ownedCloudComputer] }))
@@ -551,13 +550,13 @@ describe("VPS computer inventory UI", () => {
   });
 
   it("keeps running and paused VPS badge colors when labels are translated", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     const running = renderCard({ instances: [ownedVps] });
-    expect(running).toContain('bg-success/15 text-success">Em execução</span>');
-    expect(running).toContain("Remover");
+    expect(running).toContain('bg-success/15 text-success">运行中</span>');
+    expect(running).toContain("移除");
     expect(running).not.toContain(">Remove</button>");
     expect(renderCard({ instances: [{ ...ownedVps, state: "paused" }] }))
-      .toContain('bg-control text-ink-secondary">Pausado</span>');
+      .toContain('bg-control text-ink-secondary">已暂停</span>');
   });
 });
 

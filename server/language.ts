@@ -1,10 +1,8 @@
-const ALIASES: Record<string, string> = { pt: "pt-br", "zh-hant": "zh-tw", "zh-hk": "zh-tw", "zh-mo": "zh-tw" };
-
-/** The entry for the language set in Settings, else for its parent ("pt-br" → "pt"), else English. */
+/** The entry for the language set in Settings, else for its parent ("zh-cn" → "zh"), else English. */
 export function byLanguage<T>(table: { en: T } & Partial<Record<string, T>>, language: string | undefined): T {
   let candidate = language?.trim().toLowerCase() || "en";
   while (candidate) {
-    const entry = table[ALIASES[candidate] ?? candidate];
+    const entry = table[candidate];
     if (entry !== undefined) return entry;
     const separator = candidate.lastIndexOf("-");
     if (separator < 0) break;

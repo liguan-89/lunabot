@@ -33,10 +33,10 @@ describe("computer panel translation", () => {
       t("computer.screen.idle"),
     );
 
-    setLocale("pt-br");
+    setLocale("zh");
     const html = renderToStaticMarkup(createElement(LocalScreenPreview));
-    expect(html).toContain(locales["pt-br"]!["computer.screen.idle"]);
-    expect(html).toContain(locales["pt-br"]!["computer.screen.title"]);
+    expect(html).toContain(locales.zh!["computer.screen.idle"]);
+    expect(html).toContain(locales.zh!["computer.screen.title"]);
     expect(html).not.toContain(locales.en["computer.screen.idle"]);
   });
 
@@ -44,8 +44,8 @@ describe("computer panel translation", () => {
     const failure = screenPreviewFailure(new DOMException("cancelled", "AbortError"));
     expect(failure).toMatchObject({ ok: false, phase: "cancelled" });
 
-    setLocale("ja");
-    expect(t(failure.messageKey)).toBe(locales.ja!["computer.screen.cancelled"]);
+    setLocale("zh");
+    expect(t(failure.messageKey)).toBe(locales.zh!["computer.screen.cancelled"]);
   });
 
   it("translates the cloud preview in every pack", () => {

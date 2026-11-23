@@ -106,7 +106,7 @@ const HEALTH = /diabet|insulin|glucos|glicos|blood sugar|medicat|medicament|pres
 /** Links, email addresses, and digits (dates, amounts, phone numbers). */
 const UNSAFE = /https?:\/\/|www\.|@|\d/i;
 const SCRIPT: Record<string, RegExp> = {
-  ja: /[぀-ヿ一-鿿]/, zh: /[一-鿿]/, ko: /[가-힣]/, ru: /[Ѐ-ӿ]/, uk: /[Ѐ-ӿ]/, hi: /[ऀ-ॿ]/,
+  zh: /[一-鿿]/,
 };
 
 /** The last JSON array of strings in the reply, fences and prose around it ignored: some engines hand back their
@@ -385,7 +385,7 @@ export interface SetupSuggestionsHost extends Pick<SetupSuggestionsDeps, "within
   config(): Pick<AppConfig, "features" | "profile">;
   /** Several people share this place. */
   shared(): boolean;
-  /** The app's language code ("en", "pt-BR"). */
+  /** The app's language code ("en", "zh"). */
   languageCode(): string;
   engine(bot: BotRecord): EngineCapabilities | undefined;
   /** The built-in browser is on here. */

@@ -396,11 +396,11 @@ test("the switcher lists My Cloud first, then each team from the session with th
   assert.deepEqual(items.map((item) => [item.label, item.sublabel, item.checked]), [["My Cloud", "omb-t-1.fly.dev", false], ["Acme", "Super admin", true], ["Office", "office.example.test", false]]);
   assert.deepEqual(env.workspaceMenuTemplate(state, { onSwitch() {}, onConnect() {}, onForget() {}, homeOrigin: home, foldSublabels: true }).map((item) => item.label), ["My Cloud", "Acme · Super admin", "Office"]);
   for (const [role, label] of [["owner", "Super admin"], ["admin", "Admin"], ["member", "User"], ["other", "User"]]) assert.equal(env.teamRoleLabel(role), label, role);
-  const pt = createNativeText({ saved: "pt-br" });
-  assert.deepEqual(["owner", "admin", "member"].map((role) => env.teamRoleLabel(role, pt.t)), ["Superadmin", "Admin", "Usuário"]);
-  assert.deepEqual(env.workspaceMenuTemplate(state, { onSwitch() {}, onConnect() {}, onForget() {}, homeOrigin: home, foldSublabels: true, text: pt }).map((item) => item.label), ["My Cloud", "Acme · Superadmin", "Office"]);
-  assert.deepEqual(env.workspaceMenuTemplate({ ...state, environments: state.environments.map((entry) => (entry.team ? { ...entry, team: { ...entry.team, role: "member" } } : entry)) }, { onSwitch() {}, onConnect() {}, onForget() {}, text: pt })
-    .filter((item) => item.type === "radio").map((item) => item.sublabel)[1], "Usuário");
+  const zh = createNativeText({ saved: "zh" });
+  assert.deepEqual(["owner", "admin", "member"].map((role) => env.teamRoleLabel(role, zh.t)), ["超级管理员", "管理员", "用户"]);
+  assert.deepEqual(env.workspaceMenuTemplate(state, { onSwitch() {}, onConnect() {}, onForget() {}, homeOrigin: home, foldSublabels: true, text: zh }).map((item) => item.label), ["My Cloud", "Acme · 超级管理员", "Office"]);
+  assert.deepEqual(env.workspaceMenuTemplate({ ...state, environments: state.environments.map((entry) => (entry.team ? { ...entry, team: { ...entry.team, role: "member" } } : entry)) }, { onSwitch() {}, onConnect() {}, onForget() {}, text: zh })
+    .filter((item) => item.type === "radio").map((item) => item.sublabel)[1], "用户");
   assert.equal(env.workspaceWindowTitle(state, null, home), "Luna Bot — Acme");
   assert.deepEqual(env.workspaceSummary(state), { local: false, name: "Acme", origin: TEAM, role: "Super admin" });
   // Before the move (or a Team Owner, whose home is this computer): This computer, then each team with its role (no Forget), then servers as saved.

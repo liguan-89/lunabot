@@ -12,7 +12,7 @@ type Pack = Partial<Record<string, string>>;
 const ENGLISH: Pack = en;
 const packs: { en: Pack } & Record<string, Pack> = { en: ENGLISH };
 
-/** The other languages' packs, by code ("de", "pt-br", "zh-tw"); server-line-packs.ts adds them once, at start. */
+/** The other languages' packs, by code ("zh"); server-line-packs.ts adds them once, at start. */
 export function addServerLinePacks(more: Readonly<Record<string, Pack>>): void {
   Object.assign(packs, more, { en: ENGLISH });
 }

@@ -303,7 +303,7 @@ describe("Inspector on the app's live stream", () => {
 });
 
 describe("Activity on the app's live stream", () => {
-  it.each([["en", "Email"], ["pt-br", "E-mail"]])("shows the email app in %s without translating the tool identifier", async (language, app) => {
+  it.each([["en", "Email"], ["zh", "邮件"]])("shows the email app in %s without translating the tool identifier", async (language, app) => {
     setLocale(language);
     const tool = "mcp__email__EMAIL_SEND_EMAIL";
     vi.stubGlobal("fetch", () => Promise.resolve(new Response(JSON.stringify({ rows: [{

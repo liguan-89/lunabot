@@ -72,12 +72,12 @@ describe("app language preference", () => {
   });
 
   it("starts the pairing and sign-in pages in the saved language, not the browser's", async () => {
-    local.setItem("omb-language", "pt-br");
+    local.setItem("omb-language", "zh");
     const preference = await import("./language-preference");
-    expect(preference.startupLocaleTag("en-US")).toBe("pt-br");
+    expect(preference.startupLocaleTag("en-US")).toBe("zh");
     const { loadLocale, setLocale, t } = await import("./i18n");
-    expect(await loadLocale(preference.startupLocaleTag("en-US"))).toBe("pt-br");
-    expect(t("pair.signIn")).toBe("Entrar");
+    expect(await loadLocale(preference.startupLocaleTag("en-US"))).toBe("zh");
+    expect(t("pair.signIn")).toBe("登录");
     setLocale("en");
   });
 
@@ -204,9 +204,9 @@ describe("app language in the desktop app", () => {
   it("tells the app the language the window shows, so its menus read in that one too, never the rail's or a stale one", async () => {
     const page = await openPage(desktopApp());
     page.preference.usePageLanguage("", false);
-    page.preference.usePageLanguage(page.preference.effectiveLanguage(page.preference.languageChoice(), "pt-br"), true);
+    page.preference.usePageLanguage(page.preference.effectiveLanguage(page.preference.languageChoice(), "zh"), true);
     await vi.waitFor(() => expect(page.bridge.shown).toHaveBeenCalledOnce());
-    expect(page.bridge.shown).toHaveBeenCalledWith("pt-br");
+    expect(page.bridge.shown).toHaveBeenCalledWith("zh");
     page.preference.usePageLanguage("xx-unknown", true);
     await vi.waitFor(() => expect(page.bridge.shown).toHaveBeenLastCalledWith("en"));
     expect(page.bridge.set, "showing a language is not a pick").not.toHaveBeenCalled();

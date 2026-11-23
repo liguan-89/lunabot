@@ -172,14 +172,14 @@ it("a new main refusing a page that predates the coded bridge: the plain English
 
 it("a new main and a new page: the refusal in the page's language, main's English for a code the page doesn't know", async () => {
   const main = newMain();
-  setLocale("pt-br");
+  setLocale("zh");
   page.moveToTeam = vi.fn(main.moveToTeam);
   page.moveToTeamCoded = vi.fn(main.moveToTeamCoded);
   page.teams = vi.fn().mockResolvedValue({ teams: [{ id: "team-beta", name: "Beta", ready: true }] });
-  expect((await confirmMove()).html).toContain("Scout está indo para Acme.");
+  expect((await confirmMove()).html).toContain("Scout 正在迁移到 Acme。");
   expect(page.moveToTeam).not.toHaveBeenCalled();
   page.teams = vi.fn().mockResolvedValue({ teams: [{ id: "team-gone", name: "Gone", ready: true }] });
-  expect((await confirmMove()).html).toContain("Você não está nessa equipe.");
+  expect((await confirmMove()).html).toContain("你不在这个团队中。");
   page.moveToTeamCoded = vi.fn().mockResolvedValue({ refused: { code: "movingElsewhere", params: { bot: "Scout" }, message: "Scout is moving to Acme." } });
   expect((await confirmMove()).html, "a name it needs is missing").toContain("Scout is moving to Acme.");
   expect((await confirmMove()).html).not.toContain("{team}");
@@ -192,7 +192,7 @@ it("a new main and a new page: the refusal in the page's language, main's Englis
 });
 
 it("a new page and an older main without the coded bridge: main's English", async () => {
-  setLocale("pt-br");
+  setLocale("zh");
   page.moveToTeam = vi.fn().mockRejectedValue(new Error("Error invoking remote method 'cloud-send:team-move': Error: You're not in that team."));
   expect(page.moveToTeamCoded).toBeUndefined();
   expect((await confirmMove()).html).toContain("You're not in that team.");

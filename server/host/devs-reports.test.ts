@@ -329,41 +329,41 @@ describe("a message that tags @devs", () => {
 });
 
 describe("what the person is told, in their language", () => {
-  it("writes the reporter's receipt in Portuguese without client translation metadata", async () => {
-    const fx = fixture({ profileEmail: "ada@example.com", lineLanguage: () => "pt-br" });
-    fx.person("scout-main", "@devs o botão travou");
+  it("writes the reporter's receipt in the conversation's language without client translation metadata", async () => {
+    const fx = fixture({ profileEmail: "ada@example.com", lineLanguage: () => "zh" });
+    fx.person("scout-main", "@devs 按钮卡住了");
     fx.advance(NO_ANSWER_MS);
     await fx.settle();
-    expect(fx.notices("scout-main")).toEqual(["notice: Enviado à equipe do Luna Bot (relatório report-1). Milind e Omkar recebem por e-mail e vão responder para ada@example.com."]);
+    expect(fx.notices("scout-main")).toEqual(["notice: 已发送给 Luna Bot 团队（报告 report-1）。Milind 和 Omkar 会通过邮件收到，并回复到 ada@example.com。"]);
     expect(fx.store.activePath("scout-main").at(-1)?.tool?.nameCode).toBeUndefined();
     fx.stop();
   });
 
-  const german = (person?: string) => (person === "p-ada" ? "de" : undefined);
+  const chinese = (person?: string) => (person === "p-ada" ? "zh" : undefined);
   const ada = { sender: { name: "Ada", id: "p-ada" } };
 
-  it("the line the bot passes on is German, and so is the system line when the bot does not pass it on", async () => {
-    const fx = fixture({ profileEmail: "ada@example.com", lineLanguage: german });
-    fx.person("scout-main", "@devs die Bilder laden nicht", ada);
+  it("the line the bot passes on is in the person's language, and so is the system line when the bot does not pass it on", async () => {
+    const fx = fixture({ profileEmail: "ada@example.com", lineLanguage: chinese });
+    fx.person("scout-main", "@devs 图片加载不了", ada);
     fx.busy.add("scout-main");
     fx.reports.note("scout-main", true);
-    const answer = await fx.call("scout", "scout-main", { went_wrong: "Bilder laden nicht" });
-    const line = "An das Luna Bot-Team gesendet (Bericht report-1). Milind und Omkar bekommen ihn per E-Mail und antworten dir an ada@example.com.";
+    const answer = await fx.call("scout", "scout-main", { went_wrong: "图片加载不了" });
+    const line = "已发送给 Luna Bot 团队（报告 report-1）。Milind 和 Omkar 会通过邮件收到，并回复到 ada@example.com。";
     expect(answer.body.text).toBe(`Sent. Tell the person this line in your reply, word for word: "${line}"`);
-    fx.bot("scout-main", "Ich schaue mir das an.", { turnId: "t1", turnSucceeded: true });
+    fx.bot("scout-main", "我看看。", { turnId: "t1", turnSucceeded: true });
     fx.busy.delete("scout-main");
     await fx.settle();
     expect(fx.notices("scout-main")).toEqual([`notice: ${line}`]);
     fx.stop();
   });
 
-  it("a report that waits is explained in German, not twice when the bot passed it on, and its later send is told in German", async () => {
-    const fx = fixture({ outcomes: [{ ok: false, retry: true, why: "offline" }], lineLanguage: german });
+  it("a report that waits is explained in the person's language, not twice when the bot passed it on, and its later send is told in the same language", async () => {
+    const fx = fixture({ outcomes: [{ ok: false, retry: true, why: "offline" }], lineLanguage: chinese });
     fx.person("scout-main", "@devs offline", ada);
     fx.busy.add("scout-main");
     fx.reports.note("scout-main", true);
     const answer = await fx.call("scout", "scout-main", { went_wrong: "offline" });
-    const waiting = "Noch nicht gesendet: der Server des Luna Bot-Teams war nicht erreichbar. Der Bericht ist gespeichert und wird so bald wie möglich von selbst gesendet, du musst ihn also nicht noch einmal senden.";
+    const waiting = "尚未发送：无法连接到 Luna Bot 团队的服务器。报告已保存，会在尽快自动发送，无需再次发送。";
     expect(answer.body.text).toBe(`Not sent. Tell the person this line in your reply, word for word: "${waiting}"`);
     fx.bot("scout-main", waiting, { turnId: "t1", turnSucceeded: true });
     fx.busy.delete("scout-main");
@@ -371,7 +371,7 @@ describe("what the person is told, in their language", () => {
     expect(fx.notices("scout-main")).toEqual([]);
     fx.advance(RETRY_MS[0]);
     await fx.settle();
-    expect(fx.notices("scout-main")).toEqual(["notice: An das Luna Bot-Team gesendet (Bericht report-2), nachdem ein früherer Versuch nicht geklappt hat. Milind und Omkar bekommen ihn per E-Mail."]);
+    expect(fx.notices("scout-main")).toEqual(["notice: 之前的一次尝试没有成功，现已发送给 Luna Bot 团队（报告 report-2）。Milind 和 Omkar 会通过邮件收到。"]);
     fx.stop();
   });
 });

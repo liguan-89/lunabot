@@ -21,8 +21,8 @@ const openMenu = async () => {
 };
 
 it("shows a team's shared chat by its name, in the person's language", async () => {
-  setLocale("de");
-  expect(localizedTaskTitle("Shared chat")).toBe("Gemeinsamer Chat");
+  setLocale("zh");
+  expect(localizedTaskTitle("Shared chat")).toBe("共享聊天");
   setLocale("en");
   expect(localizedTaskTitle("Shared chat")).toBe("Shared chat");
   await draw({ threadId: "main", title: "Shared chat", sharedChat: true });

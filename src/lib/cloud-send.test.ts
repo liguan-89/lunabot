@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setLocale } from "@/lib/i18n";
 import { readFileSync } from "node:fs";
 import en from "@/locales/en.json";
-import ptBr from "@/locales/pt-br.json";
+import zh from "@/locales/zh.json";
 import { countedList, ipcErrorText, moveLine } from "./cloud-send";
 
 beforeEach(() => { setLocale("en"); });
@@ -75,10 +75,10 @@ describe("the one-time move's line", () => {
     expect(moveLine({ phase: "copy", failing, place }, "local")).toMatchObject({
       text: "Your bots couldn't move to Garage server yet: Sign in to Garage server in the app first.", reason: failing.error,
     });
-    setLocale("pt-br");
-    expect(moveLine({ phase: "copy", failing }, "local")?.reason).toBe("Primeiro, faça login em Garage server no app.");
+    setLocale("zh");
+    expect(moveLine({ phase: "copy", failing }, "local")?.reason).toBe("请先在应用中登录 Garage server。");
     expect(moveLine({ phase: "copy", failing, place }, "local")).toMatchObject({
-      text: "Seus bots ainda não conseguiram ir para Garage server: Primeiro, faça login em Garage server no app.", reason: "Primeiro, faça login em Garage server no app.",
+      text: "机器人的暂时还无法迁移到 Garage server：请先在应用中登录 Garage server。", reason: "请先在应用中登录 Garage server。",
     });
   });
 
@@ -105,10 +105,10 @@ describe("the one-time move's line", () => {
   });
 
   it("is in every language's own words", () => {
-    setLocale("de");
-    expect(moveLine({ phase: "copy" }, "local")?.text).toBe("Deine Bots ziehen in die Cloud um…");
-    expect(moveLine({ phase: "copy", updating: true }, "local")?.text).toBe("My Cloud wird gerade aktualisiert. Dein Umzug beginnt, sobald das erledigt ist.");
-    expect(moveLine({ phase: "wait", waitingFor: "", waitingWhat: "sign-in" }, "local")?.text).toBe("Deine Bots ziehen in die Cloud um… warte, bis eine Anmeldung fertig ist");
+    setLocale("zh");
+    expect(moveLine({ phase: "copy" }, "local")?.text).toBe("正在把你的机器人迁移到 Cloud…");
+    expect(moveLine({ phase: "copy", updating: true }, "local")?.text).toBe("My Cloud 正在更新。更新完成后就会开始迁移。");
+    expect(moveLine({ phase: "wait", waitingFor: "", waitingWhat: "sign-in" }, "local")?.text).toBe("正在把你的机器人迁移到 Cloud… 等待一次登录完成");
   });
 });
 
@@ -119,9 +119,9 @@ describe("the line on a computer whose bots came home to another one", () => {
       .toEqual({ kind: "done", text: "Your bots came back to MacBook Air. This computer keeps its copy from October 21, 2026, with automations off.", extra: [] });
     expect(moveLine({ phase: "back", elsewhere: { name: "MacBook Air" } }, "local")?.text, "a copy already deleted is not offered").toBe("Your bots came back to MacBook Air.");
     expect(moveLine({ phase: "back", elsewhere: { name: "MacBook Air", since } }, "cloud")).toBeNull();
-    setLocale("de");
+    setLocale("zh");
     expect(moveLine({ phase: "back", elsewhere: { name: "MacBook Air", since } }, "local")?.text)
-      .toBe("Deine Bots sind zurück auf MacBook Air. Dieser Computer behält seine Kopie vom 21. Oktober 2026, mit ausgeschalteten Automatisierungen.");
+      .toBe("你的机器人回到了 MacBook Air。这台电脑保留它在 2026年10月21日 的副本，自动化已关闭。");
   });
 });
 
@@ -147,14 +147,14 @@ describe("a refusal the preload words before main is asked", () => {
   });
 
   it("each one shown on a page reads in pt-BR", () => {
-    setLocale("pt-br");
-    for (const key of keys) expect(ipcErrorText(new Error(en[key])), key).toBe(ptBr[key]);
+    setLocale("zh");
+    for (const key of keys) expect(ipcErrorText(new Error(en[key])), key).toBe(zh[key]);
   });
 
   it("shows in the app's language, and main's own words stay as main wrote them", () => {
     expect(ipcErrorText(new Error(unclicked))).toBe(unclicked);
-    setLocale("pt-br");
-    expect(ipcErrorText(new Error(unclicked))).toBe(ptBr["cloudAccount.keepHere.unclicked"]);
+    setLocale("zh");
+    expect(ipcErrorText(new Error(unclicked))).toBe(zh["cloudAccount.keepHere.unclicked"]);
     expect(ipcErrorText(new Error("Error invoking remote method 'one-home:keep-set': Error: Os bots deste computador estão voltando.")))
       .toBe("Os bots deste computador estão voltando.");
     expect(ipcErrorText("not an error")).toBeNull();
