@@ -12,7 +12,7 @@ import { SECRET_VALUE_MAX_BYTES } from "../shared/vault.ts";
 import { vaultPointer } from "./vault/mcp-keys.ts";
 import { secretForms } from "./vault-store.ts";
 import { HELD_SECRET_MASK } from "./redact.ts";
-import { inSecretFolder, SECRET_FOLDER } from "./secret-folder.ts";
+import { inSecretFolder, LEGACY_SECRET_FOLDER, SECRET_FOLDER } from "./secret-folder.ts";
 
 export { inSecretFolder, SECRET_FOLDER, SECRET_VALUE_MAX_BYTES };
 /** From saving: room for a resume queued behind other work and the tool call after it, short enough that a ref the bot
@@ -223,40 +223,49 @@ export class SecretVault {
   }
 
   /** Removes every secret file past its day, or whose card is gone and no Vault item made it, and every value whose
-   * conversation is gone.
+   * conversation is gone. The pre-rename `.dexbot-secrets` folder is swept the same way and taken away entirely once
+   * empty, so files saved before the rename still expire on schedule.
    * `savedAt` reads the card, so touching a file never keeps it longer. */
   sweep(bases: readonly string[], savedAt: (threadId: string, messageId: string) => number | null, threadExists: (threadId: string) => boolean): void {
     const now = this.now();
     for (const base of bases) {
-      const folder = join(base, SECRET_FOLDER);
-      let names: string[];
-      try {
-        const info = lstatSync(folder);
-        if (info.isSymbolicLink() || !info.isDirectory()) {
-          rmSync(folder, { force: true });
-          continue;
-        }
-        names = readdirSync(folder);
-      } catch {
-        continue;
-      }
-      for (const thread of names) {
-        const threadFolder = join(folder, thread);
+      for (const [folder, legacy] of [
+        [join(base, SECRET_FOLDER), false],
+        [join(base, LEGACY_SECRET_FOLDER), true],
+      ] as const) {
+        let names: string[];
         try {
-          const info = lstatSync(threadFolder);
-          if (info.isSymbolicLink() || !info.isDirectory() || !ID.test(thread) || !threadExists(thread)) {
-            rmSync(threadFolder, { recursive: true, force: true });
+          const info = lstatSync(folder);
+          if (info.isSymbolicLink() || !info.isDirectory()) {
+            rmSync(folder, { force: true });
             continue;
           }
-          for (const card of readdirSync(threadFolder)) {
-            const file = join(threadFolder, card);
-            const at = ID.test(card) ? savedAt(thread, card) : null;
-            const live = at === null ? (this.minted.get(`${thread}/${card}`) ?? 0) > now : now - at < SECRET_FILE_TTL_MS;
-            if (!live || !lstatSync(file).isFile()) rmSync(file, { recursive: true, force: true });
-          }
-          if (readdirSync(threadFolder).length === 0) rmSync(threadFolder, { recursive: true, force: true });
+          names = readdirSync(folder);
         } catch {
           continue;
+        }
+        for (const thread of names) {
+          const threadFolder = join(folder, thread);
+          try {
+            const info = lstatSync(threadFolder);
+            if (info.isSymbolicLink() || !info.isDirectory() || !ID.test(thread) || !threadExists(thread)) {
+              rmSync(threadFolder, { recursive: true, force: true });
+              continue;
+            }
+            for (const card of readdirSync(threadFolder)) {
+              const file = join(threadFolder, card);
+              const at = ID.test(card) ? savedAt(thread, card) : null;
+              const live = at === null ? (this.minted.get(`${thread}/${card}`) ?? 0) > now : now - at < SECRET_FILE_TTL_MS;
+              if (!live || !lstatSync(file).isFile()) rmSync(file, { recursive: true, force: true });
+            }
+            if (readdirSync(threadFolder).length === 0) rmSync(threadFolder, { recursive: true, force: true });
+          } catch {
+            continue;
+          }
+        }
+        if (legacy) {
+          // The old folder has no future writes: once the last expired file is gone, remove the folder itself.
+          try { if (readdirSync(folder).length === 0) rmSync(folder, { force: true }); } catch { /* already gone */ }
         }
       }
     }

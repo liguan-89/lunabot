@@ -34,9 +34,9 @@ describe("programs a boxed bot could have written", () => {
   });
 
   it("while the box is on: nothing under HOME but the data folder, and no relative folder", () => {
-    distrustHomePrograms("/data", ["/data/.lunabot"], ["/data/.lunabot/workspaces", "/srv/omb/task-workspaces"]);
+    distrustHomePrograms("/data", ["/data/.lunabot"], ["/data/.lunabot/workspaces", "/srv/lunabot/task-workspaces"]);
     expect(serverMayRunFrom("/data/.lunabot/workspaces/b1/tool")).toBe(false);
-    expect(serverMayRunFrom("/srv/omb/task-workspaces/b1/t1/tool")).toBe(false);
+    expect(serverMayRunFrom("/srv/lunabot/task-workspaces/b1/t1/tool")).toBe(false);
     expect(serverMayRunFrom("/data/.local/bin")).toBe(false);
     expect(serverMayRunFrom("/data/.local/bin/pi")).toBe(false);
     expect(serverMayRunFrom("/data")).toBe(false);

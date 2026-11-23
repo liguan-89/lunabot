@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { LEGACY_SECRET_FOLDER } from "./secret-folder.ts";
 import { NOT_A_REF_TEXT, SECRET_FILE_TTL_MS, SECRET_FOLDER, SECRET_REF_TTL_MS, SecretVault } from "./secret-vault.ts";
 
 const ATLAS = { botId: "atlas", threadId: "thread-1" };
@@ -170,6 +171,20 @@ posix("secret files", () => {
     now += 1;
     vault.sweep([join(root, "workspaces", "atlas")], noCard, () => true);
     expect(existsSync(file)).toBe(false);
+  });
+
+  it("sweeps the pre-rename .dexbot-secrets folder by the same rules and removes it once empty", () => {
+    const vault = new SecretVault(clock);
+    const legacyBase = join(root, "workspaces", "atlas", LEGACY_SECRET_FOLDER);
+    mkdirSync(join(legacyBase, "thread-1"), { recursive: true });
+    writeFileSync(join(legacyBase, "thread-1", "card-1"), "sk_legacy_file");
+    const savedAtMs = now;
+    const saved = (_thread: string, card: string) => (card === "card-1" ? savedAtMs : null);
+    vault.sweep([join(root, "workspaces", "atlas")], saved, () => true);
+    expect(existsSync(join(legacyBase, "thread-1", "card-1"))).toBe(true);
+    now += SECRET_FILE_TTL_MS;
+    vault.sweep([join(root, "workspaces", "atlas")], saved, () => true);
+    expect(existsSync(legacyBase), "the old folder itself goes away once empty").toBe(false);
   });
 
   it("removes a link planted in the secrets folder without following it", () => {

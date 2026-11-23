@@ -132,7 +132,7 @@ export function connectDingtalk(cfg: DingtalkConfig, deps: DingtalkDeps): Dingta
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        clientId: cfg.appKey, clientSecret: cfg.appSecret, ua: "dexbot",
+        clientId: cfg.appKey, clientSecret: cfg.appSecret, ua: "lunabot",
         subscriptions: [{ type: "EVENT", topic: "*" }, { type: "CALLBACK", topic: DINGTALK_ROBOT_TOPIC }],
       }),
       signal: AbortSignal.timeout(15_000),

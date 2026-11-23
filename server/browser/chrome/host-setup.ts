@@ -28,7 +28,7 @@ export function sandboxDisabled(env: Readonly<Record<string, string | undefined>
 
 /** Set on Ubuntu 23.10+: unprivileged user namespaces need an AppArmor profile. */
 export const USERNS_RESTRICTION = "/proc/sys/kernel/apparmor_restrict_unprivileged_userns";
-export const APPARMOR_PROFILE_NAME = "dexbot-chrome";
+export const APPARMOR_PROFILE_NAME = "lunabot-chrome";
 export const APPARMOR_PROFILE_PATH = `/etc/apparmor.d/${APPARMOR_PROFILE_NAME}`;
 
 /**

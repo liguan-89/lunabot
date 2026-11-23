@@ -52,7 +52,7 @@ async function boot(extra: Record<string, string> = {}) {
   const url = `http://127.0.0.1:${port}`;
   await waitFor(async () => {
     const body = await fetch(`${url}/api/health`).then((r) => r.json(), () => null) as { app?: string } | null;
-    return body?.app === "dexbot" || body?.app === "openmausbot";
+    return body?.app === "lunabot" || body?.app === "dexbot" || body?.app === "openmausbot";
   }, 30_000);
   return { child: started, dataDir: dir, logPath: log, base: url };
 }

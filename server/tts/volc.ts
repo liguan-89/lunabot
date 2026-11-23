@@ -51,7 +51,7 @@ export async function synthesize(
       },
       body: JSON.stringify({
         app: { appid: appId, token: "access_token", cluster: "volcano_tts" },
-        user: { uid: "dexbot" },
+        user: { uid: "lunabot" },
         audio: { voice_type: voiceType, encoding: "mp3", speed_ratio: 1.0 },
         request: { reqid: randomUUID(), text, text_type: "plain", operation: "query" },
       }),

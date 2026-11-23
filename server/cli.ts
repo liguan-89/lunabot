@@ -273,8 +273,8 @@ const message = (error: unknown) => (error instanceof Error ? error.message : St
 let serveOwnerToken: string | undefined;
 
 async function api(port: number, path: string, init: { method?: string; body?: string } = {}): Promise<{ status: number; body: any }> {
-  // x-dexbot-cli names the tool in the activity log; on loopback it grants nothing.
-  const headers: Record<string, string> = { "content-type": "application/json", "x-dexbot-cli": "1", ...(serveOwnerToken ? { "x-dexbot-cli-owner": serveOwnerToken } : {}) };
+  // x-lunabot-cli names the tool in the activity log; on loopback it grants nothing.
+  const headers: Record<string, string> = { "content-type": "application/json", "x-lunabot-cli": "1", ...(serveOwnerToken ? { "x-lunabot-cli-owner": serveOwnerToken } : {}) };
   const res = await fetch(`http://127.0.0.1:${port}${path}`, { method: init.method, body: init.body, headers, signal: AbortSignal.timeout(3000) });
   const body: unknown = await res.json().catch(() => ({}));
   return { status: res.status, body };
@@ -289,7 +289,7 @@ function refusedAsService(status: number, body: any): boolean {
 async function serverUp(port: number, pid?: number): Promise<boolean> {
   try {
     const { status, body } = await api(port, "/api/health");
-    return status === 200 && (body?.app === "dexbot" || body?.app === "openmausbot") && (pid === undefined || body.pid === pid);
+    return status === 200 && (body?.app === "lunabot" || body?.app === "dexbot" || body?.app === "openmausbot") && (pid === undefined || body.pid === pid);
   } catch {
     return false;
   }
@@ -299,7 +299,7 @@ async function serverUp(port: number, pid?: number): Promise<boolean> {
 export async function isWorkspaceRunning(options: CliOptions): Promise<boolean> {
   try {
     const { status, body } = await api(options.port, "/api/health");
-    if (status !== 200 || (body?.app !== "dexbot" && body?.app !== "openmausbot")) return false;
+    if (status !== 200 || (body?.app !== "lunabot" && body?.app !== "dexbot" && body?.app !== "openmausbot")) return false;
     const expected = readFileSync(join(options.dataDir, "environment-id"), "utf8").trim();
     const descriptor = await api(options.port, "/.well-known/dexbot/environment");
     return /^[0-9a-f-]{36}$/i.test(expected) && descriptor.status === 200 && descriptor.body?.environmentId === expected;

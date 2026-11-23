@@ -243,7 +243,7 @@ describe("spawnCli goes through the box", () => {
       // /usr/bin/true stands in for socat: the shell init starts it, waits once, and execs the engine.
       detect: () => ({ box: "bwrap", reason: null, tools: { bwrap: fakeBwrap, socat: "/usr/bin/true" } }),
     });
-    const run = async (owner: "bot" | "openmausbot", box?: false) => {
+    const run = async (owner: "bot" | "lunabot", box?: false) => {
       rmSync(record, { force: true });
       const child = spawnCli("/bin/sh", ["-c", "echo ran"], { stdio: ["pipe", "pipe", "pipe"], env: { PATH: "/usr/bin:/bin", HOME: dir, SECRET_THING: "x" }, box }, owner);
       let out = "";
@@ -258,7 +258,7 @@ describe("spawnCli goes through the box", () => {
     expect(boxed.argv).toContain("/run/omb/egress.sock");
     const engines = npmEnginesPrefix(join(dir, "data"));
     expect(boxed.argv, "the engines Luna Bot installed, read-only").toContain(`--ro-bind-try\n${engines}\n${engines}\n`);
-    expect((await run("openmausbot")).boxed).toBe(false);
+    expect((await run("lunabot")).boxed).toBe(false);
     expect((await run("bot", false)).boxed).toBe(false);
     expect(botBox.report().boxed).toBe(1);
   });

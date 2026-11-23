@@ -101,9 +101,9 @@ linuxBox("the box plan", () => {
     const own = join(dataDir, "engine-homes", "member-aaaaaaaaaaaaaaaa");
     const team = planBox(setup(), { command: "opencode", args: [], cwd, env: { HOME: own }, home: own });
     expect(visibleInBox(team, join(dataDir, "tools", "npm", "bin", "opencode"))).toBe("ro");
-    const apart = planBox({ ...setup(), dataDir: "/srv/omb", home: "/home/maus", engineRoots: engineInstallRoots("/srv/omb") }, { command: "opencode", args: [], cwd: "/srv/omb/task-workspaces/b/t", env: {} });
-    expect(visibleInBox(apart, "/srv/omb/tools/npm/bin/opencode")).toBe("ro");
-    expect(visibleInBox(apart, "/srv/omb/messages.db")).toBe("none");
+    const apart = planBox({ ...setup(), dataDir: "/srv/lunabot", home: "/home/lunabot", engineRoots: engineInstallRoots("/srv/lunabot") }, { command: "opencode", args: [], cwd: "/srv/lunabot/task-workspaces/b/t", env: {} });
+    expect(visibleInBox(apart, "/srv/lunabot/tools/npm/bin/opencode")).toBe("ro");
+    expect(visibleInBox(apart, "/srv/lunabot/messages.db")).toBe("none");
   });
 
   it("TMPDIR never puts the host's /tmp back; another temp folder is put back", () => {
@@ -194,15 +194,15 @@ linuxBox("the box plan", () => {
   });
 
   it("a data folder outside HOME is simply not there", () => {
-    const plan = planBox({ ...setup(), dataDir: "/srv/omb", home: "/home/maus" }, { command: "/usr/bin/x", args: [], cwd: "/srv/omb/task-workspaces/b/t", env: {} });
-    expect(visibleInBox(plan, "/srv/omb/messages.db")).toBe("none");
-    expect(visibleInBox(plan, "/srv/omb/task-workspaces/b/t")).toBe("rw");
-    expect(visibleInBox(plan, "/srv/omb/workspaces/b")).toBe("rw");
-    expect(bwrapArgs(plan).join(" ")).not.toContain("--tmpfs /srv/omb");
+    const plan = planBox({ ...setup(), dataDir: "/srv/lunabot", home: "/home/lunabot" }, { command: "/usr/bin/x", args: [], cwd: "/srv/lunabot/task-workspaces/b/t", env: {} });
+    expect(visibleInBox(plan, "/srv/lunabot/messages.db")).toBe("none");
+    expect(visibleInBox(plan, "/srv/lunabot/task-workspaces/b/t")).toBe("rw");
+    expect(visibleInBox(plan, "/srv/lunabot/workspaces/b")).toBe("rw");
+    expect(bwrapArgs(plan).join(" ")).not.toContain("--tmpfs /srv/lunabot");
   });
 
   it("shows no path on the command line that is in the data folder or holds it, unless the caller named it", () => {
-    for (const { dataDir, home } of [{ dataDir: "/data/.lunabot", home: "/data" }, { dataDir: "/srv/omb", home: "/home/maus" }]) {
+    for (const { dataDir, home } of [{ dataDir: "/data/.lunabot", home: "/data" }, { dataDir: "/srv/lunabot", home: "/home/lunabot" }]) {
       const server = ["config.json", "sessions.json", "messages.db", "workspaces/other/MEMORY.md"].map((file) => join(dataDir, file));
       const ask = (args: string[], ro: string[] = []) => planBox({ ...setup(), dataDir, home }, { command: "/bin/sh", args, cwd: join(dataDir, "task-workspaces", "b", "t"), env: {}, botId: "b", ro });
       for (const args of [server, [dataDir], [`--model=${server[0]}`], [`@${server[0]}`], [join(dataDir, "..")], [join(dataDir, "workspaces", "..")], ["/srv", "/var"]]) {

@@ -199,7 +199,8 @@ describe("copy_from_computer", () => {
     ["an absolute path", "/etc/escaped.json", /relative to your working folder/],
     ["a Windows absolute path", "C:\\escaped.json", /relative to your working folder/],
     ["the folder itself", ".", /not the folder itself/],
-    ["the secret folder", ".dexbot-secrets/token.txt", /holds a secret/],
+    ["the secret folder", ".lunabot-secrets/token.txt", /holds a secret/],
+    ["the pre-rename secret folder", ".dexbot-secrets/token.txt", /holds a secret/],
   ])("refuses %s before asking the Boat", async (_label, place, message) => {
     disk.set("/tmp/x", { bytes: Buffer.from("x") });
     expect(await from("/tmp/x", place)).toEqual({ error: expect.stringMatching(message) });
@@ -334,14 +335,15 @@ describe("copy_to_computer", () => {
     writeFileSync(join(outside, "secret.txt"), "private");
     symlinkSync(join(outside, "secret.txt"), join(folder, "linked.txt"));
     symlinkSync(outside, join(folder, "linked"));
-    mkdirSync(join(folder, ".dexbot-secrets"));
-    writeFileSync(join(folder, ".dexbot-secrets", "token"), "secret");
+    mkdirSync(join(folder, ".lunabot-secrets"));
+    writeFileSync(join(folder, ".lunabot-secrets", "token"), "secret");
     mkdirSync(join(folder, "dir"));
     for (const [source, message] of [
       ["../outside/secret.txt", /without "\.\."/],
       [join(outside, "secret.txt"), /relative to your working folder/],
       ["linked.txt", /leads outside/],
       ["linked/secret.txt", /leads outside/],
+      [".lunabot-secrets/token", /holds a secret/],
       [".dexbot-secrets/token", /holds a secret/],
       ["dir", /is not a file/],
       ["missing.txt", /is not in your working folder/],

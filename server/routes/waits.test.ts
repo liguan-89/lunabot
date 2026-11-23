@@ -6,7 +6,7 @@ import type { NewWait, WaitRecord } from "../waits.ts";
 import { createWaitRoutes, findWaitPeer, hostWaitRefusal, isNetworkPath, parseWaitRequest, waitSourceRefusal, WAIT_MESSAGES } from "./waits.ts";
 import { PASS } from "./table.ts";
 
-const HOME = "/home/maus";
+const HOME = "/home/lunabot";
 const FILE_WAIT = { label: "the report", kind: "file_exists", path: "/r.txt" };
 
 const waits = {

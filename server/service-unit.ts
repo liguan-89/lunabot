@@ -13,7 +13,7 @@ export interface ServiceSpec {
   home: string;
   bindsLowPorts: boolean;
   label?: string;
-  /** How the person runs the CLI by hand, when it isn't `openmausbot` (a copy installed for the service). */
+  /** How the person runs the CLI by hand, when it is not `lunabot` (a copy installed for the service). */
   cliPrefix?: string;
 }
 
@@ -317,6 +317,6 @@ export function currentUser(): string {
   try {
     return userInfo().username;
   } catch {
-    return process.env.USER || process.env.USERNAME || "openmausbot";
+    return process.env.USER || process.env.USERNAME || "lunabot";
   }
 }

@@ -165,7 +165,7 @@ it("keeps a file secret and a ref secret out of every record, and the bot uses e
   expect(await save(fileCard.id, "")).toMatchObject({ status: 400 });
   expect(await save(fileCard.id, FILE_CANARY)).toMatchObject({ status: 200, body: { provided: true } });
   expect(await save(fileCard.id, FILE_CANARY)).toMatchObject({ status: 409, body: { error: "this secret was already saved" } });
-  const cardFile = join(home, ".lunabot", "workspaces", bot.id, ".dexbot-secrets", bot.threadId, fileCard.id);
+  const cardFile = join(home, ".lunabot", "workspaces", bot.id, ".lunabot-secrets", bot.threadId, fileCard.id);
   expect(readFileSync(cardFile, "utf8")).toBe(FILE_CANARY);
   const fileText = (await tools.call("request_credential", { label: "Stripe secret key", reason: "To create test charges.", delivery: "file" })).text;
   expect((await cards()).at(-1).id, "the Vault answers with no card").toBe(fileCard.id);

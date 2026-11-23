@@ -5,8 +5,12 @@ import type { ModelCatalog } from "../contracts.ts";
 
 export type PiCustomProtocol = "openai" | "responses" | "anthropic";
 
-export const PI_CUSTOM_PROVIDER_ID = "dex";
+export const PI_CUSTOM_PROVIDER_ID = "luna";
 export const PI_CUSTOM_PROVIDER_NAME = "Custom";
+/** The provider id before the rename. Model selections saved as `dex/<model>` keep working: both prefixes are
+ * recognized wherever a saved id is read, and everything new is written as `luna/<model>`. */
+export const PI_CUSTOM_LEGACY_PROVIDER_IDS = ["dex"] as const;
+const PI_CUSTOM_PROVIDER_IDS = [PI_CUSTOM_PROVIDER_ID, ...PI_CUSTOM_LEGACY_PROVIDER_IDS];
 
 // Names of the variables the server passes to the pi driver, never credential values.
 export const PI_CUSTOM_ENV = {
@@ -64,13 +68,14 @@ export function piCustomModelId(model: string): string {
 }
 
 export function isPiCustomModel(id: string): boolean {
-  return id.startsWith(`${PI_CUSTOM_PROVIDER_ID}/`);
+  return PI_CUSTOM_PROVIDER_IDS.some((prefix) => id.startsWith(`${prefix}/`));
 }
 
-/** A model id the custom provider serves, as its model id. */
+/** A model id the custom provider serves, as its model id; ids saved under a legacy prefix keep working. */
 export function splitPiCustomModel(id: string): { modelId: string } | null {
-  if (!isPiCustomModel(id)) return null;
-  const modelId = id.slice(PI_CUSTOM_PROVIDER_ID.length + 1);
+  const prefix = PI_CUSTOM_PROVIDER_IDS.find((candidate) => id.startsWith(`${candidate}/`));
+  if (!prefix) return null;
+  const modelId = id.slice(prefix.length + 1);
   return modelId ? { modelId } : null;
 }
 

@@ -305,7 +305,7 @@ export function systemProbe(): HostProbe {
       try {
         const response = await fetch(`http://127.0.0.1:${port}/api/health`, { signal: AbortSignal.timeout(2_000) });
         const app = ((await response.json()) as { app?: unknown }).app;
-        return app === "dexbot" || app === "openmausbot";
+        return app === "lunabot" || app === "dexbot" || app === "openmausbot";
       } catch {
         return false;
       }

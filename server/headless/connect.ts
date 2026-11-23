@@ -18,7 +18,7 @@ const isLoopback = (origin: string) => /^https?:\/\/(?:127\.0\.0\.1|localhost|\[
 async function call(origin: string, path: string, init: RequestInit = {}): Promise<{ status: number; body: Rec }> {
   const response = await fetch(`${origin}${path}`, {
     ...init, redirect: "error", signal: AbortSignal.timeout(15_000),
-    headers: { "content-type": "application/json", "x-dexbot-cli": "1", ...(init.headers as Record<string, string> | undefined) },
+    headers: { "content-type": "application/json", "x-lunabot-cli": "1", ...(init.headers as Record<string, string> | undefined) },
   });
   return { status: response.status, body: await response.json().catch(() => ({})) as Rec };
 }
