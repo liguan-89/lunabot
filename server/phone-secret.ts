@@ -97,7 +97,7 @@ export function phoneSecretKeyIdFromJwk(jwk: webcrypto.JsonWebKey): string | nul
 /** The canonical first AAD field, shared with the phone app; ciphertexts sealed after the lunabot rename carry v2. */
 export const PHONE_SECRET_AAD_V2 = "lunabot-phone-credential-v2";
 /** The pre-rename first AAD field, still accepted when opening a phone's ciphertext. */
-export const PHONE_SECRET_AAD_V1 = "lunabot-phone-credential-v1";
+export const PHONE_SECRET_AAD_V1 = "openmausbot-phone-credential-v1";
 
 /** One canonical string shared with Swift. Authenticating it stops a relay moving a ciphertext to another bot, conversation, card, device or credential. */
 export function phoneSecretAAD(context: Pick<

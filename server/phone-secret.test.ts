@@ -275,7 +275,7 @@ describe("phoneSecretAAD", () => {
       "credential-request-1",
     ].join("\n"));
     expect(new TextDecoder().decode(phoneSecretAAD(baseContext("AAAAAAAAAAAAAAAAAAAAAA"), PHONE_SECRET_AAD_V1))).toBe([
-      "lunabot-phone-credential-v1",
+      "openmausbot-phone-credential-v1",
       "AAAAAAAAAAAAAAAAAAAAAA",
       "paired-device-1",
       "bot-1",
