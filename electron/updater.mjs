@@ -1,9 +1,11 @@
 // macOS auto-update requires a signed app, so this runs only when packaged. electron-updater is vendored
 // because the packaged app ships no node_modules.
-import { app, clipboard, ipcMain } from "electron";
+import { app, clipboard, ipcMain, shell } from "electron";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { appSignatureKind } from "./app-signing.mjs";
+import { createImageUpdateCoordinator, feedBaseUrl } from "./image-update.mjs";
 import {
   HAND_OFF_PACKAGE_TYPES,
   linuxPackageType,
@@ -164,20 +166,31 @@ export function startUpdater(signals = null) {
   autoUpdater.autoDownload = false;
   autoUpdater.logger = updaterLogger();
 
+  // Squirrel.Mac can never install over an adhoc-signed app — its designated requirement is that build's cdhash — so
+  // those updates arrive as the release's disk image instead. Every other app keeps the native updater.
+  const image = process.platform === "darwin" && appSignatureKind() === "adhoc";
   // Broadcast the install flavour before the first check so the banner never offers a restart it cannot deliver.
   const packageType = linuxPackageType({ readMarker: (file) => (existsSync(file) ? readFileSync(file, "utf8") : null) });
-  const handOff = HAND_OFF_TYPES.has(packageType);
+  const handOff = !image && HAND_OFF_TYPES.has(packageType);
   // On macOS this also starts Squirrel.Mac's native staging at once; a system package is never installed on quit.
-  autoUpdater.autoInstallOnAppQuit = !handOff;
-  const elevated = packageType === "deb" && canInstallElevated();
-  setState({ installMode: handOff && !elevated ? "handoff" : "restart" });
-  updaterCoordinator = createUpdaterCoordinator(autoUpdater, setState, {
-    handOffInstall: handOff ? handOffDownloadedPackage(packageType) : null,
-    elevatedInstall: elevated ? installDownloadedPackage : null,
-    relaunch: elevated ? relaunchAfterInstall : null,
-    nativeStaging: process.platform === "darwin",
-  });
-  if (signals && QUIET_PLATFORMS.has(process.platform)) {
+  autoUpdater.autoInstallOnAppQuit = image ? false : !handOff;
+  const elevated = !image && packageType === "deb" && canInstallElevated();
+  setState({ installMode: image ? "image" : handOff && !elevated ? "handoff" : "restart" });
+  updaterCoordinator = image
+    ? createImageUpdateCoordinator(autoUpdater, setState, {
+      baseUrl: feedBaseUrl({ resourcesPath: process.resourcesPath }),
+      downloadDir: join(app.getPath("userData"), "pending-image"),
+      openPath: (file) => shell.openPath(file),
+      log: (line) => autoUpdater.logger?.info?.(line),
+    })
+    : createUpdaterCoordinator(autoUpdater, setState, {
+      handOffInstall: handOff ? handOffDownloadedPackage(packageType) : null,
+      elevatedInstall: elevated ? installDownloadedPackage : null,
+      relaunch: elevated ? relaunchAfterInstall : null,
+      nativeStaging: process.platform === "darwin",
+    });
+  // A disk image is opened by the person, never installed while they are away.
+  if (signals && !image && QUIET_PLATFORMS.has(process.platform)) {
     launched();
     quiet = createQuietInstall({ updater: updaterCoordinator, signals, record: quietRecord(), version: app.getVersion(),
       log: (line) => autoUpdater.logger?.info?.(line) });

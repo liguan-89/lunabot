@@ -108,14 +108,18 @@ export function updateLabel(phase: UpdatePhase, state: UpdaterState | null): str
       return (
         state?.installMode === "handoff"
           ? t("sidebar.update.readyInstall", { app: productName(), version: state?.version ?? "" })
-          : t("sidebar.update.ready", { app: productName(), version: state?.version ?? "" })
+          : state?.installMode === "image"
+            ? t("sidebar.update.readyImage", { app: productName(), version: state?.version ?? "" })
+            : t("sidebar.update.ready", { app: productName(), version: state?.version ?? "" })
       ).replace("  ", " ");
     case "installing":
       return (
         updaterMessage(state) ||
-        (state?.installMode === "handoff"
-          ? t("sidebar.update.openingTerminal")
-          : t("sidebar.update.installing"))
+        (state?.installMode === "image"
+          ? t("sidebar.update.openingImage")
+          : state?.installMode === "handoff"
+            ? t("sidebar.update.openingTerminal")
+            : t("sidebar.update.installing"))
       );
     case "checking":
       return t("sidebar.update.checking");
@@ -162,7 +166,7 @@ interface UpdateEntry {
 export function simpleUpdateTop(entry: Pick<UpdateEntry, "phase" | "source" | "installMode"> | null): { label: string; action: string } | null {
   const ready = () => t("sidebar.update.readyShort");
   if (entry?.source === "desktop") {
-    if (entry.phase === "downloaded") return { label: ready(), action: t(entry.installMode === "handoff" ? "sidebar.update.installAction" : "sidebar.update.restartAction") };
+    if (entry.phase === "downloaded") return { label: ready(), action: t(entry.installMode === "handoff" || entry.installMode === "image" ? "sidebar.update.installAction" : "sidebar.update.restartAction") };
     if (entry.phase === "error") return { label: t("sidebar.update.failedShort"), action: t("sidebar.update.retryAction") };
   }
   if (entry?.source === "server") {

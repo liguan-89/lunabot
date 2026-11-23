@@ -40,12 +40,16 @@ export function UpdatesRow({ title = t("settings.updates.title") }: { title?: st
           : s.status === "downloaded"
             ? s.installMode === "handoff"
               ? t("settings.updates.readyInstall", { app: productName(), version: s.version ?? "" })
-              : t("settings.updates.ready", { app: productName(), version: s.version ?? "" })
+              : s.installMode === "image"
+                ? t("settings.updates.readyImage", { app: productName(), version: s.version ?? "" })
+                : t("settings.updates.ready", { app: productName(), version: s.version ?? "" })
             : s.status === "installing"
               ? updaterMessage(s) ||
-                (s.installMode === "handoff"
-                  ? t("settings.updates.openingTerminal")
-                  : t("settings.updates.restarting"))
+                (s.installMode === "image"
+                  ? t("settings.updates.openingImage")
+                  : s.installMode === "handoff"
+                    ? t("settings.updates.openingTerminal")
+                    : t("settings.updates.restarting"))
               : s.status === "handed-off"
                 ? t("settings.updates.handedOff")
                 : s.status === "error"
@@ -67,15 +71,19 @@ export function UpdatesRow({ title = t("settings.updates.title") }: { title?: st
         {s.retryable === false
           ? t("settings.updates.quitReopen")
           : s.status === "downloaded"
-            ? s.installMode === "handoff"
-              ? t("settings.updates.install")
-              : t("settings.updates.restart")
+            ? s.installMode === "image"
+              ? t("update.image.open")
+              : s.installMode === "handoff"
+                ? t("settings.updates.install")
+                : t("settings.updates.restart")
             : s.status === "preparing"
               ? t("settings.updates.preparingShort")
               : s.status === "installing"
-                ? s.installMode === "handoff"
-                  ? t("settings.updates.opening")
-                  : t("settings.updates.restartingShort")
+                ? s.installMode === "image"
+                  ? t("settings.updates.openingImage")
+                  : s.installMode === "handoff"
+                    ? t("settings.updates.opening")
+                    : t("settings.updates.restartingShort")
                 : t("settings.updates.check")}
       </button>
     </SettingRow>

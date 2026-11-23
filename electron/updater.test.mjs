@@ -16,13 +16,16 @@ const CLOUD = "https://home-7f3k2.fly.dev";
 const OTHER = "https://bots.example.test";
 const OWN = "https://omb-c-a.fly.dev";
 
-const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "" }));
+const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "", signature: "signed" }));
 
 vi.mock("electron", () => ({
   app: { isPackaged: true, getPath: () => fixture.home, getVersion: () => "1.0.0", hide: vi.fn() },
   clipboard: { writeText: vi.fn() },
+  shell: { openPath: vi.fn(async () => "") },
   ipcMain: { handle: (name, handler) => fixture.handlers.set(name, handler) },
 }));
+// Real detection would read the test runner's own binary; each test states what the running app is signed with.
+vi.mock("./app-signing.mjs", () => ({ appSignatureKind: () => fixture.signature }));
 vi.mock("node:module", () => ({
   createRequire: () => () => ({ autoUpdater: fixture.autoUpdater }),
 }));
@@ -121,6 +124,7 @@ const settle = async () => {
 
 beforeEach(() => {
   fixture.home = mkdtempSync(join(tmpdir(), "omb-updater-home-"));
+  fixture.signature = "signed";
   localOriginModule.setLocalOrigin(LOCAL);
   vi.useFakeTimers();
 });
@@ -336,6 +340,30 @@ it("downloads an update by itself: the first check after launch starts it, and n
   const statuses = local.webContents.send.mock.calls.map(([, state]) => state.status);
   expect(statuses).not.toContain("available");
   expect(statuses.at(-1)).toBe("downloaded");
+});
+
+it("an adhoc-signed macOS app updates through the release's disk image, never through Squirrel", async () => {
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { ...platform, value: "darwin" });
+  fixture.signature = "adhoc";
+  try {
+    const { updater, autoUpdater, handlers } = await load(() => true);
+    updater.startUpdater();
+    // The native stage is what cannot work on an adhoc build, so nothing may arm it.
+    expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+    expect(await handlers.get("update:get-state")({})).toMatchObject({ installMode: "image" });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await settle();
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(autoUpdater.downloadUpdate).not.toHaveBeenCalled();
+    // This fixture's release carries no files at all, so the image path says why it cannot proceed and stays retryable.
+    expect(await handlers.get("update:get-state")({})).toMatchObject({
+      status: "error", retryable: true, messageKey: "native.update.imageNoDmg",
+    });
+  } finally {
+    fixture.signature = "signed";
+    Object.defineProperty(process, "platform", platform);
+  }
 });
 
 it("My Cloud's page reads and drives the update channels, and another server's page is refused", async () => {
