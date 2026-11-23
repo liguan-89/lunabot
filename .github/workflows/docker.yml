@@ -55,17 +55,17 @@ jobs:
         # license.
         run: |
           set -euo pipefail
-          docker run -d --name omb-ent -e LUNABOT_LICENSE_KEY=omb1.not.real lunabot:ci
+          docker run -d --name lunabot-ent -e LUNABOT_LICENSE_KEY=omb1.not.real lunabot:ci
           for i in $(seq 1 40); do
             if docker exec lunabot-ent curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
             sleep 2
-            if [ "$i" = "40" ]; then docker logs omb-ent; echo "server never became healthy"; exit 1; fi
+            if [ "$i" = "40" ]; then docker logs lunabot-ent; echo "server never became healthy"; exit 1; fi
           done
           edition=$(docker exec lunabot-ent curl -sf http://127.0.0.1:8799/api/edition)
           echo "$edition"
           grep -q '"edition":"oss"' <<<"$edition"
           grep -q 'no enterprise layer exists' <<<"$edition"
-          docker rm -f omb-ent >/dev/null
+          docker rm -f lunabot-ent >/dev/null
       - name: Prove the non-root user can browse with the baked-in Chrome
         run: |
           set -euo pipefail
