@@ -160,7 +160,7 @@ describe("install.sh", () => {
     const result = run(["uninstall", "--delete-data"], { ownServer: true });
     expect(result.status, result.stderr).toBe(0);
     expect(result.calls).toContain(`docker rm -f ${NAMES.connector} ${NAMES.connectorNext}`);
-    expect(result.calls.filter((call) => /lunabot-home|lunabot-data|lunabot|compose/.test(call))).toEqual([]);
+    expect(result.calls.filter((call) => /lunabot-home|lunabot-data|openmausbot|compose/.test(call))).toEqual([]);
     expect(readFileSync(join(result.install, "data", "chats.json"), "utf8")).toBe("theirs");
     expect(existsSync(join(result.install, "compose.yaml"))).toBe(true);
     for (const gone of [result.update, join(result.sbin, "lunabot-update-runner"), join(result.systemd, "lunabot-update.path"), join(result.systemd, "lunabot-update.service")]) expect(existsSync(gone), gone).toBe(false);

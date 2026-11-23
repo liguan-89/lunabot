@@ -9,7 +9,7 @@ import {
 } from "../src/protocol.ts";
 import { generateKeyPair, seal, unseal } from "../src/signed.ts";
 
-const HOME = `ghcr.io/milind-soni/lunabot-cloud-home@sha256:${"a".repeat(64)}`;
+const HOME = `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"a".repeat(64)}`;
 const CONNECTOR = `ghcr.io/milind-soni/mausbot-connector@sha256:${"b".repeat(64)}`;
 const env = {
   LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
@@ -39,10 +39,10 @@ describe("the connector protocol", () => {
     expect(image("update", RENAMED_HOME)).toBe(true);
     expect(image("self-update", CONNECTOR)).toBe(true);
     for (const value of [
-      "ghcr.io/milind-soni/lunabot-cloud-home:latest", "ghcr.io/milind-soni/lunabot-cloud-home:v0.1.130",
+      "ghcr.io/milind-soni/openmausbot-cloud-home:latest", "ghcr.io/milind-soni/openmausbot-cloud-home:v0.1.130",
       `ghcr.io/someone-else/lunabot-cloud-home@sha256:${"a".repeat(64)}`, `docker.io/library/ubuntu@sha256:${"a".repeat(64)}`,
-      `ghcr.io/milind-soni/lunabot-cloud-home@sha256:${"A".repeat(64)}`, `ghcr.io/milind-soni/lunabot-cloud-home@sha256:${"a".repeat(63)}`,
-      `ghcr.io/milind-soni/lunabot-cloud-home@sha256:${"a".repeat(64)} --privileged`, `ghcr.io/milind-soni/lunabot@sha256:${"a".repeat(64)}`,
+      `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"A".repeat(64)}`, `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"a".repeat(63)}`,
+      `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"a".repeat(64)} --privileged`, `ghcr.io/milind-soni/openmausbot@sha256:${"a".repeat(64)}`,
     ]) {
       expect(image("start", value), value).toBe(false);
       expect(image("update", value), value).toBe(false);

@@ -34,7 +34,7 @@ trap '' HUP PIPE
 
 REPO="ghcr.io/liguan-89/lunabot"
 # Installs still running an image of the repository under its earlier name pin by digest the same way.
-LEGACY_REPO="ghcr.io/milind-soni/lunabot"
+LEGACY_REPO="ghcr.io/milind-soni/openmausbot"
 PINNED="^ghcr\.io/liguan-89/lunabot@sha256:[0-9a-f]{64}$"
 STABLE_URL=${LUNABOT_STABLE_URL:-https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json}
 NEWEST_URL=${LUNABOT_NEWEST_URL:-https://api.github.com/repos/liguan-89/lunabot/releases/latest}

@@ -27,7 +27,7 @@ answer() { # the updater's exit code, for the connector to read
 
 # The connector deploys images from both registries across the rename: existing installs run the
 # old one, everything it pushes from now on carries the new one. Accept exactly the pair it accepts.
-if ! printf '%s' "$image" | grep -Eqx 'ghcr\.io/(liguan-89/lunabot|milind-soni/lunabot)@sha256:[0-9a-f]{64}'; then
+if ! printf '%s' "$image" | grep -Eqx 'ghcr\.io/(liguan-89/lunabot|milind-soni/openmausbot)@sha256:[0-9a-f]{64}'; then
   answer 4
   exit 0
 fi

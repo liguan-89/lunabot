@@ -17,12 +17,12 @@ import type { HomeRecord, Operation, StateStore } from "./state.ts";
 
 export const COMPOSE_PROJECT = "lunabot";
 /** Installs laid out before the rename keep the earlier project name. */
-export const COMPOSE_PROJECTS = [COMPOSE_PROJECT, "lunabot"] as const;
+export const COMPOSE_PROJECTS = [COMPOSE_PROJECT, "openmausbot"] as const;
 const SERVICE = "omb";
 const FRONT = "caddy";
 const PROJECT_LABEL = "com.docker.compose.project";
 const SERVICE_LABEL = "com.docker.compose.service";
-const HOME_REPOSITORIES = ["ghcr.io/liguan-89/lunabot", "ghcr.io/milind-soni/lunabot"];
+const HOME_REPOSITORIES = ["ghcr.io/liguan-89/lunabot", "ghcr.io/milind-soni/openmausbot"];
 const COPY_CAPS = ["CHOWN", "DAC_OVERRIDE", "DAC_READ_SEARCH", "FOWNER", "FSETID"];
 const READ_CAPS = ["DAC_READ_SEARCH"];
 const DELETE_CAPS = ["DAC_OVERRIDE", "DAC_READ_SEARCH"];

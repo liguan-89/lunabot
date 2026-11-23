@@ -18,10 +18,10 @@ import { StateStore, type AgentRecord } from "../src/state.ts";
 import { FakeAdmin } from "./fake-admin.ts";
 import { FakeDocker } from "./fake-docker.ts";
 
-const digest = (letter: string) => `ghcr.io/milind-soni/lunabot@sha256:${letter.repeat(64)}`;
-const CLOUD_HOME = `ghcr.io/milind-soni/lunabot-cloud-home@sha256:${"c".repeat(64)}`;
+const digest = (letter: string) => `ghcr.io/milind-soni/openmausbot@sha256:${letter.repeat(64)}`;
+const CLOUD_HOME = `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"c".repeat(64)}`;
 const CONNECTOR = `ghcr.io/milind-soni/mausbot-connector@sha256:${"1".repeat(64)}`;
-const RUNNING = "ghcr.io/milind-soni/lunabot:v0.1.151";
+const RUNNING = "ghcr.io/milind-soni/openmausbot:v0.1.151";
 const RUNNING_RENAMED = "ghcr.io/liguan-89/lunabot:v2.1.5";
 const NEXT = digest("b");
 const OLDER = digest("a");
