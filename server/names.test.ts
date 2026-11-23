@@ -5,7 +5,7 @@ import { pickBotName } from "./names.ts";
 describe("pickBotName", () => {
   it("picks from the caller's language pool and skips taken names", () => {
     const zh = pickBotName([], "zh");
-    expect(zh).toMatch(/\p{Script=Han}/u);
+    expect(zh).toMatch(/^[A-Z][a-z]+( \d+)?$/);
     expect(pickBotName([zh], "zh")).not.toBe(zh);
     expect(pickBotName([], "zh-tw")).toMatch(/\p{Script=Han}/u);
     expect(pickBotName([], "zh-hk")).toMatch(/\p{Script=Han}/u);

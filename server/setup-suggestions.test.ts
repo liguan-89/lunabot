@@ -88,7 +88,7 @@ describe("what is sent", () => {
     const nothing: SuggestionBasis = { otherJobs: [], language: "English", languageCode: "en", canBrowse: true };
     expect(isPickedBotName("Pikachu")).toBe(true);
     expect(isPickedBotName("Pikachu 2")).toBe(true);
-    expect(isPickedBotName("玉兔")).toBe(true);
+    expect(isPickedBotName("哪吒")).toBe(true);
     expect(isPickedBotName("達摩 3")).toBe(true);
     expect(isPickedBotName("Bookkeeper")).toBe(false);
     expect(worthAsking(nothing, null)).toBe(false);
