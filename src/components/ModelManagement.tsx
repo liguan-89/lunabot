@@ -285,7 +285,7 @@ export function ModelManagement() {
       </Card>
       <Card title={t("modelManagement.models")} subtitle={t("modelManagement.modelsSubtitle")}>
         {models.length > MODEL_PREVIEW_COUNT && (
-          <div className="mb-2 flex h-8 items-center gap-2 rounded-lg bg-ink/[0.05] px-2.5">
+          <div className="mb-2 flex h-8 items-center gap-2 rounded-lg border border-hairline/45 bg-inset/75 px-2.5 transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20">
             <Search size={13} aria-hidden="true" className="shrink-0 text-ink-secondary" />
             <input
               data-managed-model-search
