@@ -137,6 +137,7 @@ export function UpdateCard({
 
   const updater = window.ogb?.updater;
   const handoff = state.installMode === "handoff";
+  const image = state.installMode === "image";
   const highlights = releaseHighlights(state.releaseNotes);
   const downloading = status === "downloading" || status === "preparing";
   const percent = status === "downloading" && state.percent != null ? Math.max(0, Math.min(100, Math.round(state.percent))) : null;
@@ -155,29 +156,31 @@ export function UpdateCard({
   };
 
   const primaryLabel = installing
-    ? handoff ? t("settings.updates.opening") : t("settings.updates.restartingShort")
+    ? image ? t("update.image.opening") : handoff ? t("settings.updates.opening") : t("settings.updates.restartingShort")
     : status === "preparing"
       ? t("settings.updates.preparingShort")
       : downloading
         ? percent == null ? t("update.card.downloadingStart") : t("update.card.downloading", { percent })
         : failed
           ? t("update.card.tryAgain")
-          : handoff ? t("settings.updates.install") : t("update.card.restart");
+          : image ? t("update.image.open") : handoff ? t("settings.updates.install") : t("update.card.restart");
   const primaryIcon = installing || (downloading && percent == null) || status === "preparing"
     ? <Loader2 size={14} className="animate-spin" aria-hidden />
     : downloading
       ? <ArrowDown size={14} aria-hidden />
-      : handoff ? <PackageOpen size={14} aria-hidden /> : <RefreshCw size={14} aria-hidden />;
+      : handoff || image ? <PackageOpen size={14} aria-hidden /> : <RefreshCw size={14} aria-hidden />;
 
   const note = failed
     ? updaterMessage(state)?.split("\n")[0]?.slice(0, 160) || t("update.card.failed")
     : downloading
       ? t("update.card.downloadingNote")
-      : handoff
-        ? t("update.card.handoffNote")
-        : status === "downloaded" && state.installsByItself
-          ? t("update.card.idleNote", { app: productName() })
-          : t("update.card.restartNote", { app: productName() });
+      : image
+        ? t("update.card.imageNote", { app: productName() })
+        : handoff
+          ? t("update.card.handoffNote")
+          : status === "downloaded" && state.installsByItself
+            ? t("update.card.idleNote", { app: productName() })
+            : t("update.card.restartNote", { app: productName() });
 
   return createPortal(
     <div

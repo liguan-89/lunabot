@@ -101,6 +101,17 @@ describe("UpdateBanner", () => {
     expect(html).not.toContain("Restart to update");
   });
 
+  it("offers the disk image where an adhoc-signed Mac app installs from one", () => {
+    const ready = render({ status: "downloaded", version: "0.2.0", installMode: "image" });
+    expect(ready).toContain("Open the installer and drag Luna Bot into Applications");
+    expect(ready).toContain("Open installer");
+    expect(ready).not.toContain("Restart to update");
+    expect(ready).not.toContain("terminal");
+    const opened = render({ status: "handed-off", version: "0.2.0", installMode: "image" });
+    expect(opened).toContain("The installer is open. Drag Luna Bot into Applications");
+    expect(opened).not.toContain("terminal");
+  });
+
   it("says why the automatic install did not run before the hand-off steps", () => {
     const html = render({
       status: "handed-off", version: "0.2.0", installMode: "restart", terminalOpened: true,

@@ -129,6 +129,11 @@ describe("updateLabel", () => {
       .toBe("Install Luna Bot 0.2.0");
     expect(updateLabel("installing", state({ status: "installing", installMode: "handoff" })))
       .toBe("Opening a terminal…");
+    // An adhoc-signed Mac app updates from the release's disk image.
+    expect(updateLabel("downloaded", state({ status: "downloaded", version: "0.2.0", installMode: "image" })))
+      .toBe("Update ready: Luna Bot 0.2.0");
+    expect(updateLabel("installing", state({ status: "installing", installMode: "image" })))
+      .toBe("Opening the installer…");
   });
 
   it("carries the updater's own message when something failed", () => {

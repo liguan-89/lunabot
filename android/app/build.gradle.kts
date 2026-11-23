@@ -144,9 +144,16 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         /*
-         * The personal update-channel build: arm64 (defaultConfig filters every
-         * build to arm64-v8a), signed with the same debug key as the installed
-         * app so it upgrades in place.
+         * The update-channel build: arm64 (defaultConfig filters every build to
+         * arm64-v8a), signed with the release key so it upgrades the installed
+         * app in place. Android refuses to replace an app signed with another
+         * key, so the channel has to carry the one key every published build
+         * carries; a debug-key build would only install over a debug-key
+         * install and strand everyone else.
+         *
+         * A machine without the release material (a contributor's) falls back to
+         * the debug key so the build still runs, and says so: that APK must not
+         * be published.
          *
          * One ABI and shrinking keep the download small. R8 stays off for the
          * reason release documents above — this build is the same tested code,
@@ -155,7 +162,12 @@ android {
         create("dist") {
             initWith(getByName("debug"))
             isDebuggable = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug").also {
+                logger.warn(
+                    ":app:assembleDist has no release signing material and falls back to the debug key. " +
+                        "Do not publish this APK: it cannot upgrade an installed release-signed app.",
+                )
+            }
             // The shipped update build wears the same R8 keeps as release: one
             // ABI and shrinking keep the download small. The keeps live in
             // proguard-rules.pro; a minified build is exercised by a real

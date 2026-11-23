@@ -129,6 +129,17 @@ describe("the update card", () => {
     expect(card()!.textContent).not.toContain("Restart to update");
   });
 
+  it("offers the installer where the update arrives as a disk image", async () => {
+    await emit({ status: "downloaded", version: "0.2.0", installMode: "image" });
+    await act(async () => button()!.click());
+    expect(card()!.textContent).toContain("Open installer");
+    expect(card()!.textContent).toContain("This build updates as a disk image.");
+    expect(card()!.textContent).not.toContain("Restart to update");
+    const open = [...card()!.querySelectorAll("button")].find((node) => node.textContent?.includes("Open installer"))!;
+    await act(async () => open.click());
+    expect(install).toHaveBeenCalledOnce();
+  });
+
   it("keeps Tab inside, closes on Escape and Later, and gives focus back to the button", async () => {
     await emit({ status: "downloaded", version: "0.2.0" });
     button()!.focus();

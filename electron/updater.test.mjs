@@ -16,13 +16,16 @@ const CLOUD = "https://home-7f3k2.fly.dev";
 const OTHER = "https://bots.example.test";
 const OWN = "https://omb-c-a.fly.dev";
 
-const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "" }));
+const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "", signature: "signed" }));
 
 vi.mock("electron", () => ({
   app: { isPackaged: true, getPath: () => fixture.home, getVersion: () => "1.0.0", hide: vi.fn() },
   clipboard: { writeText: vi.fn() },
+  shell: { openPath: vi.fn(async () => "") },
   ipcMain: { handle: (name, handler) => fixture.handlers.set(name, handler) },
 }));
+// Real detection would read the test runner's own binary; each test states what the running app is signed with.
+vi.mock("./app-signing.mjs", () => ({ appSignatureKind: async () => fixture.signature }));
 vi.mock("node:module", () => ({
   createRequire: () => () => ({ autoUpdater: fixture.autoUpdater }),
 }));
@@ -121,6 +124,7 @@ const settle = async () => {
 
 beforeEach(() => {
   fixture.home = mkdtempSync(join(tmpdir(), "omb-updater-home-"));
+  fixture.signature = "signed";
   localOriginModule.setLocalOrigin(LOCAL);
   vi.useFakeTimers();
 });
@@ -238,6 +242,8 @@ it("a downloaded update installs when the app quits, except a system package, wh
       else delete process.env.APPIMAGE;
       const { updater, autoUpdater } = await load(() => false);
       updater.startUpdater();
+      // Setup waits for codesign's answer; nothing else here starts a timer, so one turn of the loop is enough.
+      await settle();
       expect(autoUpdater.autoInstallOnAppQuit, `${os} ${marker ?? image ?? ""}`).toBe(installsOnQuit);
       expect(autoUpdater.autoDownload).toBe(false);
     }
@@ -272,6 +278,7 @@ it("a downloaded update installs by itself at a quiet moment on macOS and Window
       else delete process.env.APPIMAGE;
       const { updater, autoUpdater, handlers } = await load(() => true);
       updater.startUpdater(quiet);
+      await settle();
       await vi.advanceTimersByTimeAsync(15_000);
       await settle();
       expect(autoUpdater.quitAndInstall, `${os} ${marker ?? image ?? ""} waits for a quiet moment`).not.toHaveBeenCalled();
@@ -299,6 +306,7 @@ it("My Cloud's page hears \"Restart to update\" once the sign-in it loaded befor
   updater.attachUpdaterWindow(rule.window);
   updater.startUpdater();
 
+  await settle();
   await vi.advanceTimersByTimeAsync(15_000);
   await settle();
   expect(autoUpdater.downloadUpdate).toHaveBeenCalledTimes(1);
@@ -327,6 +335,7 @@ it("downloads an update by itself: the first check after launch starts it, and n
   updater.attachUpdaterWindow(rule.window);
   updater.startUpdater();
 
+  await settle();
   await vi.advanceTimersByTimeAsync(15_000);
   await settle();
 
@@ -336,6 +345,31 @@ it("downloads an update by itself: the first check after launch starts it, and n
   const statuses = local.webContents.send.mock.calls.map(([, state]) => state.status);
   expect(statuses).not.toContain("available");
   expect(statuses.at(-1)).toBe("downloaded");
+});
+
+it("an adhoc-signed macOS app updates through the release's disk image, never through Squirrel", async () => {
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { ...platform, value: "darwin" });
+  fixture.signature = "adhoc";
+  try {
+    const { updater, autoUpdater, handlers } = await load(() => true);
+    updater.startUpdater();
+    await settle();
+    // The native stage is what cannot work on an adhoc build, so nothing may arm it.
+    expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+    expect(await handlers.get("update:get-state")({})).toMatchObject({ installMode: "image" });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await settle();
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(autoUpdater.downloadUpdate).not.toHaveBeenCalled();
+    // This fixture's release carries no files at all, so the image path says why it cannot proceed and stays retryable.
+    expect(await handlers.get("update:get-state")({})).toMatchObject({
+      status: "error", retryable: true, messageKey: "native.update.imageNoDmg",
+    });
+  } finally {
+    fixture.signature = "signed";
+    Object.defineProperty(process, "platform", platform);
+  }
 });
 
 it("My Cloud's page reads and drives the update channels, and another server's page is refused", async () => {
@@ -374,6 +408,7 @@ it("sends update news only to a page allowed to read it", async () => {
   const { updater, autoUpdater, handlers } = await load(rule.pageAllowed);
   updater.attachUpdaterWindow(rule.window);
   updater.startUpdater();
+  await settle();
 
   let finish;
   autoUpdater.downloadUpdate = vi.fn(() => new Promise((resolve) => { finish = resolve; }).then(() => {
@@ -405,6 +440,7 @@ it("sends updater progress to a reopened window without restarting the updater",
   const { updater, autoUpdater, handlers } = await load(rule.pageAllowed);
   updater.attachUpdaterWindow({ webContents: first.webContents });
   updater.startUpdater();
+  await settle();
   const listenerCount = autoUpdater.eventNames().reduce((count, name) => count + autoUpdater.listenerCount(name), 0);
   const timerCount = vi.getTimerCount();
 

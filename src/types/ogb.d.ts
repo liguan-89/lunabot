@@ -539,9 +539,11 @@ export interface UpdaterState {
    * Ubuntu .deb asks for the password once, installs and reopens);
    * "handoff" copies the install command and opens a terminal so the user
    * can finish — rpm/pacman builds, and a .deb where no password prompt
-   * can be shown, use this.
+   * can be shown, use this. "image" is an adhoc-signed macOS app, which
+   * Squirrel cannot replace: its update arrives as the release's disk image,
+   * which the user opens and drags into Applications.
    */
-  installMode?: "restart" | "handoff";
+  installMode?: "restart" | "handoff" | "image";
   /** hand-off only: the install command, already on the clipboard */
   command?: string;
   /** hand-off only: whether a terminal was opened to paste it into */

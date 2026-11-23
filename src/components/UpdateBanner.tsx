@@ -60,6 +60,8 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
   const installing = s.status === "installing";
   // Ubuntu system packages can't be swapped under a running app: the command is copied and a terminal opens.
   const handoff = s.installMode === "handoff";
+  // An adhoc-signed macOS app updates from the release's disk image, which the person drags into Applications.
+  const image = s.installMode === "image";
 
   const title =
     s.status === "downloaded"
@@ -67,23 +69,31 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
       : installing
         ? handoff
           ? t("settings.updates.openingTerminal")
-          : t("settings.updates.restarting")
+          : image
+            ? t("update.image.opening")
+            : t("settings.updates.restarting")
         : s.status === "handed-off"
-          ? t("update.banner.finishInTerminal")
+          ? image
+            ? t("update.image.open")
+            : t("update.banner.finishInTerminal")
           : t("update.banner.failed");
   const subtitle =
     s.status === "downloaded"
       ? handoff
         ? t("update.banner.copyCommand")
-        : s.installsByItself
-          ? t("update.card.idleNote", { app: productName() })
-          : t("update.banner.restartToFinish")
+        : image
+          ? t("update.image.readyNote", { app: productName() })
+          : s.installsByItself
+            ? t("update.card.idleNote", { app: productName() })
+            : t("update.banner.restartToFinish")
       : installing
         ? handoff
           ? t("update.banner.copying")
-          : updaterMessage(s) || t("update.banner.reopening", { app: productName() })
+          : updaterMessage(s) || (image ? t("update.image.opening") : t("update.banner.reopening", { app: productName() }))
         : s.status === "handed-off"
-          ? `${updaterMessage(s) ? `${updaterMessage(s)} ` : ""}${s.terminalOpened ? t("update.banner.copiedOpened") : t("update.banner.copiedPaste")}`
+          ? image
+            ? t("update.image.opened", { app: productName() })
+            : `${updaterMessage(s) ? `${updaterMessage(s)} ` : ""}${s.terminalOpened ? t("update.banner.copiedOpened") : t("update.banner.copiedPaste")}`
           : s.retryable === false
             ? t("update.banner.quitReopen", { error: friendlyError(updaterMessage(s, { restart: false })?.split(" Quit and reopen ")[0]), app: productName() })
             : friendlyError(updaterMessage(s));
@@ -123,7 +133,7 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
             disabled
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-control py-1.5 text-[13px] font-medium text-ink-secondary"
           >
-            <Loader2 size={13} className="animate-spin" /> {t(handoff ? "settings.updates.opening" : "settings.updates.restartingShort")}
+            <Loader2 size={13} className="animate-spin" /> {t(handoff || image ? "settings.updates.opening" : "settings.updates.restartingShort")}
           </button>
         </div>
       )}
@@ -141,11 +151,11 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
             >
               {pending === "install" ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" /> {t(handoff ? "settings.updates.opening" : "settings.updates.restartingShort")}
+                  <Loader2 size={13} className="animate-spin" /> {t(handoff || image ? "settings.updates.opening" : "settings.updates.restartingShort")}
                 </>
-              ) : handoff ? (
+              ) : handoff || image ? (
                 <>
-                  <PackageOpen size={13} /> {t("settings.updates.install")}
+                  <PackageOpen size={13} /> {t(image ? "update.image.open" : "settings.updates.install")}
                 </>
               ) : (
                 <>
