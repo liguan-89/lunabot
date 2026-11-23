@@ -31,7 +31,7 @@ const MAPPINGS: Array<[ConfigCredentialTargetId, CredentialConfig]> = [
   ["cerebrasApiKey", { cerebras: { key: "secret" } }],
   ["groqApiKey", { groq: { key: "secret" } }],
   ["greenferenceApiKey", { greenference: { key: "secret" } }],
-  ["modelgoApiKey", { modelgo: { key: "secret" } }],
+  ["tk1688ApiKey", { tk1688: { key: "secret" } }],
   ["metaApiKey", { meta: { key: "secret" } }],
   ["deepseekApiKey", { deepseek: { key: "secret" } }],
 ];

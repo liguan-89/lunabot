@@ -12,8 +12,8 @@ import { isPostizStatus, POSTIZ_CLOUD, POSTIZ_KEY_PAGE, POSTIZ_SERVER, type Post
 import { cleanKey, looksLikeKey, saveCredential } from "./keys/key-save";
 import { SidebarPopoverMenu } from "./SidebarPopoverMenu";
 
-const pill = "inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center gap-2 rounded-full bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink transition-colors hover:bg-raised-hover disabled:opacity-40";
-const field = "h-8 w-full min-w-0 rounded-lg bg-inset px-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none focus:ring-1 focus:ring-accent/50";
+const pill = "inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center gap-2 rounded-full border border-hairline/45 bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink transition-colors hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55";
+const field = "h-8 w-full min-w-0 rounded-lg border border-hairline/45 bg-inset/80 px-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:border-accent focus:bg-menu focus:outline-none focus:ring-2 focus:ring-accent/20";
 const link = "text-[12px] text-accent-text underline underline-offset-2";
 const SERVER = encodeURIComponent(POSTIZ_SERVER);
 const OWN_SIGN_IN_POLL_MS = 1_500;

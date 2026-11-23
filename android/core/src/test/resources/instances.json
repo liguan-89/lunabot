@@ -1062,12 +1062,12 @@
       "cliCandidates": []
     },
     {
-      "instanceId": "modelgo",
-      "driverKind": "modelgo",
-      "displayName": "ModelGo (API)",
+      "instanceId": "tk1688",
+      "driverKind": "tk1688",
+      "displayName": "TK1688 (API)",
       "snapshot": {
         "state": "unavailable",
-        "reason": "No ModelGo API key — open Settings → API keys."
+        "reason": "No TK1688 API key — open Settings → API keys."
       },
       "models": {
         "default": "",
@@ -1091,9 +1091,9 @@
       },
       "access": "api",
       "install": {
-        "docsUrl": "https://modelgo.ai/?utm_source=openmausbot&utm_medium=sponsorship&utm_content=app&campaign_id=openmausbot&ad_group_id=app",
+        "docsUrl": "https://tk1688.com/",
         "settings": "connections",
-        "signInCommand": "Save a ModelGo API key in Settings → API keys, or set MODELGO_API_KEY on the server.",
+        "signInCommand": "Save a TK1688 API key in Settings → API keys, or set TK1688_API_KEY on the server.",
         "platform": "darwin"
       },
       "cliCandidates": []

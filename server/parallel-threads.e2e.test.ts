@@ -325,7 +325,7 @@ describe.each(["desktop", "team"] as const)("two threads of a bot on the team's 
     await new Promise<void>((resolve) => relay.listen(0, "127.0.0.1", resolve));
     const relayBase = `http://127.0.0.1:${(relay.address() as AddressInfo).port}`;
     f = new Fixture(role);
-    f.extraEnv = { LUNABOT_BOAT_API: `${relayBase}/own-key-must-not-be-used`, LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_fixture", LUNABOT_COMPUTER_CALL_WAIT_MS: "500" };
+    f.extraEnv = { LUNABOT_BOAT_API: `${relayBase}/own-key-must-not-be-used`, LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_fixture", LUNABOT_COMPUTER_CALL_WAIT_MS: "500" };
     await f.start();
     const requestId = randomUUID();
     const made = await f.api("POST", "/api/team-computers", { requestId, name: "Ops desktop", acknowledgeCost: true });

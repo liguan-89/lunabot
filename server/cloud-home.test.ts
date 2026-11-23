@@ -286,7 +286,7 @@ it("treats a request the edge forwards as remote, whatever Host it claims", () =
     { host: "home-7f3k2.fly.dev", "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https" },
     { host: "localhost:8799", "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https" },
   ]) {
-    const result = resolveRequestAuth(request(headers), { sessions, cookieName: "omb_session_x", streamPath: "/api/events", url });
+    const result = resolveRequestAuth(request(headers), { sessions, cookieName: "lunabot_session_x", streamPath: "/api/events", url });
     expect(result.auth).toBeNull();
     expect(result.status).toBe(403);
   }
@@ -386,7 +386,7 @@ it("lets nobody name the client on an own server unless its owner names a proxy,
 });
 
 it("gives the edge only its routing name and the server the contract, never a gateway's settings or a secret", () => {
-  const relay = { LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${"b".repeat(43)}`, LUNABOT_CLOUD_VOICE_TOKEN: `omb_voice_${"v".repeat(43)}`, LUNABOT_CLOUD_DECIDER_TOKEN: `omb_decide_${"d".repeat(43)}`,
+  const relay = { LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${"b".repeat(43)}`, LUNABOT_CLOUD_VOICE_TOKEN: `omb_voice_${"v".repeat(43)}`, LUNABOT_CLOUD_DECIDER_TOKEN: `omb_decide_${"d".repeat(43)}`,
     LUNABOT_CLOUD_AI_TOKEN: `omb_ai_${"a".repeat(43)}` };
   const config = cloudHomeConfiguration(withGateway())!;
   const { server, edge, secrets } = cloudHomeChildEnvironments(config, { ...withGateway(), ...relay, PATH: "/usr/bin" }, "/data");
@@ -639,14 +639,14 @@ const child = spawnSync(process.execPath, ["-e", "process.stdout.write(JSON.stri
 writeFileSync(${JSON.stringify(out)}, JSON.stringify({ secrets, env: process.env, own: parentEnviron(process.pid), child: child.stdout }));
 `);
     const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), LUNABOT_CLOUD_SECRETS_FD: "3", VISIBLE_PROBE: "visible" };
-    const child = spawnWithSecrets(process.execPath, [script], env, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_probe-token" });
+    const child = spawnWithSecrets(process.execPath, [script], env, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_probe-token" });
     await new Promise((resolve) => child.once("exit", resolve));
     const seen = JSON.parse(readFileSync(out, "utf8"));
-    expect(seen.secrets).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_probe-token" });
+    expect(seen.secrets).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_probe-token" });
     if (process.platform !== "win32") expect(seen.own).toContain("VISIBLE_PROBE=visible");
     for (const where of [seen.own, JSON.stringify(seen.env), seen.child]) {
       expect(where).not.toContain(secret);
-      expect(where).not.toContain("box_omb_probe-token");
+      expect(where).not.toContain("box_lunabot_probe-token");
     }
     expect(seen.child).not.toContain("LUNABOT_CLOUD_SECRETS_FD");
   } finally {
@@ -742,11 +742,11 @@ it("takes an own server's secrets from the root-only file the connector mounts, 
     },
     stat: (path: string) => (path === file ? overrides.file ?? { uid: 0, mode: 0o100400 } : path === "/run/lunabot" ? overrides.dir ?? { uid: 0, mode: 0o40700 } : { uid: 0, mode: 0o40755 }),
     read: () => overrides.text ?? JSON.stringify({
-      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40),
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40),
       LUNABOT_PUBLIC_URL: "https://elsewhere.example", PATH: "/tmp",
     }),
   });
-  expect(readCloudSecretsFile("/data", file, fs())).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40) });
+  expect(readCloudSecretsFile("/data", file, fs())).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40) });
   expect(readCloudSecretsFile("/data", file, fs({ exists: false }))).toEqual({});
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 0, mode: 0o100644 } }))).toThrow("readable by others than root");
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 1001, mode: 0o100400 } }))).toThrow(`${file} is not root's`);

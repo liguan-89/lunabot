@@ -574,11 +574,11 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
           </div>
           <p className="truncate text-[13px] leading-[18px] text-ink-secondary" title={t(app.description)}>{t(app.description)}</p>
         </div>
-        {server && signingIn === server.name ? <button type="button" onClick={() => signInAbort.current?.abort()} className="inline-flex h-7 shrink-0 items-center rounded-full bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink">{t("mcp.auth.cancel")}</button> :
+        {server && signingIn === server.name ? <button type="button" onClick={() => signInAbort.current?.abort()} className="inline-flex h-7 shrink-0 items-center rounded-full border border-hairline/45 bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink">{t("mcp.auth.cancel")}</button> :
           <button type="button" aria-label={t(connected ? "hostedMcp.disconnect" : "hostedMcp.connect", { service: app.label })}
             disabled={pending || (servers !== null && !connected && (Boolean(server?.managedBy) || (restricted && !policy?.mcp.allowlist.length) || ("key" in app && !keys[app.id]?.trim())))}
             onClick={() => void (servers === null ? load() : connected && server ? signOut(server, app) : connectHosted(app))}
-            className="inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center gap-2 rounded-full bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink hover:bg-raised-hover disabled:opacity-40">
+            className="inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center gap-2 rounded-full border border-hairline/45 bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink transition-colors hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55">
             {pending && (mine || busy === "load") ? <Loader2 size={14} className="animate-spin" /> : servers === null ? t("connectors.action.retry") : t(connected ? "connectors.disconnect" : "connectors.action.connect")}
           </button>}
       </div>
@@ -588,7 +588,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
           aria-label={t("hostedMcp.keyLabel", { service: app.label })} placeholder={t("hostedMcp.keyPlaceholder", { service: app.label })}
           onChange={(event) => { const value = event.target.value; setKeys((current) => ({ ...current, [app.id]: value })); }}
           onKeyDown={(event) => { if (event.key === "Enter") void connectHosted(app); }}
-          className="h-8 w-full min-w-0 rounded-lg bg-inset px-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none focus:ring-1 focus:ring-accent/50" />
+          className="h-8 w-full min-w-0 rounded-lg border border-hairline/45 bg-inset/80 px-2.5 text-[13px] text-ink placeholder:text-ink-secondary focus:border-accent focus:bg-menu focus:outline-none focus:ring-2 focus:ring-accent/20" />
         <button type="button" onClick={() => void openExternalLink(app.key.url)} className="inline-flex items-center gap-1 text-[12px] font-medium text-accent-text hover:underline">
           {t("hostedMcp.getKey", { service: app.label })}
           <ExternalLink size={11} aria-hidden="true" />
@@ -622,9 +622,9 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
           <p className={cn("truncate text-[13px] leading-[18px]", needsSignIn ? "text-warning" : "text-ink-secondary")} title={status}>{status}</p>
         </div>
         {signingIn === server.name
-          ? <button type="button" onClick={() => signInAbort.current?.abort()} className="inline-flex h-7 shrink-0 items-center rounded-full bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink">{t("mcp.auth.cancel")}</button>
+          ? <button type="button" onClick={() => signInAbort.current?.abort()} className="inline-flex h-7 shrink-0 items-center rounded-full border border-hairline/45 bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink">{t("mcp.auth.cancel")}</button>
           : <button type="button" disabled={needsSignIn && (busy !== null || signingIn !== null || Boolean(server.managedBy))} onClick={() => void (needsSignIn ? signIn(server) : manage())}
-              className="inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center rounded-full bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink hover:bg-raised-hover disabled:opacity-40">
+              className="inline-flex h-7 min-w-[64px] shrink-0 items-center justify-center rounded-full border border-hairline/45 bg-control/80 px-3 text-[13px] font-medium leading-5 text-ink transition-colors hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55">
               {t(needsSignIn ? "mcp.auth.signIn" : "apps.mcp.manage")}
             </button>}
       </div>
@@ -686,7 +686,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
               disabled={busy !== null || (restricted && !policy?.mcp.allowlist.length)}
               title={restricted && policy ? t("policy.managedBy", { organization: policy.organizationName }) : undefined}
               onClick={() => openEditor("new")}
-              className="flex items-center gap-1.5 rounded-lg bg-control/80 px-3 py-2 text-[13px] font-medium text-ink hover:bg-raised-hover disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-lg border border-hairline/45 bg-control/80 px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:border-hairline/65 hover:bg-raised-hover disabled:opacity-55"
             >
               <Plus size={14} /> {t(embedded ? "apps.mcp.add" : "mcp.addServer")}
             </button>

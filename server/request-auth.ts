@@ -285,7 +285,7 @@ export function bearerToken(header: string | string[] | undefined): string | und
 
 /** Cookies are scoped by host, not port; the environment id stops a reinstalled server reading its predecessor's cookie. */
 export function sessionCookieName(port: number, environmentId: string): string {
-  return `omb_session_${port}_${environmentId.replace(/[^a-z0-9]/gi, "").slice(0, 12)}`;
+  return `lunabot_session_${port}_${environmentId.replace(/[^a-z0-9]/gi, "").slice(0, 12)}`;
 }
 
 export function serializeSessionCookie(

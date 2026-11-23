@@ -83,7 +83,7 @@ async function fixture(t, { link = true, chrome = false, adminWord = null, myClo
   const make = () => createComputerSharing({
     file, fetch: home.fetch, environments: () => [env], enabled: async () => false, ...(myCloud ? { myCloud: () => env, ownClouds: () => [env] } : {}),
     cloud: () => account, home: path.join(dir, "home"), cuaConnection: async () => null,
-    power, WebSocket: sockets.FakeSocket, linkHeaders: () => ({ cookie: "omb_session_fixture=token" }), onChange: (summary) => summaries.push(summary),
+    power, WebSocket: sockets.FakeSocket, linkHeaders: () => ({ cookie: "lunabot_session_fixture=token" }), onChange: (summary) => summaries.push(summary),
     egress: {
       interfaces: () => ({}),
       resolve: async (host) => [{ address: host.startsWith("lan.") ? "192.168.1.1" : "93.184.215.14", family: 4 }],
@@ -106,7 +106,7 @@ test("the internet connection alone is lent: it registers with My Cloud and open
   assert.deepEqual({ folders: home.connects[0].folders, computer: home.connects[0].computer, internet: home.connects[0].internet }, { folders: [], computer: false, internet: true });
   const [socket] = sockets.made;
   assert.equal(socket.url, `wss://omb-u-fixture.fly.dev/api/shared-computers/${home.connects[0].id}/link`);
-  assert.equal(socket.headers.cookie, "omb_session_fixture=token");
+  assert.equal(socket.headers.cookie, "lunabot_session_fixture=token");
   assert.match(socket.headers["x-lunabot-computer-secret"], /^[a-f0-9]{64}$/);
   assert.equal(socket.headers["x-lunabot-background"], "1", "the link never counts as the person using My Cloud");
   assert.equal(socket.headers.origin, ORIGIN);
