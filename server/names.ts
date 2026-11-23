@@ -1,37 +1,40 @@
 import { byLanguage } from "./language.ts";
 
+// 中国用户耳熟能详的角色名录，en 只收英文能读顺的拉丁名（避开 x/q/zh/ü）。
 const NAMES = [
-  "Scout", "Pixel", "Atlas", "Nova", "Juno", "Koda", "Miso", "Mochi",
-  "Biscuit", "Pepper", "Clover", "Ember", "Willow", "Comet", "Orbit", "Echo",
-  "Indigo", "Sage", "Zephyr", "Poppy", "Maple", "Cosmo", "Luna", "Otto",
-  "Ivy", "Finch", "Wren", "Basil", "Hazel", "Nimbus", "Onyx", "Pearl",
-  "Quill", "Rocket", "Sunny", "Tango", "Vega", "Waffle", "Ziggy", "Noodle",
-  "Pickle", "Churro", "Panko", "Dumpling", "Pesto", "Olive", "Cocoa", "Taffy",
-  "Bramble", "Fig", "Juniper", "Moss", "Pebble", "Rio", "Skye", "Tuli",
-  "Ursa", "Yuki", "Zuko", "Momo", "Kiwi", "Plum", "Sprout", "Turnip",
+  "Daji", "Angela", "Mulan", "Aobing", "Taiyi", "Yunying", "Luban", "Damo",
+  "Wukong", "Nezha", "Bajie", "Yutu", "Pangu", "Nuwa", "Kirin", "Nian",
+  "Vega", "Altair", "Kun", "Huluwa", "Shuke", "Beta", "Sanmao", "Maliang",
+  "Afanti", "Paimon", "Klee", "Hutao", "Miko", "Ahri", "Jinx", "Teemo",
+  "Yuumi", "Poro", "Mei", "Eggy", "Pikachu", "Eevee", "Snorlax", "Psyduck",
+  "Gengar", "Mew", "Charmander", "Artemis", "Kero", "Jiji", "Doraemon",
+  "Totoro", "Anya", "Gojo", "Nezuko", "Chopper", "Conan", "Maruko", "Shinchan",
+  "Baymax", "Stitch", "Elsa", "Olaf", "Simba", "Minion", "Kuromi", "Labubu",
+  "Peppa",
 ];
 
-// 二十四节气 + 食物/叠词：中文用户熟悉的宠物式命名。
+// 同一批角色的简体名。
 const ZH_NAMES = [
-  "立春", "雨水", "惊蛰", "春分", "清明", "谷雨", "立夏", "小满",
-  "芒种", "夏至", "小暑", "大暑", "立秋", "处暑", "白露", "秋分",
-  "寒露", "霜降", "立冬", "小雪", "大雪", "冬至", "小寒", "大寒",
-  "团子", "汤圆", "年糕", "米粒", "芝麻", "栗子", "花生", "瓜子",
-  "可乐", "雪碧", "布丁", "奶茶", "糯米", "花卷", "馒头", "锅贴",
-  "烧麦", "麻团", "青团", "粽子", "荔枝", "芒果", "椰果", "泡芙",
-  "豆豆", "果果", "桃桃", "球球", "泡泡", "皮皮", "毛毛", "朵朵",
-  "苗苗", "嘟嘟", "叮叮", "当当", "咚咚", "跳跳", "乐乐", "团团",
+  "妲己", "安琪拉", "花木兰", "敖丙", "太乙", "云缨", "鲁班", "达摩",
+  "悟空", "哪吒", "八戒", "玉兔", "盘古", "女娲", "麒麟", "年兽",
+  "织女", "牛郎", "鲲", "葫芦娃", "舒克", "贝塔", "三毛", "马良",
+  "阿凡提", "派蒙", "可莉", "胡桃", "神子", "阿狸", "金克丝", "提莫",
+  "悠米", "魄罗", "小美", "蛋仔", "皮卡丘", "伊布", "卡比兽", "可达鸭",
+  "耿鬼", "梦幻", "小火龙", "亚提密斯", "小可", "吉吉", "哆啦A梦", "龙猫",
+  "阿尼亚", "五条悟", "祢豆子", "乔巴", "柯南", "小丸子", "小新", "大白",
+  "史迪奇", "艾莎", "雪宝", "辛巴", "小黄人", "库洛米", "拉布布", "佩奇",
 ];
 
+// 同一批角色的繁体名；游戏角色用台服译名（吉茵珂絲/普羅），小小兵为台湾官方译法。
 const ZH_TW_NAMES = [
-  "立春", "雨水", "驚蟄", "春分", "清明", "穀雨", "立夏", "小滿",
-  "芒種", "夏至", "小暑", "大暑", "立秋", "處暑", "白露", "秋分",
-  "寒露", "霜降", "立冬", "小雪", "大雪", "冬至", "小寒", "大寒",
-  "糰子", "湯圓", "年糕", "米粒", "芝麻", "栗子", "花生", "瓜子",
-  "可樂", "雪碧", "布丁", "奶茶", "糯米", "花捲", "饅頭", "鍋貼",
-  "燒賣", "麻糰", "青糰", "粽子", "荔枝", "芒果", "椰果", "泡芙",
-  "豆豆", "果果", "桃桃", "球球", "泡泡", "皮皮", "毛毛", "朵朵",
-  "苗苗", "嘟嘟", "叮叮", "噹噹", "咚咚", "跳跳", "樂樂", "團團",
+  "妲己", "安琪拉", "花木蘭", "敖丙", "太乙", "雲纓", "魯班", "達摩",
+  "悟空", "哪吒", "八戒", "玉兔", "盤古", "女媧", "麒麟", "年獸",
+  "織女", "牛郎", "鯤", "葫蘆娃", "舒克", "貝塔", "三毛", "馬良",
+  "阿凡提", "派蒙", "可莉", "胡桃", "神子", "阿狸", "吉茵珂絲", "提莫",
+  "悠米", "普羅", "小美", "蛋仔", "皮卡丘", "伊布", "卡比獸", "可達鴨",
+  "耿鬼", "夢幻", "小火龍", "亞提密斯", "小可", "吉吉", "哆啦A夢", "龍貓",
+  "安妮亞", "五條悟", "禰豆子", "喬巴", "柯南", "小丸子", "小新", "大白",
+  "史迪奇", "艾莎", "雪寶", "辛巴", "小小兵", "酷洛米", "拉布布", "佩佩",
 ];
 
 // "zh-tw" needs its own entry: byLanguage would otherwise fall back to "zh" and hand Traditional users Simplified names.
@@ -50,7 +53,7 @@ export function pickBotName(taken: Iterable<string>, language?: string | (() => 
 
 const PICKED = new Set([...NAMES, ...ZH_NAMES, ...ZH_TW_NAMES].map((name) => name.toLowerCase()));
 
-/** A name pickBotName could have given ("Pesto", "Pesto 2", "团子", "团子 2"): New bot sends one from /api/bot-defaults'
+/** A name pickBotName could have given ("Pikachu", "Pikachu 2", "妲己", "妲己 2"): New bot sends one from /api/bot-defaults'
  * suggestedName. Every pool counts, so a name the server picked under another language still reads as picked. */
 export function isPickedBotName(name: string): boolean {
   return PICKED.has(name.trim().toLowerCase().replace(/ \d+$/, ""));

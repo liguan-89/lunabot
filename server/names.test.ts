@@ -21,6 +21,7 @@ describe("pickBotName", () => {
       if (/ \d+$/.test(name)) suffixed = name;
       else taken.push(name);
     }
-    expect(suffixed).toMatch(/^\p{Script=Han}+ 2$/u);
+    expect(suffixed).toMatch(/ 2$/);
+    expect(taken).toContain(suffixed.slice(0, -2));
   });
 });
