@@ -14,7 +14,7 @@ const ADOPTION_WINDOW_MS = 30 * 24 * HOUR_MS;
 /** The nodes a computer may be sent to. The app refuses a descriptor naming a host outside its own list
  * (`companion/src/e2e/descriptor.ts`), so both hold the same names; a Worker whose `RELAY_NODES` it rejects turns
  * the relay off for every computer. No `openmausbot.com`: that domain is not this fleet's. */
-const RELAY_HOST = /^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
+const RELAY_HOST = /^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 const KID = /^k[0-9]{1,3}$/;
 const VERSION = /^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,6}$/;
 const UUIDISH = /^[0-9a-f-]{36}$/;
