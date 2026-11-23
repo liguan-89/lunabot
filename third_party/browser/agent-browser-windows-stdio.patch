@@ -139,7 +139,7 @@ index 864e8c6..0cd569d 100644
 +    #[cfg(windows)]
 +    #[test]
 +    fn test_chrome_child_has_no_console() {
-+        const PROBE: &str = "LUNABOT_CHROME_CONSOLE_PROBE";
++        const PROBE: &str = "OMB_CHROME_CONSOLE_PROBE";
 +        if std::env::var_os(PROBE).is_some() {
 +            #[link(name = "kernel32")]
 +            extern "system" {
