@@ -457,7 +457,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
         className={cn(
           "flex items-center",
           // The corner is no drag region and takes no clicks but its buttons': the tiles rise into the rest of it.
-          density === "icons" ? "flex-col gap-1 px-2 pt-3.5 pb-1" : corner ? "pointer-events-none relative h-[34px] items-start justify-end px-1.5 pt-1.5" : simpleDesk ? "relative h-[60px] items-start pl-4 pr-4 pt-3" : "relative pl-4 pr-2",
+          density === "icons" ? "flex-col gap-1 px-2 pt-3.5 pb-1" : corner ? "pointer-events-none relative h-[34px] items-start justify-end px-1.5 pt-1.5" : simpleDesk ? "@container/sidebar-bar relative h-[60px] items-start pl-4 pr-4 pt-3" : "relative pl-4 pr-2",
           density !== "icons" && !simpleDesk && !lights && "h-12 max-md:h-16",
         )}
         style={corner ? undefined : density !== "icons" && lights && !simpleDesk ? { ...windowDragStyle, height: MAC_TRAFFIC_LIGHT_CENTER_Y * 2 } : windowDragStyle}
@@ -475,7 +475,7 @@ export function Sidebar({ open, onClose, collapseToIcons = false }: {
           </button>
           <div className="relative flex">{plusControl}</div>
         </div>}
-        {density !== "icons" && (simpleDesk ? <div data-sidebar-top-slot className="min-w-0 flex-1" /> : (
+        {density !== "icons" && (simpleDesk ? <div data-sidebar-top-slot className="min-w-2 flex-1" /> : (
           <div data-sidebar-top-slot className={cn("@container/sidebar-top flex min-w-0 flex-1 items-center", simple && "justify-end")}>
             {!simple && <div data-sidebar-top-spacer className="min-w-0 flex-1 @min-[96px]/sidebar-top:min-w-6" />}
             <div data-sidebar-top-switcher className={simple ? "flex min-w-0 items-center" : "flex min-w-0 max-w-[140px] items-center"}>
