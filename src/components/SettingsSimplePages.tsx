@@ -29,8 +29,7 @@ import { UsageSection } from "./UsageSection";
 import { PlanUsageSummary } from "./PlanUsage";
 import { SkinPicker } from "./SkinPicker";
 import { PlaceLookRows } from "./PlaceLookCard";
-import { ChromeRailRow } from "./ChromeRailToggle";
-import { WindowFrameRow } from "./WindowFrameRow";
+
 import { ProfileSummaryRow } from "./ProfileSettings";
 import { AwayEmailsSetting } from "./AwayEmailsSetting";
 import { ImportSettings } from "./ImportSettings";
@@ -75,8 +74,6 @@ export function SimpleGeneralPage({ has, disclose, toolCalls = true }: { has: Ha
           <SettingsRows>
             <ThemeRow simple />
             <PlaceLookRows />
-            <ChromeRailRow />
-            <WindowFrameRow />
             <ColorUserBubblesRow simple />
           </SettingsRows>
           <SettingsDisclosureRow title={t("settings.simple.looks.title")} block="looks" {...disclose("looks-more")}>

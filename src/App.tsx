@@ -42,13 +42,9 @@ import { needsYouVersion, useTeamPeopleLoader } from "@/state/team-people";
 import { useTeamPresence } from "@/state/team-presence";
 import { inboxVersion, useInboxLoader, useInboxPanel, useInboxReady } from "@/state/inbox";
 import { InboxPanel } from "@/components/inbox/InboxPanel";
-import { PlacesRail } from "@/components/PlacesRail";
 import { NewLocalFromMenu } from "@/components/PlaceAddSheet";
 import { CloudHowTo } from "@/components/CloudHowTo";
-import { DesktopCapabilitiesProvider, useCaptionChrome, useDesktopCapabilities, WindowDragStrip, windowFramed } from "@/components/DesktopCapabilities";
-import { WindowCaptionButtons } from "@/components/WindowCaptionButtons";
-import { WindowFrameBar } from "@/components/WindowFrameBar";
-import { cn } from "@/lib/cn";
+import { DesktopCapabilitiesProvider, useCaptionChrome, WindowDragStrip } from "@/components/DesktopCapabilities";
 import { NoEngines } from "@/components/NoEngines";
 import { CloudEngineSignIn } from "@/components/CloudEngineSignIn";
 import { CloudIntent } from "@/components/CloudIntent";
@@ -90,7 +86,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   // A Switch AI pick lands once its stopped turn's chat is idle, wherever the person is by then.
   useAiSwitchKeeper({ bots: state.bots, dispatch });
   const showThreads = useShowThreads();
-  const { capabilities } = useDesktopCapabilities();
   const captionChrome = useCaptionChrome();
   const unreadCount =
     state.bots.filter((bot) => !bot.hidden).reduce((sum, bot) => sum + botUnreadCount(bot), 0) +
@@ -321,10 +316,9 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
     });
   }, [dispatch]);
 
-  const framed = windowFramed(capabilities);
   const strips = (
     <div data-top-strips className="flex shrink-0 flex-col [&>*:nth-child(n+3)]:hidden">
-      <UpdateBanner sidebarIndicator={framed || (!calendarFocus && (sidebarInline || drawerOpen))} />
+      <UpdateBanner sidebarIndicator={!calendarFocus && (sidebarInline || drawerOpen)} />
       <CloudAsleepStrip />
       <LiveConnectionStrip connected={state.connected} hydrated={state.hydrated === true} />
       <CloudSendStrip cloudHome={state.config?.cloudHome === true} />
@@ -334,10 +328,9 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
     </div>
   );
   return (
-    <div className={cn("flex h-full flex-col", framed && "bg-frame")}>
-      <WindowFrameBar notifications={notificationTray} />
+    <div className="flex h-full flex-col">
       <BotLimitPopup />
-      {!framed && strips}
+      {strips}
       <div className="relative flex min-h-0 flex-1">
       {!calendarFocus && <button
         type="button"
@@ -357,14 +350,8 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
           className="absolute inset-0 z-30 bg-black/50 md:hidden"
         />
       )}
-      {!calendarFocus && <PlacesRail />}
       <NewLocalFromMenu />
-      {/* A framed window shows the app, its sidebar and the chat or page, as one square pane under the top bar and beside
-          the window's rail, running to the window's right and bottom edges. */}
-      <div data-window-card={framed ? "" : undefined}
-        className={framed ? "relative flex min-w-0 flex-1 flex-col overflow-hidden bg-app" : "contents"}>
-      {framed && strips}
-      <div className={framed ? "relative flex min-h-0 flex-1" : "contents"}>
+      <div className="contents">
       {!calendarFocus && <Sidebar
         collapseToIcons={collapseSidebar}
         open={drawerOpen}
@@ -441,8 +428,7 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
       {!remoteClient && state.activityOpen && bot && <ActivityPanel key={`activity:${bot.id}`} bot={bot} />}
       {inboxShown && <InboxPanel />}
       {notificationTray && state.notificationsOpen && <NotificationsPanel />}
-      {notificationTray && !framed && <NotificationRail />}
-      </div>
+      {notificationTray && <NotificationRail />}
       </div>
       {state.appSettingsOpen && <SettingsModal />}
       {cloudAddOpened.current && <CloudAddDialog />}
@@ -467,10 +453,6 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
         className="pointer-events-none absolute left-3 top-3 size-[30px] md:hidden"
       />}
       </div>
-      {/* Last child on purpose: Blink resolves -webkit-app-region in DOM order, so no-drag buttons must follow every drag region. */}
-      <WindowCaptionButtons
-        visible={capabilities.windowChrome === "win-caption" && Boolean(window.ogb?.windowControls)}
-      />
     </div>
   );
 }

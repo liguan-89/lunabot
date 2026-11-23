@@ -9,75 +9,66 @@ let host: HTMLDivElement, root: Root | null = null;
 beforeEach(() => { host = document.createElement("div"); document.body.append(host); });
 afterEach(async () => { await act(async () => root?.unmount()); root = null; host.remove(); vi.resetModules(); });
 
-/** Main's side of the bridge: its answer to the page's offer, and to a click (refused when `refuse`). */
-function bridge(answer: ChromeRailState | Error, { refuse = false } = {}) {
+/** Main's side of the bridge: its answer to the page's offer and to a click on the capsule. */
+function bridge(answer: ChromeRailState | Error) {
   let push: (state: ChromeRailState) => void = () => {};
   const rail = {
     state: vi.fn(() => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer))),
-    setHidden: vi.fn((hidden: boolean) => (refuse ? Promise.reject(new Error("Choose to hide or show your computers.")) : Promise.resolve({ available: true, hidden }))),
+    openPopover: vi.fn((_anchor?: { x: number; y: number }) => Promise.resolve({ available: true, popoverOpen: true })),
     onState: vi.fn((callback: (state: ChromeRailState) => void) => { push = callback; return () => {}; }),
   };
   return { rail, push: (state: ChromeRailState) => act(async () => push(state)) };
 }
 
-/** A fresh page with the sidebar's button and Settings' switch, as this window's bridge answers them. */
 async function page(rail: ChromeRailBridge | undefined) {
   vi.resetModules();
   Object.assign(window, { ogb: rail ? { rail } : undefined });
   const { setLocale } = await import("@/lib/i18n");
   setLocale("en");
-  const { ChromeRailRow, ChromeRailToggle } = await import("./ChromeRailToggle");
+  const { ChromeRailToggle } = await import("./ChromeRailToggle");
   root = createRoot(host);
   await act(async () => {
-    root!.render(createElement("div", null, createElement(ChromeRailToggle, { advanced: true, icons: false }),
-      createElement("div", { "data-settings-look": "simple" }, createElement(ChromeRailRow))));
+    root!.render(createElement(ChromeRailToggle, { advanced: true }));
   });
   await act(async () => { await Promise.resolve(); });
 }
 const button = () => host.querySelector<HTMLButtonElement>("[data-rail-toggle]");
-const toggle = () => host.querySelector<HTMLButtonElement>("[data-rail-switch] [role='switch']");
-const said = () => [button()?.getAttribute("aria-label"), button()?.getAttribute("title"), button()?.getAttribute("aria-expanded"), toggle()?.getAttribute("aria-checked")];
+const said = () => [button()?.getAttribute("aria-label"), button()?.getAttribute("aria-haspopup"), button()?.getAttribute("aria-expanded")];
 const click = async (target: HTMLElement | null) => {
   expect(target).toBeTruthy();
   await act(async () => { target!.click(); await Promise.resolve(); });
   await act(async () => { await Promise.resolve(); });
 };
 
-it("once main says this window has a rail, the button hides it and shows it again, and the switch in Settings says the same", async () => {
-  const { rail } = bridge({ available: true, hidden: false });
+it("once main says this window has a rail, the capsule asks main to open the places popover beside it", async () => {
+  const { rail } = bridge({ available: true, popoverOpen: false });
   await page(rail);
   expect(rail.state, "one offer from the page, whatever asks").toHaveBeenCalledTimes(1);
-  expect(said()).toEqual(["Hide your computers", "Hide your computers", "true", "true"]);
-  const row = host.querySelector("[data-rail-switch]")!.textContent!;
-  for (const words of ["Show your computers", "An icon for each place your bots live, on the left of the app."]) expect(row).toContain(words);
+  expect(said()).toEqual(["Show your computers", "dialog", "false"]);
   await click(button());
-  expect(rail.setHidden).toHaveBeenLastCalledWith(true);
-  expect(said()).toEqual(["Show your computers", "Show your computers", "false", "false"]);
-  await click(toggle());
-  expect(rail.setHidden).toHaveBeenLastCalledWith(false);
-  expect(said()).toEqual(["Hide your computers", "Hide your computers", "true", "true"]);
+  expect(rail.openPopover).toHaveBeenCalledTimes(1);
+  const anchor = rail.openPopover.mock.calls[0]![0]!;
+  expect(typeof anchor.x).toBe("number");
+  expect(typeof anchor.y).toBe("number");
+  expect(said()).toEqual(["Show your computers", "dialog", "true"]);
 });
 
-it("main's word wins: a click it refuses puts the button back, and with one place left the button and the switch go", async () => {
-  const { rail, push } = bridge({ available: true, hidden: false }, { refuse: true });
+it("a second click while the popover is open asks main again; main's push is what the capsule shows", async () => {
+  const { rail, push } = bridge({ available: true, popoverOpen: false });
   await page(rail);
   await click(button());
-  expect(rail.setHidden).toHaveBeenCalledWith(true);
-  expect(said()).toEqual(["Hide your computers", "Hide your computers", "true", "true"]);
-  await push({ available: false, hidden: false });
-  expect([button(), toggle()]).toEqual([null, null]);
-  await push({ available: true, hidden: true });
-  expect(said()).toEqual(["Show your computers", "Show your computers", "false", "false"]);
+  expect(said()[2]).toBe("true");
+  await click(button());
+  expect(rail.openPopover).toHaveBeenCalledTimes(2);
+  await push({ available: true, popoverOpen: false });
+  expect(said()[2]).toBe("false");
 });
 
-it("nothing in a browser, on an older app, on a page that isn't beside the rail, or with one place", async () => {
-  const older: ChromeRailBridge = { expand: async () => {}, onSkin: () => () => {} };
-  const elsewhere = bridge(new Error("rail:offer is only available to the page beside the window's rail")).rail;
-  const onePlace = bridge({ available: false, hidden: true }).rail;
-  for (const rail of [undefined, older, elsewhere, onePlace]) {
-    await page(rail);
-    expect([button(), toggle()]).toEqual([null, null]);
-    await act(async () => root?.unmount());
-    root = null;
-  }
+it("is nowhere without a rail whose popover could open: one place, a browser, an older app, or an offer that failed", async () => {
+  await page(undefined);
+  expect(button()).toBeNull();
+  await page(bridge({ available: false, popoverOpen: false }).rail);
+  expect(button()).toBeNull();
+  await page(bridge(new Error("no main")).rail);
+  expect(button()).toBeNull();
 });

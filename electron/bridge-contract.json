@@ -198,7 +198,6 @@
   "rail",
   "rail.drawsFrame",
   "rail.expand",
-  "rail.onFramed",
   "rail.onSkin",
   "rail.onState",
   "rail.setHidden",

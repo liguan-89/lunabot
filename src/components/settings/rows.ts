@@ -43,9 +43,7 @@ export const SETTINGS_ROWS: readonly SettingsRowEntry[] = [
   { titleKeys: ["settings.advancedMode.title"], section: "general", keywords: ["advanced", "more settings"] },
   { titleKeys: ["settings.theme.title", "settings.theme.lightOrDark"], section: "appearance", keywords: ["dark", "light", "skin", "colour", "color"] },
   { titleKeys: ["placeLook.sidebarColor"], section: "appearance", keywords: ["sidebar", "colour", "color", "swatch"], lazy: true },
-  { titleKeys: ["placeLook.sidebarPicture"], section: "appearance", keywords: ["sidebar", "image", "banner", "background"], lazy: true },
-  { titleKeys: ["rail.show"], section: "appearance", keywords: ["computers", "rail", "strip", "sidebar"], lazy: true },
-  { titleKeys: ["settings.windowFrame.title"], section: "appearance", keywords: ["title bar", "frame", "border"], lazy: true },
+
   { titleKeys: ["settings.userBubbles.title", "settings.userBubbles.simpleTitle"], section: "appearance", keywords: ["bubble", "color", "colour"] },
   { titleKeys: ["settings.avatarStyle.title"], section: "appearance", keywords: ["avatar", "bot face", "orb", "neko", "synth", "spirit", "minibot", "bunny", "astro", "prism", "bear", "retro", "fox", "frog", "owl", "wisp", "camera", "cloud"], simpleLooks: true },
   { titleKeys: ["settings.font.title"], section: "appearance", keywords: ["typeface", "text size"], simpleLooks: true },

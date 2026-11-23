@@ -21,7 +21,7 @@ function start() {
 }
 
 /** The window's own rail of places, as the page beside it knows it: null in a browser, on an older app or on a page that
- * isn't beside it. Asking offers this page's button that hides and shows it (or opens its isolated popover). */
+ * isn't beside it. Asking offers this page's button that opens its isolated popover. */
 export function useChromeRail(): ChromeRailState | null {
   const [state, setState] = useState(current);
   useEffect(() => {
@@ -33,33 +33,11 @@ export function useChromeRail(): ChromeRailState | null {
   return state;
 }
 
-/** On the rail's own page: whether the page beside it draws the window's frame, as main hears from each of its documents.
- * The window opens framed. */
-export function useBesideFramed(): boolean {
-  const [framed, setFramed] = useState(true);
-  useEffect(() => bridge()?.onFramed?.(setFramed), []);
-  return framed;
-}
-
 /** On the rail's own page: whether the isolated places popover is currently open and where its trigger capsule sits. */
 export function useChromeRailPopover(): ChromeRailPopover {
   const [popover, setPopover] = useState<ChromeRailPopover>({ open: false, x: 0, y: 0 });
   useEffect(() => bridge()?.onPopover?.(setPopover), []);
   return popover;
-}
-
-/** Whether the page beside the rail draws the window's frame: main puts the traffic lights in its top bar, or back where
- * the window keeps them without it. */
-export function sayFrameDrawn(drawn = true): void {
-  void bridge()?.drawsFrame?.(drawn)?.catch(() => {});
-}
-
-/** From the person's click: main hides or shows the docked left rail, and this desktop keeps the choice. */
-export function setChromeRailHidden(hidden: boolean): void {
-  const rail = bridge(), before = current;
-  if (!rail?.setHidden || !before) return;
-  publish({ ...before, hidden });
-  void rail.setHidden(hidden).then(publish, () => publish(before));
 }
 
 /** From the person's click on the top capsule switcher: opens or toggles the isolated places popover in the rail view. */

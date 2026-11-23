@@ -1,4 +1,4 @@
-// The rail at the window's left edge once a person has two places or more: one tile per Cloud, team's Cloud or server,
+// The rail's own page once a person has two places or more: one tile per Cloud, team's Cloud or server,
 // the place on screen marked, ⋯ for the rest past eight, ＋ last. A Cloud's tile has a small cloud at its corner, a server of
 // the person's own a server and a workspace of this computer's own with a name of its own a laptop, so each reads at a
 // glance. Main lists the places and opens one by its id; the rail never names an address. A right-click on a tile (or its
@@ -18,10 +18,10 @@ import { cloudColor, cloudColorFill } from "@/lib/cloud-look";
 import { activeLocale, t } from "@/lib/i18n";
 import { localizedRelativeTime } from "@/lib/relative-time";
 import { useAdvancedMode } from "@/lib/interface-mode";
-import { closeChromeRailPopover, useBesideFramed, useChromeRailPopover } from "@/lib/chrome-rail";
+import { closeChromeRailPopover, useChromeRailPopover } from "@/lib/chrome-rail";
 import { computerName, editLocal, makeHome, placeInitials, recolorPlace, removeLocal, removePlace, usePlaces, type RailPlace } from "@/lib/places";
 import { AccountsSheet, switchNote } from "./AccountMenu";
-import { useDesktopCapabilities, windowFramed } from "./DesktopCapabilities";
+import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { MENU_ROW, MENU_SHEET } from "./menu-recipe";
 import { PlaceAddSheet } from "./PlaceAddSheet";
 import { SwatchRadios } from "./SwatchRadios";
@@ -393,15 +393,14 @@ function MorePlaces({ places, canPair, onOpen, onMenu, onClose }: { places: Rail
 export const markingClicked = (places: RailPlace[], clicked: string | null): RailPlace[] => (clicked === null ? places
   : places.map(({ active: _active, ...place }) => (place.id === clicked ? { ...place, active: true as const } : place)));
 
-/** `chrome`: the window's own rail (ChromeRail), drawn whatever the window's width, whose sheets ask main for the whole
- * window while open. Without it, a rail drawn on a page from a list main gave that page: wide windows only. */
-export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
+/** The window's own rail (ChromeRail), drawn whatever the window's width, whose sheets ask main for the whole window
+ * while open and whose popover lists the places beside its trigger capsule. */
+export function PlacesRail() {
   const state = usePlaces();
   const calm = !useAdvancedMode();
   const { capabilities } = useDesktopCapabilities();
-  const besideFramed = useBesideFramed();
   const popover = useChromeRailPopover();
-  const popoverMode = chrome && popover.open;
+  const popoverMode = popover.open;
   const [popoverQuery, setPopoverQuery] = useState("");
   const [more, setMore] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -442,9 +441,9 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [popoverMode, adding, connecting, accounts, menu]);
   const going = clicked && clicked.id !== clicked.from ? state.places.find((place) => place.id === clicked.id) ?? null : null;
-  const veil = chrome && going?.settling === undefined ? going : null;
+  const veil = going?.settling === undefined ? going : null;
   const covering = more || adding || connecting !== null || menu !== null || accounts !== null || veil !== null || popoverMode;
-  useEffect(() => { if (chrome) void window.ogb?.rail?.expand?.(covering)?.catch(() => {}); }, [chrome, covering]);
+  useEffect(() => { void window.ogb?.rail?.expand?.(covering)?.catch(() => {}); }, [covering]);
   if (!state.places.length) return null;
   const bridge = window.ogb?.workspaces;
   const open = (place: RailPlace) => {
@@ -469,12 +468,9 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
       else { const note = switchNote(said); if (note) setAccounts({ adding: null, note }); else if (popoverMode) closeChromeRailPopover(); }
     }, done);
   };
-  const framed = windowFramed(capabilities), draggable = capabilities.windowChrome !== "native";
-  // In a framed window the rail is part of the frame: the window's own rail runs the full height, its top in the frame's
-  // top bar (the traffic lights' place), so its places start under that bar. With the frame turned off, or beside a page
-  // that doesn't draw it (an older release), they start under the traffic lights on macOS.
-  const lights = capabilities.windowChrome === "mac-inset" ? "h-[52px]" : "h-3";
-  const above = !framed ? lights : !chrome ? "h-[9px]" : besideFramed ? "h-[37px]" : lights;
+  const draggable = capabilities.windowChrome !== "native";
+  // On macOS the rail's page runs under the traffic lights, so its places start beneath them.
+  const above = capabilities.windowChrome === "mac-inset" ? "h-[52px]" : "h-3";
   // SAFETY: Electron's -webkit-app-region is not in React's CSSProperties type; the renderer accepts it as an inline style.
   const drag = draggable ? ({ WebkitAppRegion: "drag" } as CSSProperties) : undefined;
   const noDrag = draggable ? ({ WebkitAppRegion: "no-drag" } as CSSProperties) : undefined;
@@ -569,8 +565,8 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
   }
 
   return <nav ref={navRef} aria-label={t("rail.label")} data-places-rail style={drag}
-    className={cn("relative w-9 shrink-0 flex-col items-center", chrome ? "flex h-full" : "hidden md:flex",
-      framed ? "bg-frame [--rail-surface:var(--color-frame)]" : cn("border-r bg-panel [--rail-surface:var(--color-panel)]", calm ? "border-r-[0.5px] border-edge" : "border-hairline/50"))}>
+    className={cn("relative flex h-full w-9 shrink-0 flex-col items-center",
+      cn("border-r bg-panel [--rail-surface:var(--color-panel)]", calm ? "border-r-[0.5px] border-edge" : "border-hairline/50"))}>
     <div aria-hidden="true" className={cn(above, "shrink-0")} />
     {/* As wide as the rail, so nothing round a tile is cut off at the sides: a list that scrolls clips its overflow. */}
     <ul className="flex min-h-0 w-full flex-col items-center gap-2 overflow-y-auto py-1" style={noDrag}>
