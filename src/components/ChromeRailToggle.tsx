@@ -49,15 +49,20 @@ export function ChromeRailToggle({ advanced = false, icons = false, bar, style }
     return <button type="button" data-rail-toggle data-rail-capsule aria-label={label} title={name} aria-haspopup="dialog" aria-expanded={expanded} style={style}
       onClick={onClick}
       className={cn(
-        "flex min-w-0 max-w-[136px] shrink items-center gap-1.5 rounded-full text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+        "flex shrink-0 items-center rounded-full text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
         advanced
-          ? "h-8 pl-1.5 pr-2 text-ink-secondary hover:bg-ink/[0.06] hover:text-ink aria-expanded:bg-ink/[0.08]"
-          : cn("h-9 pl-1.5 pr-2.5", ELEVATED_CONTROL, ELEVATED_HOVER, expanded && "bg-raised"),
+          ? "h-8 max-w-[140px] gap-1.5 pl-1.5 pr-2 text-ink-secondary hover:bg-ink/[0.06] hover:text-ink aria-expanded:bg-ink/[0.08]"
+          : cn(
+            "h-9 gap-1 pl-2 pr-2 @[310px]/sidebar-bar:max-w-[140px] @[310px]/sidebar-bar:gap-1.5 @[310px]/sidebar-bar:pl-1.5 @[310px]/sidebar-bar:pr-2.5",
+            ELEVATED_CONTROL,
+            ELEVATED_HOVER,
+            expanded && "bg-raised",
+          ),
       )}>
       {hasColor
-        ? <CloudTile color={current?.color} size={22} />
-        : <span aria-hidden="true" className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-ink/[0.06] text-ink-secondary"><Icon size={13} strokeWidth={1.75} /></span>}
-      <span className="min-w-0 truncate text-[13px] font-medium text-ink">{name}</span>
+        ? <CloudTile color={current?.color} size={20} />
+        : <span aria-hidden="true" className="grid size-[22px] shrink-0 place-items-center rounded-full text-ink-secondary"><Icon size={15} strokeWidth={1.75} /></span>}
+      <span className={cn("min-w-0 truncate text-[13px] font-medium text-ink", !advanced && "hidden @[310px]/sidebar-bar:inline")}>{name}</span>
       <ChevronDown size={12} strokeWidth={2} aria-hidden="true" className={cn("shrink-0 text-ink-secondary transition-transform duration-150", expanded && "rotate-180")} />
     </button>;
   }

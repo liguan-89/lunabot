@@ -107,7 +107,7 @@ type MarkedPlace = Pick<RailPlace, "kind" | "name" | "offline" | "ended"> & Part
 export function PlaceMark({ place, size = TILE }: { place: MarkedPlace; size?: number }) {
   const color = cloudColor(place.color);
   return <span aria-hidden="true" data-rail-offline={place.offline ? "" : undefined} data-rail-ended={place.ended ? "" : undefined}
-    className={cn("grid shrink-0 place-items-center font-semibold leading-none", color ? "text-white" : "bg-card text-ink", (place.offline || place.ended) && "opacity-55 grayscale")}
+    className={cn("grid shrink-0 place-items-center font-semibold leading-none", color ? "text-white" : "bg-card text-ink ring-1 ring-inset ring-hairline/40", (place.offline || place.ended) && "opacity-55 grayscale")}
     style={{ width: size, height: size, borderRadius: tileRadius(size), fontSize: Math.round(size * 0.4), ...(color ? { background: cloudColorFill(color) } : {}) }}>
     {place.kind === "computer" && !place.named ? <Laptop size={Math.round(size * 0.46)} strokeWidth={1.75} /> : place.kind === "account" ? <UserRound size={Math.round(size * 0.5)} strokeWidth={1.75} /> : placeInitials(place.name)}
   </span>;
@@ -493,16 +493,16 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
     const searchLabel = t(places.some((place) => place.profile) ? "rail.searchAny" : "rail.search");
     const viewportWidth = typeof window === "undefined" ? 1280 : window.innerWidth;
     const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
-    const left = Math.max(12, Math.min(popover.x, viewportWidth - 284));
+    const left = Math.max(12, Math.min(popover.x, viewportWidth - 260));
     const top = Math.max(12, Math.min(popover.y, viewportHeight - 280));
-    const menuAlign: PlaceMenuAlign = left + 272 + 296 <= viewportWidth ? "right" : left >= 296 ? "left" : "inset";
+    const menuAlign: PlaceMenuAlign = left + 248 + 296 <= viewportWidth ? "right" : left >= 296 ? "left" : "inset";
     const closeOverlay = () => { setMenu(null); closeChromeRailPopover(); };
     return <div data-rail-popover-backdrop className="fixed inset-0 z-40 [--rail-surface:var(--color-menu)]" style={noDrag}
       onMouseDown={(event) => { if (event.target === event.currentTarget && !adding && connecting === null && accounts === null && !veil) closeOverlay(); }}>
       {!adding && connecting === null && accounts === null && !veil && (
         <div ref={popoverRef} role="dialog" aria-label={t("rail.label")} data-rail-popover
           style={{ left, top }}
-          className={cn("absolute w-[272px] max-w-[calc(100vw-24px)] rounded-2xl p-1.5", MENU_SHEET)}>
+          className={cn("absolute w-[248px] max-w-[calc(100vw-24px)] rounded-2xl p-1.5", MENU_SHEET)}>
           {places.length > 5 && (
             <label className="mb-1.5 flex h-8 items-center gap-2 rounded-lg bg-ink/[0.05] px-2.5">
               <Search size={14} aria-hidden="true" className="shrink-0 text-ink-secondary" />
@@ -511,7 +511,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
                 className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-tertiary" />
             </label>
           )}
-          <ul className="max-h-[min(60vh,340px)] overflow-y-auto">
+          <ul className="max-h-[min(60vh,340px)] space-y-0.5 overflow-y-auto">
             {found.map((place, at) => {
               const acts = placeActs(place, canPair);
               const hasMenu = Boolean(place.paint || place.removable || place.makeHome);
@@ -519,11 +519,11 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
               const sub = placeStatus(place, Date.now());
               const showSub = sub && sub !== title;
               return <li key={place.id} className="group/row relative">
-                {startsGroup(found, at) && <div data-rail-group className="mt-1 truncate border-t border-hairline/50 px-2.5 pt-1.5 text-[11px] text-ink-tertiary">{place.kind === "account" ? "" : place.email ?? ""}</div>}
-                <div className="flex items-center gap-0.5">
+                {startsGroup(found, at) && <div data-rail-group className="mt-1 truncate border-t border-hairline/40 px-2.5 pt-1.5 text-[11px] text-ink-tertiary">{place.kind === "account" ? "" : place.email ?? ""}</div>}
+                <div className={cn("flex items-center rounded-xl transition-colors", place.active ? "bg-ink/[0.06]" : acts && "hover:bg-ink/[0.04]")}>
                   <button type="button" data-rail-place={place.id} data-rail-kind={place.kind} disabled={!acts} aria-current={place.active ? "page" : undefined}
                     aria-label={tileLabel(place)} onClick={() => open(place)} onContextMenu={menuOpener(place, openMenu)}
-                    className={cn(MENU_ROW, "h-10 flex-1 gap-2.5 rounded-xl px-2", place.active && "bg-ink/[0.06] font-medium")}>
+                    className={cn(MENU_ROW, "h-10 min-w-0 flex-1 gap-2.5 rounded-xl px-2 hover:bg-transparent", place.active && "font-medium")}>
                     <span className="relative shrink-0">
                       <PlaceMark place={place} size={26} />
                       {(place.progress !== undefined || place.settling !== undefined || place.id === going?.id) && <ProgressRing size={26} value={place.progress} waiting={place.waiting === true || place.settling !== undefined || place.id === going?.id} />}
@@ -538,7 +538,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
                     {place.active && <Check size={14} strokeWidth={2.25} aria-hidden="true" className="shrink-0 text-accent" />}
                   </button>
                   {hasMenu && <button type="button" aria-label={title} onClick={(event) => openMenu({ place, from: event.currentTarget })}
-                    className="grid size-7 shrink-0 place-items-center rounded-lg text-ink-tertiary opacity-0 transition-opacity hover:bg-ink/[0.06] hover:text-ink group-hover/row:opacity-100 focus-visible:opacity-100 touch:opacity-100">
+                    className="mr-1 grid h-7 w-0 shrink-0 place-items-center overflow-hidden rounded-lg text-ink-tertiary opacity-0 transition-[width,opacity] hover:bg-ink/[0.08] hover:text-ink group-hover/row:w-7 group-hover/row:opacity-100 focus-visible:w-7 focus-visible:opacity-100 touch:w-7 touch:opacity-100">
                     <MoreHorizontal size={14} aria-hidden="true" />
                   </button>}
                 </div>
@@ -546,10 +546,10 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
             })}
           </ul>
           {found.length === 0 && <p className="px-2.5 py-2 text-[12px] text-ink-tertiary">{t("rail.noMatch")}</p>}
-          {canAdd && <div className="mt-1 border-t border-hairline/50 pt-1">
+          {canAdd && <div className="mt-1 border-t border-hairline/40 pt-1">
             <button type="button" data-rail-add onClick={() => { track("rail_add", { step: "opened" }); setAdding(true); }}
-              className={cn(MENU_ROW, "h-9 gap-2.5 rounded-xl px-2 text-ink-secondary hover:text-ink")}>
-              <span aria-hidden="true" className="grid size-[26px] shrink-0 place-items-center rounded-[8px] border border-dashed border-ink/25"><Plus size={13} /></span>
+              className={cn(MENU_ROW, "h-9 gap-2.5 rounded-xl px-2 text-ink-secondary hover:bg-ink/[0.04] hover:text-ink")}>
+              <span aria-hidden="true" className="grid size-[26px] shrink-0 place-items-center rounded-[8px] bg-ink/[0.05] text-ink-secondary"><Plus size={14} /></span>
               <span className="truncate text-[13px]">{addLabel}</span>
             </button>
           </div>}
