@@ -20,18 +20,12 @@ import "../../src/styles.css";
 // person's own servers that signed in. ?look=<colour>|none is the place's colour (its tint), ?member a team's Cloud
 // its member is on, ?settings=look Settings → Appearance at the place's colour, ?menu=<id> that circle's own menu (a
 // right-click: its colour). ?place=computer is this computer's own page instead, on a desktop with no Cloud: no rail,
-// or with ?rail one beside it (this computer and a server connected by hand). ?density=icons collapses the sidebar to
-// avatars; ?settings=general opens Settings at its first page, ?settings=strip at the switch for the window's rail.
-// ?hidden starts with the rail hidden (the sidebar's button shows it again). The rail is drawn on the page itself, as an
-// older app's page draws it; ?chrome draws the window's own rail instead, as the desktop window does: this page again
-// in a frame of the rail's width at the left (?railpage, the rail's own page with the list main gives it alone), and
-// the room the app's preload leaves for it. ?platform=win32 is a Windows window, its caption buttons drawn by the app;
-// ?update=downloading|downloaded an update on its way; ?team a team's Cloud its admin is on, ?teamname= the team's name.
-// ?framecolor=today|app paints the frame in another colour to compare: the grey it had, or the app's own. ?frame=off is
-// the window with its frame turned off (macOS's traffic lights back in the sidebar's corner; Windows' own title bar, as
-// after the app started again), and ?framepending a Windows window whose frame was just turned off, until the app
-// starts again. ?settings=frame opens Settings at the window frame's switch. Each page starts with the sidebar at its
-// own width.
+// or with ?rail one listed for it (this computer and a server connected by hand). ?density=icons collapses the sidebar
+// to avatars; ?settings=general opens Settings at its first page. ?chrome opens the window's own rail over the page, as
+// the desktop window does: this page behind the rail's own page in a view of its own, its places popover open at the
+// top's anchor (?railpage renders that rail's page by itself, for pictures of it alone). ?update=downloading|downloaded
+// an update on its way; ?team a team's Cloud its admin is on, ?teamname= the team's name. Each page starts with the
+// sidebar at its own width.
 const params = new URLSearchParams(location.search);
 setAnalyticsEnabled(false);
 setEmailGateDone("skipped");
@@ -44,16 +38,6 @@ try {
 setAdvancedMode(params.get("mode") !== "simple");
 setSidebarDensity(params.get("density") === "icons" ? "icons" : "comfortable");
 applySkin((params.get("skin") ?? "midnight") as SkinId);
-
-const FRAME_COLOURS: Record<string, string> = { today: "color-mix(in oklab, var(--color-panel) 93%, var(--color-ink))", app: "var(--color-app)" };
-const frameColour = FRAME_COLOURS[params.get("framecolor") ?? ""];
-if (frameColour) {
-  const paint = document.createElement("style");
-  paint.textContent = `html[data-skin], html { --color-frame: ${frameColour} !important; }`;
-  document.head.append(paint);
-}
-
-const frameOff = params.get("frame") === "off", framePending = params.has("framepending");
 
 const team = params.has("team");
 const teamName = params.get("teamname") ?? "Acme team";
@@ -103,18 +87,10 @@ const adding = params.get("adding") === "setting_up"
   ? { adding: { name: "Client C", color: "rose" as const, tier: "pro", startedAt: Date.now(), status: "setting_up" as const, progress: 0.55, link: true as const } } : {};
 const addView: AddCloudView = { signedIn: true, hasCloud: true, supported: true, canAdd: true, offer, count: 3, home: { name: "My Cloud", color: "blue" }, ...adding };
 const ok = async () => {};
-const windows = params.get("platform") === "win32";
 const chrome = params.has("chrome");
-const RAIL_WIDTH = 36;
-let hidden = params.has("hidden");
-const placesHeard = new Set<() => void>(), stripHeard = new Set<(state: { available: boolean; hidden: boolean }) => void>();
-const strip = () => ({ available: listed.length > 1, hidden });
-let frameOn = !frameOff && !framePending;
-const capabilitiesHeard = new Set<(next: object) => void>();
 const capabilities = async () => ({
-  host: windows ? { platform: "win32", label: "Windows", session: "unknown", packaged: true } : { platform: "darwin", label: "macOS", session: "unknown", packaged: true },
-  windowChrome: windows ? (frameOff ? "native" : "win-caption") : "mac-inset",
-  windowFrame: windows ? !frameOff : frameOn,
+  host: { platform: "darwin", label: "macOS", session: "unknown", packaged: true },
+  windowChrome: "mac-inset",
   screenPreview: { available: false, interaction: "none" }, dictation: { available: false, engine: "none", onDevice: false },
   localComputer: { available: false, support: "unsupported", enabled: false, status: "unavailable" },
 });
@@ -124,34 +100,61 @@ const recolor = async (id: string, swatch: CloudSwatch) => {
 };
 const cloudAdd = { state: async () => addView, start: async () => ({ outcome: "opened" }), reopen: async () => true, copyLink: async () => true, open: ok, interest: ok, sheet: ok };
 
+const click = (selector: string) => new Promise<void>((resolve) => {
+  const tick = () => { const target = document.querySelector<HTMLElement>(selector); if (target) { target.click(); resolve(); } else setTimeout(tick, 100); };
+  tick();
+});
+/** The rail's own page, opened as asked: its ＋ or Connect sheet, the list past eight, a circle's menu. */
+function driveRail() {
+  const sheet = params.get("sheet");
+  if (sheet === "connect") void click('[data-rail-place="signed-in:s-render"]');
+  else if (sheet) void click("[data-rail-add]").then(() => (sheet === "server" ? click('[data-place-add-choice="server"]') : sheet === "add" ? undefined : click('[data-place-add-choice="cloud"]')))
+    .then(() => (sheet === "name" ? click("[data-plan-buy='pro']") : undefined));
+  if (params.has("more")) void click("[data-rail-more-button]");
+  const menu = params.get("menu");
+  if (menu) {
+    const opened = () => { const circle = document.querySelector(`[data-rail-place="${menu}"]`); if (circle) circle.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })); else setTimeout(opened, 100); };
+    opened();
+  }
+}
+
 if (params.has("railpage")) {
-  // The window's own rail page: see-through but for the rail, as main.tsx draws it.
+  // The window's own rail page: see-through but for the rail, as main.tsx draws it. ?popover=<x>,<y>: the places
+  // popover open, as main told the page where its capsule sits.
   document.documentElement.style.background = document.body.style.background = "transparent";
+  const at = params.get("popover")?.split(",").map(Number);
+  const anchor = at?.length === 2 && at.every(Number.isFinite) ? { open: true, x: at[0]!, y: at[1]! } : { open: false, x: 0, y: 0 };
   Object.assign(window, { ogb: {
-    platform: windows ? "win32" : "darwin", getCapabilities: capabilities, onCapabilitiesChanged: () => () => {}, applySkin: ok,
+    platform: "darwin", getCapabilities: capabilities, onCapabilitiesChanged: () => () => {}, applySkin: ok,
     workspaces: { places: async () => rail, open: ok, add: ok, recolor, onChanged: () => () => {} },
-    cloudAdd, rail: { expand: ok, onSkin: () => () => {} },
+    cloudAdd, rail: { expand: ok, closePopover: ok, onSkin: () => () => {}, onPopover: (heard: (info: typeof anchor) => void) => { heard(anchor); return () => {}; } },
   } });
   createRoot(document.getElementById("root")!).render(<ChromeRail />);
+  driveRail();
 } else {
-  const room = document.createElement("style");
-  room.textContent = `html { box-sizing: border-box !important; padding-left: ${RAIL_WIDTH}px !important; --rail-beside: ${RAIL_WIDTH}px; }`;
+  // The rail's own page as the desktop window shows it: its own page in a view over the window while the places popover
+  // is open, see-through but for it. ?chrome opens it as main does for the capsule's click, at that anchor.
   const railPage = document.createElement("iframe");
   railPage.setAttribute("data-rail-page", "");
   railPage.title = "The window's rail";
-  railPage.src = `${location.pathname}?${new URLSearchParams([...params, ["railpage", "1"]])}`;
-  const titleBar = windows && frameOff ? 31 : 0;
-  railPage.style.cssText = `position:fixed;left:0;top:${titleBar}px;width:${RAIL_WIDTH}px;height:calc(100vh - ${titleBar}px);border:0;z-index:90;background:transparent;color-scheme:normal`;
-  const besidePage = () => {
-    if (chrome && !hidden) { document.head.append(room); document.body.append(railPage); } else { room.remove(); railPage.remove(); }
+  railPage.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:90;background:transparent;color-scheme:normal";
+  let popover: { x: number; y: number } | null = null;
+  const state = () => ({ available: listed.length > 1, popoverOpen: popover !== null });
+  const stateHeard = new Set<(next: ReturnType<typeof state>) => void>();
+  const told = () => { const next = state(); for (const heard of stateHeard) heard(next); return next; };
+  const popoverAt = (anchor?: { x: number; y: number }) => ({ x: Math.round(anchor?.x ?? 64), y: Math.round(anchor?.y ?? 48) });
+  const openRailPage = (anchor?: { x: number; y: number }) => {
+    popover = popoverAt(anchor);
+    railPage.src = `${location.pathname}?${new URLSearchParams([...params, ["railpage", "1"], ["popover", `${popover.x},${popover.y}`]])}`;
+    document.body.append(railPage);
   };
-  besidePage();
+  const closeRailPage = () => { popover = null; railPage.remove(); };
   const update = params.get("update");
   Object.assign(window, { ogb: {
-    platform: windows ? "win32" : "darwin",
+    platform: "darwin",
     app: { version: "0.1.130", ownPage: computer },
     getCapabilities: capabilities,
-    onCapabilitiesChanged: (heard: (next: object) => void) => { capabilitiesHeard.add(heard); return () => { capabilitiesHeard.delete(heard); }; },
+    onCapabilitiesChanged: () => () => {},
     onOpenAppSettings: (callback: (section?: string) => void) => { openSettings = callback; return () => {}; },
     applySkin: ok, setUnreadCount: () => {}, permStatus: async () => ({}),
     workspaces: {
@@ -159,35 +162,27 @@ if (params.has("railpage")) {
         : onTeam ? { local: false, name: teamName, origin: "https://acme.example", color: "purple", role: "Admin" }
           : { local: false, name: "My Cloud", origin: "https://omb-u-1.fly.dev", color: "blue" }),
       menu: ok, line: async () => null, open: ok, add: ok,
-      places: async () => (hidden ? { ...rail, places: [] } : chrome ? { ...rail, places: [], beside: true as const } : rail),
-      onChanged: (heard: () => void) => { placesHeard.add(heard); return () => { placesHeard.delete(heard); }; },
+      places: async () => rail,
+      onChanged: () => () => {},
       look: async () => look,
       recolor,
       color: async (swatch: CloudSwatch) => { look = { ...look, swatch: COLOR[swatch] ? swatch : null, color: COLOR[swatch] }; return { outcome: "saved", look }; },
     },
     cloudAdd,
-    windowFrame: {
-      state: async () => ({ on: frameOn, restart: windows && framePending }),
-      set: async (on: boolean) => { frameOn = on; for (const heard of capabilitiesHeard) heard(await capabilities()); return { on, restart: windows }; },
-    },
-    ...(framePending ? { relaunch: async () => true } : {}),
     rail: {
-      state: async () => strip(),
-      setHidden: async (next: boolean) => {
-        hidden = next;
-        besidePage();
-        for (const heard of placesHeard) heard();
-        for (const heard of stripHeard) heard(strip());
-        return strip();
+      state: async () => state(),
+      openPopover: async (anchor?: { x: number; y: number }) => {
+        if (popover !== null) closeRailPage(); else openRailPage(anchor);
+        return told();
       },
-      onState: (heard: (state: { available: boolean; hidden: boolean }) => void) => { stripHeard.add(heard); return () => { stripHeard.delete(heard); }; },
+      onState: (heard: (next: ReturnType<typeof state>) => void) => { stateHeard.add(heard); return () => { stateHeard.delete(heard); }; },
     },
-    ...(windows && !frameOff ? { windowControls: { minimize: async () => true, toggleMaximize: async () => true, close: async () => true, state: async () => ({ maximized: false }), onMaximizedChanged: () => () => {} } } : {}),
     ...(update ? { updater: { check: ok, install: ok, onState: (heard: (state: object) => void) => {
       heard(update === "downloaded" ? { status: "downloaded", version: "0.1.136" } : { status: "downloading", percent: 45 });
       return () => {};
     } } } : {}),
   } });
+  if (chrome) openRailPage();
 
   // The fixture server takes this browser for its owner: a team's member is signed in without the admin scope, and a
   // team's Cloud answers its people here.
@@ -210,56 +205,27 @@ if (params.has("railpage")) {
 
   // The macOS window's traffic lights, drawn where the system draws them (electron/window-chrome.mjs), so the picture
   // shows what sits beside them.
-  if (!windows) {
+  {
     const lights = document.createElement("div");
     lights.setAttribute("aria-hidden", "true");
-    lights.style.cssText = `position:fixed;left:${frameOn ? 12 : 16}px;top:${frameOn ? 7 : 16}px;display:flex;gap:9px;z-index:100;pointer-events:none`;
+    lights.style.cssText = "position:fixed;left:16px;top:16px;display:flex;gap:9px;z-index:100;pointer-events:none";
     for (const color of ["#ff5f57", "#febc2e", "#28c840"]) {
       const dot = document.createElement("span");
       dot.style.cssText = `width:14px;height:14px;border-radius:50%;background:${color};display:block`;
       lights.append(dot);
     }
     document.body.append(lights);
-  } else if (frameOff) {
-    // Windows' own title bar is drawn outside the page; this stands in for it, above the page.
-    const bar = document.createElement("div");
-    bar.setAttribute("aria-hidden", "true");
-    const dark = ["midnight", "foundry", "graphite", "dusk", "halloween", "diwali", "aurora"].includes(params.get("skin") ?? "midnight");
-    bar.style.cssText = `position:fixed;inset:0 0 auto 0;height:31px;display:flex;align-items:center;z-index:100;font:12px "Segoe UI",sans-serif;padding-left:12px;${dark ? "background:#202020;color:#fff" : "background:#f3f3f3;color:#000"}`;
-    bar.innerHTML = `<span style="flex:1">LunaBot</span>${["\u2013", "\u2610", "\u2715"].map((glyph) => `<span style="width:46px;text-align:center">${glyph}</span>`).join("")}`;
-    document.body.append(bar);
-    const below = document.createElement("style");
-    below.textContent = "html { padding-top: 31px !important; box-sizing: border-box !important; } #root { height: calc(100vh - 31px) !important; }";
-    document.head.append(below);
   }
 
-  const click = (selector: string) => new Promise<void>((resolve) => {
-    const tick = () => { const target = document.querySelector<HTMLElement>(selector); if (target) { target.click(); resolve(); } else setTimeout(tick, 100); };
-    tick();
-  });
-  const sheet = params.get("sheet");
-  if (sheet === "connect") void click('[data-rail-place="signed-in:s-render"]');
-  else if (sheet) void click("[data-rail-add]").then(() => (sheet === "server" ? click('[data-place-add-choice="server"]') : sheet === "add" ? undefined : click('[data-place-add-choice="cloud"]')))
-    .then(() => (sheet === "name" ? click("[data-plan-buy='pro']") : undefined));
   const openedSettings = () => new Promise<void>((resolve) => { const tick = () => { if (openSettings) { openSettings(); resolve(); } else setTimeout(tick, 100); }; tick(); });
   const settings = params.get("settings");
   if (settings) {
-    // Simple mode's General page has the sidebar's rows and the rail's switch; Advanced keeps them in Appearance.
     void openedSettings().then(() => (params.get("mode") === "simple" || settings === "general" ? undefined : click('[data-settings-section="appearance"]')))
       .then(() => new Promise<void>((resolve) => setTimeout(resolve, 300)))
       .then(() => {
         if (settings === "general") return document.querySelector("[data-settings-block='appearance']")?.scrollIntoView({ block: "start" });
-        if (settings === "frame") return document.querySelector("[data-window-frame-switch]")?.scrollIntoView({ block: "center" });
-        // The rail's switch closes the picture, with the sidebar's own rows above it.
-        if (settings === "strip") return document.querySelector("[data-rail-switch]")?.scrollIntoView({ block: "end" });
-        const shown = document.querySelector("[data-place-look], [data-place-picture]");
+        const shown = document.querySelector("[data-place-look]");
         (shown?.closest("[data-sidebar-look]") ?? shown)?.scrollIntoView({ block: "center" });
       });
-  }
-  if (params.has("more")) void click("[data-rail-more-button]");
-  const menu = params.get("menu");
-  if (menu) {
-    const opened = () => { const circle = document.querySelector(`[data-rail-place="${menu}"]`); if (circle) circle.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true })); else setTimeout(opened, 100); };
-    opened();
   }
 }

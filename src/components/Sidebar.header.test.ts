@@ -10,10 +10,9 @@ import { StoreProvider } from "@/state/store";
 const fixture = vi.hoisted(() => ({
   density: "comfortable" as SidebarDensity,
   advanced: true,
-  windowChrome: undefined as "mac-inset" | "win-caption" | "native" | undefined,
-  windowFrame: undefined as boolean | undefined,
+  windowChrome: undefined as "mac-inset" | "native" | undefined,
   hostLabel: undefined as string | undefined,
-  rail: null as { available: boolean; hidden: boolean } | null,
+  rail: null as { available: boolean; popoverOpen?: boolean } | null,
 }));
 
 vi.mock("@/lib/sidebar-preferences", async (importOriginal) => ({
@@ -21,13 +20,13 @@ vi.mock("@/lib/sidebar-preferences", async (importOriginal) => ({
   useSidebarDensity: () => fixture.density,
 }));
 vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => fixture.advanced, setAdvancedMode: () => {} }));
-vi.mock("@/lib/chrome-rail", () => ({ useChromeRail: () => fixture.rail, setChromeRailHidden: () => {} }));
+vi.mock("@/lib/chrome-rail", () => ({ useChromeRail: () => fixture.rail, openChromeRailPopover: () => {} }));
 vi.mock("./DesktopCapabilities", async (importOriginal) => ({
   ...await importOriginal<typeof import("./DesktopCapabilities")>(),
   useDesktopCapabilities: () => {
     const capabilities = initialDesktopCapabilities();
     const host = { ...capabilities.host, label: fixture.hostLabel ?? capabilities.host.label };
-    return { capabilities: { ...capabilities, host, windowChrome: fixture.windowChrome, windowFrame: fixture.windowFrame }, ready: true };
+    return { capabilities: { ...capabilities, host, windowChrome: fixture.windowChrome }, ready: true };
   },
 }));
 
@@ -41,7 +40,6 @@ beforeEach(() => {
   fixture.density = "comfortable";
   fixture.advanced = true;
   fixture.windowChrome = undefined;
-  fixture.windowFrame = undefined;
   fixture.hostLabel = undefined;
   fixture.rail = null;
   vi.stubGlobal("window", { innerWidth: 1280, location: { protocol: "http:", search: "" } });
@@ -103,19 +101,19 @@ describe("sidebar top row", () => {
     buttons: row.indexOf("data-sidebar-top-buttons"),
   });
 
-  it("leaves the traffic lights to the window frame's top bar on macOS: a drag space, then the compact server switcher beside the buttons in Advanced mode", () => {
+  it("makes room for the traffic lights in the row's corner on macOS: a drag space, then the compact server switcher beside the buttons in Advanced mode", () => {
     fixture.windowChrome = "mac-inset";
     desktop();
     const html = render();
     const row = topRow(html);
-    expect(row).toMatch(/^data-sidebar-top-row="true" class="[^"]*\bitems-center\b[^"]*\bh-12\b[^"]*" style="-webkit-app-region:drag"/);
+    expect(row).toMatch(/^data-sidebar-top-row="true" class="[^"]*\bitems-center\b[^"]*" style="-webkit-app-region:drag;height:46px"/);
+    expect(classesOf(row, "data-traffic-light-space")).toEqual(["w-[72px]", "shrink-0"]);
     const { lights, slot, spacer, switcher, buttons } = order(row);
-    expect(lights).toBe(-1);
-    expect(slot).toBeGreaterThan(-1);
+    expect(lights).toBeGreaterThan(-1);
+    expect(slot).toBeGreaterThan(lights);
     expect(spacer).toBeGreaterThan(slot);
     expect(switcher).toBeGreaterThan(spacer);
     expect(buttons).toBeGreaterThan(switcher);
-    expect(row.slice(buttons).match(/<button/g)).toHaveLength(1);
     const rowClasses = classesOf(row, "data-sidebar-top-row");
     expect(rowClasses).toEqual(expect.arrayContaining(["relative", "pl-4", "pr-2"]));
     expect(rowClasses).not.toContain("px-4");
@@ -132,32 +130,28 @@ describe("sidebar top row", () => {
     expect(html.match(/Switch server:/g)).toHaveLength(1);
   });
 
-  it.each(["mac-inset", "win-caption"] as const)("in Simple mode on %s keeps only the top corner: plain search, inbox and + at its right end, no drag region, no server pill, nothing on the edge", (windowChrome) => {
+  it("in Simple mode on macOS keeps the traffic-light space and the capsule, with plain search, inbox and + at its right end", () => {
     fixture.advanced = false;
-    fixture.windowChrome = windowChrome;
+    fixture.windowChrome = "mac-inset";
+    fixture.rail = { available: true };
     desktop();
     const html = render();
     const row = topRow(html);
-    expect(row, "the bot tiles rise into the rest of the corner: no drag region, no clicks but the buttons'").toMatch(/^data-sidebar-top-row="corner" class="[^"]*\bpointer-events-none\b[^"]*\bh-\[34px\][^"]*\bitems-start\b[^"]*">/);
-    expect(classesOf(row, "data-sidebar-top-row")).toEqual(expect.arrayContaining(["justify-end", "px-1.5", "pt-1.5"]));
+    expect(row).toMatch(/^data-sidebar-top-row="true" class="[^"]*\bh-\[60px\][^"]*\bitems-start\b[^"]*" style="-webkit-app-region:drag"/);
+    expect(row).toContain("data-traffic-light-space");
+    expect(row.indexOf("data-traffic-light-space")).toBeLessThan(row.indexOf("data-rail-toggle"));
     expect(row).not.toContain("data-workspace-switcher");
     expect(html).not.toContain("Switch server:");
-    const { lights, slot, buttons } = order(row);
-    expect(lights).toBe(-1);
+    const { slot, buttons } = order(row);
     expect(buttons).toBeGreaterThan(slot);
-    expect(classesOf(row, "data-sidebar-top-buttons")).toEqual(expect.arrayContaining(["shrink-0", "pointer-events-auto"]));
     expect(row.slice(buttons).match(/<button/g)).toHaveLength(3);
-    expect(row).toMatch(/data-sidebar-inbox="0"[^>]*class="[^"]*\bsize-\[26px\][^"]*\brounded-lg\b/);
-    expect(row).toMatch(/data-sidebar-search-toggle="true" aria-label="Search bots and messages" aria-expanded="false" title="Search bots and messages" class="[^"]*\bsize-\[26px\][^"]*\brounded-lg\b[^"]*\btext-ink-secondary\b/);
-    expect(row, "no round box round either").not.toContain("bg-composer");
-    expect(html).toMatch(/aria-label="New or share" class="[^"]*\bsize-\[26px\][^"]*\brounded-lg\b/);
     expect(html).not.toContain("data-sidebar-edge-toggle");
     expect(html).not.toContain('title="Active Threads"');
     expect(html).not.toContain("data-sidebar-search-pill");
   });
 
-  it.each([["win-caption", "Windows"], ["native", "Linux"]] as const)(
-    "keeps the same right-aligned order without traffic lights (%s)",
+  it.each([["native", "Windows"], ["native", "Linux"]] as const)(
+    "keeps the same right-aligned order without traffic lights under the system's own title bar (%s)",
     (windowChrome, hostLabel) => {
       fixture.windowChrome = windowChrome;
       fixture.hostLabel = hostLabel;
@@ -166,6 +160,7 @@ describe("sidebar top row", () => {
       const row = topRow(html);
       expect(row).not.toContain("data-traffic-light-space");
       expect(row).not.toContain("bg-[#ff5f57]");
+      expect(row).not.toContain("app-region:drag");
       expect(classesOf(row, "data-sidebar-top-row")).toEqual(expect.arrayContaining(["relative", "h-12", "pl-4", "pr-2"]));
       const { slot, spacer, switcher, buttons } = order(row);
       expect(slot).toBeGreaterThan(-1);
@@ -176,31 +171,11 @@ describe("sidebar top row", () => {
     },
   );
 
-  it("with the frame turned off on macOS, makes room for the traffic lights in its corner again, the rail's button after them", () => {
+  it("keeps a strip above the column of avatars for the traffic lights on macOS", () => {
     fixture.windowChrome = "mac-inset";
-    fixture.windowFrame = false;
-    fixture.rail = { available: true, hidden: false };
-    desktop();
-    const advanced = topRow(render());
-    expect(advanced).toMatch(/^data-sidebar-top-row="true" class="[^"]*" style="-webkit-app-region:drag;height:46px"/);
-    expect(classesOf(advanced, "data-traffic-light-space")).toEqual(["w-[72px]", "shrink-0", "md:w-[calc(72px_-_var(--rail-beside,0px))]"]);
-    expect(advanced.indexOf("data-traffic-light-space")).toBeLessThan(advanced.indexOf("data-rail-toggle"));
-    fixture.advanced = false;
-    const simple = topRow(render());
-    expect(simple, "Simple keeps its own top row, not the frame's corner").toMatch(/^data-sidebar-top-row="true"/);
-    expect(simple.indexOf("data-traffic-light-space")).toBeLessThan(simple.indexOf("data-rail-toggle"));
     fixture.density = "icons";
-    expect(classesOf(render(), "data-traffic-light-space"), "the column of avatars keeps a strip above for them").toEqual(["h-5", "w-full"]);
-  });
-
-  it("with the frame turned off on Windows, its own title bar is back: nothing makes room and nothing drags", () => {
-    fixture.windowChrome = "native";
-    fixture.windowFrame = false;
-    fixture.hostLabel = "Windows";
     desktop();
-    const row = topRow(render());
-    expect(row).not.toContain("data-traffic-light-space");
-    expect(row).not.toContain("app-region:drag");
+    expect(classesOf(render(), "data-traffic-light-space")).toEqual(["h-5", "w-full"]);
   });
 
   it("draws no window buttons in a browser, where the browser has its own", () => {
@@ -211,14 +186,16 @@ describe("sidebar top row", () => {
     expect(buttons).toBeGreaterThan(spacer);
   });
 
-  it("collapses Simple mode to a rail: round search and + on top (the frame's top bar holds the lights), nothing on the edge, and Apps and the account at the foot", () => {
+  it("collapses Simple mode to a rail: a strip for the lights, the capsule, round search and + on top, nothing on the edge, and Apps and the account at the foot", () => {
     fixture.advanced = false;
     fixture.density = "icons";
     fixture.windowChrome = "mac-inset";
+    fixture.rail = { available: true };
     desktop();
     const html = render();
     const top = html.slice(html.indexOf("data-sidebar-top-row"), html.indexOf("data-sidebar-rail-footer"));
-    expect(top).not.toContain("data-traffic-light-space");
+    expect(top).toContain("data-traffic-light-space");
+    expect(top.indexOf("data-rail-toggle")).toBeLessThan(top.indexOf("data-sidebar-rail-top"));
     expect(top).not.toContain("data-sidebar-top-buttons");
     expect(top).not.toContain("data-workspace-switcher");
     expect(top.indexOf('aria-label="Search bots and messages"')).toBeLessThan(top.indexOf('aria-label="New or share"'));
@@ -254,13 +231,13 @@ describe("sidebar top row", () => {
     expect(row).not.toContain("data-workspace-switcher");
     expect(row).not.toContain("data-sidebar-top-spacer");
     expect(classesOf(row, "data-sidebar-top-row")).toEqual(["flex", "items-center", "flex-col", "gap-1", "px-2", "pt-3.5", "pb-1"]);
-    expect(row).not.toContain("data-traffic-light-space");
+    expect(row).toContain("data-traffic-light-space");
     expect(classesOf(row, "data-sidebar-top-buttons")).toEqual(["relative", "flex", "shrink-0", "items-center", "flex-col", "gap-1"]);
     expect(html.match(/Switch server:/g)).toHaveLength(1);
   });
 });
 
-describe("the button that hides and shows the window's rail of places", () => {
+describe("the capsule that opens the window's places popover", () => {
   const row = () => {
     const html = render();
     return html.slice(html.indexOf("data-sidebar-top-row"), html.indexOf('aria-label="New or share"'));
@@ -269,35 +246,35 @@ describe("the button that hides and shows the window's rail of places", () => {
   beforeEach(() => {
     vi.stubGlobal("window", { innerWidth: 1280, location: { protocol: "http:", search: "" }, ogb: { workspaces: { state: () => new Promise(() => {}), menu: () => Promise.resolve() } } });
     fixture.windowChrome = "mac-inset";
-    fixture.rail = { available: true, hidden: false };
+    fixture.rail = { available: true };
   });
 
-  it("moves to the window frame's top bar on macOS and Windows: no row of the sidebar holds it", () => {
-    for (const windowChrome of ["mac-inset", "win-caption"] as const) {
+  it("sits in the sidebar's top row on every platform and mode", () => {
+    for (const windowChrome of ["mac-inset", "native"] as const) {
       fixture.windowChrome = windowChrome;
       for (const [advanced, density] of [[true, "comfortable"], [false, "comfortable"], [true, "icons"], [false, "icons"]] as const) {
         fixture.advanced = advanced;
         fixture.density = density;
-        expect(render(), `${windowChrome}, ${advanced ? "Advanced" : "Simple"}, ${density}`).not.toContain("data-rail-toggle");
+        expect(render(), `${windowChrome}, ${advanced ? "Advanced" : "Simple"}, ${density}`).toContain("data-rail-toggle");
       }
     }
   });
 
-  it("leads the row on Linux, round like the row's other buttons, its words saying what a click does", () => {
+  it("leads the row as a named capsule, its popover state on aria-expanded", () => {
     fixture.windowChrome = "native";
     fixture.hostLabel = "Linux";
     const advanced = row();
     expect(advanced.indexOf("data-rail-toggle")).toBeGreaterThan(-1);
     expect(advanced.indexOf("data-rail-toggle")).toBeLessThan(advanced.indexOf("data-sidebar-top-slot"));
-    expect(toggle(advanced)).toMatch(/aria-label="Hide your computers" title="Hide your computers" aria-expanded="true" class="[^"]*\bsize-8\b[^"]*\brounded-full\b/);
-    expect(advanced).toMatch(/data-rail-toggle="true"[^>]*><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect[^>]*><\/rect><path d="M9 3v18"><\/path>(<circle[^>]*fill="currentColor"><\/circle>){3}<\/svg>/);
+    expect(toggle(advanced)).toContain('aria-label="Show your computers" title="Servers" aria-haspopup="dialog" aria-expanded="false"');
+    expect(toggle(advanced)).toMatch(/class="[^"]*\brounded-full\b[^"]*\bh-8\b[^"]*\bmax-w-\[140px\]/);
+    expect(advanced).toContain(">Servers</span>");
     fixture.advanced = false;
     const simple = row();
     expect(simple.indexOf("data-rail-toggle")).toBeLessThan(simple.indexOf("data-sidebar-top-slot"));
-    expect(toggle(simple)).toMatch(/class="[^"]*\bsize-9\b[^"]*\brounded-full\b[^"]*\bbg-composer\b/);
-    expect(toggle(simple), "the rail is shown most of the time: no open-menu tint for it").not.toContain("aria-expanded:bg-");
-    fixture.rail = { available: true, hidden: true };
-    expect(toggle(row())).toContain('aria-label="Show your computers" title="Show your computers" aria-expanded="false"');
+    expect(toggle(simple)).toMatch(/class="[^"]*\brounded-full\b[^"]*\bh-9\b/);
+    fixture.rail = { available: true, popoverOpen: true };
+    expect(toggle(row())).toContain('aria-expanded="true"');
   });
 
   it("tops the column of buttons on Linux when the sidebar shows only avatars", () => {
@@ -313,8 +290,8 @@ describe("the button that hides and shows the window's rail of places", () => {
     expect(toggle(rail)).toMatch(/class="[^"]*\bsize-9\b[^"]*\brounded-full\b/);
   });
 
-  it("is nowhere without a rail to hide: one place, a browser, an older app, or a page that isn't beside it", () => {
-    for (const rail of [null, { available: false, hidden: false }, { available: false, hidden: true }]) {
+  it("is nowhere without a rail whose popover could open: one place, a browser, an older app, or a page that isn't beside it", () => {
+    for (const rail of [null, { available: false }, { available: false, popoverOpen: false }]) {
       fixture.rail = rail;
       expect(render()).not.toContain("data-rail-toggle");
     }

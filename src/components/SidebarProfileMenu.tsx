@@ -34,7 +34,6 @@ import { usageBridge } from "./CloudUsageMeter";
 import { useCloudPlanSnapshot } from "./CloudTrialNotice";
 import type { WorkspacePlace } from "./DesktopWorkspaceSwitcher";
 import { useChromeRail } from "@/lib/chrome-rail";
-import { railShown, usePlaces } from "@/lib/places";
 import { useAutomationsNeedYou } from "./SidebarFooterNav";
 import { useCloudFilesReady } from "@/lib/cloud-files";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
@@ -372,7 +371,7 @@ export function accountDot({ automationsNeedYou, update, move }: { automationsNe
   return update ? "accent" : null;
 }
 
-/** `besideRail`: the window's rail of places stands beside the page and switches places, so Switch to… isn't offered twice. */
+/** `besideRail`: the window's rail capsule switches places, so Switch to… isn't offered twice. */
 export function placeMenuItems(place: Pick<WorkspacePlace, "bridge" | "current" | "cloudHome" | "onLine" | "openMenu" | "switchable">, { owner, name, onCloudSettings, besideRail = false }: {
   owner: string | null;
   /** A team's name on a team's Cloud. */
@@ -590,13 +589,11 @@ export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = fa
   const connectTo = (destination: PhoneDestination) => selectPhoneDestination(destination, { bridge: cloudPhone.bridge, dispatch });
   const remote = window.ogb?.remoteClient?.active === true;
   const chromeRail = useChromeRail();
-  const capsuleActive = Boolean(
+  const besideRail = Boolean(
     chromeRail?.available
-    && chromeRail.hidden
     && typeof window !== "undefined"
     && typeof window.ogb?.rail?.openPopover === "function",
   );
-  const besideRail = railShown(usePlaces()) || capsuleActive;
   const filesReady = useCloudFilesReady();
   const cloudAccount = !remote && Boolean(window.ogb?.cloudAccount || (window.ogb?.cloudPlan && state.config?.cloudHome === true));
   const openCloudAccount = () => dispatch({ type: "toggleAppSettings", open: true, section: "cloudAccount" });

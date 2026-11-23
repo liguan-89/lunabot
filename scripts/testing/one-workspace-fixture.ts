@@ -430,13 +430,10 @@ export async function launchHomeWorld(fx: CloudSendFixture, { chrome, ports, ver
       ...(clean?.profile() && new URL(event.senderFrame.url).origin === localOrigin ? { profile: clean.profile(), ...(localProfiles?.name(clean.profile()!) ? { profileName: localProfiles.name(clean.profile()!) } : {}) } : {}) }),
     "workspaces:menu": () => null,
     "workspaces:line": (event) => (clean?.active() && new URL(event.senderFrame.url).origin === localOrigin ? (clean.profile() ? { kind: "profile", ...(localProfiles?.name(clean.profile()!) ? { name: localProfiles.name(clean.profile()!) } : {}) } : { kind: "clean" }) : homePlaces.line()),
-    "rail:offer": () => ({ available: true, hidden: false }),
-    // chrome-rail.mjs: while a sheet of the rail's is open, its view covers the window, see-through but for the sheet.
-    "rail:expand": async (_event, covering) => {
-      railCovers = covering === true;
-      if (railRef) await cdp.request("Emulation.setDeviceMetricsOverride", { width: railCovers ? size.width : 36, height: size.height, deviceScaleFactor: 2, mobile: false }, railRef.sessionId);
-    },
-    "rail:draws-frame": () => null,
+    "rail:offer": () => ({ available: true, popoverOpen: false }),
+    // chrome-rail.mjs: while a sheet or the popover of the rail's is open, its view covers the window, see-through but
+    // for it. Its tab is the window's size already; the rail's page saying so is what a test watches.
+    "rail:expand": (_event, covering) => { railCovers = covering === true; },
     "desktop-notices:state": () => ({ seen: [...NOTICES], cloud: false }),
     "desktop-notices:seen": () => null,
     "cloud-plan:state": () => ({ status: "paid", tier: "pro", home: true }),
@@ -644,10 +641,10 @@ export async function launchHomeWorld(fx: CloudSendFixture, { chrome, ports, ver
   let lending: ReturnType<typeof createComputerSharing> | null = null;
   if (profiles) {
     railRef = await TabWindow.open(cdp, preloadStandIn(ipcBase, localOrigin, "rail"));
-    await cdp.request("Emulation.setDeviceMetricsOverride", { width: 36, height: 800, deviceScaleFactor: 2, mobile: false }, railRef.sessionId);
+    await cdp.request("Emulation.setDeviceMetricsOverride", { width: size.width, height: size.height, deviceScaleFactor: 2, mobile: false }, railRef.sessionId);
     await cdp.request("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } }, railRef.sessionId);
     railHandlers = installCloudRail({
-      ipcMain, guard: (handler: any) => handler, trusted: () => true, lists: (event: any) => event.sender === railRef!.webContents, beside: () => true,
+      ipcMain, guard: (handler: any) => handler, trusted: () => true, lists: (event: any) => event.sender === railRef!.webContents,
       places: railList, account: () => null, clipboard: { writeText: () => {} }, openCloud: async () => {},
       add: { choices: () => ({ cloud: false, link: true, address: false }), run: () => {} },
       targets: () => [win.webContents, railRef!.webContents],
@@ -691,7 +688,7 @@ export async function launchHomeWorld(fx: CloudSendFixture, { chrome, ports, ver
     async setSize(width: number, height: number) {
       Object.assign(size, { width, height });
       await cdp.request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2, mobile: false }, win.sessionId);
-      if (railRef) await cdp.request("Emulation.setDeviceMetricsOverride", { width: railCovers ? width : 36, height, deviceScaleFactor: 2, mobile: false }, railRef.sessionId);
+      if (railRef) await cdp.request("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 2, mobile: false }, railRef.sessionId);
     },
     async theme(dark: boolean) {
       for (const tab of [win, railRef].filter(Boolean) as TabWindow[]) {
