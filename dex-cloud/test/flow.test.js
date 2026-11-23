@@ -214,7 +214,7 @@ test("healthz names the control plane", async () => {
   try {
     const health = await call(app.base, "GET", "/healthz");
     assert.equal(health.status, 200);
-    assert.equal(health.body.service, "lunabot-control-plane");
+    assert.equal(health.body.service, "openmausbot-control-plane");
   } finally {
     app.server.close();
     app.store.close();

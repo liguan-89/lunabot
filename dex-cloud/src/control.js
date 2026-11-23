@@ -76,7 +76,7 @@ function issueCredential(ctx, installationId) {
 }
 
 route("GET", "/healthz", async (ctx) => {
-  json(ctx.res, 200, { ok: true, service: "lunabot-control-plane", ...ctx.store.counts() });
+  json(ctx.res, 200, { ok: true, service: "openmausbot-control-plane", ...ctx.store.counts() });
 });
 
 route("POST", "/api/auth/email-otp/send-verification-otp", async (ctx) => {
