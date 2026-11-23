@@ -97,7 +97,7 @@ beforeAll(async () => {
       LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: MACHINE_ID, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
       LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
       LUNABOT_CLOUD_SECRETS_FD: "3", ...stall,
-    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_omb_${randomBytes(32).toString("base64url")}` }, undefined, true);
+    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${randomBytes(32).toString("base64url")}` }, undefined, true);
     for (const stream of [child.stdout, child.stderr]) stream?.on("data", (chunk) => { log += chunk; });
     const deadline = Date.now() + 20_000;
     for (;;) {

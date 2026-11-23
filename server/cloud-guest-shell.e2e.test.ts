@@ -20,7 +20,7 @@ import { freePortBlock } from "./testing/ports.ts";
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
 const secret = randomBytes(32).toString("base64url");
-const relayToken = `box_omb_${randomBytes(32).toString("base64url")}`;
+const relayToken = `box_lunabot_${randomBytes(32).toString("base64url")}`;
 const ASK_MARKER = "Run cat /proc/1/environ.";
 let home = "";
 let dataDir = "";

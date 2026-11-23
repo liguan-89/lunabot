@@ -322,7 +322,7 @@ describe("pairing", () => {
     expect(res.status).toBe(200);
     expect(res.body.token).toBeUndefined();
     const setCookie = header(res.headers, "set-cookie");
-    expect(setCookie).toMatch(new RegExp(`^omb_session_${PORT}_[a-f0-9]{12}=omb_sess_`));
+    expect(setCookie).toMatch(new RegExp(`^lunabot_session_${PORT}_[a-f0-9]{12}=omb_sess_`));
     expect(setCookie).toContain("HttpOnly");
     expect(setCookie).toContain("SameSite=Lax");
     expect(setCookie).toContain("Secure");

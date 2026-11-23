@@ -22,7 +22,7 @@ const DEBUG_PORT = 9333;
 
 const ADMIN_HOST = "cloud.openmausbot.com", AWAKE_HOST = "omb-u-aaaaaaaaaaaa.fly.dev", ASLEEP_HOST = "omb-u-bbbbbbbbbbbb.fly.dev";
 const BLOCKED = ["us.i.posthog.com", "us-assets.i.posthog.com", "app.posthog.com"];
-const TOKEN = `omc_${"T".repeat(43)}`, COOKIE = "omb_session_fixture";
+const TOKEN = `omc_${"T".repeat(43)}`, COOKIE = "lunabot_session_fixture";
 const results = [];
 const log = (line) => { console.log(line); appendFileSync(join(OUT, "progress.log"), `${line}\n`); };
 function passed(name, detail = "") { results.push({ name, passed: true, detail }); log(`PASS ${name}${detail ? `: ${detail}` : ""}`); }

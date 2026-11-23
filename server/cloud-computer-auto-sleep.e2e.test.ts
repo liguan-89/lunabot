@@ -15,7 +15,7 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
-const INCLUDED = `box_omb_${randomUUID()}`;
+const INCLUDED = `box_lunabot_${randomUUID()}`;
 const IDLE_MS = 1_500;
 const FRAME = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 // A logged, always-failing docker stands in for a VPS; the fixture is a POSIX shell script.

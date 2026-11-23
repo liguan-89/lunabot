@@ -11,7 +11,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const INCLUDED = `box_omb_${randomUUID()}`;
+const INCLUDED = `box_lunabot_${randomUUID()}`;
 const OWN = "box_own_person_key";
 const INCLUDED_BOX = "bx_23456789";
 let stub: Server;

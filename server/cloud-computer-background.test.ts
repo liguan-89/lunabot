@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { AppConfig } from "./config.ts";
 
 const BOX = "bx_23456789", OTHER_BOX = "bx_3456789a";
-const OWN_KEY = "boat_own-synthetic-key", INCLUDED = "box_omb_included-synthetic-token";
+const OWN_KEY = "boat_own-synthetic-key", INCLUDED = "box_lunabot_included-synthetic-token";
 type Process = { polls: number; runningFor: number; exitCode: number | null; stdout: string; stderr: string; lost?: boolean };
 let server: Server;
 let base = "";

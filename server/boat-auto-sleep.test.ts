@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 import { hostTimeout } from "./testing/host-timeout.ts";
 
-const INCLUDED = "box_omb_included-relay-token";
+const INCLUDED = "box_lunabot_included-relay-token";
 const OWN = "boat_own-key";
 const botId = "auto-sleep-test";
 const boxId = "bx_23456789";

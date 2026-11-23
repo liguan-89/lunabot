@@ -9,7 +9,7 @@ const RELAY_VOICE = "https://cloud.example.test/api/cloud/services/voice/v1";
 const RELAY_DECIDER = "https://cloud.example.test/api/cloud/services/decider";
 const cloud = {
   LUNABOT_CLOUD_BOAT_URL: RELAY_BOAT,
-  LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_included",
+  LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_included",
   LUNABOT_CLOUD_VOICE_URL: RELAY_VOICE,
   LUNABOT_CLOUD_VOICE_TOKEN: "omb_voice_included",
   LUNABOT_CLOUD_DECIDER_URL: RELAY_DECIDER,
@@ -18,8 +18,8 @@ const cloud = {
 
 describe("Boat credential", () => {
   it("falls back to the included token, sent only to the relay, when there is no own key", () => {
-    expect(boatCredential(undefined, cloud)).toEqual({ token: "box_omb_included", api: RELAY_BOAT, included: true });
-    expect(boatCredential("", cloud)).toEqual({ token: "box_omb_included", api: RELAY_BOAT, included: true });
+    expect(boatCredential(undefined, cloud)).toEqual({ token: "box_lunabot_included", api: RELAY_BOAT, included: true });
+    expect(boatCredential("", cloud)).toEqual({ token: "box_lunabot_included", api: RELAY_BOAT, included: true });
   });
 
   it("uses the person's own key, sent only to Boat, whenever there is one", () => {
@@ -30,16 +30,16 @@ describe("Boat credential", () => {
   });
 
   it("sends the included token only to the relay even when it comes back as a plain token", () => {
-    expect(boatCredential("box_omb_included", { ...cloud, LUNABOT_BOAT_API: "http://127.0.0.1:9/api/v1" }))
-      .toEqual({ token: "box_omb_included", api: RELAY_BOAT, included: true });
+    expect(boatCredential("box_lunabot_included", { ...cloud, LUNABOT_BOAT_API: "http://127.0.0.1:9/api/v1" }))
+      .toEqual({ token: "box_lunabot_included", api: RELAY_BOAT, included: true });
   });
 
   it("is included only when both the relay URL and the token are set", () => {
     expect(boatCredential(undefined, {})).toBeNull();
-    expect(boatCredential(undefined, { LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_included" })).toBeNull();
+    expect(boatCredential(undefined, { LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_included" })).toBeNull();
     expect(boatCredential(undefined, { LUNABOT_CLOUD_BOAT_URL: RELAY_BOAT })).toBeNull();
-    expect(boatCredential(undefined, { LUNABOT_CLOUD_BOAT_URL: `${RELAY_BOAT}/`, LUNABOT_CLOUD_BOAT_TOKEN: " box_omb_included " }))
-      .toEqual({ token: "box_omb_included", api: RELAY_BOAT, included: true });
+    expect(boatCredential(undefined, { LUNABOT_CLOUD_BOAT_URL: `${RELAY_BOAT}/`, LUNABOT_CLOUD_BOAT_TOKEN: " box_lunabot_included " }))
+      .toEqual({ token: "box_lunabot_included", api: RELAY_BOAT, included: true });
   });
 });
 
@@ -56,7 +56,7 @@ describe("ElevenLabs credential", () => {
   });
 
   it("never mixes the two services' tokens", () => {
-    expect(voiceCredential("box_omb_included", cloud)).toMatchObject({ api: "https://api.elevenlabs.io/v1", included: false });
+    expect(voiceCredential("box_lunabot_included", cloud)).toMatchObject({ api: "https://api.elevenlabs.io/v1", included: false });
     expect(boatCredential(undefined, { LUNABOT_CLOUD_VOICE_URL: RELAY_VOICE, LUNABOT_CLOUD_VOICE_TOKEN: "omb_voice_included" })).toBeNull();
   });
 });
@@ -148,7 +148,7 @@ describe("holdIncludedServices", () => {
     expect(process.env.LUNABOT_CLOUD_DECIDER_TOKEN).toBeUndefined();
     expect(process.env.LUNABOT_CLOUD_BOAT_URL).toBe(RELAY_BOAT);
     expect(process.env.LUNABOT_CLOUD_DECIDER_URL).toBe(RELAY_DECIDER);
-    expect(services.boatCredential(undefined)).toEqual({ token: "box_omb_included", api: RELAY_BOAT, included: true });
+    expect(services.boatCredential(undefined)).toEqual({ token: "box_lunabot_included", api: RELAY_BOAT, included: true });
     expect(services.voiceCredential(undefined)).toEqual({ token: "omb_voice_included", api: RELAY_VOICE, included: true });
     expect(services.deciderCredential(undefined, undefined)).toEqual({ token: "omb_decide_included", api: RELAY_DECIDER, included: true });
     expect(services.boatCredential("box_own")).toMatchObject({ token: "box_own", included: false });
