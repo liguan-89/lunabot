@@ -1633,7 +1633,7 @@ async function switchLocalEnvironmentTo(targetDir, targetId, quiet = false) {
       return failedSwitch();
     }
     switchSucceeded = true;
-    if (windowFollows()) navigateMainWindow(rendererOrigin());
+    if (windowFollows() && mainWindow && !mainWindow.isDestroyed()) navigateMainWindow(rendererOrigin());
     return { ok: true };
   } catch (error) {
     slog(`environment switch to ${targetDir} failed (${error?.message ?? error})`);
@@ -1915,6 +1915,7 @@ async function forgetEnvironment(id, purge = false, confirmed = false) {
     }
   }
   persistEnvironments(withoutEnvironment(environmentsState, id));
+  if (env.kind !== "local") void ownHome?.kick().catch((error) => slog(`own home: ${error?.message ?? error}`));
   if (wasActive) navigateMainWindow(activeOrigin());
   if (!env.origin) return { ok: true };
   try {

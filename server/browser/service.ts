@@ -23,7 +23,7 @@ import type { CdpPage } from "./cdp/page.ts";
 import { browserRoot, profileDir, profileHash, profileKind, removeProfile, workspaceId } from "./chrome/profile.ts";
 import { BROWSER_CONTROL_REFUSAL, ProfileControl, type TakeResult } from "./control.ts";
 import type { ClickChoice, ClickChoiceInput } from "./click-choice.ts";
-import { executeTool, personUrl, toolFailure, type ToolContext } from "./dispatch.ts";
+import { executeTool, personUrl, readsDuringHold, toolFailure, type ToolContext } from "./dispatch.ts";
 import { installedExtensions } from "./extensions.ts";
 import { HealthShown, pageHealthLine } from "./health.ts";
 import type { HoldLimits } from "./hold.ts";
@@ -43,6 +43,14 @@ export const BROWSER_STUCK = `The browser engine is stuck. Press Restart in the 
 const RESTART_COST = "a restart closes every tab and loses page state such as form input";
 const PROBE_MS = 5_000;
 const CAPACITY_WAIT_MS = 30_000;
+/** How long a started Chrome's first tab may take to run: as long as Chrome itself gets to answer on its DevTools pipe
+ * (chrome/launch.ts). On a busy or CPU-capped computer the first tab can take longer than 15 s, and refusing it then only
+ * made the bot start Chrome again from nothing. */
+const FIRST_TAB_MS = 60_000;
+/** What a bot's call keeps back from its budget while the browser starts: the call answers "still starting" by then, so
+ * it never ends as a lost call, and the start carries on for its next call. */
+const STARTING_MARGIN_MS = 15_000;
+export const BROWSER_STARTING = "The browser is still starting (this computer is busy), so this call did not run. Call again in a moment: the next call uses the same browser once it is up.";
 const SERVER_TAB_LIMIT = 32;
 const PROFILE_TAB_LIMIT = 8;
 
@@ -246,7 +254,12 @@ export class BrowserService {
     if (browser.downloads) run.offs.push(browser.downloads.onChange((download) => profile.hub.downloaded(download)));
     try {
       this.#stillWanted(profile, epoch);
-      await browser.waitForPage(() => true, 15_000);
+      // A Chrome that dies before any tab runs says so at once, not when the wait ends.
+      const firstTab = browser.waitForPage(() => true, FIRST_TAB_MS);
+      const died = opened.exited.then(() => { throw new Error("Chrome closed before its first tab opened."); });
+      firstTab.catch(() => undefined);
+      died.catch(() => undefined);
+      await Promise.race([firstTab, died]);
       for (const page of browser.pages()) await page.ready.then(() => adopt(page, "restored"), () => undefined);
       if (fresh) await this.#onlyBlankTab(profile, browser);
       this.#stillWanted(profile, epoch);
@@ -475,12 +488,14 @@ export class BrowserService {
     if (!parsed.ok) return errorResult(parsed.error);
     let run: Running;
     try {
-      run = await this.running(profile);
+      const started = await this.#startedBy(profile, deadline);
+      if (started === null) return errorResult(BROWSER_STARTING);
+      run = started;
     } catch (error) {
       return errorResult(`The browser could not start: ${error instanceof Error ? error.message : String(error)}`);
     }
     beforeDispatch?.();
-    if (control.owner !== null) throw new Error(BROWSER_CONTROL_REFUSAL);
+    if (control.owner !== null && !readsDuringHold(parsed.call)) throw new Error(BROWSER_CONTROL_REFUSAL);
     control.call = parsed.call.name;
     try {
       const result = await executeTool(this.#context(profile, run, deadline), parsed.call);
@@ -497,6 +512,21 @@ export class BrowserService {
       return withParts(failure, this.#options.egressNotice?.(profile.key));
     } finally {
       if (control.call === parsed.call.name) control.call = null;
+    }
+  }
+
+  /** The running browser, or null when it is still starting as the call's budget nears its end. The start is shared and
+   * carries on; nothing is latched, so the next call takes the same browser. */
+  async #startedBy(profile: ProfileState, deadline: number): Promise<Running | null> {
+    const starting = this.running(profile);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), Math.max(0, deadline - Date.now() - STARTING_MARGIN_MS)); timer.unref?.(); });
+    try {
+      const outcome = await Promise.race([starting, late]);
+      if (outcome === null) starting.catch(() => undefined);
+      return outcome;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

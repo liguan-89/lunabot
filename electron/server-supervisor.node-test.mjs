@@ -234,7 +234,7 @@ function runForget(state) {
   const start = MAIN_SOURCE.indexOf("async function forgetEnvironment(");
   const end = MAIN_SOURCE.indexOf("function showContextMenu(", start);
   assert.ok(start > 0 && end > start, "the forget helper exists");
-  const calls = { dialogs: [], shares: [], persisted: [], navigated: [], rm: [] };
+  const calls = { dialogs: [], shares: [], persisted: [], navigated: [], rm: [], homeKicks: [] };
   const rmOptions = [];
   const ctx = {
     environmentsState: state,
@@ -253,6 +253,7 @@ function runForget(state) {
     path,
     AbortSignal,
     remoteMicrophoneRefused: new Set(),
+    ownHome: { kick: async () => { calls.homeKicks.push(1); } },
     desktopDataDir: () => "/Users/me/.dexbot",
     slog: () => {},
     session: { defaultSession: { fetch: async () => ({ ok: true }), clearStorageData: async () => {} } },
@@ -266,7 +267,7 @@ function runForget(state) {
 test("forgetting the ACTIVE local environment is refused with {error:active} and touches nothing", async () => {
   const { calls, context } = runForget({ environments: [LOCAL_FIXTURE], activeId: "l1" });
   assert.deepEqual(plain(await context.forgetEnvironment("l1", true)), { ok: false, error: "active" });
-  assert.deepEqual(calls, { dialogs: [], shares: [], persisted: [], navigated: [], rm: [] });
+  assert.deepEqual(calls, { dialogs: [], shares: [], persisted: [], navigated: [], rm: [], homeKicks: [] });
 });
 
 test("forgetting a local environment asks nothing of the user, and a failed purge keeps the entry with {error:purge}", async () => {
@@ -300,6 +301,7 @@ test("forgetting a remote environment keeps its sign-out confirmation and answer
   assert.equal(calls.dialogs[0].message, "Remove Office from this app?");
   assert.match(calls.dialogs[0].detail, /The server keeps running and your bots stay there/);
   assert.deepEqual(plain(calls.persisted[0].environments), []);
+  assert.equal(calls.homeKicks.length, 1, "a home on the removed server comes back to this computer now, not at the next launch");
 });
 
 test("forgetting a local environment whose folder the server child uses is refused with {error:active}", async () => {
@@ -326,10 +328,11 @@ test("a purge of a missing folder still removes the entry (rm runs with force)",
   assert.deepEqual(plain(rmOptions), [{ recursive: true, force: true }]);
 });
 
-function switchFixture(t, { startResults = [], releaseLeaseThrows = false, stopUtilityServer = async () => true, acquireThrowsOn = [] } = {}) {
+function switchFixture(t, { startResults = [], releaseLeaseThrows = false, stopUtilityServer = async () => true, acquireThrowsOn = [], mainWindow = null } = {}) {
   const targetDir = mkdtempSync(join(tmpdir(), "omb-switch-fixture-"));
   t.after(() => rmSync(targetDir, { recursive: true, force: true }));
   const forks = [];
+  const navigated = [];
   let forkIndex = 0;
   let acquires = 0;
   const context = vm.createContext({
@@ -365,7 +368,8 @@ function switchFixture(t, { startResults = [], releaseLeaseThrows = false, stopU
     startupEnvironmentDir: env.startupEnvironmentDir,
     withActive: env.withActive,
     persistEnvironments: (next) => { context.environmentsState = next; },
-    navigateMainWindow: () => {},
+    mainWindow,
+    navigateMainWindow: (url) => navigated.push(url),
     placeSwitch: { turn: () => 0 },
     rendererOrigin: () => "http://127.0.0.1:8799",
     dialog: { showErrorBox: () => {} },
@@ -376,7 +380,7 @@ function switchFixture(t, { startResults = [], releaseLeaseThrows = false, stopU
   const body = MAIN_SOURCE.slice(start, MAIN_SOURCE.indexOf("\nasync function switchEnvironment", start));
   assert.ok(start > 0 && body.length > 0, "the switch helper exists");
   vm.runInContext(`${body}; this.switchLocalEnvironmentTo = switchLocalEnvironmentTo;`, context);
-  return { context, forks, targetDir };
+  return { context, forks, navigated, targetDir };
 }
 
 test("a failed switch with no live child reforks the active environment once and adopts it", async (t) => {
@@ -413,6 +417,20 @@ test("a successful switch never runs the safety net", async (t) => {
   const result = await context.switchLocalEnvironmentTo(targetDir, "l1");
   assert.deepEqual(plain(result), { ok: true });
   assert.equal(forks.length, 1, "only the switch's own startChild fork");
+});
+
+test("a successful switch before the main window exists navigates nothing, so the opening that asked for it is not cancelled", async (t) => {
+  const { context, navigated, targetDir } = switchFixture(t);
+  const result = await context.switchLocalEnvironmentTo(targetDir, "l1");
+  assert.deepEqual(plain(result), { ok: true });
+  assert.deepEqual(navigated, []);
+});
+
+test("a successful switch moves a live main window to the new server", async (t) => {
+  const { context, navigated, targetDir } = switchFixture(t, { mainWindow: { isDestroyed: () => false } });
+  const result = await context.switchLocalEnvironmentTo(targetDir, "l1");
+  assert.deepEqual(plain(result), { ok: true });
+  assert.deepEqual(navigated, ["http://127.0.0.1:8799"]);
 });
 
 test("a child that will not stop aborts the switch before its lease is handed away", async (t) => {
