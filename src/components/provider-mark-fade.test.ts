@@ -15,7 +15,7 @@ const coloured = (html: string) => /#[0-9a-f]{3,8}\b|url\(#|<img/i.test(html);
 
 describe("the faded provider mark", () => {
   it("finds every engine the mark switch draws", () => {
-    expect(DRIVERS).toEqual(["piAgent", "tk1688", "anEngineWithNoMark"]);
+    expect(DRIVERS).toEqual(["claudeAgent", "codex", "grokAgent", "piAgent", "tk1688", "anEngineWithNoMark"]);
   });
 
   it.each(DRIVERS)("treats %s as a brand-coloured mark exactly when its logo carries its own colours", (driverKind) => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Cloud, Laptop } from "lucide-react";
 import { track } from "@/lib/analytics";
+import { useChromeRail } from "@/lib/chrome-rail";
 import { cn } from "@/lib/cn";
 import type { Action } from "@/state/store";
 import type { CloudPlanSnapshot } from "../../electron/cloud-account.mjs";
@@ -83,10 +84,18 @@ type SwitcherProps = {
   compact?: boolean; inline?: boolean; pill?: boolean; rail?: boolean; cloudHome?: boolean; owner?: string | null; howTo?: boolean; place?: string; onMenuClosed?: () => void;
 };
 
-/** The place on screen and the native Server menu; where a rail of places stands beside the page, the rail switches
- * instead: the window's own rail at every width, one drawn on the page on a wide window. */
+/** The place on screen and the native Server menu; where a rail of places stands beside the page — or the top
+ * ChromeRailToggle capsule opens its isolated popover — avoid rendering a duplicate switcher. */
 export function DesktopWorkspaceSwitcher(props: SwitcherProps) {
   const places = usePlaces();
+  const chromeRail = useChromeRail();
+  const capsuleActive = Boolean(
+    chromeRail?.available
+    && chromeRail.hidden
+    && typeof window !== "undefined"
+    && typeof window.ogb?.rail?.openPopover === "function",
+  );
+  if (capsuleActive && !props.rail) return null;
   const switcher = <Switcher {...props} />;
   return railShown(places) ? <div data-switcher-beside-rail className={places.beside ? "hidden" : "contents md:hidden"}>{switcher}</div> : switcher;
 }

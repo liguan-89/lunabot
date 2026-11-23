@@ -88,6 +88,12 @@ export function DeepSeekMark({ size = 16, className }: IconProps) {
 
 export function ProviderMark({ driverKind, size, className }: IconProps & { driverKind: string }) {
   switch (driverKind) {
+    case "claudeAgent":
+      return <ClaudeMark size={size} className={className} />;
+    case "codex":
+      return <CodexMark size={size} className={className} />;
+    case "grokAgent":
+      return <GrokMark size={size} className={className} />;
     case "piAgent":
       // pi is the only engine this build runs; a pi logo would only name a choice nobody has.
       return null;

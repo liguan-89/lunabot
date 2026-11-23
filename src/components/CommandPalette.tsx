@@ -168,7 +168,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
       },
       {
         id: "toggle-mode",
-        label: advanced ? `${t("settings.advancedMode.title")}: Off` : `${t("settings.advancedMode.title")}: On`,
+        label: `${t("settings.advancedMode.title")} · ${t(advanced ? "mcp.state.off" : "mcp.state.on")}`,
         keywords: ["advanced", "simple", "mode", "高级模式", "简洁模式", "切换模式"],
         icon: <Monitor size={15} className="shrink-0 text-ink-secondary" />,
         run: () => setAdvancedMode(!advanced),
@@ -184,10 +184,10 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
     );
 
     const quickSkins: Array<{ choice: SkinChoice; label: string; keywords: string[] }> = [
-      { choice: "system", label: "Theme · System", keywords: ["theme", "skin", "system", "auto", "主题", "皮肤", "跟随系统"] },
+      { choice: "system", label: `${t("settings.theme.title")} · ${t("settings.theme.system")}`, keywords: ["theme", "skin", "system", "auto", "主题", "皮肤", "跟随系统"] },
       ...SKINS.filter((skin) => ["midnight", "daylight", "meadow", "atelier", "foundry", "aurora"].includes(skin.id)).map((skin) => ({
         choice: skin.id as SkinChoice,
-        label: `Theme · ${skin.name}`,
+        label: `${t("settings.theme.title")} · ${skin.name}`,
         keywords: ["theme", "skin", skin.id, skin.name.toLowerCase(), "主题", "皮肤", skin.id === "daylight" || skin.id === "atelier" || skin.id === "meadow" ? "浅色 light" : "深色 dark"],
       })),
     ];
@@ -280,7 +280,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-6 pt-[14vh] [:root[data-skin=daylight]_&]:bg-black/[0.18]"
+      className="ui-scrim-light fixed inset-0 z-50 flex items-start justify-center p-6 pt-[14vh]"
       onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
       onKeyDown={onKeyDown}
     >
@@ -288,7 +288,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
         role="dialog"
         aria-modal="true"
         aria-label={t("palette.label")}
-        className="popover-surface flex max-h-[min(520px,74vh)] w-full max-w-[580px] flex-col overflow-hidden rounded-[var(--radius-menu)] border border-hairline/50 bg-menu shadow-2xl shadow-black/60"
+        className="popover-surface flex max-h-[min(520px,74vh)] w-full max-w-[580px] flex-col overflow-hidden rounded-[var(--radius-menu)] border border-hairline/50 bg-menu shadow-2xl"
       >
         <div className="flex items-center gap-3 border-b border-hairline/40 px-4 py-3">
           <Search size={16} className="shrink-0 text-ink-secondary" />
