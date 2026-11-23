@@ -41,13 +41,13 @@ describe.skipIf(!posix)("the server's own npm and git, with a HOME a bot wrote",
     writeFileSync(join(pkg, "bin", "omb-hostile-check"), "#!/usr/bin/env node\nconsole.log('1.0.0');\n", { mode: 0o755 });
     writeFileSync(join(pkg, "package.json"), JSON.stringify({
       name: "omb-hostile-check", version: "1.0.0", bin: { "omb-hostile-check": "bin/omb-hostile-check" },
-      scripts: { postinstall: "node -e \"require('fs').writeFileSync(process.env.OMB_TEST_POSTINSTALL, 'ran')\"" },
+      scripts: { postinstall: "node -e \"require('fs').writeFileSync(process.env.LUNABOT_TEST_POSTINSTALL, 'ran')\"" },
     }));
     const env = { PATH: [dirname(process.execPath), "/usr/bin", "/bin"].join(delimiter), HOME: home };
     const tarball = join(dir, execFileSync("npm", ["pack", "--silent", "--pack-destination", dir, pkg], { cwd: dir, env: { ...env, npm_config_cache: join(dir, "pack-cache") }, encoding: "utf8" }).trim().split("\n").at(-1)!);
     const install = async (boxed: boolean, prefix: string) => {
       mkdirSync(prefix, { recursive: true });
-      const npmEnv = { ...npmEnvironment(env, env.PATH, boxed, data), OMB_TEST_POSTINSTALL: join(prefix, "postinstall-ran"), npm_config_offline: "true" };
+      const npmEnv = { ...npmEnvironment(env, env.PATH, boxed, data), LUNABOT_TEST_POSTINSTALL: join(prefix, "postinstall-ran"), npm_config_offline: "true" };
       return runNpm(["install", "-g", "--prefix", prefix, "--loglevel=error", "--allow-scripts=omb-hostile-check", tarball], npmEnv, prefix, 120_000);
     };
 

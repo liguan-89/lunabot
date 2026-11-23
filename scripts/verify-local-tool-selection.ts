@@ -25,7 +25,7 @@ const home = mkdtempSync(join(tmpdir(), "omb-local-selection-"));
 for (const name of Object.keys(process.env)) {
   if (!["PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "LANG", "LC_ALL", "TZ", "TMPDIR"].includes(name)) delete process.env[name];
 }
-process.env.HOME = home; process.env.USERPROFILE = home; process.env.OMB_DATA_DIR = join(home, "data");
+process.env.HOME = home; process.env.USERPROFILE = home; process.env.LUNABOT_DATA_DIR = join(home, "data");
 const { ensureDirs } = await import("../server/config.ts"); ensureDirs();
 const artifact = join(home, "draft.txt"), blocked = join(home, "blocked.txt"), receipt = join(home, "mail-calls.txt");
 type Payload = { tools?: Array<{ function: { name: string } }>; stream?: boolean; max_tokens?: number; messages: unknown[] };

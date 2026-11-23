@@ -82,12 +82,12 @@ function install(home: string, boatPort: () => number) {
     const proc = spawn(process.execPath, [join(ROOT, "server/index.ts")], {
       cwd: ROOT, env: {
         PATH: dirname(process.execPath), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data,
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data,
         APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
         TEMP: home, TMP: home, TMPDIR: home,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "static"),
-        OMB_BOAT_API: `http://127.0.0.1:${boatPort()}`,
-        OMB_USER_DATA: join(home, "user-data"),
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: join(home, "static"),
+        LUNABOT_BOAT_API: `http://127.0.0.1:${boatPort()}`,
+        LUNABOT_USER_DATA: join(home, "user-data"),
         // A turn's first computer call is what creates the Boat, as with a real model. The fake pi
         // scripts that call through the turn's real computer MCP server (it has no built-in one); a
         // slow turn plays its scripted calls and then answers, with no finish gate to wait on.

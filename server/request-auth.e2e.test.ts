@@ -28,7 +28,7 @@ const navigation = { "sec-fetch-site": "none", "sec-fetch-mode": "navigate", "se
 
 describe("a browser on a self-hosted server's own machine", () => {
   it("is refused until it signs in once with a pairing code, while the CLI keeps working", async () => {
-    const fixture = await launchVerificationServer({ OMB_DEV_TRUST_LOCAL_BROWSER: "0" });
+    const fixture = await launchVerificationServer({ LUNABOT_DEV_TRUST_LOCAL_BROWSER: "0" });
     const url = fixture.info.url;
     try {
       for (const headers of [fromPage(url), otherPage, navigation]) {

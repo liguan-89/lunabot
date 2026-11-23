@@ -63,7 +63,7 @@ async function adminPairing(cloud: Cloud): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${cloud.base}/api/cloud/pairing`, { method: "POST", signal: AbortSignal.timeout(20_000), headers: {
     ...edge, "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(cloud.secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(cloud.secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   const paired = await api(cloud, "POST", "/api/auth/pair", { code: granted.code });
@@ -90,12 +90,12 @@ async function bootCloud(home: string, agentBrowser: string, env: Record<string,
   const child = spawn(process.execPath, ["--import", offlinePrelude, join(SERVER_DIR, "index.ts")], {
     cwd: join(SERVER_DIR, ".."),
     env: {
-      PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      PATH: process.env.PATH, HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
       // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
-      OMB_BOT_BOX: "0",
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`, OMB_AGENT_BROWSER_PATH: agentBrowser, ...env,
+      LUNABOT_BOT_BOX: "0",
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_AGENT_BROWSER_PATH: agentBrowser, ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -183,11 +183,11 @@ async function newChromeBot(cloud: Cloud, name: string): Promise<{ id: string; t
   return { id: bot.id, threadId: bot.threadId };
 }
 
-/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in LUNABOT_GATE_UPSTREAM instead. */
 const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
   const env = agents?.env ?? {};
-  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
-  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+  if (env.LUNABOT_BOT_ID || env.LUNABOT_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.LUNABOT_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
 };
 
 /** A bot's turn, started by `start`: its browser tools, as the engine would spawn them from the turn's MCP config. */
@@ -200,7 +200,7 @@ async function browserOf(cloud: Cloud, start: () => Promise<void>, botId: string
     for (const turn of piTurns(dump).slice(before)) {
       const servers = turn.launch?.mcpConfig?.mcpServers as Record<string, McpServer> | undefined;
       const env = agentsEnv(servers?.agents);
-      if (servers?.browser && env.OMB_BOT_ID === botId && (!threadId || env.OMB_THREAD_ID === threadId)) { browser = servers.browser; return true; }
+      if (servers?.browser && env.LUNABOT_BOT_ID === botId && (!threadId || env.LUNABOT_THREAD_ID === threadId)) { browser = servers.browser; return true; }
     }
     return false;
   }, "the turn's browser tools");
@@ -304,7 +304,7 @@ describe.skipIf(process.platform === "win32")("My Chrome on My Cloud, with stand
     const chromeDir = join(home, "person-chrome");
     mkdirSync(chromeDir, { recursive: true });
     writeFileSync(join(chromeDir, "DevToolsActivePort"), `${(server.address() as { port: number }).port}\n/devtools/browser/REAL-ID\n`);
-    // agent-browser as the server finds it (OMB_AGENT_BROWSER_PATH), speaking MCP on stdin and CDP to AGENT_BROWSER_CDP.
+    // agent-browser as the server finds it (LUNABOT_AGENT_BROWSER_PATH), speaking MCP on stdin and CDP to AGENT_BROWSER_CDP.
     engineLog = join(home, "agent-browser.log");
     const engine = join(home, "agent-browser");
     writeFileSync(engine, `#!${process.execPath}
@@ -472,12 +472,12 @@ lines.on("close", () => process.exit(0));
 });
 
 // The real thing, only when asked for, since it starts a real Chrome and agent-browser: agent-browser from
-// OMB_TEST_AGENT_BROWSER, and Chrome from OMB_TEST_CHROME, CHROME_BIN or where it installs.
-const askedFor = process.env.OMB_TEST_AGENT_BROWSER;
+// LUNABOT_TEST_AGENT_BROWSER, and Chrome from LUNABOT_TEST_CHROME, CHROME_BIN or where it installs.
+const askedFor = process.env.LUNABOT_TEST_AGENT_BROWSER;
 const realAgentBrowser = askedFor && existsSync(askedFor) ? askedFor : null;
 const realChrome = findChrome();
 const full = process.platform !== "win32" && realAgentBrowser !== null && realChrome !== null;
-if (!full) console.log("skipping My Chrome through the real agent-browser and Chrome: set OMB_TEST_AGENT_BROWSER and OMB_TEST_CHROME to run it");
+if (!full) console.log("skipping My Chrome through the real agent-browser and Chrome: set LUNABOT_TEST_AGENT_BROWSER and LUNABOT_TEST_CHROME to run it");
 
 describe.skipIf(!full)("My Chrome on My Cloud, with the real agent-browser and a real Chrome", () => {
   let cloud: Cloud | undefined;

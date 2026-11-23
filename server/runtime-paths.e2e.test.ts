@@ -23,7 +23,7 @@ const jsonl = (path: string): any[] => existsSync(path)
   ? readFileSync(path, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
 
 async function scenario(test: (f: any) => Promise<void>) {
-  const parentEnv: NodeJS.ProcessEnv = { ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" };
+  const parentEnv: NodeJS.ProcessEnv = { ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" };
   const session = await launchVerificationServer(parentEnv, undefined, undefined, undefined, undefined, { scripted: true });
   const url = session.info.url;
   const dataDir = session.info.dataDir;
@@ -86,8 +86,8 @@ async function scenario(test: (f: any) => Promise<void>) {
       await expect.poll(() => {
         for (const launch of jsonl(join(dataDir, "fake-pi-dump.jsonl"))) {
           const env = launch.mcpConfig?.mcpServers?.agents?.env;
-          if (env?.OMB_THREAD_ID !== threadId || !env.OMB_COMMS_TOKEN) continue;
-          found = env.OMB_COMMS_TOKEN;
+          if (env?.LUNABOT_THREAD_ID !== threadId || !env.LUNABOT_COMMS_TOKEN) continue;
+          found = env.LUNABOT_COMMS_TOKEN;
           return true;
         }
         return false;

@@ -61,7 +61,7 @@ export function turnStdioMcpServers(turn: SendTurnInput, options: { schemaProfil
   return toolBudget === undefined ? fitted : withToolShares(fitted, turn, toolBudget);
 }
 
-/** Luna Bot's proxies and gates that cap their list at OMB_TOOL_LIMIT. */
+/** Luna Bot's proxies and gates that cap their list at LUNABOT_TOOL_LIMIT. */
 const LIMITING_PROXY = /(?:^|[\\/])(?:agents-proxy|harness-mcp-proxy|connector-proxy|mcp-gate|mcp-remote-proxy)\.[jt]s$/;
 
 /** Each server's share of `budget` tools in its environment, the agents server's whole list first; a server that would
@@ -89,12 +89,12 @@ const HARNESS_KINDS = ["browser", "computer", "data", "email", "device"] as cons
 /** Luna Bot's own server behind a stdio proxy, as its HTTP endpoint on this server; null for any other server (the
  * person's, or one wrapped in a tool-selection gate). */
 export function ownMcpOverHttp(server: TurnStdioMcpServer): { url: string; headers: Record<string, string> } | null {
-  const harness = server.env.OMB_HARNESS_URL;
+  const harness = server.env.LUNABOT_HARNESS_URL;
   if (!harness || !/^http:\/\/127\.0\.0\.1:\d+$/.test(harness)) return null;
   const script = server.args.findIndex((arg) => /(?:^|[\\/])(?:harness-mcp-proxy|agents-proxy)\.[jt]s$/.test(arg));
   if (script < 0) return null;
   if (/agents-proxy\.[jt]s$/.test(server.args[script]!)) {
-    const token = server.env.OMB_COMMS_TOKEN;
+    const token = server.env.LUNABOT_COMMS_TOKEN;
     if (!token) return null;
     const settings = Object.fromEntries(AGENTS_MCP_ENV.flatMap((key) => server.env[key] === undefined ? [] : [[key, server.env[key]]]));
     return { url: `${harness}${OWN_MCP_HTTP_PATH}agents`, headers: { authorization: `Bearer ${token}`,

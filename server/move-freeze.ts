@@ -1,7 +1,7 @@
 // This computer's copy once the person's bots moved to their own Cloud: one marker, moved.json in the data folder. A
 // frozen server admits no turns, runs no schedules, app events or memory upkeep, and answers every change but the
 // move's own with one sentence. Nothing in the workspace is edited, so lifting the marker leaves this computer exactly
-// as it was. A Cloud that ended, started only so its owner can take their things home (OMB_CLOUD_EXPORT_ONLY=1), runs
+// as it was. A Cloud that ended, started only so its owner can take their things home (LUNABOT_CLOUD_EXPORT_ONLY=1), runs
 // frozen the same way and is never lifted.
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";

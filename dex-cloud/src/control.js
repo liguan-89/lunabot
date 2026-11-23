@@ -19,7 +19,7 @@ const CREDENTIAL_DAYS = 365;
 const CONTROL_SESSION_DAYS = 30;
 // The relay nodes a computer may be sent to. A grant naming a host the app cannot parse is refused by the app, so
 // this list and companion/src/e2e/descriptor.ts hold the same names. No `lunabot.com`: that domain is not ours.
-const RELAY_HOST = /^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
+const RELAY_HOST = /^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 
 export async function handleControl(ctx) {
   for (const entry of routes) {

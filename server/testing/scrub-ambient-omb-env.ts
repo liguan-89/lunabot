@@ -1,5 +1,5 @@
 // Side-effect import that scrubs ambient OMB env before a module snapshots it (scripts/mcp-server.ts reads
-// LUNABOT_URL / OMB_PORT at evaluation). Import order is the contract: keep it above the module under test.
+// LUNABOT_URL / LUNABOT_PORT at evaluation). Import order is the contract: keep it above the module under test.
 import { isAmbientOmbKey } from "./omb-env.ts";
 
 for (const key of Object.keys(process.env)) {

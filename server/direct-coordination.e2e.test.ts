@@ -19,9 +19,9 @@ const told = (turn: any): string => {
   return `${turn.system}\n${typeof content === "string" ? content : JSON.stringify(content ?? "")}`;
 };
 
-/** With OMB_TEST_DESKTOP_OWNER_TOKEN it runs as the desktop app runs it, every change carrying the app's owner capability. */
+/** With LUNABOT_TEST_DESKTOP_OWNER_TOKEN it runs as the desktop app runs it, every change carrying the app's owner capability. */
 async function fixture(test: (f: any) => Promise<void>, fakeEnv: NodeJS.ProcessEnv = {}) {
-  const desktopOwner = fakeEnv.OMB_TEST_DESKTOP_OWNER_TOKEN;
+  const desktopOwner = fakeEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN;
   const realFetch = globalThis.fetch;
   if (desktopOwner) globalThis.fetch = (input, init = {}) => realFetch(input, { ...init,
     headers: { ...Object.fromEntries(new Headers(init.headers)), "x-lunabot-desktop-owner": desktopOwner } });
@@ -545,10 +545,10 @@ it("continues one recipient thread for every follow-up from the same conversatio
 
 it.each<[string, NodeJS.ProcessEnv]>([
   ["a headless server", {}],
-  ["the desktop app", { OMB_TEST_DESKTOP_OWNER_TOKEN: randomBytes(32).toString("base64url") }],
+  ["the desktop app", { LUNABOT_TEST_DESKTOP_OWNER_TOKEN: randomBytes(32).toString("base64url") }],
 ])("on %s, hands a follow-up sent while the teammate still works to its running turn, and one result comes back", (_where, env) => fixture(async f => {
   expect((await f.api("/.well-known/lunabot/environment", undefined, "GET")).capabilities.selfUpdate)
-    .toBe(env.OMB_TEST_DESKTOP_OWNER_TOKEN ? "desktop-managed" : "operator");
+    .toBe(env.LUNABOT_TEST_DESKTOP_OWNER_TOKEN ? "desktop-managed" : "operator");
   const gate = join(f.session.info.dataDir, "first-request.gate");
   f.plan[f.lead.id] = { turns: [{ gateFile: gate, reply: "Export implemented, with the header row" }] };
   f.plan[f.chief.id] = { turns: [

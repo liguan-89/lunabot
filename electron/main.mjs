@@ -346,8 +346,8 @@ const serverSupervisor = createServerSupervisor({
 });
 
 function desktopDataDir() {
-  // An empty OMB_DATA_DIR falls back here too; server/config.ts would not, so the child gets this path.
-  return process.env.OMB_DATA_DIR || migrateDataDir({ home: app.getPath("home"), log: slog });
+  // An empty LUNABOT_DATA_DIR falls back here too; server/config.ts would not, so the child gets this path.
+  return process.env.LUNABOT_DATA_DIR || migrateDataDir({ home: app.getPath("home"), log: slog });
 }
 
 async function stopUtilityServer(proc, timeoutMs = UTILITY_SERVER_STOP_TIMEOUT_MS) {
@@ -450,7 +450,7 @@ async function secureWorkspaceConfig() {
 }
 
 function composioBrokerUrl() {
-  return managedComposioBrokerUrl(process.env.OMB_COMPOSIO_BROKER_URL, app.isPackaged);
+  return managedComposioBrokerUrl(process.env.LUNABOT_COMPOSIO_BROKER_URL, app.isPackaged);
 }
 
 // Finder/Explorer launches have no usable stdio, so the server child's output goes to server.log here.
@@ -1123,25 +1123,25 @@ async function startServerOn(port, dataDir = runningDataDir ?? startupEnvironmen
     ...process.env,
     // The parent owns the data-dir lease; a child only validates it, so fallback-port children never replace it.
     ...desktopDataDirLease.utilityServerLeaseEnvironment(),
-    OMB_DATA_DIR: dataDir,
+    LUNABOT_DATA_DIR: dataDir,
     // Fail-closed until this process sends the private connection; never a descriptor inherited from the shell.
-    OMB_DESKTOP_PARENT: "1",
-    OMB_DESKTOP_LAUNCH_ID: desktopLaunchId,
-    OMB_STATIC_DIR: path.join(process.resourcesPath, "ui"),
-    OMB_RESOURCES_PATH: process.resourcesPath,
-    OMB_SKILLS_DIR: path.join(process.resourcesPath, "skills"),
-    OMB_PORT: String(port),
-    OMB_APP_VERSION: app.getVersion(),
-    OMB_USER_DATA: app.getPath("userData"),
+    LUNABOT_DESKTOP_PARENT: "1",
+    LUNABOT_DESKTOP_LAUNCH_ID: desktopLaunchId,
+    LUNABOT_STATIC_DIR: path.join(process.resourcesPath, "ui"),
+    LUNABOT_RESOURCES_PATH: process.resourcesPath,
+    LUNABOT_SKILLS_DIR: path.join(process.resourcesPath, "skills"),
+    LUNABOT_PORT: String(port),
+    LUNABOT_APP_VERSION: app.getVersion(),
+    LUNABOT_USER_DATA: app.getPath("userData"),
     ...(secureCredentials.composioApiKey
       ? { COMPOSIO_API_KEY: secureCredentials.composioApiKey }
       : {}),
-    OMB_CREDENTIAL_STORE: credentialStoreUnavailable ? "unavailable" : "ok",
+    LUNABOT_CREDENTIAL_STORE: credentialStoreUnavailable ? "unavailable" : "ok",
     ...workspaceCredentialEnv(secureCredentials),
   });
-  delete childEnv.OMB_BROWSER_CONNECTION;
-  delete childEnv.OMB_SERVER_COMPILE_CACHE;
-  if (compileCacheDir) childEnv.OMB_SERVER_COMPILE_CACHE = compileCacheDir;
+  delete childEnv.LUNABOT_BROWSER_CONNECTION;
+  delete childEnv.LUNABOT_SERVER_COMPILE_CACHE;
+  if (compileCacheDir) childEnv.LUNABOT_SERVER_COMPILE_CACHE = compileCacheDir;
   slog(`fork ${entry} port=${port}`);
   const proc = utilityProcess.fork(entry, [], {
     env: childEnv,
@@ -2062,14 +2062,14 @@ function createWindow({ deferNavigation = false } = {}) {
     showContextMenu(win, params);
   });
 
-  if (process.env.OMB_SMOKE_TEST === "1") {
+  if (process.env.LUNABOT_SMOKE_TEST === "1") {
     win.webContents.once("did-finish-load", async () => {
       try {
         const result = await win.webContents.executeJavaScript(`
           (async () => {
             if (!window.ogb?.getCapabilities) throw new Error("desktop preload bridge is unavailable");
             let crashPromise = null;
-            if (${JSON.stringify(process.env.OMB_SMOKE_CUA === "1")}) {
+            if (${JSON.stringify(process.env.LUNABOT_SMOKE_CUA === "1")}) {
               crashPromise = new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
                   unsubscribe?.();
@@ -2125,7 +2125,7 @@ function createWindow({ deferNavigation = false } = {}) {
             `unexpected packaged renderer URL: ${result.location} (expected ${expectedLocation})`,
           );
         }
-        if (process.env.OMB_SMOKE_BUNDLED_CUA === "1") {
+        if (process.env.LUNABOT_SMOKE_BUNDLED_CUA === "1") {
           const connection = await cuaReady;
           const expectedDriver = path.join(
             process.resourcesPath,
@@ -2163,7 +2163,7 @@ function createWindow({ deferNavigation = false } = {}) {
       } catch (error) {
         console.error(`[smoke] renderer-failed ${error?.stack ?? error}`);
       } finally {
-        if (process.env.OMB_SMOKE_KEEP_OPEN !== "1") win.close();
+        if (process.env.LUNABOT_SMOKE_KEEP_OPEN !== "1") win.close();
       }
     });
   }
@@ -2826,7 +2826,7 @@ app.whenReady().then(async () => {
     item.setSavePath(collisionFreeDownloadPath(app.getPath("downloads"), item.getFilename()));
     revealDownloadWhenDone(item, (filePath) => shell.showItemInFolder(filePath));
   });
-  // Registry before lease: the lease and the child's OMB_DATA_DIR both follow a named environment.
+  // Registry before lease: the lease and the child's LUNABOT_DATA_DIR both follow a named environment.
   environmentsState = environmentsStore.read();
   let bootDataDir = desktopDataDir();
   if (app.isPackaged) {

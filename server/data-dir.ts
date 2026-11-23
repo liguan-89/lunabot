@@ -25,10 +25,10 @@ export interface DataDirDefaults {
   join?: (home: string, name: string) => string;
 }
 
-/** Where the server keeps its data: `OMB_DATA_DIR` when set (never migrated, never moved), else `~/.lunabot`, with a
+/** Where the server keeps its data: `LUNABOT_DATA_DIR` when set (never migrated, never moved), else `~/.lunabot`, with a
  * `~/.dexbot` left by an earlier release renamed to it the first time anything asks. */
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env, defaults: DataDirDefaults = {}): string {
-  const configured = env.OMB_DATA_DIR?.trim();
+  const configured = env.LUNABOT_DATA_DIR?.trim();
   if (configured) return configured;
   const joinPath = defaults.join ?? join;
   const home = defaults.home ?? dataHome();

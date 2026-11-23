@@ -10,7 +10,7 @@ import type { PhoneRelayStatus } from "./phone-relay.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { startControlPlaneStub } from "./testing/control-plane-stub.ts";
 
-const status = (over: Partial<PhoneRelayStatus> = {}): PhoneRelayStatus => ({ relay: "connected", node: "relay1.openmausbot.com", grant: "ok", phones: 1, maxPhones: 20, ...over });
+const status = (over: Partial<PhoneRelayStatus> = {}): PhoneRelayStatus => ({ relay: "connected", node: "relay1.lunabot.com", grant: "ok", phones: 1, maxPhones: 20, ...over });
 const invite = "lunabot://pair?address=relay-only.invalid%3A443&token=omb_pair_x&e2e=eyJ2IjoxfQ";
 
 describe("openmausbot serve --relay", () => {
@@ -63,7 +63,7 @@ describe("openmausbot serve --relay", () => {
   it("signs a machine in for the relay without reserving one of the scarce tunnel addresses", async () => {
     const stub = await startControlPlaneStub();
     const dataDir = mkdtempSync(join(tmpdir(), "omb-login-relay-"));
-    vi.stubEnv("OMB_CONTROL_PLANE_URL", stub.url);
+    vi.stubEnv("LUNABOT_CONTROL_PLANE_URL", stub.url);
     try {
       const lines: string[] = [];
       const io = { log: (line: string) => lines.push(line), error: (line: string) => lines.push(`error: ${line}`), ask: async () => stub.otp };

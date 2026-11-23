@@ -15,9 +15,9 @@ export type InstallKind = "desktop" | "managed" | "docker" | "podman" | "npm" | 
 /** `stable` follows the promoted version; `newest` follows every release, as soon as it is published. */
 export type UpdateChannel = "stable" | "newest";
 
-/** OMB_UPDATE_CHANNEL: `newest` to hear of every release; anything else is `stable`. */
+/** LUNABOT_UPDATE_CHANNEL: `newest` to hear of every release; anything else is `stable`. */
 export function updateChannel(env: NodeJS.ProcessEnv = process.env): UpdateChannel {
-  return env.OMB_UPDATE_CHANNEL?.trim().toLowerCase() === "newest" ? "newest" : "stable";
+  return env.LUNABOT_UPDATE_CHANNEL?.trim().toLowerCase() === "newest" ? "newest" : "stable";
 }
 
 /**
@@ -113,7 +113,7 @@ export function createUpdateChecker(options: {
     ...updateCommand(options.install),
   });
   const ask = (url: string) => fetchJson(url, {
-    headers: { accept: "application/vnd.github+json", "user-agent": "openmausbot-update-check" },
+    headers: { accept: "application/vnd.github+json", "user-agent": "lunabot-update-check" },
     signal: AbortSignal.timeout(8_000),
   });
 

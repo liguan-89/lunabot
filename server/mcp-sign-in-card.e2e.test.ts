@@ -82,7 +82,7 @@ it("a bot adds an OAuth server and asks the person to sign in; they sign in on t
   await expect.poll(() => Boolean(resumed = turn("the person signed in to postiz")), { timeout: 20_000 }).toBe(true);
   // pi mounts an HTTP server through its stdio remote proxy; the signed-in spec travels in the proxy's env.
   const mounted = resumed!.launch?.mcpConfig?.mcpServers?.postiz as { env?: Record<string, string> };
-  const spec = JSON.parse(mounted?.env?.OMB_REMOTE_MCP_SERVER ?? "null") as { url?: string; headers?: Record<string, string> } | null;
+  const spec = JSON.parse(mounted?.env?.LUNABOT_REMOTE_MCP_SERVER ?? "null") as { url?: string; headers?: Record<string, string> } | null;
   expect(spec, "the resumed turn has the server, signed in").toMatchObject({
     url: serverUrl,
     headers: { Authorization: `Bearer ${provider.issued[0]}` },

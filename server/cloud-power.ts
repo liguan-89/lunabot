@@ -71,8 +71,8 @@ export const wakeCode = (path: string) => WAKE_CODES.find(([pattern]) => pattern
 const BACKGROUND = [/^\/api\/events$/, /^\/api\/health$/, /^\/api\/sync(\/|$)/, /^\/api\/shared-computers(\/|$)/, /^\/api\/cloud\/power(\/|$)/];
 export const CLOUD_POWER_PATH = "/api/cloud/power";
 export const CLOUD_POWER_SLEEP_PATH = "/api/cloud/power/sleep";
-export const CLOUD_BACKGROUND_HEADER = "x-omb-background";
-export const CLOUD_POWER_HEADER = "x-omb-cloud-power";
+export const CLOUD_BACKGROUND_HEADER = "x-lunabot-background";
+export const CLOUD_POWER_HEADER = "x-lunabot-cloud-power";
 const MARKER = "cloud-sleep.json";
 /** Long-polls and streams that stay open by design: never "in flight" work. */
 const HELD = [/^\/api\/events$/, /^\/api\/sync\/changes$/, /^\/api\/shared-computers\/asks$/, /^\/api\/shared-computers\/[\w-]+\/(?:poll|link)$/];

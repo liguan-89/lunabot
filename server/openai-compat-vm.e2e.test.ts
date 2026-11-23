@@ -69,11 +69,11 @@ async function until<T>(read: () => T | Promise<T>, accept: (value: T) => boolea
 /** The launch of the latest pi turn: what the turn mounted. */
 const mounted = (): PiMcpConfig | null => piTurns(dumpFile).at(-1)?.launch?.mcpConfig ?? null;
 const computerServer = () => mounted()?.mcpServers?.computer;
-/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in LUNABOT_GATE_UPSTREAM instead. */
 const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
   const env = agents?.env ?? {};
-  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
-  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+  if (env.LUNABOT_BOT_ID || env.LUNABOT_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.LUNABOT_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
 };
 const idle = (botId: string) => until(() => api("GET", "/api/bots?messages=0"), s => !s.bots.find((b: any) => b.id === botId)?.busy);
 
@@ -130,13 +130,13 @@ beforeAll(async () => {
     cwd: ROOT,
     env: {
       PATH: [fakebin, dirname(process.execPath), "/usr/bin", "/bin"].join(delimiter),
-      HOME: fixtureHome, USERPROFILE: fixtureHome, OMB_DATA_DIR: data,
-      OMB_AGENTS_TOOL_BRIDGE: "0",
+      HOME: fixtureHome, USERPROFILE: fixtureHome, LUNABOT_DATA_DIR: data,
+      LUNABOT_AGENTS_TOOL_BRIDGE: "0",
       APPDATA: join(fixtureHome, "appdata"), LOCALAPPDATA: join(fixtureHome, "localappdata"),
       TEMP: fixtureHome, TMP: fixtureHome, TMPDIR: fixtureHome,
-      OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui,
-      OMB_TEST_VM_STATE: stateFile, OMB_EXTRA_PATH: fakebin,
-      OMB_USER_DATA: join(fixtureHome, "user-data"),
+      LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: ui,
+      LUNABOT_TEST_VM_STATE: stateFile, LUNABOT_EXTRA_PATH: fakebin,
+      LUNABOT_USER_DATA: join(fixtureHome, "user-data"),
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -173,7 +173,7 @@ describe("pi's Local VM tools", () => {
     const computer = await until(() => computerServer(), Boolean);
     await idle(bot.id);
     expect(computer?.args?.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
-    expect(String(computer?.env?.OMB_CONTROL_URL ?? "")).toContain("127.0.0.1");
+    expect(String(computer?.env?.LUNABOT_CONTROL_URL ?? "")).toContain("127.0.0.1");
   }, 60_000);
 
   it("mounts the Local VM on the select_computer continuation", async () => {
@@ -185,7 +185,7 @@ describe("pi's Local VM tools", () => {
     const before = await until(() => piTurns(dumpFile).at(-1)?.launch?.mcpConfig ?? null, Boolean);
     if (!before) throw new Error("no launch recorded in the pi dump");
     expect(before.mcpServers?.computer, "a browser turn mounts no Local VM").toBeUndefined();
-    const token = agentsEnv(before.mcpServers?.agents).OMB_COMMS_TOKEN as string;
+    const token = agentsEnv(before.mcpServers?.agents).LUNABOT_COMMS_TOKEN as string;
     const select = (body: Record<string, unknown>) => fetch(base + "/api/internal/computer/select", {
       method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body),
     });

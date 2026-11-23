@@ -7,7 +7,7 @@
 # after every way the server restarts without Caddy, and after the documented backup and restore.
 # The files the installer places (update.sh, the sandbox's host preparation) come from this checkout. Where the image
 # runs the hardened profile the bots' sandbox must be on and hold: a bot cannot read config.json. With
-# OMB_INSTALL_IMAGE set (the workflow builds this checkout's image and serves it from a registry on the runner), that
+# LUNABOT_INSTALL_IMAGE set (the workflow builds this checkout's image and serves it from a registry on the runner), that
 # image is installed instead of the published release.
 #   OUT=<evidence folder> bash deploy/e2e/run.sh
 set -euo pipefail
@@ -16,10 +16,10 @@ OUT=${OUT:-$(mktemp -d)}
 mkdir -p "$OUT"
 DOMAIN=installer-e2e.internal
 DIR=/opt/openmausbot
-SETTINGS=(OMB_INSTALL_SKIP_DNS=1 OMB_INSTALL_HTTPS_WAIT_S=20 "OMB_INSTALL_SOURCE=file://$ROOT")
+SETTINGS=(LUNABOT_INSTALL_SKIP_DNS=1 LUNABOT_INSTALL_HTTPS_WAIT_S=20 "LUNABOT_INSTALL_SOURCE=file://$ROOT")
 # Without a version asked for: what a person's later run is, which must keep the version update.sh pinned.
 PLAIN_INSTALL=(sudo env "${SETTINGS[@]}" sh "$ROOT/deploy/install.sh")
-if [ -n "${OMB_INSTALL_IMAGE:-}" ]; then SETTINGS+=("OMB_INSTALL_IMAGE=$OMB_INSTALL_IMAGE"); fi
+if [ -n "${LUNABOT_INSTALL_IMAGE:-}" ]; then SETTINGS+=("LUNABOT_INSTALL_IMAGE=$LUNABOT_INSTALL_IMAGE"); fi
 INSTALL=(sudo env "${SETTINGS[@]}" sh "$ROOT/deploy/install.sh")
 box_check() { (cd "$DIR" && sudo docker compose exec -T omb node dist-server/bot-box/box-check.js --public=none "$@"); }
 
@@ -98,10 +98,10 @@ contains "$OUT/check-ready.txt" "This server is ready for MausBot. Nothing was c
 
 step "install: the server is healthy behind Caddy, on a pinned release, with its data in one folder"
 install_until_https "$OUT/install.txt"
-image=$(sudo sed -n 's/^OMB_IMAGE=//p' "$DIR/.env")
+image=$(sudo sed -n 's/^LUNABOT_IMAGE=//p' "$DIR/.env")
 case "$image" in
   ghcr.io/milind-soni/openmausbot:stable | ghcr.io/milind-soni/openmausbot:v[0-9]*) ;;
-  *) [ "$image" = "${OMB_INSTALL_IMAGE:-}" ] || fail "the install pinned $image" ;;
+  *) [ "$image" = "${LUNABOT_INSTALL_IMAGE:-}" ] || fail "the install pinned $image" ;;
 esac
 [ "$(sudo stat -c %a "$DIR/.env")" = 600 ] || fail ".env is readable by others"
 [ "$(sudo stat -c %a "$DIR/data")" = 700 ] || fail "the data folder is open to others"
@@ -175,28 +175,28 @@ grep -q "https://$DOMAIN/pair#code=" "$OUT/pair.txt" || fail "pair printed no li
 rm -f "$OUT/pair.txt"
 
 step "run again: the same server, the person's settings and data untouched"
-echo "OMB_SERVER_NAME=Installer e2e" | sudo tee -a "$DIR/.env" >/dev/null
+echo "LUNABOT_SERVER_NAME=Installer e2e" | sudo tee -a "$DIR/.env" >/dev/null
 echo kept | sudo tee "$DIR/data/e2e-marker" >/dev/null
 before=$(sudo stat -c '%u:%g:%a' "$DIR/data")
 install_until_https "$OUT/again.txt"
-sudo grep -qx "OMB_SERVER_NAME=Installer e2e" "$DIR/.env" || fail "the second run dropped a setting"
+sudo grep -qx "LUNABOT_SERVER_NAME=Installer e2e" "$DIR/.env" || fail "the second run dropped a setting"
 [ "$(sudo cat "$DIR/data/e2e-marker")" = kept ] || fail "the second run touched the data"
 [ "$(sudo stat -c '%u:%g:%a' "$DIR/data")" = "$before" ] || fail "the second run changed the data folder"
 
 step "a version pinned by digest, as update.sh pins it, survives a run of the installer"
 pin=$(sudo docker image inspect -f '{{index .RepoDigests 0}}' "$image")
 case "$pin" in *@sha256:*) ;; *) fail "the installed image has no digest: $pin" ;; esac
-sudo sed -i "s|^OMB_IMAGE=.*|OMB_IMAGE=$pin|" "$DIR/.env"
+sudo sed -i "s|^LUNABOT_IMAGE=.*|LUNABOT_IMAGE=$pin|" "$DIR/.env"
 install_until_https "$OUT/pinned.txt" "${PLAIN_INSTALL[@]}"
 contains "$OUT/pinned.txt" "version: the one update.sh pinned here" "the installer did not keep the pin"
-sudo grep -qx "OMB_IMAGE=$pin" "$DIR/.env" || fail "the installer overwrote the pinned version"
+sudo grep -qx "LUNABOT_IMAGE=$pin" "$DIR/.env" || fail "the installer overwrote the pinned version"
 
 step "an install from before, with Caddy in the server's network, moves to the new layout when the installer runs"
 sudo tee "$DIR/compose.yaml" >/dev/null <<'OLD'
 name: openmausbot
 services:
   omb:
-    image: ${OMB_IMAGE:?run the installer again}
+    image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
     shm_size: 512m
@@ -206,11 +206,11 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      OMB_PORT: "8799"
-      OMB_WEBHOOK_PORT: "8800"
-      OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
-      OMB_PUBLIC_URL: https://${DOMAIN}
-      OMB_SERVER_NAME: ${OMB_SERVER_NAME:-${DOMAIN}}
+      LUNABOT_PORT: "8799"
+      LUNABOT_WEBHOOK_PORT: "8800"
+      LUNABOT_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-${DOMAIN}}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
       interval: 30s

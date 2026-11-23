@@ -120,7 +120,7 @@ async function startServer(input: Partial<PhoneRelayOptions> & { dir?: string; r
     fetchGrant: async () => grantFor(hostId),
     log: (line) => logs.push(line),
     ...overrides,
-    env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: relay.url, ...overrides.env },
+    env: { LUNABOT_PHONE_RELAY: "1", LUNABOT_PHONE_RELAY_URL: relay.url, ...overrides.env },
   });
   if (!phoneRelay) throw new Error(`the relay did not start: ${logs.join("; ")}`);
   const started = phoneRelay;
@@ -196,8 +196,8 @@ describe("phones through Luna Bot Relay on a server", () => {
     const logs: string[] = [];
     const base = { dataDir: dir, sessions, handle: () => {}, serverName: () => "VPS", publicOrigin: () => null, version: "0.1.152", log: (line: string) => logs.push(line) };
     expect(startPhoneRelay({ ...base, env: {}, refusal: null })).toBeNull();
-    expect(startPhoneRelay({ ...base, env: { OMB_PHONE_RELAY: "true" }, refusal: null })).toBeNull();
-    expect(startPhoneRelay({ ...base, env: { OMB_PHONE_RELAY: "1" }, refusal: "a Luna Bot Cloud home" })).toBeNull();
+    expect(startPhoneRelay({ ...base, env: { LUNABOT_PHONE_RELAY: "true" }, refusal: null })).toBeNull();
+    expect(startPhoneRelay({ ...base, env: { LUNABOT_PHONE_RELAY: "1" }, refusal: "a Luna Bot Cloud home" })).toBeNull();
     expect(logs).toEqual(["phone relay: off on a Luna Bot Cloud home"]);
     expect(() => statSync(join(dir, PHONE_RELAY_KEY_FILE))).toThrow();
   });
@@ -235,7 +235,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     // A token inside the session must be the one whose key opened it.
     const other = server.sessions.issue({ label: "Laptop", scopes: ["admin", "client"] });
     expect(await http(session, "GET", "/api/auth/session", { token: other.token }).then((r) => [r.status, json(r).error])).toEqual([401, "this connection belongs to another device"]);
-    // No public origin and no `OMB_LAN`: the relay is the only way in, and the list says so.
+    // No public origin and no `LUNABOT_LAN`: the relay is the only way in, and the list says so.
     expect(json(await http(session, "GET", "/api/companion/endpoints", { token: reply.token }))).toEqual({ serverName: "VPS", endpoints: [], version: SERVER_VERSION, e2e: descriptor });
     session.shutdown();
 
@@ -340,7 +340,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     const logs: string[] = [];
     const sessions = new SessionRegistry({ file: join(dir, "sessions.json") });
     cleanup.push(() => sessions.close());
-    expect(startPhoneRelay({ env: { OMB_PHONE_RELAY: "1" }, dataDir: dir, sessions, handle: () => {}, serverName: () => "VPS", publicOrigin: () => null, version: "0.1.152", refusal: null, log: (line) => logs.push(line) })).toBeNull();
+    expect(startPhoneRelay({ env: { LUNABOT_PHONE_RELAY: "1" }, dataDir: dir, sessions, handle: () => {}, serverName: () => "VPS", publicOrigin: () => null, version: "0.1.152", refusal: null, log: (line) => logs.push(line) })).toBeNull();
     expect(logs[0]).toMatch(/^phone relay: off: .*is not a connection key/);
     expect(readFileSync(join(dir, PHONE_RELAY_KEY_FILE), "utf8")).toBe("{\"v\":1}\n");
   });
@@ -358,7 +358,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     // The relay itself unreachable: it keeps dialling, and a link still works the moment it connects.
     const gone = await startFakeRelay({ keys });
     await gone.close();
-    const unreachable = await startServer({ relay: gone, env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: gone.url } });
+    const unreachable = await startServer({ relay: gone, env: { LUNABOT_PHONE_RELAY: "1", LUNABOT_PHONE_RELAY_URL: gone.url } });
     await waitFor(() => unreachable.phoneRelay.status().grant === "ok");
     expect(unreachable.phoneRelay.status().relay).toBe("connecting");
   });
@@ -372,7 +372,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     // Loopback is this machine only, so it is no way in for a phone.
     expect(new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://localhost:8080")!).searchParams.get("address")).toBe("relay-only.invalid:443");
     expect(new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://127.0.0.1:8799")!).searchParams.get("address")).toBe("relay-only.invalid:443");
-    // `OMB_LAN=1` publishes a private LAN address, and the server answers `/v1/e2e` there: a phone on the same network
+    // `LUNABOT_LAN=1` publishes a private LAN address, and the server answers `/v1/e2e` there: a phone on the same network
     // pairs and connects over Wi-Fi with no relay at all.
     const lan = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://192.168.31.175:8799")!);
     expect(lan.searchParams.get("address")).toBe("192.168.31.175:8799");
@@ -385,7 +385,7 @@ describe("phones through Luna Bot Relay on a server", () => {
 
   it("answers the endpoint list a paired phone re-reads, so a new LAN address needs no new QR", async () => {
     // `--lan` publishes the machine's private address; the list the phone re-reads carries it, and the tailnet one.
-    const server = await startServer({ env: { OMB_PHONE_RELAY: "1", OMB_LAN: "1" }, port: 8799 });
+    const server = await startServer({ env: { LUNABOT_PHONE_RELAY: "1", LUNABOT_LAN: "1" }, port: 8799 });
     await connected(server);
     const list = server.phoneRelay.endpoints();
     expect(list.serverName).toBe("VPS");
@@ -404,18 +404,18 @@ describe("phones through Luna Bot Relay on a server", () => {
     expect(tunnelHolder({}, dir)).toBeNull();
     writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x" }));
     expect(tunnelHolder({}, dir)).toBeNull();
-    expect(tunnelHolder({ OMB_SERVES_TUNNEL: "1", OMB_TUNNEL_SOCKET: join(dir, "t.sock") }, dir)).toBe("this server runs with --tunnel");
+    expect(tunnelHolder({ LUNABOT_SERVES_TUNNEL: "1", LUNABOT_TUNNEL_SOCKET: join(dir, "t.sock") }, dir)).toBe("this server runs with --tunnel");
     // Docker's Caddy reaches the server over a socket too: that is no tunnel.
-    expect(tunnelHolder({ OMB_TUNNEL_SOCKET: "/run/openmausbot/http.sock" }, dir)).toBeNull();
-    expect(tunnelHolder({ OMB_INSTALLATION_CREDENTIAL: "omb_install_y" }, dir)).toMatch(/^OMB_INSTALLATION_CREDENTIAL is set/);
-    writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x", managedCompanionEndpointUrl: "https://c-0123456789abcdef0123456789abcdef.openmausbot.com" }));
+    expect(tunnelHolder({ LUNABOT_TUNNEL_SOCKET: "/run/openmausbot/http.sock" }, dir)).toBeNull();
+    expect(tunnelHolder({ LUNABOT_INSTALLATION_CREDENTIAL: "omb_install_y" }, dir)).toMatch(/^LUNABOT_INSTALLATION_CREDENTIAL is set/);
+    writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x", managedCompanionEndpointUrl: "https://c-0123456789abcdef0123456789abcdef.lunabot.com" }));
     expect(tunnelHolder({}, dir)).toMatch(/holds a tunnel address/);
     writeFileSync(account, "not json");
     expect(tunnelHolder({}, dir)).toMatch(/could not be read/);
 
-    // `serve --tunnel` with OMB_PHONE_RELAY=1 in the environment, and a fleet container: off, and saying why.
+    // `serve --tunnel` with LUNABOT_PHONE_RELAY=1 in the environment, and a fleet container: off, and saying why.
     writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x" }));
-    for (const env of [{ OMB_PHONE_RELAY: "1", OMB_SERVES_TUNNEL: "1", OMB_TUNNEL_SOCKET: join(dir, "t.sock") }, { OMB_PHONE_RELAY: "1", OMB_INSTALLATION_CREDENTIAL: "omb_install_y" }]) {
+    for (const env of [{ LUNABOT_PHONE_RELAY: "1", LUNABOT_SERVES_TUNNEL: "1", LUNABOT_TUNNEL_SOCKET: join(dir, "t.sock") }, { LUNABOT_PHONE_RELAY: "1", LUNABOT_INSTALLATION_CREDENTIAL: "omb_install_y" }]) {
       let asked = 0;
       const logs: string[] = [];
       const sessions = new SessionRegistry({ file: join(dir, "sessions.json") });

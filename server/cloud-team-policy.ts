@@ -179,8 +179,8 @@ export function startTeamPolicyClient(options: TeamPolicyClientOptions): TeamPol
     let response: Response;
     try {
       response = await fetcher(`${options.adminOrigin}${TEAM_POLICY_ADMIN_PATH}`, { method: "POST", redirect: "error", cache: "no-store", body, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), headers: {
-        accept: "application/json", "content-type": "application/json", "x-omb-cloud-machine": options.machineId, "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-        "x-omb-cloud-signature": `v1=${teamPolicySignature(options.secret, options.machineId, timestamp, nonce, body)}`,
+        accept: "application/json", "content-type": "application/json", "x-lunabot-cloud-machine": options.machineId, "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+        "x-lunabot-cloud-signature": `v1=${teamPolicySignature(options.secret, options.machineId, timestamp, nonce, body)}`,
       } });
     } catch (error) {
       log(`team rules: the Admin can't be reached (${error instanceof Error ? error.name : "error"}); keeping the last rules`);

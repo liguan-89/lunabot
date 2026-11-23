@@ -13,16 +13,16 @@
 set -eu
 
 settings() {
-  SYSROOT="${OMB_INSTALL_SYSROOT:-}"
-  INSTALL_DIR="${OMB_INSTALL_DIR:-/opt/openmausbot}"
+  SYSROOT="${LUNABOT_INSTALL_SYSROOT:-}"
+  INSTALL_DIR="${LUNABOT_INSTALL_DIR:-/opt/openmausbot}"
   IMAGE_REPO=milind-soni/openmausbot
   RELEASES_URL=https://api.github.com/repos/milind-soni/OpenMausBot/releases/latest
   ADMIN_URL="${MAUSBOT_ADMIN_URL:-https://cloud.dexai.vip}"
   SCRIPT_URL=https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh
   # Where the files this installer places come from: this repository at the tag of the version it installs, and at
-  # main when that tag does not have them. OMB_INSTALL_SOURCE names one copy to use instead (https://… or file:///…).
+  # main when that tag does not have them. LUNABOT_INSTALL_SOURCE names one copy to use instead (https://… or file:///…).
   REPOSITORY_FILES=https://raw.githubusercontent.com/milind-soni/OpenMausBot
-  SOURCE_ASKED="${OMB_INSTALL_SOURCE:-}"
+  SOURCE_ASKED="${LUNABOT_INSTALL_SOURCE:-}"
   SOURCE=""
   SOURCE_NAME=""
   # WARN-ONLY SANDBOX CHECKS. The self-check's results that do not stop an install when they fail: none of them lets a
@@ -37,14 +37,14 @@ settings() {
   MIN_MEMORY_MB=3500
   MIN_DISK_GB=20
   MAX_CLOCK_SKEW_S=300
-  HEALTH_WAIT_S="${OMB_INSTALL_HEALTH_WAIT_S:-240}"
-  HTTPS_WAIT_S="${OMB_INSTALL_HTTPS_WAIT_S:-180}"
+  HEALTH_WAIT_S="${LUNABOT_INSTALL_HEALTH_WAIT_S:-240}"
+  HTTPS_WAIT_S="${LUNABOT_INSTALL_HTTPS_WAIT_S:-180}"
 
   MODE=install
   DOMAIN=""
   EMAIL=""
   CODE=""
-  INSTALL_DOCKER="${OMB_INSTALL_DOCKER:-}"
+  INSTALL_DOCKER="${LUNABOT_INSTALL_DOCKER:-}"
   SANDBOX=yes
   FAILED=0
   DOCKER_STATE=unknown
@@ -196,10 +196,10 @@ check_os() {
   case "$os_id $os_version" in
     "ubuntu 22.04" | "ubuntu 24.04") ok "operating system: $os_name" ;;
     *)
-      if [ "${OMB_INSTALL_ALLOW_UNTESTED_OS:-}" = 1 ]; then
+      if [ "${LUNABOT_INSTALL_ALLOW_UNTESTED_OS:-}" = 1 ]; then
         note "This server runs $os_name, which the installer is not tested on; going on as asked."
       else
-        fix "This server runs $os_name. MausBot's installer runs on Ubuntu 22.04 or 24.04: pick one of those, or run again with OMB_INSTALL_ALLOW_UNTESTED_OS=1 to try anyway."
+        fix "This server runs $os_name. MausBot's installer runs on Ubuntu 22.04 or 24.04: pick one of those, or run again with LUNABOT_INSTALL_ALLOW_UNTESTED_OS=1 to try anyway."
       fi
       ;;
   esac
@@ -354,7 +354,7 @@ check_dns() {
     note "No --domain was given, so its DNS record was not checked."
     return
   fi
-  if [ "${OMB_INSTALL_SKIP_DNS:-}" = 1 ]; then
+  if [ "${LUNABOT_INSTALL_SKIP_DNS:-}" = 1 ]; then
     note "The DNS record of $DOMAIN was not checked, as asked."
     return
   fi
@@ -374,7 +374,7 @@ check_dns() {
       fi
     done
   done
-  fix "$DOMAIN points at $resolved, not at this server ($target). Change its A record to $target (on Cloudflare, set the record to DNS only), then run this again; or set OMB_INSTALL_SKIP_DNS=1 if a load balancer forwards ports 80 and 443 here."
+  fix "$DOMAIN points at $resolved, not at this server ($target). Change its A record to $target (on Cloudflare, set the record to DNS only), then run this again; or set LUNABOT_INSTALL_SKIP_DNS=1 if a load balancer forwards ports 80 and 443 here."
 }
 
 check_outbound() {
@@ -395,8 +395,8 @@ check_outbound() {
     return
   fi
   ok "outbound: the image registries and Let's Encrypt are reachable"
-  if ! reachable https://accounts.openmausbot.com/; then
-    note "accounts.openmausbot.com is not reachable, so signing in with an emailed code needs a mail server of your own (OMB_SIGNIN_SMTP_URL). Pairing codes work without it."
+  if ! reachable https://accounts.lunabot.com/; then
+    note "accounts.lunabot.com is not reachable, so signing in with an emailed code needs a mail server of your own (LUNABOT_SIGNIN_SMTP_URL). Pairing codes work without it."
   fi
 }
 
@@ -477,7 +477,7 @@ registry_get() { # path-under-the-repository media-types: the registry's answer,
   printf 'header = "Authorization: Bearer %s"\n' "$REGISTRY_TOKEN" | curl -K - -fsSL --max-time 20 -H "Accept: $2" "https://ghcr.io/v2/$IMAGE_REPO/$1" 2>/dev/null
 }
 
-# Whether the image a tag or digest names runs the bots' sandbox (OMB_IMAGE=server in its settings), read from the
+# Whether the image a tag or digest names runs the bots' sandbox (LUNABOT_IMAGE=server in its settings), read from the
 # registry without downloading it: yes, no, or nothing when the registry did not say.
 registry_sandbox() { # tag or sha256:digest
   [ -n "$REGISTRY_TOKEN" ] || REGISTRY_TOKEN=$(registry_token || true)
@@ -497,7 +497,7 @@ registry_sandbox() { # tag or sha256:digest
   [ -n "$config" ] || return 0
   case "$(registry_get "blobs/$config" "application/vnd.oci.image.config.v1+json, application/vnd.docker.container.image.v1+json")" in
     '') ;;
-    *'"OMB_IMAGE=server"'*) echo yes ;;
+    *'"LUNABOT_IMAGE=server"'*) echo yes ;;
     *) echo no ;;
   esac
 }
@@ -519,25 +519,25 @@ newest_release() {
 
 # The stable channel when it is published, else the newest release. Never `latest`, which follows every commit.
 check_version() {
-  chosen="${OMB_INSTALL_IMAGE:-}"
+  chosen="${LUNABOT_INSTALL_IMAGE:-}"
   if [ -n "$chosen" ]; then
     case "$chosen" in
       *[!A-Za-z0-9/:._@-]*)
-        fix "OMB_INSTALL_IMAGE is not an image name."
+        fix "LUNABOT_INSTALL_IMAGE is not an image name."
         return
         ;;
     esac
     case "${chosen##*/}" in
-      *:latest) fix "OMB_INSTALL_IMAGE names the latest tag, which follows every commit. Name a release, like ghcr.io/$IMAGE_REPO:v0.1.151." ;;
+      *:latest) fix "LUNABOT_INSTALL_IMAGE names the latest tag, which follows every commit. Name a release, like ghcr.io/$IMAGE_REPO:v0.1.151." ;;
       *:?*)
         IMAGE=$chosen
         ok "version: $IMAGE, as asked"
         ;;
-      *) fix "OMB_INSTALL_IMAGE needs a release tag, like ghcr.io/$IMAGE_REPO:v0.1.151." ;;
+      *) fix "LUNABOT_INSTALL_IMAGE needs a release tag, like ghcr.io/$IMAGE_REPO:v0.1.151." ;;
     esac
     return
   fi
-  pinned=$(env_value OMB_IMAGE)
+  pinned=$(env_value LUNABOT_IMAGE)
   case "$pinned" in
     *@sha256:*)
       IMAGE=$pinned
@@ -643,7 +643,7 @@ write_compose() {
 name: openmausbot
 services:
   omb:
-    image: ${OMB_IMAGE:?run the installer again}
+    image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
     shm_size: 512m
@@ -651,20 +651,20 @@ services:
       - ./data:/data
       - edge:/run/openmausbot
     environment:
-      OMB_PORT: "8799"
-      OMB_WEBHOOK_PORT: "8800"
-      OMB_TUNNEL_SOCKET: /run/openmausbot/http.sock
-      OMB_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
-      OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
-      OMB_PUBLIC_URL: https://${DOMAIN}
-      OMB_SERVER_NAME: ${OMB_SERVER_NAME:-${DOMAIN}}
+      LUNABOT_PORT: "8799"
+      LUNABOT_WEBHOOK_PORT: "8800"
+      LUNABOT_TUNNEL_SOCKET: /run/openmausbot/http.sock
+      LUNABOT_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
+      LUNABOT_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-${DOMAIN}}
       # Passed only when .env sets them: an empty one would still be set, and Settings' own lists are used when not.
-      OMB_SIGNIN_EMAILS:
-      OMB_SIGNIN_MEMBER_EMAILS:
-      OMB_SIGNIN_SMTP_URL:
-      OMB_SIGNIN_SMTP_FROM:
+      LUNABOT_SIGNIN_EMAILS:
+      LUNABOT_SIGNIN_MEMBER_EMAILS:
+      LUNABOT_SIGNIN_SMTP_URL:
+      LUNABOT_SIGNIN_SMTP_FROM:
       # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb openmausbot login --relay
-      OMB_PHONE_RELAY:
+      LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
       interval: 30s
@@ -750,17 +750,17 @@ unset_env() { # name
 write_settings() {
   if [ ! -f "$INSTALL_DIR/.env" ]; then
     write_file "$INSTALL_DIR/.env" 600 <<'ENV'
-# MausBot's settings on this server. The installer sets DOMAIN, OMB_IMAGE and COMPOSE_FILE and keeps every other line.
-# Who may sign in with an emailed code: OMB_SIGNIN_EMAILS (admins) and OMB_SIGNIN_MEMBER_EMAILS, comma-separated.
+# MausBot's settings on this server. The installer sets DOMAIN, LUNABOT_IMAGE and COMPOSE_FILE and keeps every other line.
+# Who may sign in with an emailed code: LUNABOT_SIGNIN_EMAILS (admins) and LUNABOT_SIGNIN_MEMBER_EMAILS, comma-separated.
 ENV
   fi
   set_env DOMAIN "$DOMAIN"
-  set_env OMB_IMAGE "$IMAGE"
+  set_env LUNABOT_IMAGE "$IMAGE"
   if [ -n "$EMAIL" ]; then
-    current=$(env_value OMB_SIGNIN_EMAILS)
+    current=$(env_value LUNABOT_SIGNIN_EMAILS)
     case ",$(printf '%s' "$current" | tr -d ' ')," in
       *",$EMAIL,"*) ;;
-      *) set_env OMB_SIGNIN_EMAILS "${current:+$current,}$EMAIL" ;;
+      *) set_env LUNABOT_SIGNIN_EMAILS "${current:+$current,}$EMAIL" ;;
     esac
   fi
 }
@@ -821,10 +821,10 @@ fetch_sandbox() {
     fetch "connector/profiles/$APPARMOR_PROFILE.apparmor" "$INSTALL_DIR/box/profiles/$APPARMOR_PROFILE.apparmor"
 }
 
-# An image that runs the hardened profile says so in its settings (OMB_IMAGE=server).
+# An image that runs the hardened profile says so in its settings (LUNABOT_IMAGE=server).
 image_has_sandbox() {
   case "$(docker image inspect -f '{{json .Config.Env}}' "$IMAGE" 2>/dev/null || true)" in
-    *'"OMB_IMAGE=server"'*) return 0 ;;
+    *'"LUNABOT_IMAGE=server"'*) return 0 ;;
   esac
   return 1
 }
@@ -1016,7 +1016,7 @@ finish() {
     say "  $pair_command"
     [ -t 1 ] || say "(The link is not made here because this output is not a terminal: a log must not hold a link that signs in as the admin.)"
   fi
-  admins=$(env_value OMB_SIGNIN_EMAILS)
+  admins=$(env_value LUNABOT_SIGNIN_EMAILS)
   if [ -n "$admins" ]; then
     say "Or open https://$DOMAIN/pair and sign in with an emailed code as: $admins"
   fi

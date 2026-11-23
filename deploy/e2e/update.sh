@@ -57,7 +57,7 @@ if [ "$LAYOUT" = installer ]; then
 name: openmausbot
 services:
   omb:
-    image: ${OMB_IMAGE:?run the installer again}
+    image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
     shm_size: 512m
@@ -67,9 +67,9 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      OMB_PORT: "8799"
-      OMB_WEBHOOK_PORT: "8800"
-      OMB_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_PORT: "8799"
+      LUNABOT_WEBHOOK_PORT: "8800"
+      LUNABOT_PUBLIC_URL: https://${DOMAIN}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
       interval: 30s
@@ -94,16 +94,16 @@ COMPOSE
 else
   cp "$ROOT/deploy/docker-compose.yml" "$ROOT/deploy/Caddyfile" "$DIR/"
 fi
-printf '%s\n' '# settings' 'DOMAIN=update-e2e.invalid' "OMB_IMAGE=$REPO:v$FROM" >"$DIR/.env" && chmod 600 "$DIR/.env"
+printf '%s\n' '# settings' 'DOMAIN=update-e2e.invalid' "LUNABOT_IMAGE=$REPO:v$FROM" >"$DIR/.env" && chmod 600 "$DIR/.env"
 (cd "$DIR" && docker compose up -d --no-build) >/dev/null 2>&1 || fail "compose up"
 wait_version "$FROM" || fail "$FROM did not come up"
-(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $FROM' > /data/.openmausbot/e2e-sentinel.txt")
+(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $FROM' > /data/.lunabot/e2e-sentinel.txt")
 OLD_ID=$(running_image)
 cp "$DIR/.env" "$OUT/env.before"
 STABLE=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$REPO:v$TO" | grep "^$REPO@" | head -n 1)
 # As promote-stable.yml writes it: the history names older versions after the current one.
 printf '{\n  "channel": "stable",\n  "version": "%s",\n  "image": "%s",\n  "history": [\n    { "version": "%s", "promotedAt": "2026-11-12T00:00:00.000Z" },\n    { "version": "%s", "promotedAt": "2026-11-05T00:00:00.000Z" },\n    { "version": "0.1.140", "promotedAt": "2026-10-01T00:00:00.000Z" }\n  ]\n}\n' "$TO" "$STABLE" "$TO" "$FROM" >"$OUT/stable.json"
-export OMB_STABLE_URL="file://$OUT/stable.json"
+export LUNABOT_STABLE_URL="file://$OUT/stable.json"
 echo "the stable record names $STABLE"
 
 step "1. --check changes nothing"
@@ -114,9 +114,9 @@ step "2. update to the stable version"
 "${UPDATE[@]}" | tee "$OUT/2-update.txt"
 [ "${PIPESTATUS[0]}" = 0 ] || fail "the update did not exit 0"
 [ "$(version)" = "$TO" ] || fail "the server says $(version)"
-grep -qx "OMB_IMAGE=$STABLE" "$DIR/.env" || fail ".env is not pinned by digest"
+grep -qx "LUNABOT_IMAGE=$STABLE" "$DIR/.env" || fail ".env is not pinned by digest"
 [ "$(stat -c %a "$DIR/.env")" = 600 ] || fail ".env changed its mode"
-in_data 'cat /d/.openmausbot/e2e-sentinel.txt' | grep -q "written under $FROM" || fail "the data did not carry over"
+in_data 'cat /d/.lunabot/e2e-sentinel.txt' | grep -q "written under $FROM" || fail "the data did not carry over"
 [ "$(cd "$DIR" && docker compose ps --status running --services | sort | tr '\n' ' ')" = "caddy omb " ] || fail "caddy or omb is not running"
 copy >/dev/null || fail "expected one copy of the data"
 
@@ -125,24 +125,24 @@ step "3. the same again: nothing to do"
 grep -q "Nothing to do" "$OUT/3-again.txt" || fail "the second run did something"
 
 step "4. --rollback puts $FROM and its data back"
-(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $TO' > /data/.openmausbot/after-update.txt")
+(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $TO' > /data/.lunabot/after-update.txt")
 "${UPDATE[@]}" --rollback --yes | tee "$OUT/4-rollback.txt"
 [ "${PIPESTATUS[0]}" = 0 ] || fail "--rollback did not exit 0"
 [ "$(version)" = "$FROM" ] || fail "after --rollback the server says $(version)"
 [ "$(running_image)" = "$OLD_ID" ] || fail "after --rollback another image runs"
 cmp -s "$DIR/.env" "$OUT/env.before" || fail "after --rollback .env differs"
-in_data 'test ! -e /d/.openmausbot/after-update.txt' || fail "data written after the update survived the rollback"
+in_data 'test ! -e /d/.lunabot/after-update.txt' || fail "data written after the update survived the rollback"
 
 step "5. a new version that never answers and damages the data: rolled back, every file as it was"
 docker build -q -t omb-e2e-broken:1 - >/dev/null <<DOCKERFILE
 FROM $REPO:v$TO
-CMD ["sh", "-c", "echo damaged > /data/.openmausbot/e2e-sentinel.txt; rm -f /data/.openmausbot/bots.json; echo x > /data/.openmausbot/left-by-the-broken-version; exec sleep 100000"]
+CMD ["sh", "-c", "echo damaged > /data/.lunabot/e2e-sentinel.txt; rm -f /data/.lunabot/bots.json; echo x > /data/.lunabot/left-by-the-broken-version; exec sleep 100000"]
 DOCKERFILE
 # From a stopped server, so the data the update copies aside is exactly this manifest.
 (cd "$DIR" && docker compose stop) >/dev/null 2>&1
 manifest "$DATA" >"$OUT/5-data-before.txt"
 echo "files before: $(($(wc -l <"$OUT/5-data-before.txt") / 2))"
-OMB_UPDATE_WAIT_S=45 "${UPDATE[@]}" --image omb-e2e-broken:1 | tee "$OUT/5-failed-update.txt"
+LUNABOT_UPDATE_WAIT_S=45 "${UPDATE[@]}" --image omb-e2e-broken:1 | tee "$OUT/5-failed-update.txt"
 [ "${PIPESTATUS[0]}" = 1 ] || fail "the failed update did not exit 1"
 grep -q "did not work: it did not answer within 45 seconds" "$OUT/5-failed-update.txt" || fail "no plain reason"
 grep -q "Your server runs $FROM again, with its data as it was before the update." "$OUT/5-failed-update.txt" || fail "no plain outcome"
@@ -155,12 +155,12 @@ diff "$OUT/5-data-before.txt" "$OUT/5-copy.txt" >"$OUT/5-copy-vs-before.diff" ||
 manifest "$DATA" >"$OUT/5-data-after.txt"
 diff "$OUT/5-data-before.txt" "$OUT/5-data-after.txt" >"$OUT/5-after-vs-before.diff"
 echo "lines that differ once the old server has run again: $(grep -c '^[<>]' "$OUT/5-after-vs-before.diff")"
-in_data 'grep -q "written under" /d/.openmausbot/e2e-sentinel.txt && test ! -e /d/.openmausbot/left-by-the-broken-version' || fail "the damage was not undone"
+in_data 'grep -q "written under" /d/.lunabot/e2e-sentinel.txt && test ! -e /d/.lunabot/left-by-the-broken-version' || fail "the damage was not undone"
 (cd "$DIR" && docker compose start) >/dev/null 2>&1
 wait_version "$FROM" || fail "$FROM does not answer after the rollback"
 
 step "6. an update killed while it waits: the next run asks, changes nothing unanswered, and puts the data back on yes"
-OMB_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image omb-e2e-broken:1 >"$OUT/6-killed.txt" 2>&1 &
+LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image omb-e2e-broken:1 >"$OUT/6-killed.txt" 2>&1 &
 pid=$!
 for _ in $(seq 1 180); do grep -q "^phase=wait" "$DIR/.update/journal" 2>/dev/null && break; sleep 1; done
 grep -q "^phase=wait" "$DIR/.update/journal" || fail "the update never reached its wait"
@@ -169,23 +169,23 @@ kill -9 "$pid"
 wait "$pid" 2>/dev/null
 cat "$OUT/6-killed.txt"
 [ -f "$DIR/.update/journal" ] || fail "no journal after the kill"
-in_data 'grep -qx damaged /d/.openmausbot/e2e-sentinel.txt && test -e /d/.openmausbot/left-by-the-broken-version' || fail "the broken version did not damage the data, so this proves nothing"
+in_data 'grep -qx damaged /d/.lunabot/e2e-sentinel.txt && test -e /d/.lunabot/left-by-the-broken-version' || fail "the broken version did not damage the data, so this proves nothing"
 echo "the killed update left the broken version running on damaged data"
-OMB_UPDATE_WAIT_S=45 "${UPDATE[@]}" </dev/null | tee "$OUT/6-unanswered.txt"
+LUNABOT_UPDATE_WAIT_S=45 "${UPDATE[@]}" </dev/null | tee "$OUT/6-unanswered.txt"
 [ "${PIPESTATUS[0]}" = 4 ] || fail "a run nobody answered did not exit 4"
 grep -q "Everything made on this server since then (chats, files, settings) is lost." "$OUT/6-unanswered.txt" || fail "the question does not say what is lost"
 [ -f "$DIR/.update/journal" ] || fail "a run nobody answered dropped the journal"
-in_data 'grep -qx damaged /d/.openmausbot/e2e-sentinel.txt' || fail "a run nobody answered changed the data"
-printf 'yes\n' | OMB_UPDATE_WAIT_S=45 "${UPDATE[@]}" | tee "$OUT/6-next-run.txt"
+in_data 'grep -qx damaged /d/.lunabot/e2e-sentinel.txt' || fail "a run nobody answered changed the data"
+printf 'yes\n' | LUNABOT_UPDATE_WAIT_S=45 "${UPDATE[@]}" | tee "$OUT/6-next-run.txt"
 grep -q "Your server runs $FROM again, with its data as it was before the update." "$OUT/6-next-run.txt" || fail "the next run did not put the old version back"
 [ "$(running_image)" = "$OLD_ID" ] || fail "after the recovery another image runs"
-in_data 'grep -q "written under" /d/.openmausbot/e2e-sentinel.txt' || fail "after the recovery the data is damaged"
+in_data 'grep -q "written under" /d/.lunabot/e2e-sentinel.txt' || fail "after the recovery the data is damaged"
 cmp -s "$DIR/.env" "$OUT/env.before" || fail "after the recovery .env differs"
 
 step "7. a rollback whose restore fails leaves the data and the copy alone, keeps the journal, and is tried again on request"
 (cd "$DIR" && docker compose stop) >/dev/null 2>&1
 manifest "$DATA" >"$OUT/7-data-before.txt"
-OMB_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image omb-e2e-broken:1 >"$OUT/7-failed-restore.txt" 2>&1 &
+LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image omb-e2e-broken:1 >"$OUT/7-failed-restore.txt" 2>&1 &
 pid=$!
 for _ in $(seq 1 180); do grep -q "^phase=wait" "$DIR/.update/journal" 2>/dev/null && break; sleep 1; done
 grep -q "^phase=wait" "$DIR/.update/journal" || fail "the update never reached its wait"
@@ -199,14 +199,14 @@ grep -q "Neither was changed" "$OUT/7-failed-restore.txt" || fail "no plain acco
 [ -f "$DIR/.update/journal" ] || fail "the failed restore dropped the journal"
 [ -z "$(cd "$DIR" && docker compose ps -q --status running omb)" ] || fail "a server was started on data that was not put back"
 docker pull -q "$REPO:v$FROM" >/dev/null || fail "could not pull $FROM again"
-in_data 'grep -qx damaged /d/.openmausbot/e2e-sentinel.txt && test ! -e /d/.omb-restore && test ! -e /d/.omb-replaced' || fail "the failed restore changed the data"
+in_data 'grep -qx damaged /d/.lunabot/e2e-sentinel.txt && test ! -e /d/.omb-restore && test ! -e /d/.omb-replaced' || fail "the failed restore changed the data"
 snapshot=$(copy) || fail "expected one copy of the data"
 manifest "$snapshot" >"$OUT/7-copy.txt"
 diff "$OUT/7-data-before.txt" "$OUT/7-copy.txt" >/dev/null || fail "the failed restore changed the copy"
-OMB_UPDATE_WAIT_S=120 "${UPDATE[@]}" --rollback --yes | tee "$OUT/7-again.txt"
+LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --rollback --yes | tee "$OUT/7-again.txt"
 [ "${PIPESTATUS[0]}" = 0 ] || fail "--rollback after the failed restore did not exit 0"
 [ "$(running_image)" = "$OLD_ID" ] || fail "after the second try another image runs"
-in_data 'grep -q "written under" /d/.openmausbot/e2e-sentinel.txt' || fail "after the second try the data is damaged"
+in_data 'grep -q "written under" /d/.lunabot/e2e-sentinel.txt' || fail "after the second try the data is damaged"
 [ ! -f "$DIR/.update/journal" ] || fail "the journal outlived a finished rollback"
 
 step "8. an update whose terminal hangs up half-way finishes"

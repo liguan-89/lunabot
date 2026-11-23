@@ -41,7 +41,7 @@ function admin(roster: Record<string, string | null>, options: { status?: number
     if (options.down) throw new TypeError("fetch failed");
     expect(url).toBe(`${ADMIN}${TEAM_ROSTER_ADMIN_PATH}`);
     const headers = init.headers as Record<string, string>, body = String(init.body);
-    expect(headers["x-omb-cloud-signature"]).toBe(`v1=${teamRosterSignature(SECRET, "cm-home", headers["x-omb-cloud-timestamp"]!, headers["x-omb-cloud-nonce"]!, body)}`);
+    expect(headers["x-lunabot-cloud-signature"]).toBe(`v1=${teamRosterSignature(SECRET, "cm-home", headers["x-lunabot-cloud-timestamp"]!, headers["x-lunabot-cloud-nonce"]!, body)}`);
     const emails = (JSON.parse(body) as { emails: string[] }).emails;
     asked.push(emails);
     if (options.status) return Response.json({ error: "no" }, { status: options.status });

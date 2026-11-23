@@ -202,7 +202,7 @@ describe("shouldLearn: the package gate", () => {
     // A phone that has not taken the new install id yet is still this app.
     expect(shouldLearnPackage("com.dexbot.companion", policy({ allow: new Set(["com.dexbot.companion"]) }))).toBe("self-package");
     expect(shouldLearnPackage("com.dexbot.companion.preview", policy({ allow: new Set(["com.dexbot.companion.preview"]) }))).toBe("self-package");
-    expect(isSelfPackage("com.openmausbot.companion.dev.test")).toBe(true);
+    expect(isSelfPackage("com.lunabot.companion.dev.test")).toBe(true);
     expect(isSelfPackage("com.example.companion")).toBe(false);
     expect(SELF_PACKAGE_PREFIXES).toContain("com.lunabot.companion");
     // Self wins over blocked, as in Mika.

@@ -6,44 +6,44 @@ export const WORKSPACE_CREDENTIAL_ENV = [
   "XAI_API_KEY",
   "MISTRAL_API_KEY",
   "CEREBRAS_API_KEY",
-  "OMB_GROQ_API_KEY",
-  "OMB_GREENFERENCE_API_KEY",
-  "OMB_MODELGO_API_KEY",
-  "OMB_META_API_KEY",
-  "OMB_DEEPSEEK_API_KEY",
-  "OMB_ANTHROPIC_API_KEY",
-  "OMB_ANTHROPIC_API_URL",
-  "OMB_HOSTED_MODEL_TOKEN",
-  "OMB_HOSTED_MODELS",
+  "LUNABOT_GROQ_API_KEY",
+  "LUNABOT_GREENFERENCE_API_KEY",
+  "LUNABOT_MODELGO_API_KEY",
+  "LUNABOT_META_API_KEY",
+  "LUNABOT_DEEPSEEK_API_KEY",
+  "LUNABOT_ANTHROPIC_API_KEY",
+  "LUNABOT_ANTHROPIC_API_URL",
+  "LUNABOT_HOSTED_MODEL_TOKEN",
+  "LUNABOT_HOSTED_MODELS",
   "OPENAI_COMPAT_API_KEY",
   "OPENAI_COMPAT_URL",
-  "OMB_OPENAI_API_KEY",
-  "OMB_OPENROUTER_API_KEY",
+  "LUNABOT_OPENAI_API_KEY",
+  "LUNABOT_OPENROUTER_API_KEY",
   "BOX_TOKEN",
   "OPENCODE_API_KEY",
-  "OMB_TTS_KEY",
-  "OMB_FISH_AUDIO_API_KEY",
-  "OMB_GEMINI_API_KEY",
-  "OMB_JEV_API_KEY",
-  "OMB_OPENROUTER_DECIDER_KEY",
-  "OMB_WORKERS_AI_TOKEN",
-  "OMB_OPENAI_IMAGE_KEY",
-  "OMB_CUSTOM_IMAGE_KEY",
-  "OMB_GEMINI_IMAGE_KEY",
-  "OMB_OPENAI_LIVE_KEY", "OMB_TREG_KEY", "OMB_POSTIZ_API_KEY",
+  "LUNABOT_TTS_KEY",
+  "LUNABOT_FISH_AUDIO_API_KEY",
+  "LUNABOT_GEMINI_API_KEY",
+  "LUNABOT_JEV_API_KEY",
+  "LUNABOT_OPENROUTER_DECIDER_KEY",
+  "LUNABOT_WORKERS_AI_TOKEN",
+  "LUNABOT_OPENAI_IMAGE_KEY",
+  "LUNABOT_CUSTOM_IMAGE_KEY",
+  "LUNABOT_GEMINI_IMAGE_KEY",
+  "LUNABOT_OPENAI_LIVE_KEY", "LUNABOT_TREG_KEY", "LUNABOT_POSTIZ_API_KEY",
   "COMPOSIO_API_KEY",
-  "OMB_COMPOSIO_BROKER_TOKEN",
-  "OMB_CLOUD_BOAT_TOKEN",
-  "OMB_CLOUD_VOICE_TOKEN",
-  "OMB_CLOUD_DECIDER_TOKEN",
-  "OMB_CLOUD_AI_TOKEN", "OMB_CLOUD_X_TOKEN", "OMB_CLOUD_CONNECTED_APPS_GRANT",
+  "LUNABOT_COMPOSIO_BROKER_TOKEN",
+  "LUNABOT_CLOUD_BOAT_TOKEN",
+  "LUNABOT_CLOUD_VOICE_TOKEN",
+  "LUNABOT_CLOUD_DECIDER_TOKEN",
+  "LUNABOT_CLOUD_AI_TOKEN", "LUNABOT_CLOUD_X_TOKEN", "LUNABOT_CLOUD_CONNECTED_APPS_GRANT",
   // Not credentials, but they point a shell-capable agent at app-owned state.
-  "OMB_BROWSER_CONNECTION", "OMB_USER_DATA", "OMB_BOAT_API",
+  "LUNABOT_BROWSER_CONNECTION", "LUNABOT_USER_DATA", "LUNABOT_BOAT_API",
 ] as const;
 
-/** Operator secrets only this process reads, plus every `OMB_CLOUD_` var (the underscore leaves out OMB_CLOUDFLARED_PATH). */
-export const CONTROL_PLANE_ENV = ["OMB_LICENSE_KEY", "OMB_INSTALLATION_CREDENTIAL"] as const;
-export const CONTROL_PLANE_ENV_PREFIX = "OMB_CLOUD_";
+/** Operator secrets only this process reads, plus every `LUNABOT_CLOUD_` var (the underscore leaves out LUNABOT_CLOUDFLARED_PATH). */
+export const CONTROL_PLANE_ENV = ["LUNABOT_LICENSE_KEY", "LUNABOT_INSTALLATION_CREDENTIAL"] as const;
+export const CONTROL_PLANE_ENV_PREFIX = "LUNABOT_CLOUD_";
 
 /** Names compare case-insensitively because Windows environments do. */
 export function stripControlPlaneEnv(env: Record<string, string | undefined>): void {
@@ -58,12 +58,12 @@ export function stripWorkspaceCredentialEnv(env: Record<string, string | undefin
   stripControlPlaneEnv(env);
 }
 
-const DESKTOP_STORE_KEY_ENV: ReadonlySet<string> = new Set(["MISTRAL_API_KEY", "CEREBRAS_API_KEY", "OPENAI_COMPAT_API_KEY", "OMB_OPENAI_API_KEY", "OMB_OPENROUTER_API_KEY"]);
+const DESKTOP_STORE_KEY_ENV: ReadonlySet<string> = new Set(["MISTRAL_API_KEY", "CEREBRAS_API_KEY", "OPENAI_COMPAT_API_KEY", "LUNABOT_OPENAI_API_KEY", "LUNABOT_OPENROUTER_API_KEY"]);
 
 /** A key an operator set on the server. Security: under the desktop app these variables hold workspace keys from its
  * encrypted store, which reach only the instances the workspace routes, never one with a URL of its own. */
 export function operatorEnvKey(name: string, env: NodeJS.ProcessEnv = process.env): string | undefined {
-  return env.OMB_DESKTOP_PARENT === "1" && DESKTOP_STORE_KEY_ENV.has(name) ? undefined : env[name];
+  return env.LUNABOT_DESKTOP_PARENT === "1" && DESKTOP_STORE_KEY_ENV.has(name) ? undefined : env[name];
 }
 
 /** Env a provider CLI may read as its billing identity; a foreign key must never move a subscription CLI onto API billing. */

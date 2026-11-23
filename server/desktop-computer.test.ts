@@ -8,11 +8,11 @@ import { createDesktopComputer, DESKTOP_COMPUTER_GRANT, thisComputerNotReady } f
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const READY = { mode: "embedded", status: "ready", socketPath: "/fixture/cua.sock", mcpCommand: "/fixture/cua-driver", mcpArgs: ["mcp"], mcpEnv: {} };
-const saved = { userData: process.env.OMB_USER_DATA, parent: process.env.OMB_DESKTOP_PARENT, home: process.env.HOME };
+const saved = { userData: process.env.LUNABOT_USER_DATA, parent: process.env.LUNABOT_DESKTOP_PARENT, home: process.env.HOME };
 const folders: string[] = [];
 
 afterEach(() => {
-  for (const [key, value] of [["OMB_USER_DATA", saved.userData], ["OMB_DESKTOP_PARENT", saved.parent], ["HOME", saved.home]] as const) {
+  for (const [key, value] of [["LUNABOT_USER_DATA", saved.userData], ["LUNABOT_DESKTOP_PARENT", saved.parent], ["HOME", saved.home]] as const) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
@@ -27,7 +27,7 @@ describe("this computer, only for the desktop app's own server", () => {
       mkdirSync(folder, { recursive: true, mode: 0o700 });
       writeFileSync(join(folder, "cua-connection.json"), JSON.stringify(READY), { mode: 0o600 });
     }
-    Object.assign(process.env, { OMB_USER_DATA: join(home, "user-data"), OMB_DESKTOP_PARENT: "1", HOME: home });
+    Object.assign(process.env, { LUNABOT_USER_DATA: join(home, "user-data"), LUNABOT_DESKTOP_PARENT: "1", HOME: home });
     for (const platform of ["darwin", "win32", "linux"] as const) {
       const desktop = createDesktopComputer({ platform });
       expect(desktop.connection(), platform).toBeNull();

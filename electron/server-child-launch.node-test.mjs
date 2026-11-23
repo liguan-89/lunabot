@@ -52,7 +52,7 @@ test("main forks what the helper picks and hands only the server the cache direc
   const start = main.indexOf("async function startServerOn(port,");
   const body = main.slice(start, main.indexOf("utilityProcess.fork(entry", start));
   assert.match(body, /const \{ entry, compileCacheDir \} = serverChildLaunch\(\{\n\s+resourcesPath: process\.resourcesPath,\n\s+userData: app\.getPath\("userData"\),/);
-  assert.match(body, /delete childEnv\.OMB_SERVER_COMPILE_CACHE;\n\s+if \(compileCacheDir\) childEnv\.OMB_SERVER_COMPILE_CACHE = compileCacheDir;/);
+  assert.match(body, /delete childEnv\.LUNABOT_SERVER_COMPILE_CACHE;\n\s+if \(compileCacheDir\) childEnv\.LUNABOT_SERVER_COMPILE_CACHE = compileCacheDir;/);
   assert.doesNotMatch(body, /path\.join\(process\.resourcesPath, "server", "index\.js"\)/);
 });
 
@@ -62,7 +62,7 @@ test("every server child of one launch gets that launch's id, never one from the
   const start = main.indexOf("async function startServerOn(port,");
   const body = main.slice(start, main.indexOf("utilityProcess.fork(entry", start));
   const spread = body.indexOf("...process.env,");
-  const launch = body.indexOf("OMB_DESKTOP_LAUNCH_ID: desktopLaunchId,");
+  const launch = body.indexOf("LUNABOT_DESKTOP_LAUNCH_ID: desktopLaunchId,");
   assert.ok(spread > 0 && launch > spread, "the launch id is set after, so over, the inherited environment");
 });
 
@@ -83,12 +83,12 @@ import { execFileSync } from "node:child_process";
 const later = globalThis.setTimeout;
 globalThis.setTimeout = (callback, _delay, ...args) => later(callback, 0, ...args);
 const child = JSON.parse(execFileSync(process.execPath, ["-e",
-  "process.stdout.write(JSON.stringify([process.env.OMB_SERVER_COMPILE_CACHE ?? null, process.env.NODE_COMPILE_CACHE ?? null]))"],
+  "process.stdout.write(JSON.stringify([process.env.LUNABOT_SERVER_COMPILE_CACHE ?? null, process.env.NODE_COMPILE_CACHE ?? null]))"],
   { encoding: "utf8" }));
 later(() => console.log(JSON.stringify({
   started: true,
   cacheDir: module.getCompileCacheDir() ?? null,
-  env: [process.env.OMB_SERVER_COMPILE_CACHE ?? null, process.env.NODE_COMPILE_CACHE ?? null],
+  env: [process.env.LUNABOT_SERVER_COMPILE_CACHE ?? null, process.env.NODE_COMPILE_CACHE ?? null],
   child,
 })), 300);
 `;
@@ -97,8 +97,8 @@ function runEntry(dir, cacheRoot, extraEnv = {}) {
   const env = { ...process.env };
   delete env.NODE_COMPILE_CACHE;
   delete env.NODE_DISABLE_COMPILE_CACHE;
-  if (cacheRoot !== undefined) env.OMB_SERVER_COMPILE_CACHE = cacheRoot;
-  else delete env.OMB_SERVER_COMPILE_CACHE;
+  if (cacheRoot !== undefined) env.LUNABOT_SERVER_COMPILE_CACHE = cacheRoot;
+  else delete env.LUNABOT_SERVER_COMPILE_CACHE;
   Object.assign(env, extraEnv);
   const result = spawnSync(process.execPath, [path.join(dir, "server", "desktop-entry.mjs")], { encoding: "utf8", env, timeout: 20_000 });
   const line = result.stdout.trim().split("\n").filter(Boolean).at(-1);

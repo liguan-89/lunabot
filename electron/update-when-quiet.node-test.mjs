@@ -126,7 +126,7 @@ test("never while a Live call runs here or on the Cloud the window shows, and My
     window: () => null, lastInput: () => 0, busy: () => null,
     local: (route) => { asked.push(route); return route === "/api/move/freeze" ? reply({ frozen: false }) : reply({ call: here }); },
     place: () => CLOUD, asleep: () => asleep,
-    cloudFetch: (url, init) => { asked.push(url); assert.equal(init.headers["x-omb-background"], "1"); return reply({ call: there }); },
+    cloudFetch: (url, init) => { asked.push(url); assert.equal(init.headers["x-lunabot-background"], "1"); return reply({ call: there }); },
   });
   assert.equal(await signals.work(), null);
   here = { id: "call-1", botId: "b1" };

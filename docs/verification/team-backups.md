@@ -69,7 +69,7 @@ download UI; verify those separately in a renderer connected to a fixture.
 ### Template sidebar UI
 
 ```sh
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/team-template-ui.e2e.test.ts --silent=false
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/team-template-ui.e2e.test.ts --silent=false
 ```
 
 This owns a disposable `control-omb ui` app. It sends a fixture conversation,

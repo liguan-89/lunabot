@@ -53,7 +53,7 @@ async function pairOwner(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(bootstrap, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(bootstrap, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   const paired = await api("POST", "/api/auth/pair", { code: granted.code });
@@ -101,14 +101,14 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${port}`;
   // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
   // tmpfs and hides the fake pi's dump; the box has its own suites, so it stays off here (the launcher passes it on:
-  // OMB_BOT_BOX is on server/cloud-home-start.ts's allow-list).
-  const contract = { OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "7d1c3b5a-2e4f-4a6b-8c9d-0e1f2a3b4c5d", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-    OMB_CLOUD_BOOTSTRAP_SECRET: bootstrap, OMB_PUBLIC_URL: `https://${HOST}` };
-  const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: join(home, "empty-tree"), ...contract };
+  // LUNABOT_BOT_BOX is on server/cloud-home-start.ts's allow-list).
+  const contract = { LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: "7d1c3b5a-2e4f-4a6b-8c9d-0e1f2a3b4c5d", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+    LUNABOT_CLOUD_BOOTSTRAP_SECRET: bootstrap, LUNABOT_PUBLIC_URL: `https://${HOST}` };
+  const imageEnv = { PATH: process.env.PATH, LUNABOT_DUCKDB_DIR: join(home, "empty-tree"), ...contract };
   const { server, secrets } = cloudHomeChildEnvironments(cloudHomeConfiguration(imageEnv)!, imageEnv, home);
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
   child = spawnWithSecrets(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
-    ...server, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), USERPROFILE: home,
+    ...server, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), USERPROFILE: home,
     ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
   }, secrets, null, true);
   child.stdout?.on("data", (chunk) => { log += chunk; });

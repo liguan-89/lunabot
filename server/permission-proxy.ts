@@ -7,8 +7,8 @@ import { parseAskQuestions, questionAnswersByQuestion, type AskQuestion } from "
 import { allowsTool, parseToolScope } from "../shared/tool-scope.ts";
 import { REFUSED_NEXT_STEP } from "./reply-habits.ts";
 
-const selection = parseToolScope(process.env.OMB_PERMISSION_TOOL_SCOPE === undefined
-  ? undefined : (() => { try { return JSON.parse(process.env.OMB_PERMISSION_TOOL_SCOPE); } catch { return null; } })());
+const selection = parseToolScope(process.env.LUNABOT_PERMISSION_TOOL_SCOPE === undefined
+  ? undefined : (() => { try { return JSON.parse(process.env.LUNABOT_PERMISSION_TOOL_SCOPE); } catch { return null; } })());
 if (!selection.ok) throw new Error(selection.error);
 const allowQuestion = allowsTool(selection.scope, { kind: "mcp", server: "ogb", name: "ask_user" });
 

@@ -47,7 +47,7 @@ export interface GrokMove {
 export function grokMoveCloudflared(env: NodeJS.ProcessEnv = process.env, fromSource = import.meta.url.endsWith(".ts")): string | null {
   return resolveCloudflaredBinary(fromSource
     ? { isPackaged: false, appPath: resolve(dirname(fileURLToPath(import.meta.url)), ".."), environment: env }
-    : { isPackaged: true, resourcesPath: env.OMB_RESOURCES_PATH });
+    : { isPackaged: true, resourcesPath: env.LUNABOT_RESOURCES_PATH });
 }
 
 interface Link { connectorUrl: string; expiresAt: number; inbox: MoveInbox; live: boolean; close(): void }

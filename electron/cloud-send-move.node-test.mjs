@@ -229,7 +229,7 @@ test("Settings learns how many conversations are still to go, and a pass says ho
 
 test("a move's session counts as someone using My Cloud, so it stays awake; any other session main opens never does", async () => {
   const headers = [];
-  const fetchImpl = async (url, init) => { headers.push([String(url).replace(CLOUD, ""), init.headers["x-omb-background"] ?? null, init.body]); return json({ token: "omb_sess_fake" }); };
+  const fetchImpl = async (url, init) => { headers.push([String(url).replace(CLOUD, ""), init.headers["x-lunabot-background"] ?? null, init.body]); return json({ token: "omb_sess_fake" }); };
   const target = { origin: CLOUD, grant: async () => ({ origin: CLOUD, code: "C" }) };
   const moving = await openOwnerSession(target, fetchImpl, { label: "Move to My Cloud", background: false });
   await moving.call("GET", "/api/cloud-send");
@@ -251,7 +251,7 @@ test("a move's session counts as someone using My Cloud, so it stays awake; any 
     file: () => "/nonexistent/cloud-send.json", window: () => null, localOrigin: () => LOCAL,
     fetch: async (url, init) => {
       const route = String(url).replace(CLOUD, "");
-      if (route === "/api/auth/pair") { paired.push([JSON.parse(init.body).label, init.headers["x-omb-background"] ?? null]); return json({ token: "omb_sess_fake" }); }
+      if (route === "/api/auth/pair") { paired.push([JSON.parse(init.body).label, init.headers["x-lunabot-background"] ?? null]); return json({ token: "omb_sess_fake" }); }
       return json(route === "/api/cloud-send" || route === "/api/cloud-send?move=1" ? summary([]) : route === "/.well-known/lunabot/environment" ? { capabilities: { move: 1 } } : route === "/api/cloud-connections" ? listing : {});
     },
   });

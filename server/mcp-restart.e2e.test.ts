@@ -26,7 +26,7 @@ it("restart keeps the key and replaces the warm process, and so does turning the
   /** The key the server itself starts with, behind the tool gate the turn mounts it through. */
   const mailKey = (turn: PiTurn): string | undefined => {
     const mounted = turn.launch?.mcpConfig?.mcpServers?.mail;
-    return (mounted?.env?.OMB_GATE_UPSTREAM ? JSON.parse(String(mounted.env.OMB_GATE_UPSTREAM)) : mounted)?.env?.MAIL_KEY;
+    return (mounted?.env?.LUNABOT_GATE_UPSTREAM ? JSON.parse(String(mounted.env.LUNABOT_GATE_UPSTREAM)) : mounted)?.env?.MAIL_KEY;
   };
   let sends = 0;
   let bot: { id: string; threadId: string };

@@ -62,13 +62,13 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     until((): PiTurn | undefined => {
       const turns = piTurnsForThread(dumpFile, threadId);
       const found = turns.slice(seenTurns.get(threadId) ?? 0)
-        .find(turn => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId));
+        .find(turn => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.LUNABOT_CONTROL_URL?.includes(botId));
       if (found) seenTurns.set(threadId, turns.length);
       return found;
     }, Boolean) as Promise<PiTurn>;
   const mountedComputer = (turn: PiTurn): any => turn.launch!.mcpConfig!.mcpServers!.computer;
   const gate = (computer: any) =>
-    createControlClient({ url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN }).state(true);
+    createControlClient({ url: computer.env.LUNABOT_CONTROL_URL, token: computer.env.LUNABOT_CONTROL_TOKEN }).state(true);
   const timed = async <T>(work: Promise<T>) => {
     const started = Date.now();
     const value = await work;
@@ -92,13 +92,13 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       "--import", pathToFileURL(join(ROOT, "server/testing/desktop-parent.mjs")).href, join(ROOT, "server/index.ts")], {
       cwd: ROOT, env: {
         PATH: dirname(process.execPath), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data,
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data,
         APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
         TEMP: home, TMP: home, TMPDIR: home,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui, OMB_TEST_VM_STATE: stateFile,
-        OMB_USER_DATA: join(home, "user-data"), OMB_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json"),
-        OMB_COMPUTER_CALL_WAIT_MS: String(CALL_WAIT_MS),
-        OMB_COMPUTER_CALL_ACT_WITHIN_MS: String(ACT_WITHIN_MS), ...env,
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: ui, LUNABOT_TEST_VM_STATE: stateFile,
+        LUNABOT_USER_DATA: join(home, "user-data"), LUNABOT_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json"),
+        LUNABOT_COMPUTER_CALL_WAIT_MS: String(CALL_WAIT_MS),
+        LUNABOT_COMPUTER_CALL_ACT_WITHIN_MS: String(ACT_WITHIN_MS), ...env,
       }, stdio: ["ignore", "pipe", "pipe"],
     });
     child = proc;
@@ -176,7 +176,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     await apiOk("POST", `/api/bots/${holder.id}/messages`, { text: "Work slowly without touching the screen.", threadId: task.threadId });
     await busy(holder.id, task.threadId);
     const computer = mountedComputer(await dumpFor(holder.id, task.threadId));
-    expect(computer.env.OMB_CUA_COMMAND).toBe("/fixture/cua-driver");
+    expect(computer.env.LUNABOT_CUA_COMMAND).toBe("/fixture/cua-driver");
     expect(computer.args.some((arg: string) => arg.includes("local-computer-proxy"))).toBe(true);
     expect(savedTask(holder.id, task.threadId)).not.toHaveProperty("surface");
     const { bot: claimer } = await apiOk("POST", "/api/bots", { name: "Host Claim Bot", settings: { approvalMode: ASKS } });
@@ -270,7 +270,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
 
   itAutoHost("a person's hold past the wait ceiling is not waited for: the turn is told to stop and say so", async () => {
     const ceilingMs = 2_000;
-    await start({ OMB_COMPUTER_WAIT_MAX_MS: String(ceilingMs) });
+    await start({ LUNABOT_COMPUTER_WAIT_MAX_MS: String(ceilingMs) });
     const { bot } = await apiOk("POST", "/api/bots", { name: "Host Away Bot", settings: { approvalMode: ASKS } });
     const { task } = await apiOk("POST", `/api/bots/${bot.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Work slowly on the screen.", threadId: task.threadId });
@@ -330,7 +330,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Look at my calendar slowly.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
     const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
-    const client = createControlClient({ url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN });
+    const client = createControlClient({ url: computer.env.LUNABOT_CONTROL_URL, token: computer.env.LUNABOT_CONTROL_TOKEN });
     expect(await client.state(true, { app: "Chrome", site: "calendar.google.com" })).toEqual({ held: false, helpOpen: false });
     const cards = (await apiOk("GET", `/api/threads/${task.threadId}/messages?limit=200`)).messages
       .filter((message: any) => message.card?.tool === "use_your_computer");
@@ -347,7 +347,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Look at my calendar slowly.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
     const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
-    const client = createControlClient({ url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN });
+    const client = createControlClient({ url: computer.env.LUNABOT_CONTROL_URL, token: computer.env.LUNABOT_CONTROL_TOKEN });
     // Exactly what the mounted proxy sends for launch_app { bundle_id: "com.google.Chrome", urls: [...] }.
     const first = timed(client.state(true, { app: "Chrome", site: "calendar.google.com" }));
     const card = await openYourComputerCard(base, task.threadId);

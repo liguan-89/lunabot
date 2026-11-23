@@ -248,12 +248,12 @@ describe("live URLs", () => {
   it("uses OpenAI unless a loopback test server is set", () => {
     expect(liveSessionsUrl(openAiLiveEndpoint({}))).toBe("https://api.openai.com/v1/live/sessions");
     expect(liveAttachUrl("sess_1", openAiLiveEndpoint({}))).toBe("wss://api.openai.com/v1/live/sessions/sess_1/attach");
-    const env = { OMB_OPENAI_LIVE_URL: "http://127.0.0.1:4555" };
+    const env = { LUNABOT_OPENAI_LIVE_URL: "http://127.0.0.1:4555" };
     expect(liveSessionsUrl(openAiLiveEndpoint(env))).toBe("http://127.0.0.1:4555/v1/live/sessions");
     expect(liveAttachUrl("sess_1", openAiLiveEndpoint(env))).toBe("ws://127.0.0.1:4555/v1/live/sessions/sess_1/attach");
   });
   it("ignores an override that is not loopback", () => {
-    expect(liveBaseUrl({ OMB_OPENAI_LIVE_URL: "http://evil.example:80" })).toBe("https://api.openai.com");
+    expect(liveBaseUrl({ LUNABOT_OPENAI_LIVE_URL: "http://evil.example:80" })).toBe("https://api.openai.com");
   });
   it("escapes the session id", () => {
     expect(liveAttachUrl("a/b", openAiLiveEndpoint({}))).toBe("wss://api.openai.com/v1/live/sessions/a%2Fb/attach");
@@ -523,8 +523,8 @@ describe("the Doubao realtime speech service", () => {
     expect(volcLiveEndpoint("app-123", "1.2.1.1", {})).toBeNull();
     expect(volcLiveEndpoint("6255978659", "2.2.0.0", {})?.model).toBe("2.2.0.0");
     expect(volcLiveEndpoint("6255978659", "bad model!", {})).toBeNull();
-    expect(volcLiveEndpoint("6255978659", "", { OMB_LIVE_VOLC_ENDPOINT: "ws://127.0.0.1:8042" })?.apiBase).toBe("ws://127.0.0.1:8042");
-    expect(volcLiveEndpoint("6255978659", "", { OMB_LIVE_VOLC_ENDPOINT: "wss://evil.example" })?.apiBase).toBe("wss://openspeech.bytedance.com");
+    expect(volcLiveEndpoint("6255978659", "", { LUNABOT_LIVE_VOLC_ENDPOINT: "ws://127.0.0.1:8042" })?.apiBase).toBe("ws://127.0.0.1:8042");
+    expect(volcLiveEndpoint("6255978659", "", { LUNABOT_LIVE_VOLC_ENDPOINT: "wss://evil.example" })?.apiBase).toBe("wss://openspeech.bytedance.com");
   });
 
   it("puts the App ID and Access Token in the service's own headers", () => {

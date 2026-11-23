@@ -38,7 +38,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   // The shared test setup supplies a throwaway HOME before module imports.
   dataDir = mkdtempSync(join(process.env.HOME!, "cli-pair-"));
-  vi.stubEnv("OMB_DATA_DIR", dataDir);
+  vi.stubEnv("LUNABOT_DATA_DIR", dataDir);
   options = { command: "pair", port: 18451, dataDir, tailscale: false, tunnel: false, client: false, pair: true, json: false };
   publicUrl = advertisedOrigin;
   remoteWorkspaceId = workspaceId;

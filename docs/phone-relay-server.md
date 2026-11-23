@@ -18,7 +18,7 @@ A control plane that predates that rule gives back the tunnel of any
 installation that took a relay token in the last two days and then refuses it a
 tunnel for good, and a server may be pointed at one. So the server still keeps
 the relay off, and says why, when it serves `--tunnel`, runs on a fleet
-credential (`OMB_INSTALLATION_CREDENTIAL`), or holds a tunnel address from a
+credential (`LUNABOT_INSTALLATION_CREDENTIAL`), or holds a tunnel address from a
 plain `lunabot login`.
 
 ## Use it
@@ -39,7 +39,7 @@ service prints no pairing QR into its log (the credential would sit in the
 journal); `serve --relay` shows it only at a terminal, and `pair --phone` makes
 one whenever asked.
 
-With Docker, set `OMB_PHONE_RELAY=1` in `.env` (`deploy/docker-compose.yml`,
+With Docker, set `LUNABOT_PHONE_RELAY=1` in `.env` (`deploy/docker-compose.yml`,
 the root `compose.yaml` and the compose file the installer writes all pass it to
 the server container), `docker compose up -d`, then:
 

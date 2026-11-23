@@ -94,7 +94,7 @@ class E2eSessionTest {
                 Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
                 socket
             },
-            target = E2eTarget.Relay("wss://relay1.openmausbot.com/v1/phone", hostId, admission),
+            target = E2eTarget.Relay("wss://relay1.lunabot.com/v1/phone", hostId, admission),
             transportKey = transportKey.publicKey,
             psk = psk,
             app = "mausbot-test",

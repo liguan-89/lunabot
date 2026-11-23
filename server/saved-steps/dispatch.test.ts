@@ -29,7 +29,7 @@ const RECIPE: Recipe = {
 };
 const LABEL = '"Document" in TextEdit';
 const FAILED = { kind: "failed", done: 1, total: 2, tool: "set_value", label: LABEL, error: "Fixture failure." } as const;
-const COMPUTER = { command: "gated-computer", args: ["--turn"], env: { OMB_CONTROL_TOKEN: "turn-token" }, platform: "darwin" as const, scope: "local-computer" as const };
+const COMPUTER = { command: "gated-computer", args: ["--turn"], env: { LUNABOT_CONTROL_TOKEN: "turn-token" }, platform: "darwin" as const, scope: "local-computer" as const };
 const INPUT: SendTurnInput = { threadId: "t1", botId: "b1", text: REQUEST, approvalMode: "full", integrations: { localComputer: COMPUTER } };
 const MESSAGE: Message = { id: "m1", at: 1, role: "user", kind: "text", text: REQUEST };
 const REQ: ReplayRequest = { botId: "b1", message: MESSAGE, turnText: REQUEST, placePicked: true };

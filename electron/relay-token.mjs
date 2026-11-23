@@ -7,7 +7,7 @@ const BACKOFF_MS = [MINUTE_MS, 2 * MINUTE_MS, 4 * MINUTE_MS, 8 * MINUTE_MS, 16 *
 const MIN_REFRESH_MS = MINUTE_MS;
 /** The same list companion/src/e2e/descriptor.ts parses: a grant naming a node this validator refuses would leave
  * the computer on Wi-Fi and Tailscale while its QR still promised the relay. */
-const RELAY_HOST = /^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
+const RELAY_HOST = /^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 const HOST_ID = /^[A-Za-z0-9_-]{22}$/;
 const TOKEN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 

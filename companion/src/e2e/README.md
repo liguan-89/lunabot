@@ -35,7 +35,7 @@ Everything a Node, Swift or Kotlin implementer needs. MUST and NEVER are binding
 
 | Name | What | Where it lives |
 |---|---|---|
-| `T` | The computer's **transport key**, a long-lived P-256 key pair separate from the HPKE credential key | Private half: Electron secure credential document field `e2eTransportKey` (same pattern as `phoneSecretHpke`, `electron/phone-secret-identity.mjs`), handed to the sidecar in memory. Standalone sidecar: `$OMB_COMPANION_DIR/e2e-key.json`, mode 0600 |
+| `T` | The computer's **transport key**, a long-lived P-256 key pair separate from the HPKE credential key | Private half: Electron secure credential document field `e2eTransportKey` (same pattern as `phoneSecretHpke`, `electron/phone-secret-identity.mjs`), handed to the sidecar in memory. Standalone sidecar: `$LUNABOT_COMPANION_DIR/e2e-key.json`, mode 0600 |
 | `keyId` | `SHA256(T.pub)[0:16]` (16 bytes) | Derived |
 | `hostId` | 16 random bytes, made by the control plane once per installation | D1 `installations.relay_host_id`; Electron credential document |
 | `cred` | A device token `omb_…` (`electron/desktop-companion-client.mjs:11`), or the pairing token `omb_pair_…` while a window is open | Phone keychain; desktop stores only `SHA256(cred)` hex (`companion/src/devices.ts:54`) |
@@ -52,7 +52,7 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
   `e2e=<b64u(JSON)>`, where the JSON is:
 
 ```json
-{"v":1,"k":"<b64u 65-byte T.pub, 87 chars>","h":"<b64u 16-byte hostId, 22 chars>","r":["relay1.openmausbot.com","relay2.openmausbot.com"]}
+{"v":1,"k":"<b64u 65-byte T.pub, 87 chars>","h":"<b64u 16-byte hostId, 22 chars>","r":["relay1.lunabot.com","relay2.lunabot.com"]}
 ```
 
 - **Field rules:**
@@ -62,7 +62,7 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
     Tailscale only" still gets them: they admit nothing by themselves, and they let a restricted phone away from home probe the relay
     now and then (4404 until it is allowed again).
   - `r` lists 1 to 4 hostnames in the order to try. Each MUST match
-    `^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The two families are the names a
+    `^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The two families are the names a
     phone paired before the rename holds pinned, and the node the deployed control plane issues today. An implementation
     MUST accept both and MUST NOT write a host outside them.
   - `lunabot.com` is deliberately not in that list. This fleet does not own the domain, so a `relayN.lunabot.com` node

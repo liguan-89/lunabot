@@ -50,13 +50,13 @@ jobs:
           for i in $(seq 1 30); do grep -q "^Reach .*https://ci.example" serve.log && break; sleep 1; done
           grep -q "^Reach .*https://ci.example" serve.log
           grep -q "Get a pairing code: lunabot pair" serve.log
-          OMB_PORT=18799 node cli.js status | grep -q 'Server "ci"'
-          OMB_PORT=18799 node cli.js pair --label "CI phone" | grep -q "Link           https://ci.example/pair#code="
-          OMB_PORT=18799 node cli.js sessions | grep -q "no paired devices yet"
+          LUNABOT_PORT=18799 node cli.js status | grep -q 'Server "ci"'
+          LUNABOT_PORT=18799 node cli.js pair --label "CI phone" | grep -q "Link           https://ci.example/pair#code="
+          LUNABOT_PORT=18799 node cli.js sessions | grep -q "no paired devices yet"
           # the bundles also run directly by path (the image and docs do that), not only through cli.js:
           # a bundled module with a "run when executed directly" block would fire here
           node dist-server/lunabot.js --help | grep -q "lunabot serve"
-          OMB_PORT=1 node dist-server/pair-cli.js > pair.out 2>&1 || true
+          LUNABOT_PORT=1 node dist-server/pair-cli.js > pair.out 2>&1 || true
           cat pair.out
           grep -q "No Luna Bot server is running here" pair.out
           # --tunnel ships its own processes and fails closed without an account

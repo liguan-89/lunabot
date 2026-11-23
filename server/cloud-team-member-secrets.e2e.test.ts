@@ -1,4 +1,4 @@
-// A secret a member types into a bot's card in her own private chat is hers, on a real Team Cloud (OMB_CLOUD_ROLE=team)
+// A secret a member types into a bot's card in her own private chat is hers, on a real Team Cloud (LUNABOT_CLOUD_ROLE=team)
 // with the synthetic Claude CLI, tried as the people it must hold against: the same bot in another member's private chat,
 // in its shared chat, in a group chat and in a routine run for that other member asks with a card, as if nothing were
 // saved; no Admin or Owner lists, changes or deletes it; she lists and deletes hers; leaving deletes it. A secret an Admin

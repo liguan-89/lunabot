@@ -26,7 +26,7 @@ const MAIL = [
   ["From: invoices@example.net", `To: ${ADDRESS}`, "Subject: =?UTF-8?B?UmVjaG51bmcgTcOkcno=?=", "Date: Mon, 2 Nov 2026 10:02:00 +0100", "Message-ID: <invoice@example.net>", "MIME-Version: 1.0", 'Content-Type: multipart/mixed; boundary="b1"', "", "--b1", "Content-Type: text/plain", "", "See the invoice.", "--b1", 'Content-Type: application/pdf; name="r.pdf"', "Content-Transfer-Encoding: base64", 'Content-Disposition: attachment; filename="r.pdf"', "", PDF.toString("base64"), "--b1--", ""].join("\r\n"),
 ];
 
-describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email end to end", () => {
+describe.skipIf(!process.env.LUNABOT_EMAIL_REAL_TEST)("Email end to end", () => {
   let home = "", base = "", log = "";
   let child: ChildProcess;
   const said: string[] = [];
@@ -82,7 +82,7 @@ describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email end to end", () => {
     const port = await freePortBlock([0, 1]);
     base = `http://127.0.0.1:${port}`;
     child = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], { cwd: join(SERVER_DIR, ".."), stdio: ["ignore", "pipe", "pipe"], env: {
-      PATH: process.env.PATH, HOME: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS,
+      PATH: process.env.PATH, HOME: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS,
     } });
     child.stdout?.on("data", (chunk) => { log += chunk; });
     child.stderr?.on("data", (chunk) => { log += chunk; });

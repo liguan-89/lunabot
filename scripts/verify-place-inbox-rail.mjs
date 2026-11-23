@@ -20,7 +20,7 @@ const WORK = mkdtempSync(join(tmpdir(), "omb-rail-"));
 const POLL_MS = 150_000;
 const DEBUG_PORT = 9333;
 
-const ADMIN_HOST = "cloud.openmausbot.com", AWAKE_HOST = "omb-u-aaaaaaaaaaaa.fly.dev", ASLEEP_HOST = "omb-u-bbbbbbbbbbbb.fly.dev";
+const ADMIN_HOST = "cloud.lunabot.com", AWAKE_HOST = "omb-u-aaaaaaaaaaaa.fly.dev", ASLEEP_HOST = "omb-u-bbbbbbbbbbbb.fly.dev";
 const BLOCKED = ["us.i.posthog.com", "us-assets.i.posthog.com", "app.posthog.com"];
 const TOKEN = `omc_${"T".repeat(43)}`, COOKIE = "omb_session_fixture";
 const results = [];
@@ -74,7 +74,7 @@ function serve(tls) {
     if (!cloud) return reply(404, { error: "not_found" });
     const signedIn = (req.headers.cookie ?? "").includes(`${COOKIE}=`);
     if (path === "/api/inbox/count") {
-      cloud.requests.push({ at: Date.now(), cookie: signedIn, background: req.headers["x-omb-background"] === "1" });
+      cloud.requests.push({ at: Date.now(), cookie: signedIn, background: req.headers["x-lunabot-background"] === "1" });
       return signedIn ? reply(200, { count: cloud.count }) : reply(401, { error: "sign in" });
     }
     cloud.requests.push({ at: Date.now(), other: `${req.method} ${path}` });
@@ -154,7 +154,7 @@ await import(${JSON.stringify(new URL("server/testing/fake-claude-cli.ts", ROOT)
   const binary = join(APP, "Contents", "MacOS", "OpenMausBot");
   assert.ok(existsSync(binary), `no app at ${binary}`);
   const appLog = join(OUT, "app.log");
-  app = spawn(binary, ["--use-mock-keychain", `--remote-debugging-port=${DEBUG_PORT}`], { env: { ...process.env, HOME: home, OMB_DATA_DIR: dataDir, NODE_EXTRA_CA_CERTS: certFile }, stdio: ["ignore", "pipe", "pipe"] });
+  app = spawn(binary, ["--use-mock-keychain", `--remote-debugging-port=${DEBUG_PORT}`], { env: { ...process.env, HOME: home, LUNABOT_DATA_DIR: dataDir, NODE_EXTRA_CA_CERTS: certFile }, stdio: ["ignore", "pipe", "pipe"] });
   for (const stream of [app.stdout, app.stderr]) stream.on("data", (chunk) => appendFileSync(appLog, chunk));
   app.once("exit", (code, signal) => { if (!failure) log(`app exited: ${code ?? signal}`); });
 

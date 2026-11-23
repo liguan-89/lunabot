@@ -257,7 +257,7 @@ describe("a browser on Windows", () => {
     vi.mocked(execFile).mockImplementation(((file: string, args: string[], options: { env?: NodeJS.ProcessEnv }, done: (error: Error | null, stdout: string) => void) => {
       commands.push([file, ...args]);
       let stdout = "";
-      if (file === "powershell.exe" && options.env?.OMB_PROCESS_ID) stdout = `${started}\r\n`;
+      if (file === "powershell.exe" && options.env?.LUNABOT_PROCESS_ID) stdout = `${started}\r\n`;
       else if (file === "powershell.exe") {
         stdout = JSON.stringify([{
           ProcessId: 4500, ParentProcessId: 4100, CommandLine: `"C:\\Chrome Dev\\chrome-dev.exe" "--user-data-dir=${dir}"`,
@@ -287,7 +287,7 @@ describe("a browser on Windows", () => {
     vi.mocked(execFile).mockImplementation(((file: string, args: string[], options: { env?: NodeJS.ProcessEnv }, done: (error: Error | null, stdout: string) => void) => {
       commands.push([file, ...args]);
       let stdout = "";
-      if (file === "powershell.exe" && options.env?.OMB_PROCESS_ID) stdout = `${started}\r\n`;
+      if (file === "powershell.exe" && options.env?.LUNABOT_PROCESS_ID) stdout = `${started}\r\n`;
       else if (file === "powershell.exe") {
         stdout = JSON.stringify([{
           ProcessId: 4600, ParentProcessId: 4100, CommandLine: `"C:\\Chrome\\chrome.exe" "--user-data-dir=${dir}"`,
@@ -329,11 +329,11 @@ describe("a browser on Windows", () => {
     vi.mocked(execFile).mockImplementation(((file: string, args: string[], options: { env?: NodeJS.ProcessEnv }, done: (error: Error | null, stdout: string) => void) => {
       commands.push([file, ...args]);
       let stdout = "";
-      if (file === "powershell.exe" && options.env?.OMB_PROCESS_ID) {
-        expect(options.env.OMB_PROCESS_ID).toBe(String(browser));
+      if (file === "powershell.exe" && options.env?.LUNABOT_PROCESS_ID) {
+        expect(options.env.LUNABOT_PROCESS_ID).toBe(String(browser));
         stdout = `${startedNow}\r\n`;
       } else if (file === "powershell.exe") {
-        expect(options.env?.OMB_BROWSER_PROFILE).toBe(dir);
+        expect(options.env?.LUNABOT_BROWSER_PROFILE).toBe(dir);
         stdout = JSON.stringify([
           chrome(browser, `"--user-data-dir=${dir.toUpperCase()}" --remote-debugging-port=0`),
           chrome(4201, `--type=renderer "--user-data-dir=${dir}"`),
@@ -352,7 +352,7 @@ describe("a browser on Windows", () => {
     }) as unknown as typeof execFile);
     Object.defineProperty(process, "platform", { value: "win32", configurable: true });
     const killed = () => commands.filter(([file]) => file === "taskkill");
-    const listed = () => commands.filter(([file, ...args]) => file === "powershell.exe" && args.at(-1)!.includes("OMB_BROWSER_PROFILE")).length;
+    const listed = () => commands.filter(([file, ...args]) => file === "powershell.exe" && args.at(-1)!.includes("LUNABOT_BROWSER_PROFILE")).length;
     try {
       // No Chrome holds the profile: nothing is listed.
       await releaseBrowserProfile(dir);
@@ -402,7 +402,7 @@ describe("a browser on Windows", () => {
     vi.mocked(execFile).mockImplementation(((file: string, args: string[], _options: unknown, done: (error: Error | null, stdout: string) => void) => {
       commands.push([file, ...args]);
       let stdout = "";
-      if (file === "powershell.exe" && args.at(-1)!.includes("OMB_PROCESS_ID")) stdout = `${started}\r\n`;
+      if (file === "powershell.exe" && args.at(-1)!.includes("LUNABOT_PROCESS_ID")) stdout = `${started}\r\n`;
       else if (file === "powershell.exe") {
         stdout = JSON.stringify([{
           ProcessId: browser, ParentProcessId: 4100, CommandLine: `"C:\\Chrome\\chrome.exe" "--user-data-dir=${dir}" --remote-debugging-port=0`,
@@ -459,7 +459,7 @@ describe("a browser on Windows", () => {
       await vi.waitFor(() => expect(existsSync(ready)).toBe(true), { timeout: 15_000 });
       const killed = () => vi.mocked(execFile).mock.calls.filter(([file]) => file === "taskkill");
       vi.mocked(execFile).mockClear();
-      const listed = () => vi.mocked(execFile).mock.calls.filter(([file, args]) => file === "powershell.exe" && String((args as string[]).at(-1)).includes("OMB_BROWSER_PROFILE"));
+      const listed = () => vi.mocked(execFile).mock.calls.filter(([file, args]) => file === "powershell.exe" && String((args as string[]).at(-1)).includes("LUNABOT_BROWSER_PROFILE"));
       await releaseBrowserProfile(dir, process.execPath, process.execPath);
       await releaseBrowserProfile(dir, process.execPath, process.execPath);
       expect(killed(), "its daemon's browser is kept").toEqual([]);

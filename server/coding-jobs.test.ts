@@ -22,9 +22,9 @@ describe("coding jobs store", () => {
   it("persists jobs across instances", () => {
     const file = join(dir(), "jobs.json");
     const jobs = createCodingJobs(file);
-    jobs.put({ id: "a1", repo: "/r", worktree: "/w", branch: "dexbot/job-a1", base: "abc", title: "t", instruction: "i", createdAt: 1 });
-    expect(createCodingJobs(file).get("a1")?.branch).toBe("dexbot/job-a1");
-    jobs.put({ id: "a1", repo: "/r", worktree: "/w", branch: "dexbot/job-a1", base: "abc", title: "t", instruction: "i", threadId: "th1", createdAt: 1 });
+    jobs.put({ id: "a1", repo: "/r", worktree: "/w", branch: "lunabot/job-a1", base: "abc", title: "t", instruction: "i", createdAt: 1 });
+    expect(createCodingJobs(file).get("a1")?.branch).toBe("lunabot/job-a1");
+    jobs.put({ id: "a1", repo: "/r", worktree: "/w", branch: "lunabot/job-a1", base: "abc", title: "t", instruction: "i", threadId: "th1", createdAt: 1 });
     expect(createCodingJobs(file).get("a1")?.threadId).toBe("th1");
   });
 
@@ -40,8 +40,8 @@ describe("prepareCodingJob", () => {
     const calls: string[] = [];
     const run: GitRun = async (args) => { calls.push(args.join(" ")); return okRun()(args); };
     const prepared = await prepareCodingJob("/repo", "x1", join(dir(), "wt"), run);
-    expect(prepared).toMatchObject({ repo: "/repo", branch: "dexbot/job-x1", base: "abc123" });
-    expect(calls.some((c) => c.includes("worktree add") && c.includes("-b dexbot/job-x1"))).toBe(true);
+    expect(prepared).toMatchObject({ repo: "/repo", branch: "lunabot/job-x1", base: "abc123" });
+    expect(calls.some((c) => c.includes("worktree add") && c.includes("-b lunabot/job-x1"))).toBe(true);
   });
 
   it("rejects a non-repo and a repo with no commits", async () => {
@@ -72,9 +72,9 @@ describe("harvestCodingJob", () => {
 
 describe("codingJobBrief", () => {
   it("pins the worktree and names the parent", () => {
-    const brief = codingJobBrief({ id: "a1", repo: "/r", worktree: "/w/x", branch: "dexbot/job-a1", base: "b", title: "t", instruction: "fix it", createdAt: 1 }, "my thread");
+    const brief = codingJobBrief({ id: "a1", repo: "/r", worktree: "/w/x", branch: "lunabot/job-a1", base: "b", title: "t", instruction: "fix it", createdAt: 1 }, "my thread");
     expect(brief).toContain("/w/x");
-    expect(brief).toContain("dexbot/job-a1");
+    expect(brief).toContain("lunabot/job-a1");
     expect(brief).toContain("#my thread");
     expect(brief).toContain("fix it");
   });

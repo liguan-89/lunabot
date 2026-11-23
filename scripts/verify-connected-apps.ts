@@ -23,7 +23,7 @@ let attempts = 0;
 const requestBodies: Array<{ alias?: string }> = [];
 const deletedAccounts: string[] = [];
 const services: Record<string, { connected: boolean; pending: boolean; status: string; accounts: Array<{ id: string; alias: string; status: string }> }> = {};
-const evidence = resolve(process.env.OMB_UI_EVIDENCE_DIR ?? ".omb-scratch/connected-apps-evidence");
+const evidence = resolve(process.env.LUNABOT_UI_EVIDENCE_DIR ?? ".omb-scratch/connected-apps-evidence");
 mkdirSync(evidence, { recursive: true });
 const pauseAuthorize = (fail = false) => {
   failure = fail;

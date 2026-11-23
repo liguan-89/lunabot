@@ -5,7 +5,7 @@
 - Find the bundled enterprise layer in every shipped layout: a checkout
   (`enterprise/` beside `server/`), the npm package (`<package>/enterprise/`
   beside `dist-server/`), and the Docker image and packaged desktop, which
-  carry `dist-server/` alone (`dist-server/enterprise/`). `OMB_ENTERPRISE_DIR`,
+  carry `dist-server/` alone (`dist-server/enterprise/`). `LUNABOT_ENTERPRISE_DIR`,
   when set, is the only place looked at.
 - From 30 days before a key expires: `expiresInDays` on `/api/edition`, a
   warning in the startup log, and a banner in Settings for admins. The dates

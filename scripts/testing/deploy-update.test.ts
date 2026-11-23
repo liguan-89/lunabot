@@ -15,7 +15,7 @@ const NEW = { id: id("b"), refs: [`${REPO}@${id("2")}`, `${REPO}:v0.1.151`], ver
 const ENV = "DOMAIN=maus.example.test\nOMB_SIGNIN_EMAILS=owner@example.test\n";
 /** .env after a rollback: as it was, with the version that ran before pinned by its digest, so a tag that moved since
  * (the installer's `stable`) cannot bring the undone version back on a later run of the installer. */
-const ROLLED_BACK = `${ENV}OMB_IMAGE=${OLD.refs[1]}\n`;
+const ROLLED_BACK = `${ENV}LUNABOT_IMAGE=${OLD.refs[1]}\n`;
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -58,7 +58,7 @@ function install(target: Record<string, unknown> = {}, extra: Record<string, unk
   chmodSync(join(root, "bin", "docker"), 0o755);
   const next = { ...NEW, ...target };
   // A version that never answers is waited for; two seconds of that is enough here.
-  const wait = next.behaviour === "silent" ? { OMB_UPDATE_WAIT_S: "2" } : {};
+  const wait = next.behaviour === "silent" ? { LUNABOT_UPDATE_WAIT_S: "2" } : {};
   writeFileSync(join(fake, "state.json"), JSON.stringify({
     serial: 1, composeReadsPin: true, defaultImage: `${REPO}:latest`, dataVolume: "deploy_data", images: [OLD, next],
     containers: { omb: { id: "omb-1", image: OLD.id, status: "running", restarts: 0 }, caddy: { id: "caddy-1", status: "running" } },
@@ -72,8 +72,8 @@ function install(target: Record<string, unknown> = {}, extra: Record<string, unk
       env: {
         // sbin: sha256sum is /sbin/sha256sum on macOS.
         PATH: `${join(root, "bin")}:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: root, FAKE_DOCKER_DIR: fake,
-        OMB_STABLE_URL: `file://${join(root, "stable.json")}`, OMB_NEWEST_URL: `file://${join(root, "newest.json")}`,
-        OMB_UPDATE_POLL_S: "0", OMB_UPDATE_WAIT_S: "120", OMB_UPDATE_ENGINE_WAIT_S: "1", ...wait, ...options.env,
+        LUNABOT_STABLE_URL: `file://${join(root, "stable.json")}`, LUNABOT_NEWEST_URL: `file://${join(root, "newest.json")}`,
+        LUNABOT_UPDATE_POLL_S: "0", LUNABOT_UPDATE_WAIT_S: "120", LUNABOT_UPDATE_ENGINE_WAIT_S: "1", ...wait, ...options.env,
       },
     });
     return { ...result, said: result.stdout.trim().split("\n") };
@@ -115,7 +115,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
       "To go back to it: ./update.sh --rollback",
     ]);
     expect(box.copies()).toEqual([expect.stringMatching(/^deploy_data-before-update-\d{8}T\d{6}Z$/)]);
-    expect(box.env()).toBe(`${ENV}OMB_IMAGE=${NEW.refs[0]}\n`);
+    expect(box.env()).toBe(`${ENV}LUNABOT_IMAGE=${NEW.refs[0]}\n`);
     expect(box.state().containers.omb).toMatchObject({ image: NEW.id, status: "running" });
     expect(tree(box.backup())).toEqual(before);
     expect(tree(box.data)["started-by.txt"]).toBe("0.1.150\n0.1.151\n");
@@ -143,7 +143,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     expect(again.status).toBe(0);
     expect(again.said).toEqual(["Downloading 0.1.151…", "This server already runs 0.1.151. Nothing to do."]);
     expect(box.calls().slice(calls).some((call) => /^(compose (stop|up)|run|volume (create|rm))/.test(call))).toBe(false);
-    expect(box.env()).toBe(`${ENV}OMB_IMAGE=${NEW.refs[0]}\n`);
+    expect(box.env()).toBe(`${ENV}LUNABOT_IMAGE=${NEW.refs[0]}\n`);
   });
 
   it("puts back the old image, its settings and the data when the new version never answers", () => {
@@ -195,7 +195,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     for (const [extra, words] of [
       [{ failPull: true }, `Could not download ${NEW.refs[0]}`],
       [{ dataKb: 4_000_000, freeKb: 3_000_000 }, "There is not enough free disk for a copy of the data: it needs about 5320 MB and 2929 MB are free."],
-      [{ composeReadsPin: false }, "does not take its image from OMB_IMAGE"],
+      [{ composeReadsPin: false }, "does not take its image from LUNABOT_IMAGE"],
     ] as const) {
       const box = install({}, extra);
       const refused = box.run();
@@ -256,7 +256,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
       images: [{ ...OLD, refs: [...OLD.refs, `${REPO}:v0.1.150`] }, { ...NEW, behaviour: "silent" }],
       signalOn: { match: "/api/health\"", signal: "SIGKILL" },
     });
-    writeFileSync(join(box.deploy, ".env"), `${ENV}OMB_IMAGE=${REPO}:v0.1.150\n`, { mode: 0o600 });
+    writeFileSync(join(box.deploy, ".env"), `${ENV}LUNABOT_IMAGE=${REPO}:v0.1.150\n`, { mode: 0o600 });
     const envBefore = box.env();
     const before = tree(box.data);
     expect(box.run().signal).toBe("SIGKILL");
@@ -280,7 +280,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     const killed = box.run();
     expect(killed.signal).toBe("SIGKILL");
     expect(box.journal()).toBe(true);
-    expect(box.env()).toContain("OMB_IMAGE=");
+    expect(box.env()).toContain("LUNABOT_IMAGE=");
     const next = box.run(["--check"]);
     expect(next.status).toBe(0);
     expect(next.stdout).toContain("An earlier update did not finish.");
@@ -356,7 +356,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
   it("puts .env back exactly when it named a tag that does not move", () => {
     for (const named of [`${REPO}:v0.1.150`, OLD.refs[1]!]) {
       const box = install({}, { images: [{ ...OLD, refs: [...OLD.refs, `${REPO}:v0.1.150`] }, NEW] });
-      writeFileSync(join(box.deploy, ".env"), `${ENV}OMB_IMAGE=${named}\n`, { mode: 0o600 });
+      writeFileSync(join(box.deploy, ".env"), `${ENV}LUNABOT_IMAGE=${named}\n`, { mode: 0o600 });
       const before = box.env();
       expect(box.run().status).toBe(0);
       expect(box.env()).not.toBe(before);
@@ -365,10 +365,10 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
       expect(box.env(), named).toBe(before);
     }
     const moving = install();
-    writeFileSync(join(moving.deploy, ".env"), `${ENV}OMB_IMAGE=${REPO}:stable\n`);
+    writeFileSync(join(moving.deploy, ".env"), `${ENV}LUNABOT_IMAGE=${REPO}:stable\n`);
     expect(moving.run().status).toBe(0);
     expect(moving.run(["--rollback", "--yes"]).status).toBe(0);
-    expect(moving.env()).toBe(`${ENV}OMB_IMAGE=${OLD.refs[1]}\n`);
+    expect(moving.env()).toBe(`${ENV}LUNABOT_IMAGE=${OLD.refs[1]}\n`);
   });
 
   // A hardened server answers `openmausbot doctor` without a session with a refusal, so before the server's own count
@@ -392,7 +392,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
 name: openmausbot
 services:
   omb:
-    image: \${OMB_IMAGE:?run the installer again}
+    image: \${LUNABOT_IMAGE:?run the installer again}
   caddy:
     image: caddy:2
     network_mode: "service:omb"
@@ -446,7 +446,7 @@ services:
     expect(left).toEqual({ ...before, "started-by.txt": "0.1.150\n0.1.151\n" });
     expect(tree(box.backup())).toEqual(before);
     expect(box.state().containers.omb.status).toBe("exited");
-    expect(box.env()).toBe(`${ENV}OMB_IMAGE=${NEW.refs[0]}\n`);
+    expect(box.env()).toBe(`${ENV}LUNABOT_IMAGE=${NEW.refs[0]}\n`);
     expect(box.journal()).toBe(true);
 
     // The next update neither replaces the copy nor touches the data until someone says yes.
@@ -475,7 +475,7 @@ services:
     const done = box.run(["--version", "v0.1.151"]);
     expect(done.status, done.stdout).toBe(0);
     expect(box.calls()).toContain(`pull -q ${REPO}:v0.1.151`);
-    expect(box.env()).toBe(`${ENV}OMB_IMAGE=${NEW.refs[0]}\n`);
+    expect(box.env()).toBe(`${ENV}LUNABOT_IMAGE=${NEW.refs[0]}\n`);
   });
 
   it("reads the version from the record's top level, whatever its history holds", () => {
@@ -607,10 +607,10 @@ services:
     expect(done.status, done.stdout).toBe(0);
     expect(done.said[0]).toBe("No version has been made stable yet, so this takes the newest release, 0.1.151.");
     expect(box.calls()).toContain(`pull -q ${REPO}:v0.1.151`);
-    expect(box.env()).toBe(`${ENV}OMB_IMAGE=${NEW.refs[0]}\n`);
+    expect(box.env()).toBe(`${ENV}LUNABOT_IMAGE=${NEW.refs[0]}\n`);
 
     const unreachable = install();
-    const refused = unreachable.run([], { env: { OMB_STABLE_URL: "http://127.0.0.1:9/stable.json" } });
+    const refused = unreachable.run([], { env: { LUNABOT_STABLE_URL: "http://127.0.0.1:9/stable.json" } });
     expect(refused.status).toBe(4);
     expect(refused.stdout).toContain("Could not read the stable channel");
     expect(unreachable.calls().some((call) => call.startsWith("pull"))).toBe(false);

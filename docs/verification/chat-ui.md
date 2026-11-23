@@ -19,7 +19,7 @@ node --experimental-strip-types scripts/control-omb.ts ui launch \
 Run it in the foreground so Ctrl-C reaches it. On first use it downloads the
 pinned agent-browser release (size and SHA-256 verified) and its Chrome for
 Testing into `.omb-scratch/verify-tools` (gitignored); later launches reuse
-them. `OMB_AGENT_BROWSER_PATH` and `AGENT_BROWSER_EXECUTABLE_PATH` take
+them. `LUNABOT_AGENT_BROWSER_PATH` and `AGENT_BROWSER_EXECUTABLE_PATH` take
 precedence when set. The launcher then starts the fixture, pins its language
 to English (`PATCH /api/config`), creates Pepper through the same `new-bot`
 path as [Chat turns](chat-turns.md), mounts the preview, opens it in a headless
@@ -95,7 +95,7 @@ inside the card and composer still target those controls. This checks browser
 pointer targeting, not native OS wheel delivery.
 
 ```sh
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/control-omb-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/control-omb-ui.e2e.test.ts
 ```
 
 The asserted recipe now also covers the floating **This run** card with a
@@ -140,14 +140,14 @@ includes screenshots and a `.usage-details.json` next to the fixture log.
 These are renderer checks, not native Windows caption-button verification.
 
 It runs when an agent-browser binary resolves and is skipped with a printed
-reason otherwise; `OMB_UI_E2E=1` forces the verified download. The `ui-smoke`
+reason otherwise; `LUNABOT_UI_E2E=1` forces the verified download. The `ui-smoke`
 job in `.github/workflows/ci.yml` runs it on Ubuntu 24.04 and uploads the
 screenshot; it is not one of the required checks.
 
 ## Mobile text and code blocks
 
 ```sh
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/mobile-code-blocks-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/mobile-code-blocks-ui.e2e.test.ts
 pnpm exec vitest run src/components/ChatMarkdown.block-actions.test.ts src/components/ChatMarkdown.test.ts src/lib/copy-text.test.ts
 ```
 
@@ -208,7 +208,7 @@ and back mid-turn and holds the resumed readout to the same claim stamp,
 keeping a second screenshot.
 
 ```sh
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/thinking-timer-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/thinking-timer-ui.e2e.test.ts
 ```
 
 ## In-flight reply text
@@ -243,7 +243,7 @@ The quiet-status knobs cross into the fixture, so the sign of life shows in
 seconds:
 
 ```sh
-OMB_ACP_QUIET_NOTICE_MS=10000 OMB_ACP_QUIET_TICK_MS=2000 FAKE_CLAUDE_RELEASE=/tmp/release \
+LUNABOT_ACP_QUIET_NOTICE_MS=10000 LUNABOT_ACP_QUIET_TICK_MS=2000 FAKE_CLAUDE_RELEASE=/tmp/release \
 node --experimental-strip-types scripts/control-omb.ts ui launch --tool-calls \
   '[{"name":"WebSearch","input":{"query":"Acme construction leads"},"ok":true},
     {"name":"Bash","input":{"command":"cd ~/acme && python3 scrape.py --pages 40"},"hold":"busy"}]'
@@ -274,7 +274,7 @@ chat), `src/components/TurnPresence.test.ts`,
 ## Bot setup and MCP access recipe
 
 `scripts/testing/bot-tools-ui.e2e.test.ts` uses the same full-app launcher and
-optional `OMB_UI_E2E=1` gate. It verifies profile-only role creation, closing
+optional `LUNABOT_UI_E2E=1` gate. It verifies profile-only role creation, closing
 and reopening the dialog during a slow creation without duplicate submissions, recovery
 when the preset PATCH fails after creation, the composer’s Tools shortcut,
 optional setup ideas, a pasted config added from Add MCP server that stays off when it doesn't answer, refreshed

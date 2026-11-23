@@ -1,4 +1,4 @@
-// Server: --url, --port, DEXBOT_URL (or the pre-rebrand LUNABOT_URL) or OMB_PORT, else the desktop ports. A
+// Server: --url, --port, DEXBOT_URL (or the pre-rebrand LUNABOT_URL) or LUNABOT_PORT, else the desktop ports. A
 // credential never travels while a server is being looked for; it comes from DEXBOT_TOKEN (or LUNABOT_TOKEN) or
 // --token-file only (a command line leaks).
 import { readFileSync } from "node:fs";
@@ -64,7 +64,7 @@ export function namedServer(flags: Flags, env: NodeJS.ProcessEnv): { url: string
   if (port) return { port };
   const configuredUrl = env.DEXBOT_URL?.trim() || env.LUNABOT_URL?.trim();
   if (configuredUrl) return { url: configuredUrl };
-  return env.OMB_PORT?.trim() ? { port: env.OMB_PORT.trim() } : undefined;
+  return env.LUNABOT_PORT?.trim() ? { port: env.LUNABOT_PORT.trim() } : undefined;
 }
 
 export async function openClient(flags: Flags, deps: ClientDeps, mutating: boolean): Promise<HeadlessClient> {
@@ -88,7 +88,7 @@ export async function openClient(flags: Flags, deps: ClientDeps, mutating: boole
     }
     if (token) {
       throw usageError("a token needs a named server, so it is never sent while looking for one",
-        "pass --url (or --port), or set DEXBOT_URL (or LUNABOT_URL) or OMB_PORT");
+        "pass --url (or --port), or set DEXBOT_URL (or LUNABOT_URL) or LUNABOT_PORT");
     }
     try {
       baseUrl = await mcp.probeBaseUrls(DISCOVERY_PORTS.map((port) => `http://127.0.0.1:${port}`));

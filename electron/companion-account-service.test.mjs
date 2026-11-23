@@ -34,7 +34,7 @@ const DUPLICATE_INSTALLATION_ID = "33333333-3333-4333-8333-333333333333";
 const ACCOUNT_TOKEN = `signed.${"a".repeat(80)}`;
 const INSTALLATION_CREDENTIAL = `omb_install_${"b".repeat(22)}.${"c".repeat(43)}`;
 const CONNECTOR_TOKEN = `eyJ${"d".repeat(100)}`;
-const ENDPOINT = "https://c-opaque.openmausbot.com";
+const ENDPOINT = "https://c-opaque.lunabot.com";
 
 function credentialStore(initial = {}) {
   let document = structuredClone(initial);
@@ -119,15 +119,15 @@ describe("Companion account service", () => {
     );
     expect(resolveCompanionControlPlaneURL({
       isPackaged: false,
-      environment: { OMB_CONTROL_PLANE_URL: "http://127.0.0.1:8787/" },
+      environment: { LUNABOT_CONTROL_PLANE_URL: "http://127.0.0.1:8787/" },
     })).toBe("http://127.0.0.1:8787");
     expect(resolveCompanionControlPlaneURL({
       isPackaged: true,
-      environment: { OMB_CONTROL_PLANE_URL: "http://accounts.openmausbot.com" },
+      environment: { LUNABOT_CONTROL_PLANE_URL: "http://accounts.lunabot.com" },
     })).toBe("");
     expect(resolveCompanionControlPlaneURL({
       isPackaged: true,
-      environment: { OMB_CONTROL_PLANE_URL: new String("https://accounts.openmausbot.com") },
+      environment: { LUNABOT_CONTROL_PLANE_URL: new String("https://accounts.lunabot.com") },
     })).toBe("");
     expect(resolveCompanionControlPlaneURL({ isPackaged: false, environment: {} })).toBe("");
   });

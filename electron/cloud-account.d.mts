@@ -57,7 +57,7 @@ export interface CloudAccountState {
    * starts the 30-minute watch again). `link`: main keeps its page, so Reopen
    * and Copy link use that same page. */
   checkout?: { plan: string; startedAt: number; signIn?: true; link?: true; done?: true };
-  /** This app talks to the staging Admin (OMB_CLOUD_STAGING=1): test payments, test Clouds. */
+  /** This app talks to the staging Admin (LUNABOT_CLOUD_STAGING=1): test payments, test Clouds. */
   staging?: true;
   /** Unavailable: the saved sign-in can't be read (`restore-failed`, offered after a few tries) or removed
    * (`signout-storage-failed`); `resetSaved()` clears it so the person can sign in again. */

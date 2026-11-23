@@ -40,7 +40,7 @@ async function boot(home: string) {
   const child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "server/index.ts")], {
     cwd: ROOT,
     // Background test messages are off in test fixtures unless asked for.
-    env: { ...verificationServerEnvironment(process.env, home, port), OMB_AI_CHECKS: "1" },
+    env: { ...verificationServerEnvironment(process.env, home, port), LUNABOT_AI_CHECKS: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   children.push(child);

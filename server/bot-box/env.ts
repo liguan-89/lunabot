@@ -1,5 +1,5 @@
 // The environment a boxed process gets: an allow-list, never the server's whole environment. The drivers already strip
-// the workspace credentials and every OMB_CLOUD_ setting before a spawn (server/config.ts stripWorkspaceCredentialEnv);
+// the workspace credentials and every LUNABOT_CLOUD_ setting before a spawn (server/config.ts stripWorkspaceCredentialEnv);
 // this is the second gate, applied at the box boundary, so a name a driver forgot never reaches a bot's shell.
 
 /** Names a bot's engine, its tools and the proxies Luna Bot starts inside the box may read. */
@@ -14,25 +14,25 @@ export const BOX_ENV_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 /** Luna Bot's own variables a boxed process reads: what the harness sets for a bot's engine, its hooks and the MCP
- * proxies it starts. Security: no other `OMB_` name passes, whatever the operator set on the server (an SMTP URL, a
- * token); env.test.ts lists every `OMB_` name the server knows, so a new one needs a decision. */
+ * proxies it starts. Security: no other `LUNABOT_` name passes, whatever the operator set on the server (an SMTP URL, a
+ * token); env.test.ts lists every `LUNABOT_` name the server knows, so a new one needs a decision. */
 export const BOX_ENV_OMB_NAMES: ReadonlySet<string> = new Set([
-  "OMB_HARNESS_URL", "OMB_BOT_ID", "OMB_THREAD_ID", "OMB_APPROVAL_MODE", "OMB_COMMS_TOKEN", "OMB_TURN_DEPTH", "OMB_EXTERNAL_RUNTIME",
-  "OMB_CHIEF_OF_STAFF", "OMB_MAUSBOT", "OMB_SKILL_AUTHORING_ENABLED", "OMB_MEMORY_ENABLED", "OMB_SHARED_COMPUTERS_ENABLED",
-  "OMB_VOICE_NOTES", "OMB_X_RESEARCH", "OMB_RESEARCH", "OMB_TEAM_PEOPLE", "OMB_COMPUTER_SELECTION", "OMB_ROOM",
-  "OMB_IMAGE_GENERATION", "OMB_VIDEO_GENERATION", "OMB_MEETINGS", "OMB_TOOL_SELECTION", "OMB_AGENTS_TOOL_BRIDGE", "OMB_TOOL_LIMIT", "OMB_TOOL_SCHEMA_PROFILE",
-  "OMB_MCP_CONFIG", "OMB_MCP_RESTART", "OMB_MCP_RESULT_BUDGET",
-  "OMB_HOOK_URL", "OMB_HOOK_TOKEN_FILE", "OMB_HOOK_TIMEOUT_MS", "OMB_PERMISSION_TOOL_SCOPE",
-  "OMB_CONNECTOR_UPSTREAM_URL", "OMB_CONNECTOR_UPSTREAM_HEADERS", "OMB_CONNECTOR_TOKEN", "OMB_CONNECTOR_ALLOWED_TOOLS",
-  "OMB_CONNECTOR_SERVICE_SLUGS", "OMB_CONNECTOR_APP_TOOLS", "OMB_CONNECTOR_APP_TOOL_NAMES",
-  "OMB_GATE_NAME", "OMB_GATE_UPSTREAM", "OMB_GATE_BUDGET", "OMB_GATE_SPILL_DIR", "OMB_GATE_SPILL_HINT", "OMB_GATE_TOOL_SCOPE",
-  "OMB_GATE_DIRECTORY", "OMB_GATE_APPS", "OMB_REMOTE_MCP_SERVER", "OMB_REMOTE_MCP_DIRECTORY", "OMB_REMOTE_MCP_APPS",
-  "OMB_CONTROL_URL", "OMB_CONTROL_TOKEN", "OMB_COMPUTER_JOURNAL", "OMB_CUA_ARGS", "OMB_CUA_COMMAND", "OMB_CUA_PLATFORM",
-  "OMB_PHONE_TOKEN", "OMB_ADB_PATH", "OMB_RESOURCES_PATH", "OMB_CODEX_AUTH_SOCKET", "OMB_CODEX_AUTH_SECRET",
-  "OMB_COPILOT_MCP_CONFIG", "OMB_BROWSER_PROFILE", "OMB_BOX_PROBE", "OMB_EXTRA_PATH", "OMB_TEST_SEALED_PATH",
+  "LUNABOT_HARNESS_URL", "LUNABOT_BOT_ID", "LUNABOT_THREAD_ID", "LUNABOT_APPROVAL_MODE", "LUNABOT_COMMS_TOKEN", "LUNABOT_TURN_DEPTH", "LUNABOT_EXTERNAL_RUNTIME",
+  "LUNABOT_CHIEF_OF_STAFF", "LUNABOT_MAUSBOT", "LUNABOT_SKILL_AUTHORING_ENABLED", "LUNABOT_MEMORY_ENABLED", "LUNABOT_SHARED_COMPUTERS_ENABLED",
+  "LUNABOT_VOICE_NOTES", "LUNABOT_X_RESEARCH", "LUNABOT_RESEARCH", "LUNABOT_TEAM_PEOPLE", "LUNABOT_COMPUTER_SELECTION", "LUNABOT_ROOM",
+  "LUNABOT_IMAGE_GENERATION", "LUNABOT_VIDEO_GENERATION", "LUNABOT_MEETINGS", "LUNABOT_TOOL_SELECTION", "LUNABOT_AGENTS_TOOL_BRIDGE", "LUNABOT_TOOL_LIMIT", "LUNABOT_TOOL_SCHEMA_PROFILE",
+  "LUNABOT_MCP_CONFIG", "LUNABOT_MCP_RESTART", "LUNABOT_MCP_RESULT_BUDGET",
+  "LUNABOT_HOOK_URL", "LUNABOT_HOOK_TOKEN_FILE", "LUNABOT_HOOK_TIMEOUT_MS", "LUNABOT_PERMISSION_TOOL_SCOPE",
+  "LUNABOT_CONNECTOR_UPSTREAM_URL", "LUNABOT_CONNECTOR_UPSTREAM_HEADERS", "LUNABOT_CONNECTOR_TOKEN", "LUNABOT_CONNECTOR_ALLOWED_TOOLS",
+  "LUNABOT_CONNECTOR_SERVICE_SLUGS", "LUNABOT_CONNECTOR_APP_TOOLS", "LUNABOT_CONNECTOR_APP_TOOL_NAMES",
+  "LUNABOT_GATE_NAME", "LUNABOT_GATE_UPSTREAM", "LUNABOT_GATE_BUDGET", "LUNABOT_GATE_SPILL_DIR", "LUNABOT_GATE_SPILL_HINT", "LUNABOT_GATE_TOOL_SCOPE",
+  "LUNABOT_GATE_DIRECTORY", "LUNABOT_GATE_APPS", "LUNABOT_REMOTE_MCP_SERVER", "LUNABOT_REMOTE_MCP_DIRECTORY", "LUNABOT_REMOTE_MCP_APPS",
+  "LUNABOT_CONTROL_URL", "LUNABOT_CONTROL_TOKEN", "LUNABOT_COMPUTER_JOURNAL", "LUNABOT_CUA_ARGS", "LUNABOT_CUA_COMMAND", "LUNABOT_CUA_PLATFORM",
+  "LUNABOT_PHONE_TOKEN", "LUNABOT_ADB_PATH", "LUNABOT_RESOURCES_PATH", "LUNABOT_CODEX_AUTH_SOCKET", "LUNABOT_CODEX_AUTH_SECRET",
+  "LUNABOT_COPILOT_MCP_CONFIG", "LUNABOT_BROWSER_PROFILE", "LUNABOT_BOX_PROBE", "LUNABOT_EXTRA_PATH", "LUNABOT_TEST_SEALED_PATH",
 ]);
 /** Families of the same, one variable per server or kind: a harness MCP server's token, a gated or remote server's config. */
-export const BOX_ENV_OMB_PREFIXES: readonly string[] = ["OMB_MCP_TOKEN_", "OMB_GATE_CONFIG_", "OMB_REMOTE_MCP_CONFIG_"];
+export const BOX_ENV_OMB_PREFIXES: readonly string[] = ["LUNABOT_MCP_TOKEN_", "LUNABOT_GATE_CONFIG_", "LUNABOT_REMOTE_MCP_CONFIG_"];
 
 /** Prefixes of the engines' own settings and keys (T0b replaces the keys with per-turn broker tokens). */
 export const BOX_ENV_PREFIXES: readonly string[] = [
@@ -46,20 +46,20 @@ export const BOX_ENV_PREFIXES: readonly string[] = [
  * CLI's session token and server address (server/headless/client.ts) too: nothing in a box reads them, and one an
  * operator set on the server would otherwise pass under the engines' DEXBOT_/LUNABOT_ prefixes. */
 export const BOX_ENV_NEVER: ReadonlySet<string> = new Set([
-  "OMB_LICENSE_KEY", "OMB_INSTALLATION_CREDENTIAL", "OMB_LOOPBACK_TRUST", "OMB_CLOUD_SECRETS_FD",
-  "OMB_DATA_DIR", "OMB_STATIC_DIR", "OMB_DUCKDB_DIR", "OMB_PORT", "OMB_WEBHOOK_PORT",
+  "LUNABOT_LICENSE_KEY", "LUNABOT_INSTALLATION_CREDENTIAL", "LUNABOT_LOOPBACK_TRUST", "LUNABOT_CLOUD_SECRETS_FD",
+  "LUNABOT_DATA_DIR", "LUNABOT_STATIC_DIR", "LUNABOT_DUCKDB_DIR", "LUNABOT_PORT", "LUNABOT_WEBHOOK_PORT",
   "DEXBOT_TOKEN", "DEXBOT_URL", "LUNABOT_TOKEN", "LUNABOT_URL",
 ]);
-export const BOX_ENV_NEVER_PREFIXES: readonly string[] = ["OMB_CLOUD_"];
+export const BOX_ENV_NEVER_PREFIXES: readonly string[] = ["LUNABOT_CLOUD_"];
 
 /** `allow` is what one spawn vouches for: the keys the person saved for its engine, under whatever name that engine reads
  * (NANO_GPT_API_KEY, OPENCODE_API_KEY). Security: it lifts the allow-list and `deny` for that process only, and never for
- * a name of Luna Bot's own (`OMB_`) or one on the never-list. */
+ * a name of Luna Bot's own (`LUNABOT_`) or one on the never-list. */
 export function boxEnvironmentAllows(name: string, deny: ReadonlySet<string> = new Set(), allow: ReadonlySet<string> = new Set()): boolean {
   if (BOX_ENV_NEVER.has(name) || BOX_ENV_NEVER_PREFIXES.some((prefix) => name.startsWith(prefix))) return false;
-  if (allow.has(name) && !name.startsWith("OMB_")) return true;
+  if (allow.has(name) && !name.startsWith("LUNABOT_")) return true;
   if (deny.has(name)) return false;
-  if (name.startsWith("OMB_")) return BOX_ENV_OMB_NAMES.has(name) || BOX_ENV_OMB_PREFIXES.some((prefix) => name.startsWith(prefix));
+  if (name.startsWith("LUNABOT_")) return BOX_ENV_OMB_NAMES.has(name) || BOX_ENV_OMB_PREFIXES.some((prefix) => name.startsWith(prefix));
   return BOX_ENV_NAMES.has(name) || BOX_ENV_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 

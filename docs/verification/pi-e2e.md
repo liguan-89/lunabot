@@ -17,7 +17,7 @@ pnpm vitest run server/main-thread.e2e.test.ts
 ## What the fixture covers
 
 - Every `launchVerificationServer` fixture ships one agent, the fake pi, and the startup
-  migration keeps only that instance. `OMB_TEST_FIXTURE_ENGINE=pi` is still accepted
+  migration keeps only that instance. `LUNABOT_TEST_FIXTURE_ENGINE=pi` is still accepted
   and changes nothing.
 - `launchRestartableServer({ engine: "pi" })` starts a disposable home with one
   `pi` instance whose CLI is the fake, prints its URL, and can stop and restart
@@ -32,7 +32,7 @@ pnpm vitest run server/main-thread.e2e.test.ts
 - The fixture splits pi's single message at the turn-clock line: the system
   prompt is remembered from a session's first turn, and the evidence keeps the
   system prompt and the user turn apart as the Claude fixture did.
-- The driver passes `OMB_BOT_ID` and `OMB_THREAD_ID` to the pi child, so the
+- The driver passes `LUNABOT_BOT_ID` and `LUNABOT_THREAD_ID` to the pi child, so the
   plan runner knows whose turn it is and which thread to record.
 - `FAKE_PI_HOLD_ON`, `FAKE_PI_STALL_ON` and `FAKE_PI_DELAY_ON` /
   `FAKE_PI_DELAY_MS` script held, half-spoken and delayed turns for Stop and

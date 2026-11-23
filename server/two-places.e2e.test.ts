@@ -15,7 +15,7 @@ let garage: OwnServer, family: OwnServer;
 beforeAll(async () => {
   fx = await launchOwnHomeFixture();
   garage = await fx.addServer("Garage server");
-  family = await fx.addServer("Family server", { OMB_SIGNIN_MEMBER_EMAILS: "friend@example.test" });
+  family = await fx.addServer("Family server", { LUNABOT_SIGNIN_MEMBER_EMAILS: "friend@example.test" });
 }, hostTimeout(120_000));
 afterAll(async () => { await fx?.close(); });
 

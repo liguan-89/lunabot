@@ -88,7 +88,7 @@ describe.each(["connected_accounts", "toolkits"])("self-hosted %s inventory", (w
     ...(walker === "toolkits" ? ["missing selected account", "missing selected id", "invalid selected id"] : [])])(
     "refuses opaque calls on %s and recovers on the same backend", async (failure) => {
       const cfg: AppConfig = { composio: { apiKey: `ak_inventory_${++backend}`, userId: "fixture", sessionId: "trs_inventory" } };
-      vi.stubEnv("OMB_COMPOSIO_API", "http://127.0.0.1:9876/api/v3.1");
+      vi.stubEnv("LUNABOT_COMPOSIO_API", "http://127.0.0.1:9876/api/v3.1");
       let broken = true;
       vi.stubGlobal("fetch", async (input: string | URL | Request) => {
         const url = new URL(String(input));

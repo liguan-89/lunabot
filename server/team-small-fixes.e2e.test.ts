@@ -97,7 +97,7 @@ beforeAll(async () => {
   fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, broker, team: { id: "team-acme-3", name: "Acme", engine: ENGINE,
     // The reporter's own prompt asks the person's permission instead of running (a real extension-UI confirm), so its
     // turn holds one open ask; every other turn here is the plan's.
-    env: { OMB_BOT_BOX: "0", OMB_TEST_WAIT_CLOCK: CLOCK, FAKE_PI_PERMISSION_ON: "Clean the build", NODE_OPTIONS: `--import=${new URL("./testing/wait-clock-hooks.mjs", import.meta.url).href}`, FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}` } } });
+    env: { LUNABOT_BOT_BOX: "0", LUNABOT_TEST_WAIT_CLOCK: CLOCK, FAKE_PI_PERMISSION_ON: "Clean the build", NODE_OPTIONS: `--import=${new URL("./testing/wait-clock-hooks.mjs", import.meta.url).href}`, FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}` } } });
   team = fx.team!;
   ada = (await team.pair(ADA)).token!;
   mira = (await team.pair(MIRA)).token!;
@@ -163,7 +163,7 @@ it("a lent computer: a team's bot hears the team's one line, not a personal Clou
   const environmentId = ((await environment.json()) as { environmentId: string }).environmentId;
   const lent = await team.as(ada, "POST", "/api/shared-computers/connect",
     { id: randomUUID(), name: "Ada's Mac", environmentId, folders: [], terminal: true, computer: true, platform: "darwin" },
-    { "x-omb-computer-secret": createHash("sha256").update("ada-mac").digest("hex") });
+    { "x-lunabot-computer-secret": createHash("sha256").update("ada-mac").digest("hex") });
   expect(lent.status, JSON.stringify(lent.body)).toBe(200);
   const used = await fetch(`${team.base}/api/internal/shared-computers`, { method: "POST", headers: { authorization: `Bearer ${bearer}`, "content-type": "application/json" },
     body: JSON.stringify({ action: "list_files", computer_id: randomUUID(), path: "/" }) });

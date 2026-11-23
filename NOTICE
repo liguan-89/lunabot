@@ -118,7 +118,7 @@ wangzan101, used under the Apache License, Version 2.0
 and a notice of the changes made.
 
 The Android app's phone-UI shell helper (android/app, package
-com.openmausbot.companion.phoneui.shell) ports the shell helper, virtual
+com.lunabot.companion.phoneui.shell) ports the shell helper, virtual
 display driver and Binder handoff protocol of Mika,
 https://github.com/wangzan101/Mika, Copyright 2026 wangzan101, used under the
 Apache License, Version 2.0 (third_party/mika/LICENSE). The port is trimmed to

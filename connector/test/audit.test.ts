@@ -51,8 +51,8 @@ describe("the audit log", () => {
   });
 
   it("records what a job asked for without a value that could be a secret", () => {
-    const start: Job = { id: "s1", type: "start", args: { image: HOME, env: { OMB_PUBLIC_URL: "https://acme.example", OMB_CLOUD_BOOTSTRAP_SECRET: SECRET } } };
-    expect(auditArgs(start)).toEqual({ image: HOME, env: ["OMB_CLOUD_BOOTSTRAP_SECRET", "OMB_PUBLIC_URL"] });
+    const start: Job = { id: "s1", type: "start", args: { image: HOME, env: { LUNABOT_PUBLIC_URL: "https://acme.example", LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET } } };
+    expect(auditArgs(start)).toEqual({ image: HOME, env: ["LUNABOT_CLOUD_BOOTSTRAP_SECRET", "LUNABOT_PUBLIC_URL"] });
     expect(JSON.stringify(auditArgs(start))).not.toContain(SECRET);
     expect(auditArgs({ id: "i1", type: "import-disk", args: { url: "https://bucket.example/home.tar.gz?X-Signature=abcdef" } })).toEqual({ from: "https://bucket.example" });
     expect(auditArgs({ id: "r1", type: "restore", args: { backupId: "20261028-104512-3fa9" } })).toEqual({ backupId: "20261028-104512-3fa9" });

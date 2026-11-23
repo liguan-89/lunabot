@@ -61,7 +61,7 @@ jobs:
         id: image
         run: |
           set -euo pipefail
-          if ! grep -q 'OMB_IMAGE=server' Dockerfile; then
+          if ! grep -q 'LUNABOT_IMAGE=server' Dockerfile; then
             echo "this checkout's image has no hardened profile; installing the published release"
             exit 0
           fi
@@ -73,7 +73,7 @@ jobs:
       - name: Check, install, run again and uninstall
         env:
           OUT: ${{ runner.temp }}/server-installer
-          OMB_INSTALL_IMAGE: ${{ steps.image.outputs.image }}
+          LUNABOT_INSTALL_IMAGE: ${{ steps.image.outputs.image }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash deploy/e2e/run.sh
       - name: Keep the evidence

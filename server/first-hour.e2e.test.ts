@@ -54,7 +54,7 @@ async function signed(path: string, method = "GET", body = "") {
   const signature = method === "POST" && path === "/api/cloud/pairing" ? cloudPairingSignature(secret, timestamp, nonce, body) : cloudRequestSignature(secret, timestamp, nonce, method, path, body);
   const response = await fetch(`${base}${path}`, { method, headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", ...(body ? { "content-type": "application/json" } : {}),
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${signature}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${signature}`,
   }, ...(body ? { body } : {}) });
   return response.json() as Promise<any>;
 }
@@ -103,12 +103,12 @@ describe("a new Cloud's first hour", () => {
     child = spawn(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
       cwd: join(SERVER_DIR, ".."),
       env: {
-        PATH: process.env.PATH, HOME: home, USERPROFILE: home, TZ: ZONE, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+        PATH: process.env.PATH, HOME: home, USERPROFILE: home, TZ: ZONE, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
         // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
         // tmpfs and hides the fake pi's dump; this suite reads that dump, so the box (which has its own suites) stays off.
-        OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-        OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
-        OMB_COMPOSIO_BROKER_URL: broker.url, OMB_CLOUD_CONNECTED_APPS_GRANT: broker.cloudGrant(MACHINE),
+        LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: MACHINE, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+        LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
+        LUNABOT_COMPOSIO_BROKER_URL: broker.url, LUNABOT_CLOUD_CONNECTED_APPS_GRANT: broker.cloudGrant(MACHINE),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

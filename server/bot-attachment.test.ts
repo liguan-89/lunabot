@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // attachments.ts reads DATA_DIR at import time.
 const DATA_ROOT = mkdtempSync(join(tmpdir(), "omb-bot-attachment-"));
-process.env.OMB_DATA_DIR = join(DATA_ROOT, "data");
+process.env.LUNABOT_DATA_DIR = join(DATA_ROOT, "data");
 const { attachForTurn, deliveredCopy, guestWorkspaceToHost, saveBotAttachment } = await import("./bot-attachment.ts");
 const { ATTACHMENTS_DIR, FILE_MAX_BYTES, PREVIEW_MAX_BYTES } = await import("./attachments.ts");
 
@@ -191,7 +191,7 @@ describe("saveBotAttachment for an archive", () => {
 describe("saveBotAttachment for a file a turn saved outside its folders", () => {
   // Where a person might ask for output: outside every root, not hidden.
   const DESIGNS = join(DATA_ROOT, "Desktop", "designs", "2026-10-08_News");
-  const refuse = [process.env.OMB_DATA_DIR!];
+  const refuse = [process.env.LUNABOT_DATA_DIR!];
   const hourAgo = () => new Date(Date.now() - 3_600_000);
   beforeAll(() => mkdirSync(DESIGNS, { recursive: true }));
 
@@ -245,9 +245,9 @@ describe("saveBotAttachment for a file a turn saved outside its folders", () => 
     const hidden = join(DATA_ROOT, ".ssh");
     mkdirSync(hidden, { recursive: true });
     writeFileSync(join(hidden, "key.pdf"), "%PDF-key");
-    mkdirSync(join(process.env.OMB_DATA_DIR!, "workspaces"), { recursive: true });
-    writeFileSync(join(process.env.OMB_DATA_DIR!, "workspaces", "MEMORY.md"), "# private");
-    for (const path of [join(hidden, "key.pdf"), join(process.env.OMB_DATA_DIR!, "workspaces", "MEMORY.md")]) {
+    mkdirSync(join(process.env.LUNABOT_DATA_DIR!, "workspaces"), { recursive: true });
+    writeFileSync(join(process.env.LUNABOT_DATA_DIR!, "workspaces", "MEMORY.md"), "# private");
+    for (const path of [join(hidden, "key.pdf"), join(process.env.LUNABOT_DATA_DIR!, "workspaces", "MEMORY.md")]) {
       await expect(saveBotAttachment({ path, roots: [WORK], savedThisTurn: { since, refuse } }), path)
         .rejects.toMatchObject({ status: 403, code: "outside_workspace" });
     }

@@ -1,6 +1,6 @@
 // Automations as a person uses them, end to end in the real app: the real server and its webhook receiver in a
 // temporary home, a scripted engine that obeys tool calls, the real renderer in headless Chrome. Every step leaves a
-// screenshot. Run with OMB_UI_E2E=1; OMB_AUTOMATIONS_JOURNEY_SHOTS=DIR keeps the screenshots there.
+// screenshot. Run with LUNABOT_UI_E2E=1; LUNABOT_AUTOMATIONS_JOURNEY_SHOTS=DIR keeps the screenshots there.
 import { type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -20,9 +20,9 @@ import { agentBrowser, ensureUiBrowser, sessionEnv, type UiHandle } from "./cont
 import { mountPreview } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const SHOTS = process.env.OMB_AUTOMATIONS_JOURNEY_SHOTS || join(ROOT, ".omb-scratch", "automations-journey");
+const SHOTS = process.env.LUNABOT_AUTOMATIONS_JOURNEY_SHOTS || join(ROOT, ".omb-scratch", "automations-journey");
 const SHORT_TMP = process.platform === "win32" ? tmpdir() : "/tmp";
-const enabled = process.env.OMB_UI_E2E === "1";
+const enabled = process.env.LUNABOT_UI_E2E === "1";
 
 const SCHEDULE = "Every day at 9 AM, Scout sends you a summary of your inbox";
 const EDITED = "Every day at 10:30 AM, Scout sends you a summary of your inbox and your calendar";
@@ -465,11 +465,11 @@ async function launchCloudHome() {
   const port = await freePortBlock([0, 1]);
   const secret = randomBytes(32).toString("base64url");
   const offered: NodeJS.ProcessEnv = {
-    OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "7a1c2e4f-9b3d-4c6e-8a7f-1d5e8c2b0a94", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-    OMB_PUBLIC_URL: `https://${CLOUD_HOST}`, OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_DATA_DIR: dataDir, PATH: dirname(process.execPath),
+    LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: "7a1c2e4f-9b3d-4c6e-8a7f-1d5e8c2b0a94", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+    LUNABOT_PUBLIC_URL: `https://${CLOUD_HOST}`, LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_DATA_DIR: dataDir, PATH: dirname(process.execPath),
   };
   const { server: serverEnv, secrets } = cloudHomeChildEnvironments(cloudHomeConfiguration(offered)!, offered, home);
-  const env = { ...serverEnv, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_TEST_SEALED_PATH: "1", TMPDIR: join(home, "tmp") };
+  const env = { ...serverEnv, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_TEST_SEALED_PATH: "1", TMPDIR: join(home, "tmp") };
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
   const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });
@@ -490,7 +490,7 @@ async function launchCloudHome() {
   const body = JSON.stringify({ label: "OpenMausBot app (Cloud)", ttlSeconds: 300 });
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const granted = await (await fetch(`${url}/api/cloud/pairing`, { method: "POST", headers: { ...edge, "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}` }, body })).json() as { code: string };
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}` }, body })).json() as { code: string };
   const paired = await (await fetch(`${url}/api/auth/pair`, { method: "POST", headers: { ...edge, origin: `https://${CLOUD_HOST}`, "content-type": "application/json" }, body: JSON.stringify({ code: granted.code }) })).json() as { token: string };
   const owner = { ...edge, origin: `https://${CLOUD_HOST}`, authorization: `Bearer ${paired.token}` };
   return {

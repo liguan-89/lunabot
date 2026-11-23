@@ -4008,7 +4008,7 @@
   "settings.domain.copyField": "{field} kopyala",
   "settings.domain.recordHint": "TTL değerini varsayılan olarak bırakın. Sağlayıcınız alan adınızı zaten ekliyorsa, Ad kısmına yalnızca alt alan adını girin (veya kök alan adı için @).",
   "settings.domain.missingIp": "Sunucu yöneticinizden genel IPv4 adresini isteyin.",
-  "settings.domain.ipAdminHint": "Docker, NAT veya birden çok genel adres için OMB_PUBLIC_IPV4 değişkenini HTTPS proxy'nizin barındırıldığı IPv4 adresine ayarlayın ve {app}'u yeniden başlatın. Özel adresler asla DNS değeri olarak gösterilmez.",
+  "settings.domain.ipAdminHint": "Docker, NAT veya birden çok genel adres için LUNABOT_PUBLIC_IPV4 değişkenini HTTPS proxy'nizin barındırıldığı IPv4 adresine ayarlayın ve {app}'u yeniden başlatın. Özel adresler asla DNS değeri olarak gösterilmez.",
   "settings.domain.httpsNeeded": "Yöneticiniz sunucuda HTTPS'yi etkinleştirmelidir. Ardından aşağıdaki bağlantıyı kontrol edin.",
   "settings.domain.dns": "Alan adınızın DNS ayarlarında, seçtiğiniz ad için bu sunucunun genel IPv4 adresini gösteren bir A kaydı oluşturun. AAAA kaydını yalnızca IPv6 bu sunucuya ulaşıyorsa ekleyin. DNS'in güncellenmesi için zaman tanıyın.",
   "settings.domain.proxy": "Sunucu yöneticiniz {app}'un önünde HTTPS yapılandırmalıdır. Aynı ana makinede veya ağ ad alanında çalışan Caddy için bu örneği kullanın ve bots.example.com adresini kendi alan adınızla değiştirin:",

@@ -77,10 +77,10 @@ export function turnLimitScope(event: SettledTurn, flags: { limit?: TakeoverScop
 
 const ENDED: ReadonlySet<string> = new Set(["completed", "failed", "cancelled"]);
 
-/** On unless OMB_QUOTA_SWITCH=0: a limited AI's work carries on with another AI by itself. Off, only the backups
+/** On unless LUNABOT_QUOTA_SWITCH=0: a limited AI's work carries on with another AI by itself. Off, only the backups
  * Automatic recovery names take over, as before. */
 export function quotaSwitchEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.OMB_QUOTA_SWITCH?.trim() !== "0";
+  return env.LUNABOT_QUOTA_SWITCH?.trim() !== "0";
 }
 
 const nameOf = (engine: QuotaSwitchEngine): string => engine.displayName || engine.driverKind;
@@ -220,7 +220,7 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
       const thread = store.projectBotForTask(bot.id, threadId) ?? bot;
       const from = thread.modelSelection;
       if (scope === "engine") limited.add(from.instanceId);
-      // OMB_QUOTA_SWITCH=0: nothing carries on by itself; the person still hears once that the bot waits.
+      // LUNABOT_QUOTA_SWITCH=0: nothing carries on by itself; the person still hears once that the bot waits.
       const { backups, skipped } = enabled() ? deps.takeover?.weighBackups(bot.id, from, scope, approvalModeFor(thread)) ?? { backups: [], skipped: [] } : { backups: [], skipped: [] };
       const resetsAt = scope === "signed-out" ? undefined : flags?.limitResetsAt;
       // A sign-out is told once, first and without a backup's name: what the person must do is sign in again.

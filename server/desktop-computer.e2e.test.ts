@@ -74,13 +74,13 @@ describe("this computer belongs to the desktop app's own server", () => {
     const proc = spawn(process.execPath, [...hooks, join(ROOT, "server/index.ts")], {
       cwd: ROOT, env: {
         PATH: dirname(process.execPath), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data,
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data,
         APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
         TEMP: home, TMP: home, TMPDIR: home,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui, OMB_TEST_VM_STATE: stateFile,
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: ui, LUNABOT_TEST_VM_STATE: stateFile,
         // The app's record, where the app keeps it and where this server is pointed: neither lets it in.
-        OMB_USER_DATA: join(home, "user-data"),
-        ...(desktop ? { OMB_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json") } : {}),
+        LUNABOT_USER_DATA: join(home, "user-data"),
+        ...(desktop ? { LUNABOT_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json") } : {}),
         ...env,
       }, stdio: ["ignore", "pipe", "pipe"],
     });
@@ -163,7 +163,7 @@ describe("this computer belongs to the desktop app's own server", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on this computer.", threadId: task.threadId });
     const sent = (await dump()).at(-1)!;
-    expect(sent.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CUA_COMMAND).toBe("/fixture/cua-driver");
+    expect(sent.launch?.mcpConfig?.mcpServers?.computer?.env?.LUNABOT_CUA_COMMAND).toBe("/fixture/cua-driver");
     writeFileSync(finishFile, "finish");
     await idle(bot.id, task.threadId);
   });

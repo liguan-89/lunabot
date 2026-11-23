@@ -8,8 +8,8 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
 const home = process.env.HOME;
-if (process.env.OMB_DEVICE_AUTH_FIXTURE !== "1" || !home || !isAbsolute(home)) {
-  process.stderr.write("This fake CLI requires OMB_DEVICE_AUTH_FIXTURE=1 and an isolated HOME.\n");
+if (process.env.LUNABOT_DEVICE_AUTH_FIXTURE !== "1" || !home || !isAbsolute(home)) {
+  process.stderr.write("This fake CLI requires LUNABOT_DEVICE_AUTH_FIXTURE=1 and an isolated HOME.\n");
   process.exit(2);
 }
 const mode = process.env.FAKE_CURSOR_MODE || "approve";

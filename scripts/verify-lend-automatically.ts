@@ -2,7 +2,7 @@
 // activity window drawn from the real modules, and Settings → MausBot Cloud on this computer's page and on My Cloud's
 // own page in the real app, against a disposable fake-engine server.
 // Run: node --experimental-strip-types scripts/verify-lend-automatically.ts --shots <dir>
-// It photographs each view in a light and a dark look with a headless Chrome in a throwaway profile (OMB_CDP_CHROME,
+// It photographs each view in a light and a dark look with a headless Chrome in a throwaway profile (LUNABOT_CDP_CHROME,
 // else the installed Google Chrome), then exits. Nothing here touches this computer's own lending or the person's app.
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -17,7 +17,7 @@ import { createLendingIndicator } from "../electron/lending-indicator.mjs";
 const at = process.argv.indexOf("--shots");
 const shots = resolve(at === -1 ? "" : process.argv[at + 1] ?? "");
 if (at === -1) throw new Error("--shots <dir> is required");
-const CHROME = process.env.OMB_CDP_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = process.env.LUNABOT_CDP_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const ICON = `data:image/png;base64,${readFileSync(new URL("../electron/resources/app-icon.png", import.meta.url)).toString("base64")}`;
 
 /** One page of a headless Chrome over the DevTools protocol: navigate, wait for a selector, photograph. */

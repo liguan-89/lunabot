@@ -50,7 +50,7 @@ const modelPairs = (process.env.FAKE_PI_MODELS ?? "ollama-cloud/glm-5.2,openai/g
 
 const argv = process.argv.slice(2);
 /** The level the driver booted this child at, for plan evidence that says what a turn ran under. */
-const approvalModeAtBoot: string | null = process.env.OMB_APPROVAL_MODE ?? null;
+const approvalModeAtBoot: string | null = process.env.LUNABOT_APPROVAL_MODE ?? null;
 
 interface MountedTool {
   name: string;
@@ -104,7 +104,7 @@ async function mountMcpTools(): Promise<MountedTool[]> {
 // mount eagerly whenever the config asks for one, as real pi fires session_start at boot.
 function scopeReceiptDemanded(): boolean {
   try {
-    const config = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG ?? "", "utf8")) as { scopeReadyPath?: unknown };
+    const config = JSON.parse(readFileSync(process.env.LUNABOT_MCP_CONFIG ?? "", "utf8")) as { scopeReadyPath?: unknown };
     return typeof config.scopeReadyPath === "string";
   } catch {
     return false;
@@ -165,11 +165,11 @@ if (argv.includes("--version") || argv.includes("-v")) {
 
 if (process.env.FAKE_PI_DUMP) {
   try {
-    // Read OMB_MCP_CONFIG now: the driver deletes the temp file when the turn settles.
+    // Read LUNABOT_MCP_CONFIG now: the driver deletes the temp file when the turn settles.
     let mcpConfig: unknown = null;
-    if (process.env.OMB_MCP_CONFIG) {
+    if (process.env.LUNABOT_MCP_CONFIG) {
       try {
-        mcpConfig = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG, "utf8"));
+        mcpConfig = JSON.parse(readFileSync(process.env.LUNABOT_MCP_CONFIG, "utf8"));
       } catch {}
     }
     appendFileSync(
@@ -203,9 +203,9 @@ if (claudeCompat && process.env.FAKE_CLAUDE_MODE === "exit-early") {
 // there; the fake only mounts tools on use, so a scoped turn would wait on a receipt that only
 // a tool call could produce. The config's toolScope is already the driver's normalized scope, so
 // the receipt echoes it verbatim, as intersect() does.
-if (process.env.OMB_MCP_CONFIG && process.env.FAKE_PI_NO_SCOPE_RECEIPT !== "1") {
+if (process.env.LUNABOT_MCP_CONFIG && process.env.FAKE_PI_NO_SCOPE_RECEIPT !== "1") {
   try {
-    const bootConfig = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG, "utf8")) as { scopeReadyPath?: unknown; toolScope?: unknown };
+    const bootConfig = JSON.parse(readFileSync(process.env.LUNABOT_MCP_CONFIG, "utf8")) as { scopeReadyPath?: unknown; toolScope?: unknown };
     if (typeof bootConfig?.scopeReadyPath === "string" && bootConfig.toolScope !== undefined) {
       writeFileSync(bootConfig.scopeReadyPath, JSON.stringify({ ok: true, toolScope: bootConfig.toolScope }), { mode: 0o600 });
     }
@@ -659,9 +659,9 @@ let roomSystemPrompt: string | null = null;
  * The runner starts that command for a direct MCP path; this turn runs its steps through the mounted tools instead,
  * so the process only has to stay alive until the turn settles. */
 function roomIntegration(): AgentsIntegration {
-  const env: Record<string, string> = { OMB_COMMS_TOKEN: "fixture" };
-  if (process.env.OMB_BOT_ID) env.OMB_BOT_ID = process.env.OMB_BOT_ID;
-  if (process.env.OMB_THREAD_ID) env.OMB_THREAD_ID = process.env.OMB_THREAD_ID;
+  const env: Record<string, string> = { LUNABOT_COMMS_TOKEN: "fixture" };
+  if (process.env.LUNABOT_BOT_ID) env.LUNABOT_BOT_ID = process.env.LUNABOT_BOT_ID;
+  if (process.env.LUNABOT_THREAD_ID) env.LUNABOT_THREAD_ID = process.env.LUNABOT_THREAD_ID;
   return { command: process.execPath, args: ["-e", "setInterval(() => {}, 1_000)"], env };
 }
 

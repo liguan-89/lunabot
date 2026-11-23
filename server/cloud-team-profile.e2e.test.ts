@@ -1,4 +1,4 @@
-// A real Team Cloud (OMB_CLOUD_ROLE=team) with two people: who "you" is. Each person's profile (name, picture, About you)
+// A real Team Cloud (LUNABOT_CLOUD_ROLE=team) with two people: who "you" is. Each person's profile (name, picture, About you)
 // is their own, keyed by their verified claim; the server's one profile from config.json is nobody's there: it moves to
 // the person whose address it names. Bots name the person a conversation is for, and each group chat line its speaker.
 // The engine is the synthetic pi CLI, so this proves the plumbing, not a model's judgement.

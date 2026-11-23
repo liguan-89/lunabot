@@ -155,7 +155,7 @@ beforeAll(async () => {
   child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
     env: { ...verificationServerEnvironment({}, fixture.info.dataDir, Number(new URL(fixture.info.url).port)),
-      OMB_TEST_INTERNAL_CAPABILITY_KEY: key, OMB_COMPOSIO_API: brokerOrigin + "/api", OMB_COMPOSIO_TOOLKITS_API: brokerOrigin + "/api" },
+      LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: key, LUNABOT_COMPOSIO_API: brokerOrigin + "/api", LUNABOT_COMPOSIO_TOOLKITS_API: brokerOrigin + "/api" },
     stdio: ["ignore", log, log],
   });
   closeSync(log);

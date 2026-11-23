@@ -256,7 +256,7 @@
 
 **B13 完结：摘 9 + 手术 2，跳 8**——
 - 摘：fixture 七连 `59f79c92a6`（mcp 私网 fixture 隔离 host 代理）`a47806be76`（chrome fixture 关 native 搜索）`a4c067b1a3`（desktop sync fixture 隔离磁盘）`3ef3c9b3e2`（bot-box denied 读输出分离）`c3585618c4`（boxed 附件 fixture 先建 workspace）`06e0436d5f`（sign-in-mail 改工程兼容 promise 门——与 B10 手写 deferred 撞名，取上游侧统一）`ebb9089c6e`（MentionTextarea 先验 composition restart）；`b806f7f731`（`chosenBackups` 统一按 `enabled` 计安装级备份——index.ts `chosen:` 换接；fork 保留刻意自动选，测试只断言 `chosenBackups` 契约）；`12935993ac`（weekdays 去重排序——落 fork `shared/plain-time-zone.ts`，上游已迁 `packages/phone-protocol/`）。
-- 手术：`0792adcc71` 只取 data-dir 守护——`config-cli.ts` 是唯一绕开 `resolveDataDir` 的入口（还指向旧名 `.openmausbot`），改走统一 resolver；idle cap 依赖 upstream-only `server/perf/`+引擎状态模型、loop-stall sleep 部分同模块不存在，不摘；`caa36ce5f9` 只取 `deploy/update.sh` Podman 竞态段（inspect 空答重读），podman 测试 fixture 上游独有不落。
+- 手术：`0792adcc71` 只取 data-dir 守护——`config-cli.ts` 是唯一绕开 `resolveDataDir` 的入口（还指向旧名 `.lunabot`），改走统一 resolver；idle cap 依赖 upstream-only `server/perf/`+引擎状态模型、loop-stall sleep 部分同模块不存在，不摘；`caa36ce5f9` 只取 `deploy/update.sh` Podman 竞态段（inspect 空答重读），podman 测试 fixture 上游独有不落。
 - 跳：`e0eab4bd37`（落点 `composio-files.ts`/`connector-files.ts` 已删）；`fe171fbea2`（`LiveBot.voice` 消费链 `bot.liveVoice`+`botCallVoice`+ElevenLabs session 俱不在 fork，落即为死数据——随 P2 ElevenLabs 评审重议）；`368f7d2651`（fork 无 Hermes 导入源）；`9c0e7438b5`（fork 刻意保留无备份时自动选默认模型策略）；quiet-status 四连+merge `02f35ac556` `eddc9381d2` `88bc088a59` `9591a02a12` `8710007447`（全改 `describeQuiet` 通知文案——fork 该函数不存在，`live-steps.ts` 把 quiet 状态映射为通用 kind，文案链不成立）。
 - index.ts 撞点专项三连随本组判完：`b806f7f731` 摘、`fe171fbea2` 跳、`e0eab4bd37` 跳。
 - 验证：limit-takeover/sign-in-mail/plain-time-zone/MentionTextarea/mcp-gate/mcp-remote-proxy 114 测试 + typecheck 绿 + oxlint 净 + update.sh `bash -n` 通过。

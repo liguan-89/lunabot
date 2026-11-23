@@ -1,6 +1,6 @@
-// A shell exporting OMB_* / LUNABOT_* leaks them into every child and import-time env snapshot.
+// A shell exporting LUNABOT_* / LUNABOT_* leaks them into every child and import-time env snapshot.
 
-const AMBIENT_PREFIXES = ["OMB_", "LUNABOT_"] as const;
+const AMBIENT_PREFIXES = ["LUNABOT_", "LUNABOT_"] as const;
 
 export function isAmbientOmbKey(key: string): boolean {
   return AMBIENT_PREFIXES.some((prefix) => key.startsWith(prefix));

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 
 const root = mkdtempSync(join(tmpdir(), "omb-chatgpt-plan-"));
-process.env.OMB_DATA_DIR = join(root, "omb");
+process.env.LUNABOT_DATA_DIR = join(root, "omb");
 const { chatgptPlanCodexArgs } = await import("../server/drivers/codex.ts");
 const home = join(root, "home");
 const cwd = join(root, "workspace");

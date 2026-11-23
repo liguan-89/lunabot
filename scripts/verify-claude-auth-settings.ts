@@ -17,7 +17,7 @@ mkdirSync(workspace);
 mkdirSync(join(home, "bot", ".claude"), { recursive: true });
 process.env = {
   HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: join(home, ".config"),
-  PATH: process.env.PATH, OMB_DATA_DIR: join(home, "omb"),
+  PATH: process.env.PATH, LUNABOT_DATA_DIR: join(home, "omb"),
   CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
   DISABLE_TELEMETRY: "1", DISABLE_ERROR_REPORTING: "1",
   ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),

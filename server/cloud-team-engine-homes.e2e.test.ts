@@ -23,7 +23,7 @@ const BOB = { email: "bob@acme.test", role: "member" as const };
 // Each launch records where it ran: the pi driver boots a child per conversation, and pi keeps its own state under HOME.
 const HOME_FILES = `const { appendFileSync } = process.getBuiltinModule("node:fs");
 process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
-appendFileSync(process.env.FAKE_CLAUDE_FIXTURE_DIR + "/homes.jsonl", JSON.stringify({ pid: process.pid, home: process.env.HOME ?? "", thread: process.env.OMB_THREAD_ID ?? null }) + "\\n");`;
+appendFileSync(process.env.FAKE_CLAUDE_FIXTURE_DIR + "/homes.jsonl", JSON.stringify({ pid: process.pid, home: process.env.HOME ?? "", thread: process.env.LUNABOT_THREAD_ID ?? null }) + "\\n");`;
 
 let fx: CloudSendFixture, team: CloudTeamFixture;
 let owner = "", admin = "", bob = "";

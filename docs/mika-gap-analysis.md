@@ -821,8 +821,8 @@ The Android unit tests — 36 classes, 398 tests, all passing:
 
 ```sh
 cd android && ./gradlew :app:testDebugUnitTest \
-  --tests "com.openmausbot.companion.phoneui.*" \
-  --tests "com.openmausbot.companion.wechat.*" --offline
+  --tests "com.lunabot.companion.phoneui.*" \
+  --tests "com.lunabot.companion.wechat.*" --offline
 ```
 
 That covers the 26 classes in
@@ -845,7 +845,7 @@ The job catalogue — 16 tests:
 
 ```sh
 cd android && ./gradlew :core:test \
-  --tests "com.openmausbot.companion.core.PhoneJobsTest" --offline
+  --tests "com.lunabot.companion.core.PhoneJobsTest" --offline
 ```
 
 The locale check — 16 languages, 10552 English strings:

@@ -78,8 +78,8 @@ describe("server update check", () => {
     expect(await createUpdateChecker({ current: "0.1.92", install: "docker", channel: "newest", fetch })()).toMatchObject({ channel: "newest", latest: "0.1.95" });
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(updateChannel({})).toBe("stable");
-    expect(updateChannel({ OMB_UPDATE_CHANNEL: " Newest " })).toBe("newest");
-    expect(updateChannel({ OMB_UPDATE_CHANNEL: "latest" })).toBe("stable");
+    expect(updateChannel({ LUNABOT_UPDATE_CHANNEL: " Newest " })).toBe("newest");
+    expect(updateChannel({ LUNABOT_UPDATE_CHANNEL: "latest" })).toBe("stable");
   });
 
   it("does not take a broken channel record for a version, or fall back past it", async () => {

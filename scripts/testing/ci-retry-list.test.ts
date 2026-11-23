@@ -103,7 +103,7 @@ describe("the runner", () => {
   }
 
   async function vitest(directory: string, env: Record<string, string | undefined>) {
-    const childEnv: Record<string, string | undefined> = { ...process.env, OMB_VITEST_RETRY_LIST: join(directory, "list.json"), OMB_VITEST_RETRY_LOG: join(directory, "retries.jsonl"), ...env };
+    const childEnv: Record<string, string | undefined> = { ...process.env, LUNABOT_VITEST_RETRY_LIST: join(directory, "list.json"), LUNABOT_VITEST_RETRY_LOG: join(directory, "retries.jsonl"), ...env };
     for (const [key, value] of Object.entries(childEnv)) if (value === undefined) delete childEnv[key];
     return new Promise<{ code: number; output: string }>((resolve) => {
       execFile(process.execPath, [VITEST, "run", "--config", join(directory, "vitest.config.mjs"), "--reporter=json"], { cwd: directory, env: childEnv as NodeJS.ProcessEnv, encoding: "utf8", timeout: 60_000 },
@@ -150,7 +150,7 @@ describe("the runner", () => {
     scratch.push(directory);
     writeFileSync(join(directory, "dom.test.mjs"), 'it("runs in a DOM", () => { expect(typeof document).toBe("object"); });\n');
     writeFileSync(join(directory, "vitest.config.mjs"), `export default { test: { globals: true, environment: "happy-dom", include: ["dom.test.mjs"], runner: ${JSON.stringify(RUNNER)} } };\n`);
-    const { code, output } = await vitest(directory, { CI: "true", OMB_VITEST_RETRY_LIST: undefined });
+    const { code, output } = await vitest(directory, { CI: "true", LUNABOT_VITEST_RETRY_LIST: undefined });
     expect(output).not.toContain("Unhandled");
     expect(results(output)).toEqual({ "runs in a DOM": "passed" });
     expect(code).toBe(0);
@@ -160,7 +160,7 @@ describe("the runner", () => {
 
   it("runs every test without retries when the list cannot be read", async () => {
     const directory = project();
-    const { output } = await vitest(directory, { CI: "true", OMB_VITEST_RETRY_LIST: join(directory, "missing.json") });
+    const { output } = await vitest(directory, { CI: "true", LUNABOT_VITEST_RETRY_LIST: join(directory, "missing.json") });
     expect(output).not.toContain("Unhandled");
     expect(results(output)).toEqual({ "fails once": "failed", "fails always": "failed" });
     const logged = readFileSync(join(directory, "retries.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));

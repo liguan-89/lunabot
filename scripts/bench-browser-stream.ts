@@ -21,10 +21,10 @@ const { values } = parseArgs({
   },
 });
 const MAC_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const chrome = values.chrome ?? process.env.OMB_CDP_CHROME ?? (existsSync(MAC_CHROME) ? MAC_CHROME : "");
+const chrome = values.chrome ?? process.env.LUNABOT_CDP_CHROME ?? (existsSync(MAC_CHROME) ? MAC_CHROME : "");
 if (!chrome) throw new Error("Name a Chrome with --chrome PATH.");
 // The test service reads which Chrome to run when it loads.
-process.env.OMB_CDP_CHROME = chrome;
+process.env.LUNABOT_CDP_CHROME = chrome;
 
 const { displayScreen } = await import("../server/browser/display.ts");
 const { FixtureServer } = await import("../server/browser/cdp/testing/fixtures.ts");

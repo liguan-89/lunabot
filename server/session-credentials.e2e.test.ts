@@ -49,8 +49,8 @@ async function fixture(test: (f: any) => Promise<void>, { thisComputer = false }
         // Each turn runs until `release` exists (the retired fixture's `hang`), so a warm process can be watched across
         // turns and a held turn keeps its agents capability live.
         ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, dataDir, Number(new URL(url).port)),
-        ...(withBrowser ? { OMB_AGENT_BROWSER_PATH: browser } : {}),
-        ...(thisComputer ? { OMB_TEST_DESKTOP_CUA_CONNECTION: join(userData, "cua-connection.json") } : {}),
+        ...(withBrowser ? { LUNABOT_AGENT_BROWSER_PATH: browser } : {}),
+        ...(thisComputer ? { LUNABOT_TEST_DESKTOP_CUA_CONNECTION: join(userData, "cua-connection.json") } : {}),
       },
       stdio: ["ignore", log, log],
     });
@@ -62,13 +62,13 @@ async function fixture(test: (f: any) => Promise<void>, { thisComputer = false }
     const dump = () => piDumpPath(dataDir);
     /** The turns this conversation's pi child was given, in order; each carries the launch it ran on. */
     const turnsOf = (threadId: string): PiTurn[] => piTurns(dump())
-      .filter((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId);
+      .filter((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === threadId);
     /** The pi processes that served the conversation: a warm child keeps its pid across the turns it runs. */
     const processes = (threadId: string): number[] => [...new Set(turnsOf(threadId).map((turn) => turn.launch?.pid).filter((pid): pid is number => typeof pid === "number"))];
     const lastOf = (threadId: string) => turnsOf(threadId).at(-1)?.launch;
     const mountedOf = (threadId: string) => Object.keys(lastOf(threadId)?.mcpConfig?.mcpServers ?? {});
-    const tokenOf = (threadId: string) => lastOf(threadId)?.mcpConfig?.mcpServers?.agents?.env?.OMB_COMMS_TOKEN as string | undefined;
-    const controlOf = (threadId: string) => lastOf(threadId)?.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_TOKEN as string | undefined;
+    const tokenOf = (threadId: string) => lastOf(threadId)?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_COMMS_TOKEN as string | undefined;
+    const controlOf = (threadId: string) => lastOf(threadId)?.mcpConfig?.mcpServers?.computer?.env?.LUNABOT_CONTROL_TOKEN as string | undefined;
     const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
     const api = async (method: string, path: string, body?: unknown, token?: string) => {
       const response = await fetch(url + path, {

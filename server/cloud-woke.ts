@@ -21,8 +21,8 @@ export function createWokeNotifier(options: {
     const body = JSON.stringify({ v: 1, wokeAt: now() });
     const timestamp = String(Math.floor(now() / 1000)), nonce = randomBytes(18).toString("base64url");
     void fetcher(`${adminOrigin}${WOKE_ADMIN_PATH}`, { method: "POST", redirect: "error", cache: "no-store", body, signal: AbortSignal.timeout(WOKE_TIMEOUT_MS), headers: {
-      accept: "application/json", "content-type": "application/json", "x-omb-cloud-machine": machineId, "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-      "x-omb-cloud-signature": `v1=${wokeSignature(secret, machineId, timestamp, nonce, body)}`,
+      accept: "application/json", "content-type": "application/json", "x-lunabot-cloud-machine": machineId, "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+      "x-lunabot-cloud-signature": `v1=${wokeSignature(secret, machineId, timestamp, nonce, body)}`,
     } }).then(async (response) => {
       await response.body?.cancel().catch(() => {});
       if (!response.ok && response.status !== 404 && !warned) { warned = true; log?.(`cloud power: the Admin answered HTTP ${response.status} to the wake notice`); }

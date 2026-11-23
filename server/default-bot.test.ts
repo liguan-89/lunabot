@@ -272,7 +272,7 @@ describe("Luna Bot, every person's helper", () => {
     const place = boot(store)!;
     const member = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "user@example.com", team: "Acme" })!;
     const admin = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "admin@example.com", team: "Acme" })!;
-    const tools = (bot: BotRecord) => availableTools(catalogProfileFromEnv({ OMB_CHIEF_OF_STAFF: chiefLevel(bot) ? "1" : "0", OMB_BOT_ID: bot.id })).map((tool) => tool.name);
+    const tools = (bot: BotRecord) => availableTools(catalogProfileFromEnv({ LUNABOT_CHIEF_OF_STAFF: chiefLevel(bot) ? "1" : "0", LUNABOT_BOT_ID: bot.id })).map((tool) => tool.name);
     expect(tools(place)).toEqual(expect.arrayContaining(["create_bot", "propose_team_setup", "retry_thread", "manage_room"]));
     expect([chiefLevel(member), chiefLevel(admin)]).toEqual([false, false]);
     readTeamRolesWith((email) => email === "admin@example.com" ? "admin" : email === "user@example.com" ? "member" : null);

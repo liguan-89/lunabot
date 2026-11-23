@@ -1,4 +1,4 @@
-// A Team Cloud (OMB_CLOUD_ROLE=team) with an MCP server behind a gateway that checks two service-token headers, as
+// A Team Cloud (LUNABOT_CLOUD_ROLE=team) with an MCP server behind a gateway that checks two service-token headers, as
 // Cloudflare Access does. An admin pastes the `claude mcp add` command into Add MCP server and fills in the two values
 // its variables stood for; the server is added for the whole team through the panel's own routes. A member's turn on the
 // synthetic pi CLI then lists and calls its tool, and neither value reaches the engine's environment, the logs or
@@ -42,7 +42,7 @@ beforeAll(async () => {
     requireHeaders: { "CF-Access-Client-Id": CLIENT_ID, "CF-Access-Client-Secret": CLIENT_SECRET },
     callResult: (params) => ({ content: [{ type: "text", text: `order ${String((params as { arguments?: { id?: unknown } }).arguments?.id)} shipped` }] }),
   });
-  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: { OMB_BOT_BOX: "0" } } });
+  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: { LUNABOT_BOT_BOX: "0" } } });
   team = fx.team!;
   admin = (await team.pair(ADMIN)).token!;
   ada = (await team.pair(ADA)).token!;
@@ -101,7 +101,7 @@ type Engine = { argv: string[]; envConfigured: string[]; mcpConfig: { mcpServers
  * its headers; pi never gets a bare { type, url, headers } entry. */
 const remoteSpec = (server: unknown) => {
   const env = (server as { env?: Record<string, string> } | undefined)?.env ?? {};
-  return JSON.parse(env.OMB_REMOTE_MCP_SERVER ?? "{}") as { type?: string; url?: string; headers?: Record<string, string> };
+  return JSON.parse(env.LUNABOT_REMOTE_MCP_SERVER ?? "{}") as { type?: string; url?: string; headers?: Record<string, string> };
 };
 const dumpPath = () => join(team.home, "dump.json");
 /** The launch of the last turn whose prompt carried `text`. */

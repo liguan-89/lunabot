@@ -123,7 +123,7 @@ posixOnly("authorization decisions are logged", () => {
         ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
         HOME: home,
         USERPROFILE: home,
-        OMB_PORT: String(PORT),
+        LUNABOT_PORT: String(PORT),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

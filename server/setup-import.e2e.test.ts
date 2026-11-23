@@ -72,7 +72,7 @@ describe("bringing in another AI tool's setup through the desktop app's own serv
   beforeAll(async () => {
     globalThis.fetch = (input, init = {}) => realFetch(input, { ...init,
       headers: { ...Object.fromEntries(new Headers(init.headers)), "x-lunabot-desktop-owner": owner } });
-    fixture = await launchVerificationServer({ ...process.env, OMB_TEST_DESKTOP_OWNER_TOKEN: owner });
+    fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_DESKTOP_OWNER_TOKEN: owner });
   });
   afterAll(async () => {
     globalThis.fetch = realFetch;

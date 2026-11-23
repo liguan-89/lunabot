@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { buildZip, type ZipFixtureMember } from "./testing/zip-fixture.ts";
 
 const DATA_ROOT = mkdtempSync(join(tmpdir(), "omb-xmind-test-"));
-process.env.OMB_DATA_DIR = join(DATA_ROOT, "data");
+process.env.LUNABOT_DATA_DIR = join(DATA_ROOT, "data");
 
 const { outlineFromJson, outlineFromXml, saveXmindUpload } = await import("./xmind.ts");
 

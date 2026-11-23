@@ -8,7 +8,7 @@ export interface FleetReply {
 }
 
 export function fleetSocketPath(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = env.OMB_FLEET_SOCKET?.trim();
+  const configured = env.LUNABOT_FLEET_SOCKET?.trim();
   if (configured) return configured;
   const current = "/run/lunabot/fleet.sock";
   // A fleet installed before the rename keeps its agent on the old path until `fleet init` runs again: talk to it there.

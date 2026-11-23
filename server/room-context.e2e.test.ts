@@ -12,7 +12,7 @@ import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.
 import type { WireBot, WireGroup } from "../shared/wire.ts";
 import { piDumpPath, piTurnText, piTurnsForThread, type PiTurn } from "./testing/pi-dump.ts";
 
-const botOf = (turn: PiTurn): string | undefined => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID;
+const botOf = (turn: PiTurn): string | undefined => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_BOT_ID;
 
 it("carries the room's transcript into each warm pi turn, and reports no member context to measure", async () => {
   const fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });

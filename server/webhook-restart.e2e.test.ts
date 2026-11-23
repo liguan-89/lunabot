@@ -8,7 +8,7 @@ import type { RoutineRun } from "./routines.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 it("does not run a delivery twice after a process dies between the queue and ingress commits", async () => {
-  const fixture = await launchVerificationServer({ OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir, logPath } = fixture.info;
   let restarted: ChildProcess | undefined;
   const api = async (path: string, body?: unknown) => {
@@ -31,13 +31,13 @@ it("does not run a delivery twice after a process dies between the queue and ing
       if (process.env[key]) env[key] = process.env[key];
     }
     Object.assign(env, {
-      HOME: dataDir, USERPROFILE: dataDir, OMB_DATA_DIR: dataDir,
+      HOME: dataDir, USERPROFILE: dataDir, LUNABOT_DATA_DIR: dataDir,
       APPDATA: join(dataDir, "AppData", "Roaming"), LOCALAPPDATA: join(dataDir, "AppData", "Local"),
       XDG_CONFIG_HOME: join(dataDir, ".config"), XDG_CACHE_HOME: join(dataDir, ".cache"),
       XDG_DATA_HOME: join(dataDir, ".local", "share"), HERMES_HOME: join(dataDir, ".hermes"),
       TEMP: join(dataDir, "tmp"), TMP: join(dataDir, "tmp"), TMPDIR: join(dataDir, "tmp"),
-      OMB_PORT: new URL(url).port, OMB_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
-      PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy", OMB_TEST_FIXTURE_ENGINE: "pi",
+      LUNABOT_PORT: new URL(url).port, LUNABOT_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
+      PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy", LUNABOT_TEST_FIXTURE_ENGINE: "pi",
     });
     // This disposable child runs the real enqueue, then exits before the WebhookManager can record acceptance.
     const crash = spawnSync(process.execPath, ["--input-type=module", "-e", `

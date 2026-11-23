@@ -1,11 +1,11 @@
 import { basename } from "node:path";
 
 /** How this CLI was started, so every command it prints can be pasted as is: `npx lunabot`, `pnpm omb` in a checkout, the
- * Docker image's `docker compose exec omb lunabot` (OMB_CLI_PREFIX), or plain `lunabot`. `openmausbot` remains an alias,
+ * Docker image's `docker compose exec omb lunabot` (LUNABOT_CLI_PREFIX), or plain `lunabot`. `openmausbot` remains an alias,
  * and a shell that started that old bin keeps seeing the old name; anything else, such as another tool run through npx,
  * prints the current name, `lunabot`. */
 export function cliPrefix(env: NodeJS.ProcessEnv = process.env, script = process.argv[1] ?? ""): string {
-  const fixed = env.OMB_CLI_PREFIX?.trim();
+  const fixed = env.LUNABOT_CLI_PREFIX?.trim();
   if (fixed) return fixed;
   if (env.npm_lifecycle_event === "omb") return "pnpm omb";
   // The source entry keeps its upstream filename; it is not the installed bin's name.

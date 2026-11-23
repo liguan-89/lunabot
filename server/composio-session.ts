@@ -53,7 +53,7 @@ export function projectApiKey(cfg: AppConfig): string | null {
   return cfg.composio?.apiKey?.trim() || null;
 }
 
-/** Composio's own hosts, or the origin of an explicit OMB_COMPOSIO_API backend; any other host is refused. */
+/** Composio's own hosts, or the origin of an explicit LUNABOT_COMPOSIO_API backend; any other host is refused. */
 export function trustedSessionMcpUrl(value: string): boolean {
   let mcp: URL;
   try {
@@ -63,7 +63,7 @@ export function trustedSessionMcpUrl(value: string): boolean {
   }
   if (mcp.protocol === "https:" && (mcp.hostname === "composio.dev" || mcp.hostname.endsWith(".composio.dev"))) return true;
   if (mcp.protocol !== "https:" && !(mcp.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(mcp.hostname))) return false;
-  const override = process.env.OMB_COMPOSIO_API;
+  const override = process.env.LUNABOT_COMPOSIO_API;
   if (!override) return false;
   try {
     return new URL(override).origin === mcp.origin;

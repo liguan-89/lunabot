@@ -1,7 +1,7 @@
 // A page and an MCP app shown in a room: two members' real room turns put them there through the internal card route
 // and the MCP gate, and the real renderer shows both to the room, view-only. A real mouse click on the page's send
 // button and on the app's server button posts nothing. Needs the pinned agent-browser binary: runs when one resolves
-// (tools directory, OMB_AGENT_BROWSER_PATH or PATH) or OMB_UI_E2E=1 asks for the verified download; otherwise skipped.
+// (tools directory, LUNABOT_AGENT_BROWSER_PATH or PATH) or LUNABOT_UI_E2E=1 asks for the verified download; otherwise skipped.
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,13 +20,13 @@ import { fixtureApi } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const FAKE_APP = join(ROOT, "server", "testing", "fake-stdio-app-server.ts");
-const forced = process.env.OMB_UI_E2E === "1";
+const forced = process.env.LUNABOT_UI_E2E === "1";
 const enabled = forced || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
-if (!enabled) console.log("skipping room pages ui e2e: no agent-browser binary resolves; set OMB_UI_E2E=1 to install the pinned release");
+if (!enabled) console.log("skipping room pages ui e2e: no agent-browser binary resolves; set LUNABOT_UI_E2E=1 to install the pinned release");
 const LAUNCH_TIMEOUT_MS = forced ? 600_000 : 180_000;
 
-const evidenceDir = process.env.OMB_UI_EVIDENCE_DIR ? resolve(ROOT, process.env.OMB_UI_EVIDENCE_DIR) : mkdtempSync(join(tmpdir(), "omb-ui-evidence-"));
-afterAll(async () => { if (!process.env.OMB_UI_EVIDENCE_DIR) await removeTempDir(evidenceDir); });
+const evidenceDir = process.env.LUNABOT_UI_EVIDENCE_DIR ? resolve(ROOT, process.env.LUNABOT_UI_EVIDENCE_DIR) : mkdtempSync(join(tmpdir(), "omb-ui-evidence-"));
+afterAll(async () => { if (!process.env.LUNABOT_UI_EVIDENCE_DIR) await removeTempDir(evidenceDir); });
 
 /** The send button sits at a fixed place in the page, so a real mouse can find it inside the frame. What send() did
  * shows in the page and in its height, which the host's frame follows: 300px when it resolved, 240px when refused. */
@@ -110,10 +110,10 @@ async function until<T>(probe: () => Promise<T> | T, what: string, timeoutMs = 3
     const roomTurn = (botId: string) => until(() => {
       const turn = [...dump()].reverse().find((one) => {
         const env = one.launch?.mcpConfig?.mcpServers?.agents?.env;
-        return env?.OMB_BOT_ID === botId && env?.OMB_THREAD_ID === room.threadId;
+        return env?.LUNABOT_BOT_ID === botId && env?.LUNABOT_THREAD_ID === room.threadId;
       });
       const mounts = turn?.launch?.mcpConfig?.mcpServers;
-      return mounts ? { token: mounts.agents!.env!.OMB_COMMS_TOKEN as string, mounts } : null;
+      return mounts ? { token: mounts.agents!.env!.LUNABOT_COMMS_TOKEN as string, mounts } : null;
     }, `${botId}'s room turn`, 60_000);
     const settled = async () => {
       writeFileSync(gate, "finish");

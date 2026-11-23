@@ -32,8 +32,8 @@ async function restartFixture(fixture: VerificationServer): Promise<ChildProcess
     LOCALAPPDATA: join(home, "AppData", "Local"), XDG_CONFIG_HOME: join(home, ".config"),
     XDG_CACHE_HOME: join(home, ".cache"), XDG_DATA_HOME: join(home, ".local", "share"),
     TEMP: temp, TMP: temp, TMPDIR: temp, HERMES_HOME: join(home, ".hermes"),
-    OMB_DATA_DIR: dataDir, OMB_PORT: new URL(fixture.info.url).port,
-    OMB_WEBHOOK_PORT: String(Number(new URL(fixture.info.url).port) + 1),
+    LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: new URL(fixture.info.url).port,
+    LUNABOT_WEBHOOK_PORT: String(Number(new URL(fixture.info.url).port) + 1),
     PATH: dirname(process.execPath),
   });
   const log = openSync(fixture.info.logPath, "a", 0o600);

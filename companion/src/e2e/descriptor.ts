@@ -12,7 +12,7 @@ export const MAX_RELAY_NODES = 4;
  * `lunabot.com` is deliberately absent: this fleet does not own that domain (it is parked for sale), so a node under
  * it would be a stranger's. A name here is one a phone will dial and one the control plane may issue, and neither may
  * point at a zone we cannot control. */
-export const RELAY_HOST = /^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
+export const RELAY_HOST = /^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 
 export type DescriptorRoutes = "any" | "local";
 

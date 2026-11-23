@@ -59,11 +59,11 @@ describe("sending a @devs report", () => {
 
 describe("where reports go", () => {
   it("is a fixture's loopback or https address, else a Cloud home's own origin, else the staging or production Cloud", () => {
-    expect(bugReportEndpoint({ OMB_BUG_REPORT_URL: "http://127.0.0.1:4400/api/bug-reports" })).toBe("http://127.0.0.1:4400/api/bug-reports");
-    expect(bugReportEndpoint({ OMB_BUG_REPORT_URL: "http://192.0.2.1/api/bug-reports" })).toBe("https://cloud.dexai.vip/api/bug-reports");
-    expect(bugReportEndpoint({ OMB_BUG_REPORT_URL: "https://user:pw@evil.example/x" })).toBe("https://cloud.dexai.vip/api/bug-reports");
+    expect(bugReportEndpoint({ LUNABOT_BUG_REPORT_URL: "http://127.0.0.1:4400/api/bug-reports" })).toBe("http://127.0.0.1:4400/api/bug-reports");
+    expect(bugReportEndpoint({ LUNABOT_BUG_REPORT_URL: "http://192.0.2.1/api/bug-reports" })).toBe("https://cloud.dexai.vip/api/bug-reports");
+    expect(bugReportEndpoint({ LUNABOT_BUG_REPORT_URL: "https://user:pw@evil.example/x" })).toBe("https://cloud.dexai.vip/api/bug-reports");
     expect(bugReportEndpoint({}, "https://cloud.dexai.vip")).toBe("https://cloud.dexai.vip/api/bug-reports");
-    expect(bugReportEndpoint({ OMB_CLOUD_STAGING: "1" })).toBe("https://staging.cloud.dexai.vip/api/bug-reports");
+    expect(bugReportEndpoint({ LUNABOT_CLOUD_STAGING: "1" })).toBe("https://staging.cloud.dexai.vip/api/bug-reports");
     expect(bugReportEndpoint({})).toBe("https://cloud.dexai.vip/api/bug-reports");
   });
 });
@@ -73,20 +73,20 @@ describe("asking what became of the reports this app sent", () => {
   const ANSWER = { reports: [{ id: QUESTION.ids[0], status: "fixed", fixedIn: "0.1.135" }], notify: true };
 
   it("asks the report endpoint's origin, unsigned from the desktop and signed by a Cloud home with the secret it shares with the Admin", async () => {
-    expect(bugReportStatusEndpoint("https://cloud.openmausbot.com/api/bug-reports")).toBe("https://cloud.openmausbot.com/api/bug-reports/status");
+    expect(bugReportStatusEndpoint("https://cloud.lunabot.com/api/bug-reports")).toBe("https://cloud.lunabot.com/api/bug-reports/status");
     expect(bugReportStatusEndpoint("http://127.0.0.1:4400/api/bug-reports")).toBe("http://127.0.0.1:4400/api/bug-reports/status");
     const desktop = endpoint(answer(200, ANSWER));
     expect(await devsStatusAsker("https://cloud.example/api/bug-reports", null, desktop.fetcher)(QUESTION)).toEqual(ANSWER);
     expect(desktop.sent[0]!.url).toBe("https://cloud.example/api/bug-reports/status");
     expect(desktop.sent[0]!.init).toMatchObject({ method: "POST", redirect: "error" });
     expect(desktop.sent[0]!.body).toEqual(QUESTION);
-    expect(Object.keys(desktop.sent[0]!.init.headers as Record<string, string>).filter((name) => name.startsWith("x-omb-cloud"))).toEqual([]);
+    expect(Object.keys(desktop.sent[0]!.init.headers as Record<string, string>).filter((name) => name.startsWith("x-lunabot-cloud"))).toEqual([]);
 
     const home = { machineId: "cm-test-home", bootstrapSecret: "s".repeat(43) }, cloud = endpoint(answer(200, ANSWER));
     expect(await askReportStatus("https://cloud.example/api/bug-reports/status", QUESTION, home, cloud.fetcher, () => 1_792_670_400_000)).toEqual(ANSWER);
     const headers = cloud.sent[0]!.init.headers as Record<string, string>, raw = String(cloud.sent[0]!.init.body);
-    expect(headers).toMatchObject({ "x-omb-cloud-machine": "cm-test-home", "x-omb-cloud-timestamp": "1792670400" });
-    expect(headers["x-omb-cloud-signature"]).toBe(`v1=${bugReportsHomeSignature(home.bootstrapSecret, home.machineId, "1792670400", headers["x-omb-cloud-nonce"]!, raw)}`);
+    expect(headers).toMatchObject({ "x-lunabot-cloud-machine": "cm-test-home", "x-lunabot-cloud-timestamp": "1792670400" });
+    expect(headers["x-lunabot-cloud-signature"]).toBe(`v1=${bugReportsHomeSignature(home.bootstrapSecret, home.machineId, "1792670400", headers["x-lunabot-cloud-nonce"]!, raw)}`);
     expect(JSON.stringify(cloud.sent)).not.toContain(home.bootstrapSecret);
   });
 

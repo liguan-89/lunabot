@@ -47,9 +47,9 @@ export function launcherOf(version: readonly number[] | null): Launcher {
  * environment.
  */
 export function homeSpec(image: string, env: Record<string, string>, seccomp: string, options: { secretsDir?: string | null; dropsCapabilities?: boolean } = {}): ContainerSpec {
-  const environment = { ...env, OMB_CLOUD_IMAGE: image };
+  const environment = { ...env, LUNABOT_CLOUD_IMAGE: image };
   const secret = new Set<string>(options.secretsDir ? HOME_SECRET_ENV : []);
-  const tls = env.OMB_CLOUD_EDGE_TLS === "1";
+  const tls = env.LUNABOT_CLOUD_EDGE_TLS === "1";
   return {
     Image: image,
     Env: Object.entries(environment).filter(([name]) => !secret.has(name)).map(([name, value]) => `${name}=${value}`),
@@ -211,7 +211,7 @@ export class Home {
     const env = this.state.homeEnv();
     const info = await this.docker.containerInspect(NAMES.home);
     if (!env || !info?.State.Running) return this.lastHealth;
-    const { status, report } = await this.options.readHealth({ port: HOME_PORT, publicHost: publicHost(env), secret: env.OMB_CLOUD_BOOTSTRAP_SECRET });
+    const { status, report } = await this.options.readHealth({ port: HOME_PORT, publicHost: publicHost(env), secret: env.LUNABOT_CLOUD_BOOTSTRAP_SECRET });
     this.lastHealth = summarizeHealth(status, report, info.Config.Image, this.now());
     return this.lastHealth;
   }
@@ -561,7 +561,7 @@ export class Home {
   /** Keeps a container made from the same image and environment; anything else is made again. */
   private async ensureContainer(image: string, env: Record<string, string>): Promise<void> {
     const info = await this.docker.containerInspect(NAMES.home);
-    const wanted = envDigest({ ...env, OMB_CLOUD_IMAGE: image });
+    const wanted = envDigest({ ...env, LUNABOT_CLOUD_IMAGE: image });
     if (info && info.Config.Image === image && info.Config.Labels?.[LABELS.env] === wanted) return;
     await this.createContainer(image, env);
   }
@@ -629,7 +629,7 @@ export class Home {
         const why = info ? await this.startupFailure(info.State.ExitCode) : "its container is gone";
         return { ok: false, reason: `the home stopped: ${why}` };
       }
-      const { status, report } = await this.options.readHealth({ port: HOME_PORT, publicHost: publicHost(env), secret: env.OMB_CLOUD_BOOTSTRAP_SECRET });
+      const { status, report } = await this.options.readHealth({ port: HOME_PORT, publicHost: publicHost(env), secret: env.LUNABOT_CLOUD_BOOTSTRAP_SECRET });
       this.lastHealth = summarizeHealth(status, report, image, this.now());
       if (this.lastHealth.ok) {
         if (!box) return { ok: true };

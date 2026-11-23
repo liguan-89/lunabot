@@ -83,7 +83,7 @@ export const phoneLinkShouldSleep = (state) =>
   state?.enabled === true && !state.error && state.devicesUnreadable !== true && Array.isArray(state.devices) && state.devices.length === 0 && !state.pairing;
 
 export const companionDevicesFile = (env = process.env, home = os.homedir()) => {
-  if (env.OMB_COMPANION_DIR) return path.join(env.OMB_COMPANION_DIR, "devices.json");
+  if (env.LUNABOT_COMPANION_DIR) return path.join(env.LUNABOT_COMPANION_DIR, "devices.json");
   const current = path.join(home, ".lunabot-companion");
   // The sidecar migrates the folder on start; read an earlier one until it does, newest name first.
   const legacy = [".dexbot-companion", ".lunabot-companion"].map((name) => path.join(home, name)).find((dir) => fs.existsSync(dir));

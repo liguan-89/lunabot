@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 
 it("a room whose folder was deleted names that folder when work handed there fails, not the bot's settings", async () => {
-  const session = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
+  const session = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
   const { url, dataDir } = session.info;
   const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => {

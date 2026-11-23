@@ -20,10 +20,10 @@ files it links, and writes everything to `./rehearsal`.
 
 ## Which workspace, and as whom
 
-- `--url URL` or `OPENMAUSBOT_URL`: a workspace somewhere else. `https://`
+- `--url URL` or `LUNABOT_URL`: a workspace somewhere else. `https://`
   works anywhere; plain `http://` works only on this computer or a private
   network (a LAN address, Tailscale's 100.x or `*.ts.net`, `*.local`).
-- `--port N` or `OMB_PORT`: this computer, on that port.
+- `--port N` or `LUNABOT_PORT`: this computer, on that port.
 - Otherwise the command looks on this computer's usual ports (8799, 18799,
   28799), as the desktop app uses them.
 
@@ -43,7 +43,7 @@ works once). On this
 computer's own server, `connect` makes the code itself (`--client` gives a
 token that can chat but not change settings). The token goes to a file only
 you can read, and is never printed. Pass it with `--token-file FILE` or
-`OPENMAUSBOT_TOKEN`; there is no `--token` flag, because a command line can be
+`LUNABOT_TOKEN`; there is no `--token` flag, because a command line can be
 read by other programs. A token is never sent while the command is still
 looking for a server: with a token, name the server.
 
@@ -57,7 +57,7 @@ lunabot token revoke ID                # it stops working at once
 
 A `connect` session renews itself while it is used, up to 180 days; an access
 token never renews and ends on its date. `--expires` is at most the server's
-session limit (180 days unless `OMB_SESSION_MAX_DAYS` says otherwise), and
+session limit (180 days unless `LUNABOT_SESSION_MAX_DAYS` says otherwise), and
 `--scope client`, the default, can chat and answer approvals but not change
 settings. Tokens are listed and revoked like any session (`lunabot
 sessions`, and Settings), and the token itself is written only to `--out`.
@@ -137,7 +137,7 @@ It checks the system (Ubuntu 24.04 or 22.04, or Debian 12, are the ones we
 test), the processor (x86_64; arm64 runs a server but not a self-hosted Team
 server), Docker or Podman, that unprivileged user namespaces are allowed (the
 AppArmor and Debian switches), seccomp, cgroup v2, free disk for the data
-folder (`--data-dir`, else `OMB_DATA_DIR` or `~/.lunabot`: at least 10 GB,
+folder (`--data-dir`, else `LUNABOT_DATA_DIR` or `~/.lunabot`: at least 10 GB,
 and 100 GB for a Team server), disk encryption, CPUs and memory (a Team needs
 4 CPUs and 8 GB), the server's port (`--port`, else 8799), ports 80 and 443
 (required with `--domain HOST`, else only a warning), and the clock against
@@ -475,7 +475,7 @@ an engine that can limit built-in tools.
 # .github/workflows/rehearse.yml (a sketch)
 - run: npm install -g lunabot @anthropic-ai/claude-code
 - run: lunabot serve --no-pair --data-dir "$RUNNER_TEMP/omb" &
-  env: { OMB_ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }   # the workspace's Claude key from the start
+  env: { LUNABOT_ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }   # the workspace's Claude key from the start
 - run: lunabot doctor --wait 2m          # the server answers and an engine is ready
 - run: lunabot team apply team.yaml
 - run: lunabot run "Release checker" "Check the deploy at ${{ env.URL }}" --timeout 20m --strict --export ./out
@@ -484,12 +484,12 @@ an engine that can limit built-in tools.
 ```
 
 `doctor --wait` waits for an engine too, so the server gets its key in its
-own environment, as here (`OMB_ANTHROPIC_API_KEY`; the team file's `engines:`
+own environment, as here (`LUNABOT_ANTHROPIC_API_KEY`; the team file's `engines:`
 section, or `lunabot engine set`, can set it later instead).
 
 The step fails when the job fails (exit 1), needs someone (exit 3) or runs out
 of time (exit 4). To drive a workspace that is already running elsewhere, set
-`OPENMAUSBOT_URL` and pass a token made with `lunabot connect` as a secret
+`LUNABOT_URL` and pass a token made with `lunabot connect` as a secret
 file (`--token-file`).
 
 ## For other agents

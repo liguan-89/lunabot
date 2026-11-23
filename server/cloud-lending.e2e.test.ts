@@ -47,7 +47,7 @@ async function adminPairing(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   const paired = await api("POST", "/api/auth/pair", { body: { code: granted.code } });
@@ -68,11 +68,11 @@ type Turn = { argv: string[]; cwd?: string; systemPrompt?: string; mcpConfig: Pi
 let turn: Turn;
 const dump = () => piDumpPath(join(home, ".lunabot"));
 
-/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in LUNABOT_GATE_UPSTREAM instead. */
 const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
   const env = agents?.env ?? {};
-  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
-  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+  if (env.LUNABOT_BOT_ID || env.LUNABOT_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.LUNABOT_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
 };
 
 /** The turn `start` set off appends a prompt row under its launch; the log survives a restart, so count first. */
@@ -85,7 +85,7 @@ async function agentsFor(start: () => Promise<void>, botId: string, threadId?: s
       const found = turns[index]!;
       const agents = found.launch?.mcpConfig?.mcpServers?.agents;
       const env = agentsEnv(agents);
-      if (env.OMB_BOT_ID !== botId || (threadId && env.OMB_THREAD_ID !== threadId)) continue;
+      if (env.LUNABOT_BOT_ID !== botId || (threadId && env.LUNABOT_THREAD_ID !== threadId)) continue;
       turn = {
         argv: found.launch?.argv ?? [], cwd: found.launch?.cwd,
         systemPrompt: piInstructionsAt(turns, index), mcpConfig: found.launch?.mcpConfig ?? null,
@@ -156,12 +156,12 @@ async function boot() {
     env: {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       // The seam takes only a fixture whose home is its data folder.
-      HOME: dataDir, USERPROFILE: dataDir, OMB_DATA_DIR: dataDir, OMB_TEST_MEMORY_GATE: "1", OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      HOME: dataDir, USERPROFILE: dataDir, LUNABOT_DATA_DIR: dataDir, LUNABOT_TEST_MEMORY_GATE: "1", LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
       // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
-      OMB_BOT_BOX: "0",
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
+      LUNABOT_BOT_BOX: "0",
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -484,8 +484,8 @@ it("on a Cloud home the owner's answer to an options card is recorded as the own
   const agents = await agentsFor(async () => {
     expect((await api("POST", `/api/bots/${WATCHER_OPTIONS_CARD_BOT_ID}/messages`, { token: owner, body: { text: "Check the build." } })).status).toBe(202);
   }, WATCHER_OPTIONS_CARD_BOT_ID);
-  const posted = await fetch(`${agents.env.OMB_HARNESS_URL}/api/internal/options-card`, {
-    method: "POST", headers: { authorization: `Bearer ${agents.env.OMB_COMMS_TOKEN}`, "content-type": "application/json" },
+  const posted = await fetch(`${agents.env.LUNABOT_HARNESS_URL}/api/internal/options-card`, {
+    method: "POST", headers: { authorization: `Bearer ${agents.env.LUNABOT_COMMS_TOKEN}`, "content-type": "application/json" },
     body: JSON.stringify({ title: "Deploy now?", subtitle: "The build is green.", options: ["Yes", "No"] }),
   });
   expect(posted.status, await posted.clone().text()).toBe(201);

@@ -45,7 +45,7 @@ describe("openmausbot service", () => {
     expect(pinned).toContain(`ExecStart=/usr/bin/node ${/[\s"\\]/.test(script) ? `"${script.replace(/[\\"]/g, "\\$&")}"` : script} serve`);
     expect(pinned).toContain("--public-url https://maus.example.com");
     expect(pinned).not.toContain("--no-pair");
-    expect(pinned).toContain('Environment="OMB_CLI_PREFIX=npx lunabot"');
+    expect(pinned).toContain('Environment="LUNABOT_CLI_PREFIX=npx lunabot"');
     expect(installs).toEqual([join(dir, "x", "app", "latest"), join(dir, "x", "app", "latest")]);
   });
 

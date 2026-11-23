@@ -222,7 +222,7 @@ export function createChannels(deps: ChannelsDeps): { wecomRoute: WecomChannel["
     const account = emailService.store.get(bm.address);
     if (!account || !store.bot(bm.botId)) { console.warn(`bot mail: mailbox ${bm.address} is not connected or bot ${bm.botId} is missing`); return; }
     botMailBox = { account, guard: emailService.guard };
-    botMailTimer = setInterval(() => void pollBotMailOnce(), Number(process.env.OMB_BOT_MAIL_MS) || 180_000);
+    botMailTimer = setInterval(() => void pollBotMailOnce(), Number(process.env.LUNABOT_BOT_MAIL_MS) || 180_000);
     void pollBotMailOnce();
   };
   const pollBotMailOnce = async () => {

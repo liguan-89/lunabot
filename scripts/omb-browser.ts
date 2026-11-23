@@ -20,7 +20,7 @@ const USAGE = `usage:
   node --experimental-strip-types scripts/omb-browser.ts bot-tests --chrome PATH [--screen 1512x982@2:30] [--host desktop|server|container] [--out DIR] [--label NAME]
   node --experimental-strip-types scripts/omb-browser.ts snapshot URL --chrome PATH
   node --experimental-strip-types scripts/omb-browser.ts calibrate --chrome PATH
-The Chrome path may also come from OMB_CHROME_PATH. OMB_BROWSER_SANDBOX=0 is an operator's explicit opt-out of Chrome's sandbox.`;
+The Chrome path may also come from LUNABOT_CHROME_PATH. LUNABOT_BROWSER_SANDBOX=0 is an operator's explicit opt-out of Chrome's sandbox.`;
 
 interface Site {
   name: "sannysoft" | "creepjs" | "browserscan" | "deviceandbrowserinfo";
@@ -217,7 +217,7 @@ async function main(argv: string[]): Promise<number> {
     },
   });
   const [command, url] = positionals;
-  const chrome = values.chrome ?? process.env.OMB_CHROME_PATH;
+  const chrome = values.chrome ?? process.env.LUNABOT_CHROME_PATH;
   if (values.help || !command || !chrome) {
     console.log(USAGE);
     return values.help ? 0 : 2;

@@ -6165,7 +6165,7 @@
   "settings.domain.copyField": "拷贝{field}",
   "settings.domain.recordHint": "TTL 请保持默认值。若你的服务商已自动附加域名，「名称」栏请只填子域名（根域名则填 @）。",
   "settings.domain.missingIp": "请向你的服务器管理员索取其公开 IPv4 地址。",
-  "settings.domain.ipAdminHint": "若使用 Docker、NAT 或多个公开地址，请将 OMB_PUBLIC_IPV4 设为代管你 HTTPS 代理服务器的 IPv4 地址，然后重新启动 {app}。私有地址一律不会显示为 DNS 值。",
+  "settings.domain.ipAdminHint": "若使用 Docker、NAT 或多个公开地址，请将 LUNABOT_PUBLIC_IPV4 设为代管你 HTTPS 代理服务器的 IPv4 地址，然后重新启动 {app}。私有地址一律不会显示为 DNS 值。",
   "settings.domain.httpsNeeded": "你的管理员必须在服务器上激活 HTTPS，接着再于下方检查连接。",
   "settings.domain.dns": "请在你域名的 DNS 设置中，为所选名称创建一笔 A 记录，指向这台服务器的公开 IPv4 地址。只有在 IPv6 也能连到同一台服务器时，才添加 AAAA 记录。请预留时间让 DNS 更新完成。",
   "settings.domain.proxy": "你的服务器管理员必须在 {app} 前方设置 HTTPS。若 Caddy 运行于同一台主机或同一个网络命名空间，请使用以下范例，并将 bots.example.com 换成你的域名：",

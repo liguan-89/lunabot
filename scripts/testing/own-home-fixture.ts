@@ -84,8 +84,8 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
     const child = spawn(process.execPath, ["--import", offline, ...extra, join(SERVER_DIR, "index.ts")], {
       cwd: join(SERVER_DIR, ".."),
-      env: { PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), ...env, ...own },
+      env: { PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir,
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), ...env, ...own },
       stdio: ["ignore", "pipe", "pipe", ...(ipc ? ["ipc" as const] : [])],
     });
     children.add(child);
@@ -114,7 +114,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   const desktopPort = await freePortBlock([0, 1]);
   const desktopBase = `http://127.0.0.1:${desktopPort}`;
   const startDesktop = async () => {
-    const child = await start("desktop", { OMB_DESKTOP_PARENT: "1", OMB_ENVIRONMENT_LABEL: "Work laptop" }, desktopPort, ["--import", parentPort], true);
+    const child = await start("desktop", { LUNABOT_DESKTOP_PARENT: "1", LUNABOT_ENVIRONMENT_LABEL: "Work laptop" }, desktopPort, ["--import", parentPort], true);
     child.send({ type: "lunabot:desktop-mutation-token", token: capability });
     return child;
   };
@@ -138,7 +138,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   async function addServer(name: string, more: NodeJS.ProcessEnv = {}): Promise<OwnServer> {
     const port = await freePortBlock([0, 1]);
     const base = `http://127.0.0.1:${port}`;
-    await start(`server-${servers.length + 1}`, { OMB_ENVIRONMENT_LABEL: name, ...more }, port);
+    await start(`server-${servers.length + 1}`, { LUNABOT_ENVIRONMENT_LABEL: name, ...more }, port);
     // `openmausbot pair` on that server, then the link opened in this app: a session of the admin scope.
     const minted = await fetch(`${base}/api/auth/pairing`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ label: "My desktop" }) });
     const code = (await minted.json() as { code: string }).code;

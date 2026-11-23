@@ -10,11 +10,11 @@ export const PI_CUSTOM_PROVIDER_NAME = "Custom";
 
 // Names of the variables the server passes to the pi driver, never credential values.
 export const PI_CUSTOM_ENV = {
-  protocol: "DEXBOT_PI_CUSTOM_PROTOCOL",
-  baseUrl: "DEXBOT_PI_CUSTOM_BASE_URL",
-  auth: "DEXBOT_PI_CUSTOM_AUTH",
-  models: "DEXBOT_PI_CUSTOM_MODELS",
-  displayName: "DEXBOT_PI_CUSTOM_NAME",
+  protocol: "LUNABOT_PI_CUSTOM_PROTOCOL",
+  baseUrl: "LUNABOT_PI_CUSTOM_BASE_URL",
+  auth: "LUNABOT_PI_CUSTOM_AUTH",
+  models: "LUNABOT_PI_CUSTOM_MODELS",
+  displayName: "LUNABOT_PI_CUSTOM_NAME",
 } as const;
 
 export interface PiCustomProvider {

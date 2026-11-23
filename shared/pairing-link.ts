@@ -21,7 +21,7 @@ export interface PairingE2EDescriptor {
 const B64U_FIELD = /^[A-Za-z0-9_-]+$/;
 // The same list companion/src/e2e/descriptor.ts parses; a host this builder writes must survive that parse.
 // No `lunabot.com`: that domain is not this fleet's, so a node under it would be a stranger's.
-const RELAY_HOST = /^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
+const RELAY_HOST = /^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 
 /** The QR's `e2e` value, or null for anything a phone would refuse: then the link goes out without it, as from a
  * computer without the encrypted connection. A QR never says "local": a restriction is set per phone, later. */

@@ -104,10 +104,10 @@ posixOnly("Live call e2e", () => {
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
         HOME: home,
         USERPROFILE: home,
-        OMB_PORT: String(port),
-        OMB_WEBHOOK_PORT: String(port + 1),
-        OMB_OPENAI_LIVE_URL: live.url,
-        OMB_OPENAI_LIVE_KEY: LIVE_KEY,
+        LUNABOT_PORT: String(port),
+        LUNABOT_WEBHOOK_PORT: String(port + 1),
+        LUNABOT_OPENAI_LIVE_URL: live.url,
+        LUNABOT_OPENAI_LIVE_KEY: LIVE_KEY,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -494,10 +494,10 @@ posixOnly("Live calls on a busy bot", () => {
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
         HOME: home,
         USERPROFILE: home,
-        OMB_PORT: String(port),
-        OMB_WEBHOOK_PORT: String(port + 1),
-        OMB_OPENAI_LIVE_URL: live.url,
-        OMB_OPENAI_LIVE_KEY: LIVE_KEY,
+        LUNABOT_PORT: String(port),
+        LUNABOT_WEBHOOK_PORT: String(port + 1),
+        LUNABOT_OPENAI_LIVE_URL: live.url,
+        LUNABOT_OPENAI_LIVE_KEY: LIVE_KEY,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -641,14 +641,14 @@ posixOnly("Live call on the person's Cloud", () => {
       cwd: join(SERVER_DIR, ".."),
       env: {
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_STATIC_DIR: join(home, "web"),
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_STATIC_DIR: join(home, "web"),
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
         // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
         // tmpfs and hides the fake pi's dump; the box has its own suites, so it stays off here.
-        OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-        OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
-        // no OMB_OPENAI_LIVE_KEY: no plan includes one
-        OMB_OPENAI_LIVE_URL: live.url,
+        LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+        LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
+        // no LUNABOT_OPENAI_LIVE_KEY: no plan includes one
+        LUNABOT_OPENAI_LIVE_URL: live.url,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -668,8 +668,8 @@ posixOnly("Live call on the person's Cloud", () => {
     const pairing = JSON.stringify({ label: "Luna Bot app (Cloud)", ttlSeconds: 300 });
     const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
     const granted = await request("POST", "/api/cloud/pairing", JSON.parse(pairing), {
-      "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-      "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, pairing)}`,
+      "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+      "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, pairing)}`,
     });
     expect(granted.status, JSON.stringify(granted.body)).toBe(200);
     const paired = await request("POST", "/api/auth/pair", { code: granted.body.code });
@@ -756,9 +756,9 @@ posixOnly("Live calls for everyone, with the person's own OpenAI key", () => {
       cwd: join(SERVER_DIR, ".."),
       env: {
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-        OMB_OPENAI_LIVE_URL: live.url,
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir,
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
+        LUNABOT_OPENAI_LIVE_URL: live.url,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

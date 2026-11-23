@@ -10,7 +10,7 @@ import { connect } from "node:net";
 import { hostname } from "node:os";
 import { join } from "node:path";
 
-export const PROBE_SPEC_ENV = "OMB_BOX_PROBE";
+export const PROBE_SPEC_ENV = "LUNABOT_BOX_PROBE";
 
 export interface ProbeSpec {
   dataDir: string;

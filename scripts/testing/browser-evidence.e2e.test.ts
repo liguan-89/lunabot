@@ -1,7 +1,7 @@
 // Page health and recorded browser steps against the pinned agent-browser and
 // its Chrome, through the real BrowserRuntime, relay, observer and store. Runs
-// when agent-browser resolves (tools directory, OMB_AGENT_BROWSER_PATH or PATH)
-// or OMB_UI_E2E=1 asks for the download; otherwise skipped. Chrome for Testing
+// when agent-browser resolves (tools directory, LUNABOT_AGENT_BROWSER_PATH or PATH)
+// or LUNABOT_UI_E2E=1 asks for the download; otherwise skipped. Chrome for Testing
 // starts the page at 1280x577, so the size checks are real.
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -22,10 +22,10 @@ import { removeTempDir } from "../../server/testing/cleanup.ts";
 import { launchVerificationServer, runControlOmb } from "../control-omb.ts";
 import { ensureUiBrowser, UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
-const forced = process.env.OMB_UI_E2E === "1";
+const forced = process.env.LUNABOT_UI_E2E === "1";
 const enabled = forced || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
 if (!enabled) {
-  console.log(`skipping browser evidence e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, OMB_AGENT_BROWSER_PATH and PATH); set OMB_UI_E2E=1 to install the pinned release`);
+  console.log(`skipping browser evidence e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, LUNABOT_AGENT_BROWSER_PATH and PATH); set LUNABOT_UI_E2E=1 to install the pinned release`);
 }
 const run = enabled ? it : it.skip;
 const posix = process.platform !== "win32";

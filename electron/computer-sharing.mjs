@@ -376,7 +376,7 @@ export function createComputerSharing({ file, fetch: fetchImpl, environments, lo
     const response = await fetchImpl(`${env.origin}${route}`, {
       method: body === undefined ? "GET" : "POST", credentials: "include", redirect: "error", cache: "no-store",
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(35_000)]) : AbortSignal.timeout(10_000),
-      headers: { origin: env.origin, ...BACKGROUND_HEADERS, ...(body === undefined ? {} : { "content-type": "application/json" }), ...(secret ? { "x-omb-computer-secret": secret } : {}) },
+      headers: { origin: env.origin, ...BACKGROUND_HEADERS, ...(body === undefined ? {} : { "content-type": "application/json" }), ...(secret ? { "x-lunabot-computer-secret": secret } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     if (asleepAnswer(response)) {
@@ -456,7 +456,7 @@ export function createComputerSharing({ file, fetch: fetchImpl, environments, lo
       const ended = await runDeviceLink({
         url: linkUrl(env.origin, linkPath(grant.id)), signal, WebSocket: linkSocket, egress, traffic: traffic(env.id), onStream: browsed(env), chrome,
         lends: () => ({ internet: lendsInternet(grant), chrome: grant.chrome === true && supportsChrome.has(env.id) }),
-        headers: { ...signIn, origin: env.origin, ...BACKGROUND_HEADERS, "x-omb-computer-secret": grant.secret },
+        headers: { ...signIn, origin: env.origin, ...BACKGROUND_HEADERS, "x-lunabot-computer-secret": grant.secret },
         onOpen: () => { opened = true; failures = 0; linked.add(env.id); changed(); },
       });
       linked.delete(env.id); changed();

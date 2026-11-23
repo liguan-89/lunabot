@@ -105,9 +105,9 @@ async function startFixture(options: { dataDir?: string; staticDir?: string; fak
   const port = await freePortBlock([0, 1]);
   const env = verificationServerEnvironment(platformEnv(options.fake), dataDir, port);
   const tallyPath = join(dataDir, "bench-tally.json");
-  env.OMB_BENCH_TALLY = tallyPath;
-  if (options.staticDir) env.OMB_STATIC_DIR = options.staticDir;
-  if (options.bundle) env.OMB_SERVER_COMPILE_CACHE = options.bundle.cache;
+  env.LUNABOT_BENCH_TALLY = tallyPath;
+  if (options.staticDir) env.LUNABOT_STATIC_DIR = options.staticDir;
+  if (options.bundle) env.LUNABOT_SERVER_COMPILE_CACHE = options.bundle.cache;
   const hook = ["--import", pathToFileURL(join(ROOT, "scripts", "testing", "bench-server-tally.mjs")).href];
   const args = options.bundle ? [...hook, options.bundle.entry] : [...hook, ...verificationServerArgs(env)];
   const logPath = join(work, `server-${port}.log`);
@@ -661,7 +661,7 @@ async function main() {
     log("seeding the big workspace");
     const dataDir = newDataDir();
     const seedOut = execFileSync(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts", "testing", "bench-desktop-seed.ts"), values.bots!, values.threads!, values.messages!], {
-      cwd: ROOT, encoding: "utf8", env: { ...platformEnv(), PATH: dirname(process.execPath), HOME: dataDir, OMB_DATA_DIR: dataDir, TMPDIR: join(dataDir, "tmp") }, maxBuffer: 16 * 1024 * 1024,
+      cwd: ROOT, encoding: "utf8", env: { ...platformEnv(), PATH: dirname(process.execPath), HOME: dataDir, LUNABOT_DATA_DIR: dataDir, TMPDIR: join(dataDir, "tmp") }, maxBuffer: 16 * 1024 * 1024,
     });
     const seeded = JSON.parse(seedOut.trim().split("\n").at(-1)!) as { bigBotId: string; bigThreadId: string; bigLastMessageId: string; otherBotId: string; otherThreadId: string; otherSideThreadId: string; bots: number; threads: number; bigMessages: number };
     const fixture = await startFixture({ dataDir, staticDir: dist, fake: STREAM_ENV });

@@ -86,7 +86,7 @@ async function sandbox(req: IncomingMessage, res: ServerResponse, url: URL) {
 
 beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), "omb-computer-files-data-"));
-  vi.stubEnv("OMB_DATA_DIR", dataDir);
+  vi.stubEnv("LUNABOT_DATA_DIR", dataDir);
   server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", base);
     if (url.pathname.startsWith("/sandbox/")) {
@@ -122,9 +122,9 @@ beforeAll(async () => {
   journal = await import("./boat-delete-journal.ts");
 });
 beforeEach(() => {
-  vi.stubEnv("OMB_BOAT_API", `${base}/boat/api/v1`);
-  vi.stubEnv("OMB_CLOUD_BOAT_URL", `${base}/relay/api/box/v1`);
-  vi.stubEnv("OMB_CLOUD_BOAT_TOKEN", INCLUDED);
+  vi.stubEnv("LUNABOT_BOAT_API", `${base}/boat/api/v1`);
+  vi.stubEnv("LUNABOT_CLOUD_BOAT_URL", `${base}/relay/api/box/v1`);
+  vi.stubEnv("LUNABOT_CLOUD_BOAT_TOKEN", INCLUDED);
   calls.length = 0;
   disk.clear();
   uploads.clear();

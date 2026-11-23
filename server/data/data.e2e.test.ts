@@ -30,7 +30,7 @@ it("loads, queries, shows, pages, renders and exports through the real server", 
     const log = openSync(logPath, "a", 0o600);
     server = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("../index.ts", import.meta.url))], {
       cwd: fileURLToPath(new URL("../..", import.meta.url)),
-      env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: CAPABILITY_KEY },
+      env: { ...verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: CAPABILITY_KEY },
       stdio: ["ignore", log, log],
     });
     closeSync(log);
@@ -180,7 +180,7 @@ it("loads, queries, shows, pages, renders and exports through the real server", 
     expect(final.cards.map((card) => card.title)).toEqual(["Totals by region", "By region"]);
 
     // Opt-in: downloads the real signed extensions into this fixture's empty cache.
-    if (process.env.OMB_TEST_DUCKDB_EXTENSIONS === "1") {
+    if (process.env.LUNABOT_TEST_DUCKDB_EXTENSIONS === "1") {
       expect(existsSync(join(dataDir, "duckdb-extensions"))).toBe(false);
       const workbook = await call("data_export", { table: "sales", format: "xlsx" });
       expect(workbook.isError, workbook.text).toBe(false);

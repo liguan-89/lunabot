@@ -89,9 +89,9 @@ describe("CI concurrency", () => {
     const run = (workflow.jobs.vitest.steps as { name?: string; run?: string; env?: Record<string, string> }[])
       .find((step) => step.name === "Run tests")!;
     expect(run.run).toContain("pnpm exec vitest run ${{ matrix.files }} --shard=${{ matrix.shard }}/${{ matrix.shards }} ");
-    expect(run.env?.OMB_VITEST_E2E).toBe("${{ matrix.e2e }}");
-    expect(run.env?.OMB_VITEST_SUBSET).toBe("${{ matrix.files }}");
-    expect(run.env?.OMB_VITEST_WORKERS).toBe("${{ matrix.workers }}");
+    expect(run.env?.LUNABOT_VITEST_E2E).toBe("${{ matrix.e2e }}");
+    expect(run.env?.LUNABOT_VITEST_SUBSET).toBe("${{ matrix.files }}");
+    expect(run.env?.LUNABOT_VITEST_WORKERS).toBe("${{ matrix.workers }}");
     const { include } = vitestMatrix(["macos-latest", "ubuntu-latest", "windows-latest"]);
     for (const os of ["macos-latest", "ubuntu-latest", "windows-latest"]) {
       const shards = include.filter((entry) => entry.os === os);
@@ -175,7 +175,7 @@ describe("CI concurrency", () => {
     // Windows jobs when it carries the windows label.
     expect(workflow.jobs.static.permissions).toEqual({ contents: "read", actions: "read", "pull-requests": "read" });
     const scope = workflow.jobs.static.steps.find((step: { id?: string }) => step.id === "scope");
-    expect(scope.env).toEqual({ GH_TOKEN: "${{ github.token }}", OMB_CI_LINUX_IN_STATIC: "${{ runner.environment == 'self-hosted' }}" });
+    expect(scope.env).toEqual({ GH_TOKEN: "${{ github.token }}", LUNABOT_CI_LINUX_IN_STATIC: "${{ runner.environment == 'self-hosted' }}" });
     for (const [name, job] of Object.entries(workflow.jobs) as [string, { permissions?: unknown }][]) {
       if (name !== "static") expect(job.permissions, name).toBeUndefined();
     }
@@ -190,7 +190,7 @@ describe("CI concurrency", () => {
     // The runner context exists only at step level, never in a job's env.
     expect(workflow.jobs.vitest.env).toBeUndefined();
     for (const step of [steps[tests]!, steps[report]!]) {
-      expect(step.env?.OMB_VITEST_RETRY_LOG).toBe("${{ runner.temp }}/vitest-retries.jsonl");
+      expect(step.env?.LUNABOT_VITEST_RETRY_LOG).toBe("${{ runner.temp }}/vitest-retries.jsonl");
     }
     expect(readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8")).toContain('runner: "./scripts/testing/ci-retry-runner.ts"');
   });
@@ -369,7 +369,7 @@ describe("CI on Boat", () => {
       "${{ !cancelled() && steps.scope.outputs.linux_lanes }}", "failure() && steps.scope.outputs.linux_lanes",
     ]);
     const lanes = boatOnly.find((step) => step.run === "node scripts/ci-linux-lanes.mjs")!;
-    expect(lanes.env).toMatchObject({ OMB_CI_LINUX_LANES: "${{ steps.scope.outputs.linux_lanes }}", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", TZ: "UTC" });
+    expect(lanes.env).toMatchObject({ LUNABOT_CI_LINUX_LANES: "${{ steps.scope.outputs.linux_lanes }}", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", TZ: "UTC" });
     expect(lanes.shell).toBe("setpriv --inh-caps=-all --ambient-caps=-all -- env -u DISPLAY -u XAUTHORITY bash --noprofile --norc -eo pipefail {0}");
     expect(boatOnly.find((step) => step.run?.startsWith("sudo rm -f "))!.run).toContain("/usr/bin/bwrap");
     // The same report and artifact as the vitest and behavior-evals jobs.

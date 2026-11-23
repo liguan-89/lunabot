@@ -1,4 +1,4 @@
-// A real Team Cloud (OMB_CLOUD_ROLE=team) beside the cloud fixture's two servers: three people paired with the Admin's
+// A real Team Cloud (LUNABOT_CLOUD_ROLE=team) beside the cloud fixture's two servers: three people paired with the Admin's
 // signed member claims, the audience rule on chats, memory, recall and files, the team's connected apps, and a My Cloud
 // that refuses a team claim. The engine is the synthetic pi CLI, so this proves the plumbing, not a model's judgement.
 import { randomBytes } from "node:crypto";

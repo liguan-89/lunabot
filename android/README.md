@@ -127,10 +127,10 @@ keyPassword=…
 or the environment, for CI secrets:
 
 ```
-OPENMAUSBOT_KEYSTORE_FILE
-OPENMAUSBOT_KEYSTORE_PASSWORD
-OPENMAUSBOT_KEY_ALIAS
-OPENMAUSBOT_KEY_PASSWORD   # optional; PKCS12 reuses the store password
+LUNABOT_KEYSTORE_FILE
+LUNABOT_KEYSTORE_PASSWORD
+LUNABOT_KEY_ALIAS
+LUNABOT_KEY_PASSWORD   # optional; PKCS12 reuses the store password
 ```
 
 Supply all of it or none of it. A build handed only part of the material stops

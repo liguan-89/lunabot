@@ -13,7 +13,7 @@ const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
   ["OpenMausBot Cloud", /OpenMausBot Cloud/i, "Luna Bot Cloud"],
   ["MausBot Pro", /MausBot Pro\b/, "Luna Bot Cloud"],
   ["DEX BOT Cloud", /DEX BOT Cloud/i, "Luna Bot Cloud"],
-  // \b before "_" fails, so environment names such as OMB_PUBLIC_IPV4 pass.
+  // \b before "_" fails, so environment names such as LUNABOT_PUBLIC_IPV4 pass.
   ["OMB", /\bOMB\b/, "Luna Bot"],
   ["DEX BOT", /\bDEX BOT\b/, "Luna Bot"],
   // \b keeps "Codex bots" and identifiers such as findDexBot out; the CamelCase name was UI copy too.
@@ -208,7 +208,7 @@ describe("one name per thing", () => {
     ]) expect(retiredIn(bad), bad).not.toEqual([]);
     for (const good of [
       "Sign in to Luna Bot Cloud", "Pro active · verified by Luna Bot Cloud", "Restart Luna Bot", "locked by another Luna Bot process",
-      "set OMB_PUBLIC_IPV4", "Open My Cloud", "Open the Cloud", "Choose Cloud desktop to wake", "Auto, Cloud desktop or Browser",
+      "set LUNABOT_PUBLIC_IPV4", "Open My Cloud", "Open the Cloud", "Choose Cloud desktop to wake", "Auto, Cloud desktop or Browser",
       "Included with your Cloud plan", "Add a Boat API key in Settings → API keys", "Connect Boat", "Check boat.dev",
       "Bots here can get their own cloud desktops from Boat, a paid service", "Cloud desktops by Boat",
       "Local VM", "Open your Plan page",

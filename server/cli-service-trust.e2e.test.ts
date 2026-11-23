@@ -1,4 +1,4 @@
-// The real CLI starts the real server in a disposable home with OMB_LOOPBACK_TRUST=service.
+// The real CLI starts the real server in a disposable home with LUNABOT_LOOPBACK_TRUST=service.
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +22,7 @@ let output = "";
 const environment = () => ({
   ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
   ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-  HOME: home, USERPROFILE: home, OMB_WEBHOOK_PORT: String(PORT + 1), OMB_LOOPBACK_TRUST: "service",
+  HOME: home, USERPROFILE: home, LUNABOT_WEBHOOK_PORT: String(PORT + 1), LUNABOT_LOOPBACK_TRUST: "service",
 });
 const cli = async (args: string[]) => {
   try {
@@ -57,7 +57,7 @@ describe.skipIf(process.platform === "win32")("openmausbot serve under service l
   });
 
   it("not in a terminal, prints no code into a log; points at email sign-in, and keeps running", async () => {
-    expect(output).toContain("local requests: service trust (OMB_LOOPBACK_TRUST)");
+    expect(output).toContain("local requests: service trust (LUNABOT_LOOPBACK_TRUST)");
     expect(output).not.toMatch(/Pairing code {3}[A-Z0-9]{4}-/);
     expect(output).toContain("Let people sign in with their email: lunabot access add you@example.com");
     expect(serve.exitCode).toBeNull();

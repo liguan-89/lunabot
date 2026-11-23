@@ -91,11 +91,11 @@ describe("/setup connects an app through a Connect card, against the real server
     const proc = spawn(process.execPath, [join(ROOT, "server/index.ts")], {
       cwd: ROOT, env: {
         PATH: dirname(process.execPath), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data,
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data,
         APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
-        TEMP: home, TMP: home, TMPDIR: home, OMB_TEST_SEALED_PATH: "1",
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_USER_DATA: join(home, "user-data"),
-        OMB_COMPOSIO_BROKER_URL: broker.url, OMB_COMPOSIO_BROKER_TOKEN: brokerToken,
+        TEMP: home, TMP: home, TMPDIR: home, LUNABOT_TEST_SEALED_PATH: "1",
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_USER_DATA: join(home, "user-data"),
+        LUNABOT_COMPOSIO_BROKER_URL: broker.url, LUNABOT_COMPOSIO_BROKER_TOKEN: brokerToken,
       }, stdio: ["ignore", "pipe", "pipe"],
     });
     child = proc;

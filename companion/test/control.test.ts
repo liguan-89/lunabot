@@ -86,9 +86,9 @@ describe("the per-launch control token", () => {
   });
 
   it("waits for the app's token when the app launched the sidecar, and otherwise takes a script's or makes one", () => {
-    expect(initialControlToken({ OMB_CONTROL_TOKEN: CONTROL_TOKEN }, true)).toBeNull();
-    expect(initialControlToken({ OMB_CONTROL_TOKEN: CONTROL_TOKEN }, false)).toBe(CONTROL_TOKEN);
-    for (const env of [{}, { OMB_CONTROL_TOKEN: "short" }, { OMB_CONTROL_TOKEN: `${"c".repeat(42)}!` }]) {
+    expect(initialControlToken({ LUNABOT_CONTROL_TOKEN: CONTROL_TOKEN }, true)).toBeNull();
+    expect(initialControlToken({ LUNABOT_CONTROL_TOKEN: CONTROL_TOKEN }, false)).toBe(CONTROL_TOKEN);
+    for (const env of [{}, { LUNABOT_CONTROL_TOKEN: "short" }, { LUNABOT_CONTROL_TOKEN: `${"c".repeat(42)}!` }]) {
       const token = initialControlToken(env, false);
       expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(token).not.toBe(CONTROL_TOKEN);

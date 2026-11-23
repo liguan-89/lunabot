@@ -89,12 +89,12 @@ export function piModelsSet(path: string): Array<{ provider: string; modelId: st
 
 /** The turns the fixture ran on one conversation, whichever bot's shell they launched. */
 export function piTurnsForThread(path: string, threadId: string): PiTurn[] {
-  return piTurns(path).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId);
+  return piTurns(path).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === threadId);
 }
 
 /** The agents server's token the turn's MCP config carries, for a recipe that calls the harness's internal routes. */
 export const piAgentsToken = (turn: PiTurn | undefined): string | undefined =>
-  turn?.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_COMMS_TOKEN;
+  turn?.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_COMMS_TOKEN;
 
 /** A turn's own words: the time line and what the person wrote, without the instructions above them. */
 export function piTurnText(turn: PiTurn): string {

@@ -2,7 +2,7 @@
 
 To keep Luna Bot and its agents on your current computer and use a VPS only as a
 bot’s remote desktop, see [Bring Your Own VPS](byo-vps.md) and the
-[published setup guide](https://docs.openmausbot.com/docs/computers/byo-vps).
+[published setup guide](https://docs.lunabot.com/docs/computers/byo-vps).
 
 From a blank Linux server to Luna Bot running on it around the clock, reachable from your laptop, the desktop app and your phone, with your bots working while every laptop is closed. It assumes nothing beyond being able to open a terminal and paste commands. About twenty minutes, most of it waiting.
 
@@ -46,7 +46,7 @@ If Docker is missing, the installer asks before installing it with Docker's offi
 | Path | What |
 |---|---|
 | `compose.yaml`, `Caddyfile` | the same server-plus-Caddy setup as path B, Caddy in its own container reaching the server over a socket; written again on every run |
-| `.env` | your settings: `DOMAIN`, the pinned version (`OMB_IMAGE`) and anything you add, such as [who may sign in with an email](self-hosting.md#sign-in-with-your-email). The installer keeps your lines |
+| `.env` | your settings: `DOMAIN`, the pinned version (`LUNABOT_IMAGE`) and anything you add, such as [who may sign in with an email](self-hosting.md#sign-in-with-your-email). The installer keeps your lines |
 | `data/` | everything Luna Bot stores: chats, bots, engine sign-ins, paired devices. Never touched once it exists |
 | `caddy/` | the HTTPS certificates |
 | `update.sh` | the update command, once this repository has it (see below) |
@@ -71,7 +71,7 @@ Open the link it prints, or paste it into the desktop app under **＋ → Connec
 - **Stop:** `--uninstall` stops the server and removes its containers. It deletes nothing: your data stays in `/opt/openmausbot/data`.
 - **Every other command in this guide** that starts `docker compose` for path B works from `/opt/openmausbot`.
 - **What the installer contacts:** the registries and Let's Encrypt from the table, GitHub's release list, this repository's files on `raw.githubusercontent.com`, and `cloudflare.com/cdn-cgi/trace` to learn the server's public address for the DNS check. It sends no telemetry.
-- **Behind a load balancer or NAT** that forwards ports 80 and 443 to the server, set `OMB_INSTALL_SKIP_DNS=1` to skip the DNS check.
+- **Behind a load balancer or NAT** that forwards ports 80 and 443 to the server, set `LUNABOT_INSTALL_SKIP_DNS=1` to skip the DNS check.
 
 The installer also accepts the one-time code of a server connected to Luna Bot. That offering is not available yet.
 
@@ -89,7 +89,7 @@ Three ways to make the server reachable are covered. Pick one; the rest of the g
 
 Only need the phone app? Add `--relay` to path B or C on a machine signed in with `lunabot login --relay` (never on a machine with a path A address), or use it on its own: the app pairs by QR through Luna Bot Relay, end-to-end encrypted, with no domain, open port or VPN. See [Phones through Luna Bot Relay](phone-relay-server.md).
 
-Whichever you pick, the login is the same: you **pair** each device once with a short code and it stays signed in. A session lasts 30 days; using it with half that or less left renews it to a full 30, up to 180 days from pairing (`OMB_SESSION_TTL_DAYS` and `OMB_SESSION_MAX_DAYS` change both numbers). There is no password.
+Whichever you pick, the login is the same: you **pair** each device once with a short code and it stays signed in. A session lasts 30 days; using it with half that or less left renews it to a full 30, up to 180 days from pairing (`LUNABOT_SESSION_TTL_DAYS` and `LUNABOT_SESSION_MAX_DAYS` change both numbers). There is no password.
 
 ## Hetzner launch check (2026-09-07)
 
@@ -149,7 +149,7 @@ root, sign in again as `maus`; those accounts have different homes and credentia
 
 ## Path A: a public address with one command
 
-No domain, no proxy, no open port. The server gets an address like `https://c-7f3a9c.openmausbot.com` through a Cloudflare tunnel; only traffic through the tunnel reaches it, and that traffic still has to pair.
+No domain, no proxy, no open port. The server gets an address like `https://c-7f3a9c.lunabot.com` through a Cloudflare tunnel; only traffic through the tunnel reaches it, and that traffic still has to pair.
 
 ```sh
 npx lunabot setup          # once: choose AI access, connect, and choose a model
@@ -273,7 +273,7 @@ npx lunabot pair --label "Kitchen iPad"
 
 ```
 Pairing code   RR8Y-BLR6-H939   works once, until 10:59 · everything
-Link           https://c-7f3a9c.openmausbot.com/pair#code=RR8Y-BLR6-H939
+Link           https://c-7f3a9c.lunabot.com/pair#code=RR8Y-BLR6-H939
 
   Desktop app   ＋ → Connect to a server, paste the link
   Phone         scan with your camera or the Luna Bot app
@@ -346,7 +346,7 @@ Luna Bot's own Clouds have run for 48 hours first. The image tag `stable` and
 name it. The tag `latest` follows every change on `main`; it is for trying
 things out, not for a server you rely on. **Check for updates** in the app
 compares your server with the stable version. To hear of every release as soon
-as it is published instead, set `OMB_UPDATE_CHANNEL=newest` in the server's
+as it is published instead, set `LUNABOT_UPDATE_CHANNEL=newest` in the server's
 environment.
 
 ### Path B (Docker): one command, with a way back
@@ -390,13 +390,13 @@ every file's owner and mode either way. The script then:
    changed. The copy from the update before is removed only after this one
    has matched. The server is down from here until step 4; how long depends
    on how much data there is.
-3. Writes the image into `.env` (`OMB_IMAGE=ghcr.io/milind-soni/openmausbot@sha256:…`)
+3. Writes the image into `.env` (`LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot@sha256:…`)
    and starts it. An install the installer made while Caddy still shared the
    server's network gets the installer's current `compose.yaml` and
    `Caddyfile` here, as a run of the installer would write them (the rollback
    puts the old ones back). For this repository's `docker-compose.yml`,
    `git pull` brings the current one; `--check` says when it is needed.
-4. Waits, up to two minutes (`OMB_UPDATE_WAIT_S` for longer), until the new server answers `/api/health`
+4. Waits, up to two minutes (`LUNABOT_UPDATE_WAIT_S` for longer), until the new server answers `/api/health`
    steadily, says it is the new version, can still start a bot if it could
    before (the server's own count of ready engines, `GET /api/health/engines`,
    which a hardened server answers too; `lunabot doctor` on a version
@@ -592,7 +592,7 @@ its own.
 
 Read this before putting anything else in front of the server.
 
-- The server only ever listens on loopback (`127.0.0.1:8799`). Never publish that port yourself. The tunnel, Caddy and Tailscale each reach it from the same machine; path B's Caddy, in its own container, reaches it over a Unix socket (`OMB_TUNNEL_SOCKET`), and a request on that socket always counts as a remote one.
+- The server only ever listens on loopback (`127.0.0.1:8799`). Never publish that port yourself. The tunnel, Caddy and Tailscale each reach it from the same machine; path B's Caddy, in its own container, reaches it over a Unix socket (`LUNABOT_TUNNEL_SOCKET`), and a request on that socket always counts as a remote one.
 - A request that arrives through a proxy or the tunnel is treated as remote and needs a session, whatever headers it carries. A proxy of your own (nginx, Traefik, Cloudflare Tunnel) must forward the real `Host` and add `X-Forwarded-For` and `X-Forwarded-Proto`, must not buffer the event stream, and must **not** rewrite `Host` to `127.0.0.1`.
 - Pairing is the login. Want a second wall in front of it? Path B's `Caddyfile` has a commented `basic_auth` block for a shared password.
 - The session cookie is marked `Secure`; do not serve this over plain HTTP on the public internet.
@@ -639,10 +639,10 @@ placeholder, not a fixed Chrome release. Copy the whole directory, including its
 libraries, to a new location that the service user cannot modify:
 
 ```sh
-sudo install -d -o root -g root -m 0755 /opt/openmausbot-browser
-sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/openmausbot-browser/
-sudo chown -R root:root /opt/openmausbot-browser/chrome-VERSION
-sudo chmod -R go-w /opt/openmausbot-browser/chrome-VERSION
+sudo install -d -o root -g root -m 0755 /opt/lunabot-browser
+sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/lunabot-browser/
+sudo chown -R root:root /opt/lunabot-browser/chrome-VERSION
+sudo chmod -R go-w /opt/lunabot-browser/chrome-VERSION
 ```
 
 Save this as the root-owned `/etc/apparmor.d/lunabot-chrome`, replacing
@@ -653,7 +653,7 @@ the writable service home would also allow replacement executables.
 abi <abi/4.0>,
 include <tunables/global>
 
-profile lunabot-chrome /opt/openmausbot-browser/chrome-VERSION/chrome flags=(unconfined) {
+profile lunabot-chrome /opt/lunabot-browser/chrome-VERSION/chrome flags=(unconfined) {
   userns,
 }
 ```
@@ -669,7 +669,7 @@ the exact installed version, then run `sudo systemctl daemon-reload` and
 `sudo systemctl restart lunabot`:
 
 ```ini
-Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/openmausbot-browser/chrome-VERSION/chrome
+Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/lunabot-browser/chrome-VERSION/chrome
 ```
 
 For a foreground server, export `AGENT_BROWSER_EXECUTABLE_PATH` to that same

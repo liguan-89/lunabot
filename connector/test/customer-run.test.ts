@@ -154,7 +154,7 @@ describe("a customer-run server: the jobs MausBot may run", () => {
   });
 
   it("refuses a start that names an image or settings, and an update to anything but MausBot's server image by digest", () => {
-    const env = { OMB_CLOUD_ROLE: "team", OMB_CLOUD_MACHINE_ID: "m", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test", OMB_PUBLIC_URL: "https://acme.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: "s".repeat(40) };
+    const env = { LUNABOT_CLOUD_ROLE: "team", LUNABOT_CLOUD_MACHINE_ID: "m", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test", LUNABOT_PUBLIC_URL: "https://acme.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: "s".repeat(40) };
     expect(checkJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } })).toMatchObject({ ok: true });
     expect(checkCustomerRunJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } }, "admin")).toMatchObject({ ok: false, id: "s1", code: "refused_by_mode" });
     expect(checkCustomerRunJob({ id: "s2", type: "start" }, "admin")).toEqual({ ok: true, job: { id: "s2", type: "start", args: {} } });

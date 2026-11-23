@@ -50,7 +50,7 @@ object E2eDescriptorParser {
     const val MAX_RELAY_NODES = 4
     /** The same list `companion/src/e2e/descriptor.ts` parses: a descriptor the computer writes must be one this
      * phone reads, or a malformed invite would reject the whole QR and leave no encrypted route at all. */
-    val RELAY_HOST = Regex("^(?:relay[1-9][0-9]?\\.openmausbot\\.com|(?:relay[1-9][0-9]?|cloud)\\.dexai\\.vip)$")
+    val RELAY_HOST = Regex("^(?:relay[1-9][0-9]?\\.lunabot\\.com|(?:relay[1-9][0-9]?|cloud)\\.dexai\\.vip)$")
 
     /** Accepts the base64url text (the QR parameter) or the already-decoded JSON object (a response field). */
     fun parse(text: String): DescriptorParse {

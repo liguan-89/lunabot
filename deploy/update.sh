@@ -34,20 +34,20 @@ trap '' HUP PIPE
 
 REPO="ghcr.io/milind-soni/openmausbot"
 PINNED="^ghcr\.io/milind-soni/openmausbot@sha256:[0-9a-f]{64}$"
-STABLE_URL=${OMB_STABLE_URL:-https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json}
-NEWEST_URL=${OMB_NEWEST_URL:-https://api.github.com/repos/milind-soni/OpenMausBot/releases/latest}
-SERVICE=${OMB_UPDATE_SERVICE:-omb}
+STABLE_URL=${LUNABOT_STABLE_URL:-https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json}
+NEWEST_URL=${LUNABOT_NEWEST_URL:-https://api.github.com/repos/milind-soni/OpenMausBot/releases/latest}
+SERVICE=${LUNABOT_UPDATE_SERVICE:-omb}
 # A healthy server answers within seconds of starting; two minutes leaves room for a slow first start after an update,
-# and is how long the server is down before a version that never answers is rolled back. OMB_UPDATE_WAIT_S for more.
-WAIT_S=${OMB_UPDATE_WAIT_S:-120}
-ENGINE_WAIT_S=${OMB_UPDATE_ENGINE_WAIT_S:-120}
-POLL_S=${OMB_UPDATE_POLL_S:-5}
+# and is how long the server is down before a version that never answers is rolled back. LUNABOT_UPDATE_WAIT_S for more.
+WAIT_S=${LUNABOT_UPDATE_WAIT_S:-120}
+ENGINE_WAIT_S=${LUNABOT_UPDATE_ENGINE_WAIT_S:-120}
+POLL_S=${LUNABOT_UPDATE_POLL_S:-5}
 KEEP_TAG="openmausbot-before-update:local"
 BACKUP_ROLE="com.mausbot.role=update-backup"
 
 # The install: --dir, else the folder this script is in when that holds a Compose file, else where the installer
 # (deploy/install.sh) puts one.
-DIR=${OMB_INSTALL_DIR:-}
+DIR=${LUNABOT_INSTALL_DIR:-}
 want_dir=no
 for arg in "$@"; do
   if [ "$want_dir" = yes ]; then DIR=$arg; want_dir=no; elif [ "$arg" = --dir ]; then want_dir=yes; fi
@@ -63,7 +63,7 @@ LOCK="$STATE/lock"
 LOG="$STATE/update.log"
 cd "$DIR" 2>/dev/null || { printf '%s\n' "There is no folder $DIR."; exit 4; }
 # The pin is read from .env, never from the shell that happens to run this.
-unset OMB_IMAGE
+unset LUNABOT_IMAGE
 
 # A step interrupted while its output goes to the log still speaks to the terminal.
 exec 3>&1
@@ -285,16 +285,16 @@ room_for_copy() { # data backup image → 0 when there is room where the copy go
 pin_previous() {
   local named
   case "$J_previous" in "$REPO@sha256:"*) ;; *) return 0 ;; esac
-  named=$(sed -n 's/^OMB_IMAGE=//p' .env 2>/dev/null | tail -n 1)
+  named=$(sed -n 's/^LUNABOT_IMAGE=//p' .env 2>/dev/null | tail -n 1)
   case "$named" in
     *@sha256:* | *:v[0-9]*.[0-9]*.[0-9]*) return 0 ;;
   esac
   pin_image "$J_previous"
 }
-pin_image() { # writes OMB_IMAGE=<ref> into .env, keeping every other line and the file's mode
+pin_image() { # writes LUNABOT_IMAGE=<ref> into .env, keeping every other line and the file's mode
   local tmp="$DIR/.env.update.tmp"
-  if [ -f .env ]; then cp -p .env "$tmp" && grep -v '^OMB_IMAGE=' .env >"$tmp"; else : >"$tmp" && chmod 600 "$tmp"; fi
-  printf 'OMB_IMAGE=%s\n' "$1" >>"$tmp" && mv "$tmp" .env
+  if [ -f .env ]; then cp -p .env "$tmp" && grep -v '^LUNABOT_IMAGE=' .env >"$tmp"; else : >"$tmp" && chmod 600 "$tmp"; fi
+  printf 'LUNABOT_IMAGE=%s\n' "$1" >>"$tmp" && mv "$tmp" .env
 }
 keep_env() {
   rm -f "$STATE/env.before" "$STATE/env.absent" "$STATE/compose.yaml.before" "$STATE/Caddyfile.before"
@@ -333,7 +333,7 @@ installer_compose() {
 name: openmausbot
 services:
   omb:
-    image: ${OMB_IMAGE:?run the installer again}
+    image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
     shm_size: 512m
@@ -341,20 +341,20 @@ services:
       - ./data:/data
       - edge:/run/openmausbot
     environment:
-      OMB_PORT: "8799"
-      OMB_WEBHOOK_PORT: "8800"
-      OMB_TUNNEL_SOCKET: /run/openmausbot/http.sock
-      OMB_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
-      OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
-      OMB_PUBLIC_URL: https://${DOMAIN}
-      OMB_SERVER_NAME: ${OMB_SERVER_NAME:-${DOMAIN}}
+      LUNABOT_PORT: "8799"
+      LUNABOT_WEBHOOK_PORT: "8800"
+      LUNABOT_TUNNEL_SOCKET: /run/openmausbot/http.sock
+      LUNABOT_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
+      LUNABOT_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-${DOMAIN}}
       # Passed only when .env sets them: an empty one would still be set, and Settings' own lists are used when not.
-      OMB_SIGNIN_EMAILS:
-      OMB_SIGNIN_MEMBER_EMAILS:
-      OMB_SIGNIN_SMTP_URL:
-      OMB_SIGNIN_SMTP_FROM:
+      LUNABOT_SIGNIN_EMAILS:
+      LUNABOT_SIGNIN_MEMBER_EMAILS:
+      LUNABOT_SIGNIN_SMTP_URL:
+      LUNABOT_SIGNIN_SMTP_FROM:
       # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb openmausbot login --relay
-      OMB_PHONE_RELAY:
+      LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
       interval: 30s
@@ -431,14 +431,14 @@ stop_server() {
 
 # The update being checked against may still run a pre-rename build: /api/health's
 # app name and the descriptor path both changed, so accept either generation.
-answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(dexbot|openmausbot)"'; }
+answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(dexbot|openmausbot)"'; }
 reported_version() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
+  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
 }
 # How many engines can start a bot, as the server counts them (GET /api/health/engines, which a hardened server answers
 # a local caller without a session); nothing from a version without that count.
 engine_count() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${OMB_PORT:-8799}/api/health/engines"' 2>/dev/null |
+  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health/engines"' 2>/dev/null |
     sed -n 's/.*"engines":\([0-9][0-9]*\).*/\1/p' | head -n 1
 }
 # At least one engine can start a bot, within $1 seconds: the server's count, or `openmausbot doctor` on a version that
@@ -780,9 +780,9 @@ if [ "$ALLOW_OLDER" != yes ] && [ -n "$(older_reason)" ]; then
   say "Nothing was changed. To go ahead anyway, with the data copied first: ./update.sh --allow-older${WANT_VERSION:+ --version $WANT_VERSION}${WANT_IMAGE:+ --image $WANT_IMAGE}"
   exit 5
 fi
-if ! OMB_IMAGE="$J_target" docker compose config 2>/dev/null | grep -qF "image: $J_target"; then
+if ! LUNABOT_IMAGE="$J_target" docker compose config 2>/dev/null | grep -qF "image: $J_target"; then
   abandon
-  refuse "The Compose file in $DIR does not take its image from OMB_IMAGE. Get the current one (git pull, or run the installer again), then run this again. Nothing was changed."
+  refuse "The Compose file in $DIR does not take its image from LUNABOT_IMAGE. Get the current one (git pull, or run the installer again), then run this again. Nothing was changed."
 fi
 BACKUP_MADE=yes
 if ! make_backup_volume "$J_backup" "$J_previous_id" || ! room_for_copy "$J_data" "$J_backup" "$J_previous_id"; then

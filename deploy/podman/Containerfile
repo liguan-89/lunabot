@@ -34,11 +34,11 @@ COPY --from=build --chown=maus:maus /src/skills ./skills
 ARG ENGINES=""
 RUN if [ -n "$ENGINES" ]; then npm install -g $ENGINES; fi
 ENV HOME=/data \
-    OMB_DUCKDB_DIR=/app/duckdb \
-    OMB_DATA_DIR=/data/.openmausbot \
-    OMB_STATIC_DIR=/app/dist \
-    OMB_PORT=8799 \
-    OMB_WEBHOOK_PORT=8800 \
+    LUNABOT_DUCKDB_DIR=/app/duckdb \
+    LUNABOT_DATA_DIR=/data/.lunabot \
+    LUNABOT_STATIC_DIR=/app/dist \
+    LUNABOT_PORT=8799 \
+    LUNABOT_WEBHOOK_PORT=8800 \
     NODE_ENV=production
 USER maus
 # Starts dist-server/index.js again when it asks to (server/restart.ts).

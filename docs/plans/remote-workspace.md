@@ -42,7 +42,7 @@ We studied a shipped design that solves this same problem for a
 desktop-first agent app and adopt these points as requirements:
 
 1. **Stable server identity.** The server generates `environmentId` once
-   (`OMB_DATA_DIR/environment-id`) and serves a descriptor at
+   (`LUNABOT_DATA_DIR/environment-id`) and serves a descriptor at
    `/.well-known/lunabot/environment` — id, label, platform, version,
    capabilities. Clients verify the id on every connect and refuse a
    mismatch loudly (a re-used URL now pointing at a different server).

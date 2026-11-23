@@ -247,11 +247,11 @@ test("the link signs in like the poll, takes My Cloud's word for this computer's
   const stop = new AbortController();
   let opened = 0;
   const connects = [];
-  const running = runDeviceLink({ url: end.url, headers: { cookie: "omb_session=s", "x-omb-computer-secret": "a".repeat(64) }, signal: stop.signal, onOpen: () => opened++,
+  const running = runDeviceLink({ url: end.url, headers: { cookie: "omb_session=s", "x-lunabot-computer-secret": "a".repeat(64) }, signal: stop.signal, onOpen: () => opened++,
     egress: { interfaces: () => ({}), resolve: async () => [{ address: SEEN_AS, family: 4 }], connect: (options) => { connects.push(options); return tcpConnect(1, "127.0.0.1"); } } });
   await until(() => end.sessions.length === 1 && opened === 1, "the link to open");
   assert.equal(end.sessions[0].headers.cookie, "omb_session=s");
-  assert.equal(end.sessions[0].headers["x-omb-computer-secret"], "a".repeat(64));
+  assert.equal(end.sessions[0].headers["x-lunabot-computer-secret"], "a".repeat(64));
   assert.deepEqual(await end.sessions[0].mux.open({ host: "home-router.test", port: 443 }), { refused: "home-network" }, "the home's own public address is home");
   assert.equal(connects.length, 0);
   stop.abort();

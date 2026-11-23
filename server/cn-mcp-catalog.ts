@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 import { CN_MCP_SEARCH_TERMS, cnRegistryServers, type CnMcpRegistryServer } from "../shared/cn-mcp.ts";
 
-const REGISTRY = process.env.OMB_MCP_REGISTRY_API ?? "https://registry.modelcontextprotocol.io/v0";
+const REGISTRY = process.env.LUNABOT_MCP_REGISTRY_API ?? "https://registry.modelcontextprotocol.io/v0";
 const CACHE_FILE = "cn-mcp-catalog.json";
 /** A day: the Registry changes slowly, and every page visit would otherwise be 20 requests. */
 const CACHE_TTL_MS = 24 * 60 * 60_000;

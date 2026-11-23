@@ -118,7 +118,7 @@ it("shares New bot defaults as a preset, imports it, and creates bots from file 
 it("offers an organization library's presets in New bot until the publisher withdraws the release", async () => {
   const sha = (value: string) => createHash("sha256").update(value).digest("hex");
   const key = randomBytes(32).toString("hex");
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_ORG_LIBRARY_KEY: key });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_ORG_LIBRARY_KEY: key });
   console.log(JSON.stringify({ fixture: fixture.info }));
   const call = async (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => {
     const response = await fetch(`${fixture.info.url}${path}`, {

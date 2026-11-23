@@ -61,9 +61,9 @@ export function marketApiOrigin(value = MARKET_API_ORIGIN, fixture = false) {
 }
 
 export function marketTarget(env = process.env) {
-  const fixture = typeof env?.OMB_MARKET_FIXTURE === "string" ? env.OMB_MARKET_FIXTURE.trim() : "";
+  const fixture = typeof env?.LUNABOT_MARKET_FIXTURE === "string" ? env.LUNABOT_MARKET_FIXTURE.trim() : "";
   if (!fixture) return { origin: MARKET_ORIGIN, apiOrigin: MARKET_API_ORIGIN, fixture: false };
-  const apiFixture = typeof env?.OMB_MARKET_API_FIXTURE === "string" ? env.OMB_MARKET_API_FIXTURE.trim() : "";
+  const apiFixture = typeof env?.LUNABOT_MARKET_API_FIXTURE === "string" ? env.LUNABOT_MARKET_API_FIXTURE.trim() : "";
   return { origin: marketOrigin(fixture, true), apiOrigin: marketApiOrigin(apiFixture || fixture, true), fixture: true };
 }
 

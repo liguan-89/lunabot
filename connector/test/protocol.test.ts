@@ -12,8 +12,8 @@ import { generateKeyPair, seal, unseal } from "../src/signed.ts";
 const HOME = `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"a".repeat(64)}`;
 const CONNECTOR = `ghcr.io/milind-soni/mausbot-connector@sha256:${"b".repeat(64)}`;
 const env = {
-  OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-  OMB_PUBLIC_URL: "https://acme.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: "S".repeat(43),
+  LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+  LUNABOT_PUBLIC_URL: "https://acme.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: "S".repeat(43),
 };
 
 describe("the connector protocol", () => {
@@ -47,28 +47,28 @@ describe("the connector protocol", () => {
     expect(image("self-update", HOME)).toBe(false);
   });
 
-  it("starts a home only with its contract, OMB_ settings the image does not own, and one-line values, and never echoes a value", () => {
+  it("starts a home only with its contract, LUNABOT_ settings the image does not own, and one-line values, and never echoes a value", () => {
     expect(checkHomeEnv(env)).toEqual({ ok: true, value: env });
-    expect(checkHomeEnv({ ...env, OMB_COMPOSIO_BROKER_URL: "http://127.0.0.1:9", OMB_CLOUD_TEAM_ID: "t1" }).ok).toBe(true);
+    expect(checkHomeEnv({ ...env, LUNABOT_COMPOSIO_BROKER_URL: "http://127.0.0.1:9", LUNABOT_CLOUD_TEAM_ID: "t1" }).ok).toBe(true);
     for (const name of REQUIRED_HOME_ENV) {
       const { [name]: _dropped, ...rest } = env;
       expect(checkHomeEnv(rest), name).toMatchObject({ ok: false, message: `env must set ${name}` });
     }
     const refused = (extra: Record<string, unknown>) => checkHomeEnv({ ...env, ...extra });
-    for (const name of ["FLY_APP_NAME", "PATH", "NODE_OPTIONS", "HOME", "LD_PRELOAD", "omb_lower", "OMB_"]) expect(refused({ [name]: "x" }).ok, name).toBe(false);
-    for (const name of ["OMB_CLOUD_EDGE_HOLD", "OMB_CLOUD_EDGE_BIN", "OMB_CLOUD_HARDEN", "OMB_DATA_DIR", "OMB_PORT", "OMB_CLOUD_SECRETS_FD", "OMB_CLOUD_CAPS_DROPPED"]) {
+    for (const name of ["FLY_APP_NAME", "PATH", "NODE_OPTIONS", "HOME", "LD_PRELOAD", "omb_lower", "LUNABOT_"]) expect(refused({ [name]: "x" }).ok, name).toBe(false);
+    for (const name of ["LUNABOT_CLOUD_EDGE_HOLD", "LUNABOT_CLOUD_EDGE_BIN", "LUNABOT_CLOUD_HARDEN", "LUNABOT_DATA_DIR", "LUNABOT_PORT", "LUNABOT_CLOUD_SECRETS_FD", "LUNABOT_CLOUD_CAPS_DROPPED"]) {
       expect(refused({ [name]: "x" }), name).toMatchObject({ ok: false, message: `env name ${name} is the image's own setting` });
     }
     const secret = "T0P-SECRET-VALUE";
     for (const value of [`${secret}\nOMB_CLOUD_HARDEN=0`, `${secret}\r`, `${secret}\0`, 42, null, "x".repeat(8193)]) {
-      const result = refused({ OMB_CLOUD_X_TOKEN: value });
+      const result = refused({ LUNABOT_CLOUD_X_TOKEN: value });
       expect(result.ok).toBe(false);
       expect(JSON.stringify(result)).not.toContain(secret);
     }
-    expect(refused({ OMB_CLOUD_ROLE: "admin" }).ok).toBe(false);
-    expect(refused({ OMB_PUBLIC_URL: "http://acme.example.test" }).ok).toBe(false);
-    expect(refused({ OMB_PUBLIC_URL: "https://acme.example.test/path" }).ok).toBe(false);
-    expect(checkHomeEnv(Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`OMB_X${i}`, "v"]))).ok).toBe(false);
+    expect(refused({ LUNABOT_CLOUD_ROLE: "admin" }).ok).toBe(false);
+    expect(refused({ LUNABOT_PUBLIC_URL: "http://acme.example.test" }).ok).toBe(false);
+    expect(refused({ LUNABOT_PUBLIC_URL: "https://acme.example.test/path" }).ok).toBe(false);
+    expect(checkHomeEnv(Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`LUNABOT_X${i}`, "v"]))).ok).toBe(false);
     expect(checkHomeEnv([]).ok).toBe(false);
   });
 

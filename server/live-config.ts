@@ -57,7 +57,7 @@ export function usableLiveKey(live: LiveConfig | undefined): string | undefined 
 
 /** What to save for a change to `live`: a new key is tied to where calls now go, and any other change of where they go
  * forgets the old one. On the desktop the OS store keeps a copy the server cannot delete, which comes back as
- * OMB_OPENAI_LIVE_KEY at the next launch: "nowhere" keeps that copy unusable until a key is saved again. */
+ * LUNABOT_OPENAI_LIVE_KEY at the next launch: "nowhere" keeps that copy unusable until a key is saved again. */
 export function liveSavePatch(current: LiveConfig | undefined, patch: LiveConfig): LiveConfig {
   const { keyFor: _fromRequest, ...asked } = patch;
   const target = liveKeyTarget({ ...current, ...asked });
@@ -70,23 +70,23 @@ export function liveSavePatch(current: LiveConfig | undefined, patch: LiveConfig
 
 export function liveConfigWithEnv(live: LiveConfig | undefined, env: NodeJS.ProcessEnv = process.env): LiveConfig {
   const next = { ...live };
-  const envKey = env.OMB_OPENAI_LIVE_KEY;
+  const envKey = env.LUNABOT_OPENAI_LIVE_KEY;
   if (envKey !== undefined) {
     // A different key from the environment is not the one `keyFor` was saved for.
     if (next.key?.trim() && next.key.trim() !== envKey.trim()) delete next.keyFor;
     next.key = envKey;
   }
-  const provider = env.OMB_LIVE_PROVIDER?.trim().toLowerCase();
+  const provider = env.LUNABOT_LIVE_PROVIDER?.trim().toLowerCase();
   if (provider === "openai" || provider === "azure" || provider === "qwen" || provider === "volc") next.provider = provider;
-  if (env.OMB_AZURE_OPENAI_LIVE_ENDPOINT !== undefined) next.azureEndpoint = env.OMB_AZURE_OPENAI_LIVE_ENDPOINT.trim();
-  if (env.OMB_AZURE_OPENAI_LIVE_DEPLOYMENT !== undefined) next.azureDeployment = env.OMB_AZURE_OPENAI_LIVE_DEPLOYMENT.trim();
-  if (env.OMB_LIVE_QWEN_ENDPOINT !== undefined) next.qwenEndpoint = env.OMB_LIVE_QWEN_ENDPOINT.trim();
-  if (env.OMB_LIVE_QWEN_MODEL !== undefined) next.qwenModel = env.OMB_LIVE_QWEN_MODEL.trim();
-  if (env.OMB_LIVE_VOLC_APP_ID !== undefined) next.volcAppId = env.OMB_LIVE_VOLC_APP_ID.trim();
-  if (env.OMB_LIVE_VOLC_MODEL !== undefined) next.volcModel = env.OMB_LIVE_VOLC_MODEL.trim();
+  if (env.LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT !== undefined) next.azureEndpoint = env.LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT.trim();
+  if (env.LUNABOT_AZURE_OPENAI_LIVE_DEPLOYMENT !== undefined) next.azureDeployment = env.LUNABOT_AZURE_OPENAI_LIVE_DEPLOYMENT.trim();
+  if (env.LUNABOT_LIVE_QWEN_ENDPOINT !== undefined) next.qwenEndpoint = env.LUNABOT_LIVE_QWEN_ENDPOINT.trim();
+  if (env.LUNABOT_LIVE_QWEN_MODEL !== undefined) next.qwenModel = env.LUNABOT_LIVE_QWEN_MODEL.trim();
+  if (env.LUNABOT_LIVE_VOLC_APP_ID !== undefined) next.volcAppId = env.LUNABOT_LIVE_VOLC_APP_ID.trim();
+  if (env.LUNABOT_LIVE_VOLC_MODEL !== undefined) next.volcModel = env.LUNABOT_LIVE_VOLC_MODEL.trim();
   // Set together in the environment, the key and the provider endpoint are the operator's own pairing. A `keyFor` from
   // the file stands: saves mirror settings into the environment, so they must not be able to pair a forgotten key.
-  const envEndpoint = provider === "azure" ? env.OMB_AZURE_OPENAI_LIVE_ENDPOINT : provider === "qwen" ? env.OMB_LIVE_QWEN_ENDPOINT : provider === "volc" ? env.OMB_LIVE_VOLC_APP_ID : undefined;
+  const envEndpoint = provider === "azure" ? env.LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT : provider === "qwen" ? env.LUNABOT_LIVE_QWEN_ENDPOINT : provider === "volc" ? env.LUNABOT_LIVE_VOLC_APP_ID : undefined;
   if (envKey?.trim() && envEndpoint?.trim() && next.keyFor === undefined) next.keyFor = liveKeyTarget(next) ?? NOWHERE;
   return next;
 }
@@ -94,12 +94,12 @@ export function liveConfigWithEnv(live: LiveConfig | undefined, env: NodeJS.Proc
 /** The non-secret Live settings a settings patch mirrors into the environment. */
 export function liveSettingEnv(live: LiveConfig | undefined): Array<[value: string | undefined, name: string]> {
   return [
-    [live?.provider, "OMB_LIVE_PROVIDER"],
-    [live?.azureEndpoint, "OMB_AZURE_OPENAI_LIVE_ENDPOINT"],
-    [live?.azureDeployment, "OMB_AZURE_OPENAI_LIVE_DEPLOYMENT"],
-    [live?.qwenEndpoint, "OMB_LIVE_QWEN_ENDPOINT"],
-    [live?.qwenModel, "OMB_LIVE_QWEN_MODEL"],
-    [live?.volcAppId, "OMB_LIVE_VOLC_APP_ID"],
-    [live?.volcModel, "OMB_LIVE_VOLC_MODEL"],
+    [live?.provider, "LUNABOT_LIVE_PROVIDER"],
+    [live?.azureEndpoint, "LUNABOT_AZURE_OPENAI_LIVE_ENDPOINT"],
+    [live?.azureDeployment, "LUNABOT_AZURE_OPENAI_LIVE_DEPLOYMENT"],
+    [live?.qwenEndpoint, "LUNABOT_LIVE_QWEN_ENDPOINT"],
+    [live?.qwenModel, "LUNABOT_LIVE_QWEN_MODEL"],
+    [live?.volcAppId, "LUNABOT_LIVE_VOLC_APP_ID"],
+    [live?.volcModel, "LUNABOT_LIVE_VOLC_MODEL"],
   ];
 }

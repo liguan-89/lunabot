@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// scripts/mcp-server.ts snapshots process.env at import time: scrub ambient OMB_* / LUNABOT_* values first.
+// scripts/mcp-server.ts snapshots process.env at import time: scrub ambient LUNABOT_* / LUNABOT_* values first.
 import "./testing/scrub-ambient-omb-env.ts";
 
 import {
@@ -756,7 +756,7 @@ describe("connection security and discovery", () => {
 
   it("requires an explicit destination before sending a bearer token", async () => {
     process.env.LUNABOT_TOKEN = "proxy-token";
-    await expect(resolveBaseUrl()).rejects.toThrow("DEXBOT_URL (or LUNABOT_URL) or OMB_PORT");
+    await expect(resolveBaseUrl()).rejects.toThrow("DEXBOT_URL (or LUNABOT_URL) or LUNABOT_PORT");
   });
 
   it("validates direct tool arguments", () => {

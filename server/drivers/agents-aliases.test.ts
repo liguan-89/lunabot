@@ -11,8 +11,8 @@ import type { Json } from "./agents-client.ts";
 import { agentsMcp } from "./agents-mcp.ts";
 
 const EVERYTHING = {
-  OMB_BOT_ID: "bot-alias", OMB_CHIEF_OF_STAFF: "1", OMB_SKILL_AUTHORING_ENABLED: "1", OMB_SHARED_COMPUTERS_ENABLED: "1",
-  OMB_VOICE_NOTES: "1", OMB_X_RESEARCH: "1", OMB_RESEARCH: "1", OMB_TEAM_PEOPLE: "1", OMB_MAUSBOT: "1",
+  LUNABOT_BOT_ID: "bot-alias", LUNABOT_CHIEF_OF_STAFF: "1", LUNABOT_SKILL_AUTHORING_ENABLED: "1", LUNABOT_SHARED_COMPUTERS_ENABLED: "1",
+  LUNABOT_VOICE_NOTES: "1", LUNABOT_X_RESEARCH: "1", LUNABOT_RESEARCH: "1", LUNABOT_TEAM_PEOPLE: "1", LUNABOT_MAUSBOT: "1",
 };
 const LISTED = new Set(availableTools(catalogProfileFromEnv(EVERYTHING)).map((tool) => tool.name));
 
@@ -85,11 +85,11 @@ describe("the agents tools' aliases", () => {
   });
 
   it("run only where the action tool is listed, as the proxy's unknown-tool check sees them", async () => {
-    const call = (env: Record<string, string>, name: string) => agentsMcp({ ...EVERYTHING, OMB_HARNESS_URL: "http://127.0.0.1:9", ...env })(
+    const call = (env: Record<string, string>, name: string) => agentsMcp({ ...EVERYTHING, LUNABOT_HARNESS_URL: "http://127.0.0.1:9", ...env })(
       { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: CALLS[name] } } as Json,
     );
-    expect(await call({ OMB_CHIEF_OF_STAFF: "0" }, "create_room")).toMatchObject({ error: { code: -32602, message: "Unknown tool: create_room" } });
-    expect(await call({ OMB_X_RESEARCH: "0" }, "x_profile")).toMatchObject({ error: { message: "Unknown tool: x_profile" } });
+    expect(await call({ LUNABOT_CHIEF_OF_STAFF: "0" }, "create_room")).toMatchObject({ error: { code: -32602, message: "Unknown tool: create_room" } });
+    expect(await call({ LUNABOT_X_RESEARCH: "0" }, "x_profile")).toMatchObject({ error: { message: "Unknown tool: x_profile" } });
     const reached = await call({}, "create_room") as { result?: { isError: boolean } };
     expect(reached.result?.isError).toBe(true);
   });

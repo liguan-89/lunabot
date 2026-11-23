@@ -381,7 +381,7 @@ describe("long-poll", () => {
   it("needs a poller id, its own rate limit and the installation token", async () => {
     const { owner } = await withTrigger();
     expect((await h.call(owner, "/v1/events")).status).toBe(400);
-    expect((await h.fetch("/v1/events", { headers: { "x-omb-poller": "poller-main-0001" } })).status).toBe(401);
+    expect((await h.fetch("/v1/events", { headers: { "x-lunabot-poller": "poller-main-0001" } })).status).toBe(401);
     h.limits.events = false;
     expect((await h.poll(owner)).status).toBe(429);
   });
@@ -408,7 +408,7 @@ describe("limits", () => {
     expect((await fill(cloud.owner, cloud.triggerId, 600)).every((result) => result.status === "queued")).toBe(true);
     const today = new Date().toISOString().slice(0, 10);
     h.d1.db.prepare("UPDATE app_event_days SET queued = 1998 WHERE day = ? AND installation_id = ?").run(today, cloud.owner.id);
-    await h.call(cloud.owner, `/v1/events?after=${Number.MAX_SAFE_INTEGER}`, { headers: { "x-omb-poller": "poller-main-0001" } });
+    await h.call(cloud.owner, `/v1/events?after=${Number.MAX_SAFE_INTEGER}`, { headers: { "x-lunabot-poller": "poller-main-0001" } });
     for (let index = 0; index < 3; index += 1) await h.deliver(message(cloud.triggerId, cloud.owner.userId));
     expect(h.queued(cloud.owner.id)).toHaveLength(2);
     expect(h.drops(cloud.owner.id)).toEqual([{ composio_trigger_id: cloud.triggerId, reason: "daily_limit", dropped: 1 }]);
@@ -823,9 +823,9 @@ describe("waking a sleeping Cloud for its events", () => {
     expect(wake.method).toBe("POST");
     expect(wake.body).toBe(`{"machineId":"${MACHINE}"}`);
     expect(wake.headers.get("content-type")).toBe("application/json");
-    expect(wake.headers.get("x-omb-wake-timestamp")).toBe(timestamp);
+    expect(wake.headers.get("x-lunabot-wake-timestamp")).toBe(timestamp);
     const expected = createHmac("sha256", CLOUD_GRANT_SECRET).update(`omb-cloud-wake:v1\n${timestamp}\n${MACHINE}`).digest("base64url");
-    expect(wake.headers.get("x-omb-wake-signature")).toBe(`v1=${expected}`);
+    expect(wake.headers.get("x-lunabot-wake-signature")).toBe(`v1=${expected}`);
     expect(h.d1.rows("SELECT wake_requested_at FROM installations WHERE id = ?", owner.id)).toEqual([{ wake_requested_at: T0 }]);
   });
 

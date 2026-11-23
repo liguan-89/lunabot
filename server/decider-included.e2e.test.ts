@@ -123,9 +123,9 @@ beforeAll(async () => {
       PATH: process.env.PATH,
       ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}),
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: data, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_CLOUD_DECIDER_URL: relayUrl,
-      OMB_CLOUD_DECIDER_TOKEN: INCLUDED,
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
+      LUNABOT_CLOUD_DECIDER_URL: relayUrl,
+      LUNABOT_CLOUD_DECIDER_TOKEN: INCLUDED,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -188,7 +188,7 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
     expect((await api("PATCH", `/api/groups/${room.id}/setup`, { action: "complete", cwd: null, bulletin: "", defaultResponder: { kind: "auto" } })).status).toBe(200);
   });
 
-  it("asks the relay who answers, at exactly <OMB_CLOUD_DECIDER_URL>/v1/systemone with the included token", async () => {
+  it("asks the relay who answers, at exactly <LUNABOT_CLOUD_DECIDER_URL>/v1/systemone with the included token", async () => {
     pick = bots.Theo!.id;
     const reply = await round(room.id, "The signup button overlaps the footer on Safari.");
     expect(reply.from!.name).toBe("Theo");
@@ -253,7 +253,7 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
     expect(existsSync(engineDump)).toBe(true);
     const launches = readFileSync(engineDump, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
     expect(JSON.stringify(launches)).not.toContain(INCLUDED);
-    expect(JSON.stringify(launches)).not.toContain("OMB_CLOUD_DECIDER_TOKEN");
+    expect(JSON.stringify(launches)).not.toContain("LUNABOT_CLOUD_DECIDER_TOKEN");
     // A tool started with a copy of the server's own environment, as it is:
     // the token is gone from it, not merely filtered on the way out.
     const dump = join(home, "cli-env.json");
@@ -266,10 +266,10 @@ console.log("dump-env 1.0.0");
     const probe = await api("POST", "/api/cli-test", { cli });
     expect(probe.body, probe.text).toMatchObject({ ok: true, version: "dump-env 1.0.0" });
     const raw = JSON.parse(readFileSync(dump, "utf8"));
-    // Proves the dump is the server's environment, not an empty one; every OMB_CLOUD_* value is stripped from a probed CLI.
+    // Proves the dump is the server's environment, not an empty one; every LUNABOT_CLOUD_* value is stripped from a probed CLI.
     expect(raw.HOME).toBe(home);
-    expect(raw).not.toHaveProperty("OMB_CLOUD_DECIDER_URL");
-    expect(raw).not.toHaveProperty("OMB_CLOUD_DECIDER_TOKEN");
+    expect(raw).not.toHaveProperty("LUNABOT_CLOUD_DECIDER_URL");
+    expect(raw).not.toHaveProperty("LUNABOT_CLOUD_DECIDER_TOKEN");
     expect(JSON.stringify(raw)).not.toContain(INCLUDED);
   });
 });

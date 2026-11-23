@@ -60,7 +60,7 @@ describe("Luna Bot keeps an eye on the day, hidden from the sidebar", () => {
   beforeAll(async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     apps = await startFakeConnectedApps();
-    fixture = await launchVerificationServer({ ...process.env, TZ: MIDDAY_ZONE, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token });
+    fixture = await launchVerificationServer({ ...process.env, TZ: MIDDAY_ZONE, LUNABOT_COMPOSIO_BROKER_URL: apps.url, LUNABOT_COMPOSIO_BROKER_TOKEN: apps.token });
     api = client(fixture);
     const bots = (await api("GET", "/api/bots")).bots as any[];
     const found = bots.find((bot) => bot.defaultBot && !bot.defaultBot.person);
@@ -189,7 +189,7 @@ describe("a read-and-draft run", () => {
   beforeAll(async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     apps = await startFakeConnectedApps();
-    fixture = await launchVerificationServer({ ...process.env, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token });
+    fixture = await launchVerificationServer({ ...process.env, LUNABOT_COMPOSIO_BROKER_URL: apps.url, LUNABOT_COMPOSIO_BROKER_TOKEN: apps.token });
   }, 120_000);
 
   afterAll(async () => {

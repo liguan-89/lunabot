@@ -91,7 +91,7 @@ posixOnly("a turn the helper judges reusable ends in an unanswered skill card", 
     }));
     let stderr = "";
     let stdout = "";
-    const env: NodeJS.ProcessEnv = { HOME: home, USERPROFILE: home, OMB_PORT: String(port) };
+    const env: NodeJS.ProcessEnv = { HOME: home, USERPROFILE: home, LUNABOT_PORT: String(port) };
     if (process.env.PATH) env.PATH = process.env.PATH;
     const child: ChildProcess = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], { cwd: join(SERVER_DIR, ".."), env, stdio: ["ignore", "pipe", "pipe"] });
     child.stderr!.on("data", (chunk) => { stderr += chunk; });

@@ -4,7 +4,7 @@ import { appendUsage, flushUsageLedger } from "./usage-ledger.ts";
 import type { WireBot, WireGroup } from "../shared/wire.ts";
 
 it("projects historical usage, clears it on thread switch, and refreshes after a real fixture turn", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir } = fixture.info;
   const control = (...args: string[]) => runControlOmb([...args, "--url", url]);
   const post = async (path: string, body = {}) => {

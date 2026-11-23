@@ -50,7 +50,7 @@ async function adminPairing(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   return (await api("POST", "/api/auth/pair", { body: { code: granted.code } })).body.token;
@@ -114,14 +114,14 @@ syncBuiltinESMExports();
   boot = async () => {
     child = spawnWithSecrets(process.execPath, ["--import", offlinePrelude, "--import", pathToFileURL(spawnWatch).href, join(SERVER_DIR, "index.ts")], {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
       // tmpfs and hides the fake pi's dump; this suite reads that dump and the engine's own environment, so the box
       // (which has its own suites) stays off here.
-      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_PUBLIC_URL: `https://${HOST}`, OMB_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
-      OMB_CLOUD_SECRETS_FD: "3",
-    }, { OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_CLOUD_BOAT_TOKEN: relayToken }, undefined, true);
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
+      LUNABOT_CLOUD_SECRETS_FD: "3",
+    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: relayToken }, undefined, true);
     for (const stream of [child.stdout, child.stderr]) stream?.on("data", (chunk) => { log += chunk; });
     const deadline = Date.now() + 20_000;
     for (;;) {
@@ -168,7 +168,7 @@ async function turnWith(before: number, text: string, threadId?: string): Promis
   let found: PiTurn | undefined;
   await expect.poll(() => {
     found = piTurns(piDumpPath(dataDir)).slice(before).find((turn) =>
-      turn.prompt.includes(text) && (!threadId || turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId));
+      turn.prompt.includes(text) && (!threadId || turn.launch?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_THREAD_ID === threadId));
     return Boolean(found?.launch);
   }, { timeout: hostTimeout(15_000) }).toBe(true);
   return found!;
@@ -215,7 +215,7 @@ it("no engine a bot runs finds the Cloud's secrets: not in its own environment, 
   expect((await say(owner, bot, "Hello.", mine)).status).toBe(202);
   await expect.poll(() => existsSync(probeOf()), { timeout: hostTimeout(15_000) }).toBe(true);
   const probe = JSON.parse(readFileSync(probeOf(), "utf8")) as { parent: string; own: string };
-  if (process.platform !== "win32") expect(probe.parent).toContain("OMB_CLOUD_MACHINE_ID=3f9c2a4e");
+  if (process.platform !== "win32") expect(probe.parent).toContain("LUNABOT_CLOUD_MACHINE_ID=3f9c2a4e");
   for (const where of [probe.parent, probe.own]) {
     expect(where).not.toContain(secret);
     expect(where).not.toContain(relayToken);
@@ -319,7 +319,7 @@ it("a run of a guest's routine is the guest's: confined, and so is work it hands
   const ownTurn = await turnWith(ownFrom, "Read /proc/1/environ.");
   expect(confined(ownTurn), JSON.stringify({
     index: piTurns(piDumpPath(dataDir)).indexOf(ownTurn),
-    thread: (ownTurn.launch?.mcpConfig?.mcpServers?.agents?.env as Record<string, string> | undefined)?.OMB_THREAD_ID,
+    thread: (ownTurn.launch?.mcpConfig?.mcpServers?.agents?.env as Record<string, string> | undefined)?.LUNABOT_THREAD_ID,
     prompt: ownTurn.prompt.slice(0, 80),
   })).toBe(false);
   await release(teammate.id);

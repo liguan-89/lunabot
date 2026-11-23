@@ -392,7 +392,7 @@ class SessionTest {
         val connection = Connection(
             id = "c1",
             name = "Mac",
-            host = "c-520e.openmausbot.com",
+            host = "c-520e.lunabot.com",
             port = 443,
         )
         val session = session(

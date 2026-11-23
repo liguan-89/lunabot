@@ -61,7 +61,7 @@ read-only (every verb also takes --url URL):
   export --thread ID --out DIR
   events --job THREAD_ID --until-settled
 
-mutating (an explicit --url or DEXBOT_URL/OMB_PORT is required):
+mutating (an explicit --url or DEXBOT_URL/LUNABOT_PORT is required):
   new-bot --name NAME [--section TEAM]
   new-channel --name NAME --members ID,ID
   send --bot ID --text TEXT [--task ID] [--dry-run]
@@ -150,9 +150,9 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     TMP: fixtureTemp,
     TMPDIR: fixtureTemp,
     HERMES_HOME: join(dataDir, ".hermes"),
-    OMB_DATA_DIR: dataDir,
-    OMB_PORT: String(port),
-    OMB_WEBHOOK_PORT: String(port + 1),
+    LUNABOT_DATA_DIR: dataDir,
+    LUNABOT_PORT: String(port),
+    LUNABOT_WEBHOOK_PORT: String(port + 1),
     // A caller's FAKE_CLAUDE_MODE overrides this below to drive failure paths.
     FAKE_CLAUDE_MODE: parentEnv.FAKE_CLAUDE_MODE || "happy",
     // Inert for pi, which logs to FAKE_PI_DUMP; kept for a caller's wrapper that reads it.
@@ -162,7 +162,7 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     PATH: dirname(process.execPath),
     // Without it the server also scans /opt/homebrew/bin, /usr/local/bin and the
     // login shell's PATH, finding a developer's own engine CLIs that CI lacks.
-    OMB_TEST_SEALED_PATH: "1",
+    LUNABOT_TEST_SEALED_PATH: "1",
   });
   // The fake engines' knobs are the one thing a caller may script into the child.
   for (const [key, value] of Object.entries(parentEnv)) {
@@ -171,81 +171,81 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     if ((key.startsWith("FAKE_CLAUDE_") || key.startsWith("FAKE_PI_") || key.startsWith("FAKE_CODEX_TEXT_") || key.startsWith("FAKE_CODEX_COMMAND") || key === "FAKE_ACP_HANG_ON") && key !== "FAKE_CLAUDE_DUMP" && key !== "FAKE_PI_DUMP" && value) childEnv[key] = value;
   }
   // Enables POST /api/testing/org-library; the route does not exist without it.
-  if (parentEnv.OMB_TEST_ORG_LIBRARY_KEY) childEnv.OMB_TEST_ORG_LIBRARY_KEY = parentEnv.OMB_TEST_ORG_LIBRARY_KEY;
+  if (parentEnv.LUNABOT_TEST_ORG_LIBRARY_KEY) childEnv.LUNABOT_TEST_ORG_LIBRARY_KEY = parentEnv.LUNABOT_TEST_ORG_LIBRARY_KEY;
   // Enables POST /api/testing/internal-capability (a bot's own tool routes, such as publish_page); the route refuses without it.
-  if (parentEnv.OMB_TEST_INTERNAL_CAPABILITY_KEY) childEnv.OMB_TEST_INTERNAL_CAPABILITY_KEY = parentEnv.OMB_TEST_INTERNAL_CAPABILITY_KEY;
+  if (parentEnv.LUNABOT_TEST_INTERNAL_CAPABILITY_KEY) childEnv.LUNABOT_TEST_INTERNAL_CAPABILITY_KEY = parentEnv.LUNABOT_TEST_INTERNAL_CAPABILITY_KEY;
   // One log line per browser call and preview frame.
-  if (parentEnv.OMB_BROWSER_TIMING === "1") childEnv.OMB_BROWSER_TIMING = "1";
+  if (parentEnv.LUNABOT_BROWSER_TIMING === "1") childEnv.LUNABOT_BROWSER_TIMING = "1";
   // Warm summaries' minutes as seconds (server/warm-summary.ts), and the switch that turns them off.
-  for (const key of ["OMB_WARM_SUMMARY_TIME_SCALE", "OMB_WARM_SUMMARY", "OMB_GIT_PATH"]) if (parentEnv[key]) childEnv[key] = parentEnv[key];
+  for (const key of ["LUNABOT_WARM_SUMMARY_TIME_SCALE", "LUNABOT_WARM_SUMMARY", "LUNABOT_GIT_PATH"]) if (parentEnv[key]) childEnv[key] = parentEnv[key];
   // A loopback fake only: the key never reaches a real provider.
-  const liveUrl = parentEnv.OMB_OPENAI_LIVE_URL?.trim() ?? "";
+  const liveUrl = parentEnv.LUNABOT_OPENAI_LIVE_URL?.trim() ?? "";
   if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(liveUrl)) {
-    childEnv.OMB_OPENAI_LIVE_URL = liveUrl;
-    if (parentEnv.OMB_OPENAI_LIVE_KEY) childEnv.OMB_OPENAI_LIVE_KEY = parentEnv.OMB_OPENAI_LIVE_KEY;
+    childEnv.LUNABOT_OPENAI_LIVE_URL = liveUrl;
+    if (parentEnv.LUNABOT_OPENAI_LIVE_KEY) childEnv.LUNABOT_OPENAI_LIVE_KEY = parentEnv.LUNABOT_OPENAI_LIVE_KEY;
   }
   // A loopback stand-in for Postiz Cloud only (server/testing/fake-postiz.ts): no test signs in to the real one.
-  const postizUrl = parentEnv.OMB_POSTIZ_CLOUD_URL?.trim() ?? "";
-  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(postizUrl)) childEnv.OMB_POSTIZ_CLOUD_URL = postizUrl;
+  const postizUrl = parentEnv.LUNABOT_POSTIZ_CLOUD_URL?.trim() ?? "";
+  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(postizUrl)) childEnv.LUNABOT_POSTIZ_CLOUD_URL = postizUrl;
   // A loopback connected-apps service only (server/testing/broker-fake.ts): its token never reaches the real one.
-  const brokerUrl = parentEnv.OMB_COMPOSIO_BROKER_URL?.trim() ?? "";
-  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(brokerUrl) && parentEnv.OMB_COMPOSIO_BROKER_TOKEN) {
-    childEnv.OMB_COMPOSIO_BROKER_URL = brokerUrl;
-    childEnv.OMB_COMPOSIO_BROKER_TOKEN = parentEnv.OMB_COMPOSIO_BROKER_TOKEN;
+  const brokerUrl = parentEnv.LUNABOT_COMPOSIO_BROKER_URL?.trim() ?? "";
+  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(brokerUrl) && parentEnv.LUNABOT_COMPOSIO_BROKER_TOKEN) {
+    childEnv.LUNABOT_COMPOSIO_BROKER_URL = brokerUrl;
+    childEnv.LUNABOT_COMPOSIO_BROKER_TOKEN = parentEnv.LUNABOT_COMPOSIO_BROKER_TOKEN;
   }
   // Research against loopback stubs only (server/x-research.e2e.test.ts): the relay token crosses only with its stub,
   // and a treg stand-in replaces treg.to, so no test reaches a real relay or treg.
-  const xUrl = parentEnv.OMB_CLOUD_X_URL?.trim() ?? "";
+  const xUrl = parentEnv.LUNABOT_CLOUD_X_URL?.trim() ?? "";
   if (/^http:\/\/127\.0\.0\.1:\d{1,5}(?:\/[A-Za-z0-9_-]+)*$/.test(xUrl)) {
-    childEnv.OMB_CLOUD_X_URL = xUrl;
-    if (parentEnv.OMB_CLOUD_X_TOKEN) childEnv.OMB_CLOUD_X_TOKEN = parentEnv.OMB_CLOUD_X_TOKEN;
+    childEnv.LUNABOT_CLOUD_X_URL = xUrl;
+    if (parentEnv.LUNABOT_CLOUD_X_TOKEN) childEnv.LUNABOT_CLOUD_X_TOKEN = parentEnv.LUNABOT_CLOUD_X_TOKEN;
   }
   // @devs reports reach a loopback fake only, else a closed port: never the MausBot team.
-  const bugReportUrl = parentEnv.OMB_BUG_REPORT_URL?.trim() ?? "";
-  childEnv.OMB_BUG_REPORT_URL = /^http:\/\/127\.0\.0\.1:\d{1,5}\/[A-Za-z0-9/_-]*$/.test(bugReportUrl) ? bugReportUrl : "http://127.0.0.1:9/api/bug-reports";
-  const tregUrl = parentEnv.OMB_TREG_URL?.trim() ?? "";
-  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(tregUrl)) childEnv.OMB_TREG_URL = tregUrl;
+  const bugReportUrl = parentEnv.LUNABOT_BUG_REPORT_URL?.trim() ?? "";
+  childEnv.LUNABOT_BUG_REPORT_URL = /^http:\/\/127\.0\.0\.1:\d{1,5}\/[A-Za-z0-9/_-]*$/.test(bugReportUrl) ? bugReportUrl : "http://127.0.0.1:9/api/bug-reports";
+  const tregUrl = parentEnv.LUNABOT_TREG_URL?.trim() ?? "";
+  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(tregUrl)) childEnv.LUNABOT_TREG_URL = tregUrl;
   // Loopback only, for harness mechanics: a fake ElevenLabs the measurement
   // substrate can drive without a key. Never a real address.
-  const elevenApi = parentEnv.OMB_ELEVENLABS_API?.trim() ?? "";
-  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(elevenApi)) childEnv.OMB_ELEVENLABS_API = elevenApi;
+  const elevenApi = parentEnv.LUNABOT_ELEVENLABS_API?.trim() ?? "";
+  if (/^http:\/\/127\.0\.0\.1:\d{1,5}$/.test(elevenApi)) childEnv.LUNABOT_ELEVENLABS_API = elevenApi;
   // Live calls need Pro; without it the fixture refuses a call with 402 needsPro.
-  if (parentEnv.OMB_PRO_PLAN?.trim() === "1") childEnv.OMB_PRO_PLAN = "1";
+  if (parentEnv.LUNABOT_PRO_PLAN?.trim() === "1") childEnv.LUNABOT_PRO_PLAN = "1";
   // Arms the one-shot audio-append failure inside the fixture server.
-  if (parentEnv.OMB_TEST_FAIL_AUDIO_APPEND_ONCE) {
-    childEnv.OMB_TEST_FAIL_AUDIO_APPEND_ONCE = parentEnv.OMB_TEST_FAIL_AUDIO_APPEND_ONCE;
+  if (parentEnv.LUNABOT_TEST_FAIL_AUDIO_APPEND_ONCE) {
+    childEnv.LUNABOT_TEST_FAIL_AUDIO_APPEND_ONCE = parentEnv.LUNABOT_TEST_FAIL_AUDIO_APPEND_ONCE;
   }
   // The Claude broker's approval deadline fires on a marker file, not after 15 minutes.
-  if (parentEnv.OMB_TEST_APPROVAL_CLOCK === "1") childEnv.OMB_TEST_APPROVAL_CLOCK = "1";
+  if (parentEnv.LUNABOT_TEST_APPROVAL_CLOCK === "1") childEnv.LUNABOT_TEST_APPROVAL_CLOCK = "1";
   // The stall watchdog fires on a marker file, not after 20 minutes of silence.
-  if (parentEnv.OMB_TEST_STALL_CLOCK === "1") childEnv.OMB_TEST_STALL_CLOCK = "1";
+  if (parentEnv.LUNABOT_TEST_STALL_CLOCK === "1") childEnv.LUNABOT_TEST_STALL_CLOCK = "1";
   // Date.now() jumps when a marker file says so, as it does when a suspended machine wakes; timers don't.
-  if (parentEnv.OMB_TEST_RESUME_CLOCK === "1") childEnv.OMB_TEST_RESUME_CLOCK = "1";
+  if (parentEnv.LUNABOT_TEST_RESUME_CLOCK === "1") childEnv.LUNABOT_TEST_RESUME_CLOCK = "1";
   // The memory gate runs here too, on the memory a fixture file says this machine has.
-  if (parentEnv.OMB_TEST_MEMORY_GATE === "1") childEnv.OMB_TEST_MEMORY_GATE = "1";
+  if (parentEnv.LUNABOT_TEST_MEMORY_GATE === "1") childEnv.LUNABOT_TEST_MEMORY_GATE = "1";
   // The first-reply rescue's delay in ms, so a check need not sit through 20 s of silence.
-  if (/^\d{1,6}$/.test(parentEnv.OMB_FIRST_REPLY_NOTICE_MS ?? "")) childEnv.OMB_FIRST_REPLY_NOTICE_MS = parentEnv.OMB_FIRST_REPLY_NOTICE_MS;
+  if (/^\d{1,6}$/.test(parentEnv.LUNABOT_FIRST_REPLY_NOTICE_MS ?? "")) childEnv.LUNABOT_FIRST_REPLY_NOTICE_MS = parentEnv.LUNABOT_FIRST_REPLY_NOTICE_MS;
   // How long a tool call may hold the person's message unread, in ms, so a check need not sit through a minute.
-  if (/^\d{1,6}$/.test(parentEnv.OMB_PERSON_FIRST_MS ?? "")) childEnv.OMB_PERSON_FIRST_MS = parentEnv.OMB_PERSON_FIRST_MS;
+  if (/^\d{1,6}$/.test(parentEnv.LUNABOT_PERSON_FIRST_MS ?? "")) childEnv.LUNABOT_PERSON_FIRST_MS = parentEnv.LUNABOT_PERSON_FIRST_MS;
   // How often @devs reports are asked about, in ms, so a check sees a fix arrive without an hour's wait.
-  if (/^\d{1,7}$/.test(parentEnv.OMB_DEVS_STATUS_MS ?? "")) childEnv.OMB_DEVS_STATUS_MS = parentEnv.OMB_DEVS_STATUS_MS;
+  if (/^\d{1,7}$/.test(parentEnv.LUNABOT_DEVS_STATUS_MS ?? "")) childEnv.LUNABOT_DEVS_STATUS_MS = parentEnv.LUNABOT_DEVS_STATUS_MS;
   // The quiet-status knobs in ms, so a long tool call shows its sign of life without a minute's wait.
-  for (const knob of ["OMB_ACP_QUIET_NOTICE_MS", "OMB_ACP_QUIET_TICK_MS"] as const) {
+  for (const knob of ["LUNABOT_ACP_QUIET_NOTICE_MS", "LUNABOT_ACP_QUIET_TICK_MS"] as const) {
     if (/^\d{1,7}$/.test(parentEnv[knob] ?? "")) childEnv[knob] = parentEnv[knob];
   }
-  for (const knob of ["OMB_AWAY_ROUTINES_MS", "OMB_AWAY_REVIEW_MS"] as const) {
+  for (const knob of ["LUNABOT_AWAY_ROUTINES_MS", "LUNABOT_AWAY_REVIEW_MS"] as const) {
     if (/^\d{1,7}$/.test(parentEnv[knob] ?? "")) childEnv[knob] = parentEnv[knob];
   }
-  // The UI checks drive this fixture from a real browser, as `pnpm dev` does; OMB_DEV_TRUST_LOCAL_BROWSER=0 tests the sign-in.
-  if (parentEnv.OMB_DEV_TRUST_LOCAL_BROWSER !== "0") childEnv.OMB_DEV_TRUST_LOCAL_BROWSER = "1";
+  // The UI checks drive this fixture from a real browser, as `pnpm dev` does; LUNABOT_DEV_TRUST_LOCAL_BROWSER=0 tests the sign-in.
+  if (parentEnv.LUNABOT_DEV_TRUST_LOCAL_BROWSER !== "0") childEnv.LUNABOT_DEV_TRUST_LOCAL_BROWSER = "1";
   // Desktop mode: the owner capability the app would hand the server.
-  if (parentEnv.OMB_TEST_DESKTOP_OWNER_TOKEN) {
-    childEnv.OMB_TEST_DESKTOP_OWNER_TOKEN = parentEnv.OMB_TEST_DESKTOP_OWNER_TOKEN;
-    childEnv.OMB_DESKTOP_PARENT = "1";
-    if (parentEnv.OMB_TEST_DESKTOP_PAGES_ACCESS) childEnv.OMB_TEST_DESKTOP_PAGES_ACCESS = parentEnv.OMB_TEST_DESKTOP_PAGES_ACCESS;
+  if (parentEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN) {
+    childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN = parentEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN;
+    childEnv.LUNABOT_DESKTOP_PARENT = "1";
+    if (parentEnv.LUNABOT_TEST_DESKTOP_PAGES_ACCESS) childEnv.LUNABOT_TEST_DESKTOP_PAGES_ACCESS = parentEnv.LUNABOT_TEST_DESKTOP_PAGES_ACCESS;
   }
   // The driver record the app hands its own server: without it, no server may use this computer.
-  if (parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION) childEnv.OMB_TEST_DESKTOP_CUA_CONNECTION = parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION;
+  if (parentEnv.LUNABOT_TEST_DESKTOP_CUA_CONNECTION) childEnv.LUNABOT_TEST_DESKTOP_CUA_CONNECTION = parentEnv.LUNABOT_TEST_DESKTOP_CUA_CONNECTION;
   // The one agent every fixture runs: the fake pi. Its dump carries the launch it was given,
   // including the agents server's env, for recipes that need its token. Fixed here, not taken
   // from the caller, so it is always the file `fixtureDumpPath` names.
@@ -257,7 +257,7 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     .some((key) => parentEnv[key] !== undefined)) {
     childEnv.FAKE_PI_CLAUDE_COMPAT = "1";
   }
-  if (parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi") childEnv.OMB_TEST_FIXTURE_ENGINE = "pi";
+  if (parentEnv.LUNABOT_TEST_FIXTURE_ENGINE === "pi") childEnv.LUNABOT_TEST_FIXTURE_ENGINE = "pi";
   return childEnv;
 }
 
@@ -266,12 +266,12 @@ export function verificationServerArgs(childEnv: NodeJS.ProcessEnv): string[] {
   const hook = (file: string) => ["--import", pathToFileURL(join(ROOT, "server", "testing", file)).href];
   return [
     "--experimental-strip-types",
-    ...(childEnv.OMB_TEST_FAIL_AUDIO_APPEND_ONCE === "1" ? hook("fail-audio-append-once.mjs") : []),
-    ...(childEnv.OMB_TEST_DESKTOP_OWNER_TOKEN || childEnv.OMB_TEST_DESKTOP_CUA_CONNECTION ? hook("desktop-parent.mjs") : []),
-    ...(childEnv.OMB_TEST_APPROVAL_CLOCK === "1" ? hook("approval-clock-hooks.mjs") : []),
-    ...(childEnv.OMB_TEST_STALL_CLOCK === "1" ? hook("stall-clock-hooks.mjs") : []),
-    ...(childEnv.OMB_TEST_RESUME_CLOCK === "1" ? hook("resume-clock-hooks.mjs") : []),
-    ...(childEnv.OMB_TEST_MEMORY_GATE === "1" ? hook("memory-gate-hooks.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_FAIL_AUDIO_APPEND_ONCE === "1" ? hook("fail-audio-append-once.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN || childEnv.LUNABOT_TEST_DESKTOP_CUA_CONNECTION ? hook("desktop-parent.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_APPROVAL_CLOCK === "1" ? hook("approval-clock-hooks.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_STALL_CLOCK === "1" ? hook("stall-clock-hooks.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_RESUME_CLOCK === "1" ? hook("resume-clock-hooks.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_MEMORY_GATE === "1" ? hook("memory-gate-hooks.mjs") : []),
     join(ROOT, "server", "index.ts"),
   ];
 }
@@ -306,8 +306,8 @@ export async function launchVerificationServer(
       throw new ControlOmbError("Local VM verification requires an explicit loopback Podman machine");
     }
   }
-  // OMB_TEST_PORTS=19975-19999 keeps a recipe's fixture in a range of its own.
-  const range = /^(\d+)-(\d+)$/.exec((parentEnv.OMB_TEST_PORTS ?? process.env.OMB_TEST_PORTS)?.trim() ?? "");
+  // LUNABOT_TEST_PORTS=19975-19999 keeps a recipe's fixture in a range of its own.
+  const range = /^(\d+)-(\d+)$/.exec((parentEnv.LUNABOT_TEST_PORTS ?? process.env.LUNABOT_TEST_PORTS)?.trim() ?? "");
   const port = range ? await freePortBlock([0, 1], Number(range[1]), Number(range[2]) - Number(range[1])) : await freePortBlock([0, 1]);
   if (signal?.aborted) throw new ControlOmbError("verification launch cancelled");
   const url = `http://127.0.0.1:${port}`;
@@ -322,7 +322,7 @@ export async function launchVerificationServer(
   const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });
   const logPath = join(evidenceDir, `server-${Date.now()}-${process.pid}.log`);
-  const imageApi = parentEnv.OMB_FAKE_IMAGE_API_URL?.trim() ?? "";
+  const imageApi = parentEnv.LUNABOT_FAKE_IMAGE_API_URL?.trim() ?? "";
   const imageGen = /^http:\/\/127\.0\.0\.1:\d{1,5}\/v1$/.test(imageApi)
     ? { primary: { provider: "openai" }, fallback: { provider: "custom", model: "fixture-image" }, customUrl: imageApi }
     : undefined;
@@ -364,18 +364,18 @@ export async function launchVerificationServer(
   // Opt-in live Local VM fixture: keep the temporary home and fake engine,
   // granting only the explicitly selected machine connection and static UI.
   if (localVm) Object.assign(childEnv, {
-    OMB_EXTRA_PATH: [localVm.binDir, ...(process.platform === "win32" ? [join(childEnv.SYSTEMROOT || "C:\\Windows", "System32")] : [])].join(delimiter),
+    LUNABOT_EXTRA_PATH: [localVm.binDir, ...(process.platform === "win32" ? [join(childEnv.SYSTEMROOT || "C:\\Windows", "System32")] : [])].join(delimiter),
     CONTAINER_HOST: localVm.host,
     CONTAINER_SSHKEY: localVm.sshKey,
-    OMB_STATIC_DIR: localVm.staticDir,
+    LUNABOT_STATIC_DIR: localVm.staticDir,
   });
-  if (enterprise) Object.assign(childEnv, { OMB_ENTERPRISE_DIR: enterprise.dir, OMB_LICENSE_KEY: enterprise.licenseKey });
+  if (enterprise) Object.assign(childEnv, { LUNABOT_ENTERPRISE_DIR: enterprise.dir, LUNABOT_LICENSE_KEY: enterprise.licenseKey });
   if (browser) Object.assign(childEnv, {
-    OMB_AGENT_BROWSER_PATH: browser.binaryPath,
+    LUNABOT_AGENT_BROWSER_PATH: browser.binaryPath,
     AGENT_BROWSER_EXECUTABLE_PATH: browser.executablePath,
   });
-  if (boatFixtureApi) childEnv.OMB_BOAT_API = boatFixtureApi;
-  if (staticDir) childEnv.OMB_STATIC_DIR = staticDir;
+  if (boatFixtureApi) childEnv.LUNABOT_BOAT_API = boatFixtureApi;
+  if (staticDir) childEnv.LUNABOT_STATIC_DIR = staticDir;
   const child = spawn(process.execPath, verificationServerArgs(childEnv), {
     cwd: ROOT,
     env: childEnv,

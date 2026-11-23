@@ -56,7 +56,7 @@ connected-apps 流量、installation token 验证、Composio webhook 事件队�
 
 - `curl https://lunabot-composio.<subdomain>.workers.dev/v1/me` → 401（无
   token 即正常，证明 worker 活着且鉴权生效）。
-- 隔离 fixture 起服务配 `OMB_COMPOSIO_BROKER_URL` 指向新 worker →
+- 隔离 fixture 起服务配 `LUNABOT_COMPOSIO_BROKER_URL` 指向新 worker →
   connected-apps 注册流走通（installation 注册 → token 颁发 → /v1/me
   200）。
 - `wrangler tail` 无异常；D1 `installations` 表出现记录。

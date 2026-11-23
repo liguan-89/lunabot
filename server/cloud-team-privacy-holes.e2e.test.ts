@@ -1,5 +1,5 @@
 // Private means private on a Team Cloud (docs/team-cloud.md), tried as the people it must hold against: an Admin, the
-// Owner and another member, on a real Team Cloud (OMB_CLOUD_ROLE=team) with the synthetic Claude CLI. Usage counts what
+// Owner and another member, on a real Team Cloud (LUNABOT_CLOUD_ROLE=team) with the synthetic Claude CLI. Usage counts what
 // Rui spent and never says on what; Rui's own MausBot exists for nobody but Rui, on every route and in every list; and a
 // routine made with no audience named is its writer's alone.
 import { randomBytes, randomUUID } from "node:crypto";

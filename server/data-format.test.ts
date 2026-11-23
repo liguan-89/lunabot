@@ -178,7 +178,7 @@ describe("a server starting on a data folder", () => {
       env: {
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
         ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: dir, USERPROFILE: dir, OMB_DATA_DIR: join(dir, "data"), OMB_PORT: String(await freePortBlock([0, 1])),
+        HOME: dir, USERPROFILE: dir, LUNABOT_DATA_DIR: join(dir, "data"), LUNABOT_PORT: String(await freePortBlock([0, 1])),
       },
       stdio: ["ignore", "ignore", "pipe"],
     });

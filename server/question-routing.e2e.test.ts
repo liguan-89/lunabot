@@ -76,7 +76,7 @@ beforeAll(async () => {
   // Answers the saved-login check a browser mount makes; every other command succeeds silently.
   writeFileSync(binaryPath, `#!/bin/sh\nif [ "$1" = session ] && [ "$2" = list ]; then printf '{"success":true,"data":{"sessions":[]}}'; fi\nexit 0\n`, { mode: 0o755 });
   fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, team: { id: "team-acme-qr", name: "Acme", engine: ENGINE,
-    env: { OMB_AGENT_BROWSER_PATH: binaryPath, AGENT_BROWSER_EXECUTABLE_PATH: join(browserTools, "chrome") } } });
+    env: { LUNABOT_AGENT_BROWSER_PATH: binaryPath, AGENT_BROWSER_EXECUTABLE_PATH: join(browserTools, "chrome") } } });
   team = fx.team!;
   writeFileSync(file("room-plan.json"), "{}");
   marco = (await team.pair(MARCO)).token!;

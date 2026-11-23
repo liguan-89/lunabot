@@ -12,7 +12,7 @@ const serverAddressSchema = z.object({ port: z.number().int().min(1).max(65_535)
 
 export interface WebhookIngress {
   server: Server;
-  /** The same receiver on a Unix socket (OMB_WEBHOOK_SOCKET), for a proxy in another container: the compose files' Caddy. */
+  /** The same receiver on a Unix socket (LUNABOT_WEBHOOK_SOCKET), for a proxy in another container: the compose files' Caddy. */
   socketServer?: Server;
   host: string;
   port: number;
@@ -104,7 +104,7 @@ export function createWebhookIngressHandler(manager: WebhookManager, claimReques
       return json(res, 400, { error: "Invalid request URL" });
     }
     if (req.method === "GET" && url.pathname === "/health") {
-      return json(res, 200, { app: "dexbot-webhooks", ready: true });
+      return json(res, 200, { app: "lunabot-webhooks", ready: true });
     }
     if (door && await door(req, res, url)) return;
     const match = url.pathname.match(/^\/hooks\/(wh_[A-Za-z0-9_-]+)(?:\/([^/]+))?$/);

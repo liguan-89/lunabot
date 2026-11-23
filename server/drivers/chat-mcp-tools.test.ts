@@ -62,7 +62,7 @@ function fixture(body = "", toolSchema: Record<string, unknown> = schema) {
         const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1);
         const message = JSON.parse(line);
         calls.push(message);
-        writeFileSync(receipt, JSON.stringify({pid:process.pid,path:process.env.PATH,omb:Object.fromEntries(Object.entries(process.env).filter(([name]) => name.startsWith("OMB_"))),calls}));
+        writeFileSync(receipt, JSON.stringify({pid:process.pid,path:process.env.PATH,omb:Object.fromEntries(Object.entries(process.env).filter(([name]) => name.startsWith("LUNABOT_"))),calls}));
         ${body}
         if (message.method === "initialize") reply(message, {protocolVersion:"2024-11-05",capabilities:{tools:{}}});
         else if (message.method === "tools/list") reply(message, {tools:[{name:"write",description:"Fixture write",inputSchema:schema}]});
@@ -257,14 +257,14 @@ describe("Chat MCP session", () => {
   });
 
   it("keeps the operator's control-plane secrets from a chat bot's tool servers, but not what the descriptor grants", async () => {
-    const secrets = ["OMB_CLOUD_READY_TOKEN", "OMB_CLOUD_BOOTSTRAP", "OMB_LICENSE_KEY", "OMB_INSTALLATION_CREDENTIAL"];
+    const secrets = ["LUNABOT_CLOUD_READY_TOKEN", "LUNABOT_CLOUD_BOOTSTRAP", "LUNABOT_LICENSE_KEY", "LUNABOT_INSTALLATION_CREDENTIAL"];
     for (const name of secrets) vi.stubEnv(name, "should-not-leak");
-    vi.stubEnv("OMB_CLOUDFLARED_PATH", "/usr/local/bin/cloudflared");
+    vi.stubEnv("LUNABOT_CLOUDFLARED_PATH", "/usr/local/bin/cloudflared");
     const f = fixture();
-    f.server.env = { ...f.server.env, OMB_COMMS_TOKEN: "turn-capability" };
+    f.server.env = { ...f.server.env, LUNABOT_COMMS_TOKEN: "turn-capability" };
     await f.mount();
     const seen = f.read().omb;
-    expect(seen).toMatchObject({ OMB_CLOUDFLARED_PATH: "/usr/local/bin/cloudflared", OMB_COMMS_TOKEN: "turn-capability" });
+    expect(seen).toMatchObject({ LUNABOT_CLOUDFLARED_PATH: "/usr/local/bin/cloudflared", LUNABOT_COMMS_TOKEN: "turn-capability" });
     for (const name of secrets) expect(seen).not.toHaveProperty(name);
   });
 

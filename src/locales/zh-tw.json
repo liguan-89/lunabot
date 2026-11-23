@@ -5809,7 +5809,7 @@
   "settings.domain.copyField": "複製{field}",
   "settings.domain.recordHint": "TTL 請保持預設值。若你的供應商已自動附加網域，「名稱」欄請只填子網域（根網域則填 @）。",
   "settings.domain.missingIp": "請向你的伺服器管理員索取其公開 IPv4 位址。",
-  "settings.domain.ipAdminHint": "若使用 Docker、NAT 或多個公開位址，請將 OMB_PUBLIC_IPV4 設為代管你 HTTPS 代理伺服器的 IPv4 位址，然後重新啟動 {app}。私有位址一律不會顯示為 DNS 值。",
+  "settings.domain.ipAdminHint": "若使用 Docker、NAT 或多個公開位址，請將 LUNABOT_PUBLIC_IPV4 設為代管你 HTTPS 代理伺服器的 IPv4 位址，然後重新啟動 {app}。私有位址一律不會顯示為 DNS 值。",
   "settings.domain.httpsNeeded": "你的管理員必須在伺服器上啟用 HTTPS，接著再於下方檢查連線。",
   "settings.domain.dns": "請在你網域的 DNS 設定中，為所選名稱建立一筆 A 記錄，指向這台伺服器的公開 IPv4 位址。只有在 IPv6 也能連到同一台伺服器時，才新增 AAAA 記錄。請預留時間讓 DNS 更新完成。",
   "settings.domain.proxy": "你的伺服器管理員必須在 {app} 前方設定 HTTPS。若 Caddy 執行於同一台主機或同一個網路命名空間，請使用以下範例，並將 bots.example.com 換成你的網域：",

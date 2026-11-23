@@ -44,8 +44,8 @@ async function admin(method: "GET" | "POST", path: string, body = "") {
     body: method === "POST" ? body : undefined,
     headers: {
       ...EDGE, ...(method === "POST" ? { "content-type": "application/json" } : {}),
-      "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce,
-      "x-omb-cloud-signature": `v1=${cloudRequestSignature(secret, timestamp, nonce, method, path, body)}`,
+      "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,
+      "x-lunabot-cloud-signature": `v1=${cloudRequestSignature(secret, timestamp, nonce, method, path, body)}`,
     },
   });
   return { status: response.status, body: await response.json().catch(() => null) as any };
@@ -98,10 +98,10 @@ beforeAll(async () => {
   child = spawn(process.execPath, ["--import", offline, "--import", new URL("../../server/testing/power-clock-hooks.mjs", import.meta.url).href, join(SERVER_DIR, "index.ts")], {
     cwd: join(SERVER_DIR, ".."),
     env: {
-      PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: home, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
-      OMB_TEST_POWER_CLOCK: "1", OMB_SSE_HEARTBEAT_MS: "250",
+      PATH: process.env.PATH, HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: home, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
+      LUNABOT_CLOUD_ROLE: "home", LUNABOT_BOT_BOX: "0", LUNABOT_CLOUD_MACHINE_ID: MACHINE, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}`,
+      LUNABOT_TEST_POWER_CLOCK: "1", LUNABOT_SSE_HEARTBEAT_MS: "250",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -118,7 +118,7 @@ beforeAll(async () => {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const granted = await (await realFetch(`${base}/api/cloud/pairing`, { method: "POST", body, headers: {
     ...EDGE, "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   } })).json() as { code: string };
   token = (await api("POST", "/api/auth/pair", { code: granted.code })).body.token;
 }, hostTimeout(60_000));

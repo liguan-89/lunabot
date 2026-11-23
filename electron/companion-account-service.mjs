@@ -83,8 +83,8 @@ export function resolveCompanionControlPlaneURL({
   isPackaged,
   environment = process.env,
 } = {}) {
-  if (Object.hasOwn(environment, "OMB_CONTROL_PLANE_URL")) {
-    return normalizeControlPlaneURL(environment.OMB_CONTROL_PLANE_URL);
+  if (Object.hasOwn(environment, "LUNABOT_CONTROL_PLANE_URL")) {
+    return normalizeControlPlaneURL(environment.LUNABOT_CONTROL_PLANE_URL);
   }
   return isPackaged ? DEFAULT_COMPANION_CONTROL_PLANE_URL : "";
 }

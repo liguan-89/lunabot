@@ -16,13 +16,13 @@ if [ ! -f .env ]; then
     umask 077
     cat > .env <<EOF
 COMPOSE_PROJECT_NAME=openmausbot-podman
-OMB_DATA_ROOT=$data_root
+LUNABOT_DATA_ROOT=$data_root
 PODMAN_SOCKET=/run/user/$(id -u)/podman/podman.sock
-OMB_PORT=8799
-OMB_WEBHOOK_PORT=8800
-OMB_HTTP_PORT=8080
-OMB_PUBLIC_URL=http://localhost:8080
-OMB_HTTPS_HOST=https-disabled.invalid
+LUNABOT_PORT=8799
+LUNABOT_WEBHOOK_PORT=8800
+LUNABOT_HTTP_PORT=8080
+LUNABOT_PUBLIC_URL=http://localhost:8080
+LUNABOT_HTTPS_HOST=https-disabled.invalid
 ENGINES=
 EOF
 fi

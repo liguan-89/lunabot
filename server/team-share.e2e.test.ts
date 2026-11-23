@@ -10,7 +10,7 @@ const FIXTURES = join(import.meta.dirname, "..", "shared", "package-fixtures");
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
 it("shares one team whole (minus chat history) and imports it back as new, inert copies", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   console.log(JSON.stringify({ fixture: fixture.info }));
   const url = fixture.info.url;
   const call = async (method: string, path: string, body?: unknown) => {
@@ -112,7 +112,7 @@ it("shares one team whole (minus chat history) and imports it back as new, inert
 
 // Skills that cannot all fit one file (a bot with 31, a name two bots hold with different content) and an address carrying its key.
 it("never leaves Share team stuck on skills, and keeps keys out of connection addresses", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   console.log(JSON.stringify({ fixture: fixture.info }));
   const url = fixture.info.url;
   const call = async (method: string, path: string, body?: unknown) => {

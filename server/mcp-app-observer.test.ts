@@ -147,7 +147,7 @@ describe("the observer in a process", () => {
     scratch = mkdtempSync(join(tmpdir(), "omb-app-observer-"));
     const log = join(scratch, "frames.jsonl");
     const gated = gateServer({ name: "board", server: appServer({ FAKE_APP_LOG: log }), threadId: "t-observer", budget: 2_000, apps: mountFor("board") })!;
-    expect(gated.env.OMB_GATE_APPS).toBeDefined();
+    expect(gated.env.LUNABOT_GATE_APPS).toBeDefined();
     const { ask, notify } = start(gated);
 
     const cli = { protocolVersion: "2025-11-25", capabilities: { roots: { listChanged: true } }, clientInfo: { name: "claude-code", version: "2.1.288" } };
@@ -199,7 +199,7 @@ describe("the observer in a process", () => {
     scratch = mkdtempSync(join(tmpdir(), "omb-app-observer-"));
     const log = join(scratch, "frames.jsonl");
     const gated = gateServer({ name: "board", server: appServer({ FAKE_APP_LOG: log }), threadId: "t-plain", budget: 1_000 })!;
-    expect(gated.env).not.toHaveProperty("OMB_GATE_APPS");
+    expect(gated.env).not.toHaveProperty("LUNABOT_GATE_APPS");
     const { ask } = start(gated);
     const cli = { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "codex-mcp-client", version: "1" } };
     await ask(1, "initialize", cli);
@@ -213,7 +213,7 @@ describe("the observer in a process", () => {
     fake = await startFakeHttpMcp({ tools: HTTP_TOOLS, resources: HTTP_RESOURCES, serverTitle: "Draw",
       callResult: () => ({ content: [{ type: "text", text: "drawn" }], structuredContent: { elements: 2 }, _meta: { viewUUID: "v-1" } }) });
     const proxy = mcpStdioServer({ type: "http", url: fake.url, headers: {} }, { apps: mountFor("draw") })!;
-    expect(JSON.parse(proxy.env!.OMB_REMOTE_MCP_APPS!)).toEqual(mountFor("draw"));
+    expect(JSON.parse(proxy.env!.LUNABOT_REMOTE_MCP_APPS!)).toEqual(mountFor("draw"));
     const { ask } = start(proxy);
     await ask(1, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gemini", version: "1" } });
     expect(fake.initializes).toEqual([{ protocolVersion: "2025-06-18", capabilities: { extensions: { [APP_EXTENSION_KEY]: { mimeTypes: [APP_MIME] } } }, clientInfo: { name: "Luna Bot tool proxy", version: "1" } }]);
@@ -258,10 +258,10 @@ describe("the observer in a process", () => {
     fake = await startFakeHttpMcp({ tools: HTTP_TOOLS, resources: HTTP_RESOURCES });
     const gated = gateServer({ name: "draw", server: { type: "http", url: fake.url, headers: {} }, threadId: "t-both", budget: 0,
       toolScope: { allow: ["mcp:draw:*"] }, apps: mountFor("draw") })!;
-    expect(gated.env).not.toHaveProperty("OMB_GATE_APPS");
-    const upstream = JSON.parse(gated.env.OMB_GATE_UPSTREAM!);
+    expect(gated.env).not.toHaveProperty("LUNABOT_GATE_APPS");
+    const upstream = JSON.parse(gated.env.LUNABOT_GATE_UPSTREAM!);
     expect(upstream.args[0]).toContain("mcp-remote-proxy");
-    expect(JSON.parse(upstream.env.OMB_REMOTE_MCP_APPS)).toEqual(mountFor("draw"));
+    expect(JSON.parse(upstream.env.LUNABOT_REMOTE_MCP_APPS)).toEqual(mountFor("draw"));
     const { ask } = start(gated);
     await ask(1, "initialize", {});
     expect((await ask(2, "tools/list")).result.tools.map((tool: { name: string }) => tool.name)).toEqual(["create_view", "list_notes"]);

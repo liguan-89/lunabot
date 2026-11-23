@@ -6,10 +6,10 @@ import { fileURLToPath } from "node:url";
 import { launchVerificationServer, runControlOmb } from "./control-omb.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const podman = process.env.OMB_VERIFY_PODMAN;
-const machine = process.env.OMB_VERIFY_MACHINE;
+const podman = process.env.LUNABOT_VERIFY_PODMAN;
+const machine = process.env.LUNABOT_VERIFY_MACHINE;
 if (!podman || !isAbsolute(podman) || !machine) {
-  throw new Error("Set OMB_VERIFY_PODMAN to an absolute executable path and OMB_VERIFY_MACHINE explicitly");
+  throw new Error("Set LUNABOT_VERIFY_PODMAN to an absolute executable path and LUNABOT_VERIFY_MACHINE explicitly");
 }
 type Connection = { Name: string; URI: string; Identity: string };
 const connections = JSON.parse(execFileSync(podman, ["system", "connection", "list", "--format", "json"], {
@@ -75,8 +75,8 @@ try {
     assert(computer.args.includes(target), "MCP must target exactly the speaking bot GUI container");
     assert(String(dump.systemPrompt).includes("computer"), "Goal must include computer instructions");
     // Settled capabilities must already be revoked, including the final speaker.
-    const gate = await fetch(computer.env.OMB_CONTROL_URL, {
-      headers: { authorization: `Bearer ${computer.env.OMB_CONTROL_TOKEN}` }, signal: AbortSignal.timeout(5_000),
+    const gate = await fetch(computer.env.LUNABOT_CONTROL_URL, {
+      headers: { authorization: `Bearer ${computer.env.LUNABOT_CONTROL_TOKEN}` }, signal: AbortSignal.timeout(5_000),
     });
     assert.equal(gate.status, 401, "A settled speaker must lose computer authority");
     evidence.push({ id, computerArgs: computer.args, target, status: wait.status });

@@ -7,7 +7,7 @@
 
 产品只剩一个 agent：pi（`server/drivers/pi.ts`），所有内置 AI 提供方都不再是引擎实例，
 唯一提供方是自定义 provider（配置仍在 `cfg.openaiCompat`，通过
-`DEXBOT_PI_CUSTOM_*` 和 pi 的 `models.json` 落地）。Claude/Codex/OpenCode/ACP/Cline/
+`LUNABOT_PI_CUSTOM_*` 和 pi 的 `models.json` 落地）。Claude/Codex/OpenCode/ACP/Cline/
 Grok/Copilot 等驱动已删除。
 
 本阶段完成的收尾：
@@ -82,7 +82,7 @@ Grok/Copilot 等驱动已删除。
    可能已剥掉 error 监听，带 error 的 destroy 偶发炸掉进程，约 50% 复现于并行跑）。
    回归用例在 `companion/test/e2e/sidecar.test.ts`（"resets an upload whose
    harness goes quiet"），`phone-relay.e2e` 也已修复（含两处 rebrand 遗留：health
-   `openmausbot`→`dexbot`、节点 `*.openmausbot.com`→`*.dexai.vip`，2/2 恢复）。
+   `openmausbot`→`dexbot`、节点 `*.lunabot.com`→`*.dexai.vip`，2/2 恢复）。
    server 侧同日修复：`enforceDeadlines` 到期不再裸 destroy（那只会发 RST，手机端
    等不到 "end"），改为先答 `HTTP/1.1 408` 再优雅 FIN——`duplexPair` 半关闭把 EOF
    传到 mux 的 finish 帧，手机栈拿到可报告的超时与 EOF；流未完成的另一半由再次

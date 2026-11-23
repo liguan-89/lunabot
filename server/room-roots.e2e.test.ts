@@ -318,9 +318,9 @@ itHost("R5 queues a member's root on the computer seat at the wait ceiling, FIFO
   };
   const dumpFor = (botId: string): Promise<any> => until((): any => {
     // pi's launch log appends one launch line per process boot; the latest one for this bot's seat carries the gate.
-    return piTurns(dumpFile).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId)).at(-1)?.launch ?? null;
+    return piTurns(dumpFile).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.LUNABOT_CONTROL_URL?.includes(botId)).at(-1)?.launch ?? null;
   }, Boolean);
-  const gate = (sent: any) => createControlClient({ url: sent.mcpConfig.mcpServers.computer.env.OMB_CONTROL_URL, token: sent.mcpConfig.mcpServers.computer.env.OMB_CONTROL_TOKEN }).state(true);
+  const gate = (sent: any) => createControlClient({ url: sent.mcpConfig.mcpServers.computer.env.LUNABOT_CONTROL_URL, token: sent.mcpConfig.mcpServers.computer.env.LUNABOT_CONTROL_TOKEN }).state(true);
   const taskOf = (botId: string, threadId: string) => api("GET", "/api/bots?messages=0").then(({ body }) =>
     body.bots.find((bot: any) => bot.id === botId)?.tasks.find((task: any) => task.threadId === threadId));
   const botOf = (botId: string) => api("GET", "/api/bots?messages=0").then(({ body }) => body.bots.find((bot: any) => bot.id === botId));
@@ -346,10 +346,10 @@ itHost("R5 queues a member's root on the computer seat at the wait ceiling, FIFO
       "--import", pathToFileURL(join(ROOT, "server/testing/desktop-parent.mjs")).href, join(ROOT, "server/index.ts")], {
       cwd: ROOT, env: {
         PATH: dirname(process.execPath), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data, APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
-        TEMP: home, TMP: home, TMPDIR: home, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui, OMB_TEST_VM_STATE: stateFile,
-        OMB_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json"), OMB_COMPUTER_CALL_WAIT_MS: "4000", OMB_COMPUTER_CALL_ACT_WITHIN_MS: "1000",
-        OMB_COMPUTER_WAIT_MAX_MS: String(CEILING_MS),
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data, APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
+        TEMP: home, TMP: home, TMPDIR: home, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: ui, LUNABOT_TEST_VM_STATE: stateFile,
+        LUNABOT_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json"), LUNABOT_COMPUTER_CALL_WAIT_MS: "4000", LUNABOT_COMPUTER_CALL_ACT_WITHIN_MS: "1000",
+        LUNABOT_COMPUTER_WAIT_MAX_MS: String(CEILING_MS),
       }, stdio: ["ignore", "pipe", "pipe"],
     });
     child = proc;
@@ -547,7 +547,7 @@ it("R7 a goal step the watchdog stops after it posted a credential card fails as
   f.open("step");
   await expect.poll(async () => (await messages()).find((message) => message.kind === "goal.run")?.goalRun?.status, { timeout: 30_000 }).not.toBe("working");
   expect(nothingLive(f)).toEqual([]);
-}, { fake: { OMB_TEST_STALL_CLOCK: "1" } }), hostTimeout(60_000));
+}, { fake: { LUNABOT_TEST_STALL_CLOCK: "1" } }), hostTimeout(60_000));
 
 it("R8 runs a chained @mention as a root of its own, with the hop recorded", () => scenario(async (f) => {
   const mira = await f.bot("Mira", "Engineering");

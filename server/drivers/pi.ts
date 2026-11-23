@@ -299,7 +299,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       expiry: ReturnType<typeof setTimeout>;
     }
     const pendingSpawns = new Map<string, PiPendingSpawn>();
-    const configuredPrewarmMs = Number(process.env.OMB_PI_PREWARM_MS);
+    const configuredPrewarmMs = Number(process.env.LUNABOT_PI_PREWARM_MS);
     const PREWARM_EXPIRE_MS = Number.isFinite(configuredPrewarmMs) && configuredPrewarmMs > 0 ? configuredPrewarmMs : 60_000;
 
     const dropPending = (threadId: string, pending: PiPendingSpawn) => {
@@ -380,11 +380,11 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           env: piEnvironment({
             ...piEnv,
             // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
-            ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
-            OMB_THREAD_ID: turn.threadId,
+            ...(turn.botId ? { LUNABOT_BOT_ID: turn.botId } : {}),
+            LUNABOT_THREAD_ID: turn.threadId,
             // The level this child was booted at, so an extension or a fixture can report what a turn ran under.
-            ...(turn.approvalMode ? { OMB_APPROVAL_MODE: turn.approvalMode } : {}),
-            OMB_MCP_CONFIG: join(mcpTempDir, "mcp.json"),
+            ...(turn.approvalMode ? { LUNABOT_APPROVAL_MODE: turn.approvalMode } : {}),
+            LUNABOT_MCP_CONFIG: join(mcpTempDir, "mcp.json"),
           }),
         }, "bot");
         // Kept for the child's whole life: the per-turn listeners are detached

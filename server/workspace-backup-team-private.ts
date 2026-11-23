@@ -31,7 +31,7 @@ const ownBot = (bot: Row): boolean => record(bot.defaultBot) && typeof bot.defau
 
 /** What a Team Cloud's export must leave out; null anywhere else, where nothing is left out. */
 export function teamPrivateThreads(files: { starters: string; groups: string; bots: string }, env: NodeJS.ProcessEnv = process.env): TeamPrivacy | null {
-  if (env.OMB_CLOUD_ROLE !== "team") return null;
+  if (env.LUNABOT_CLOUD_ROLE !== "team") return null;
   const rooms = new Set<string>();
   for (const group of rows(readJson(files.groups))) {
     if (typeof group.threadId === "string") rooms.add(group.threadId);

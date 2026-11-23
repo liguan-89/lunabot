@@ -243,9 +243,9 @@ describe("scoped remote MCP subprocess", () => {
     await build({ entryPoints: ["mcp-gate.ts", "mcp-remote-proxy.ts"].map((name) => join(SERVER_ROOT, name)), outdir: scratch, bundle: true, platform: "node", format: "esm", logLevel: "silent" });
     const gated = gateServer({ name: "notes", server: fixture.spec, budget: 0, threadId: "fixture", toolScope: { allow: ["mcp:notes:read"] } })!;
     gated.args = [join(scratch, "mcp-gate.js")];
-    const upstream = JSON.parse(gated.env.OMB_GATE_UPSTREAM);
+    const upstream = JSON.parse(gated.env.LUNABOT_GATE_UPSTREAM);
     upstream.args = [join(scratch, "mcp-remote-proxy.js")];
-    gated.env.OMB_GATE_UPSTREAM = JSON.stringify(upstream);
+    gated.env.LUNABOT_GATE_UPSTREAM = JSON.stringify(upstream);
     start(gated);
     await initialize();
     send({ id: 2, method: "tools/call", params: { name: "read", arguments: { large: true } } });
@@ -487,7 +487,7 @@ describe("remote MCP tool directory", () => {
     fake = await startFakeHttpMcp({ tools: padded, callResult: () => ({ content: [{ type: "text", text: "r".repeat(5_000) }] }) });
     const gated = gateServer({ name: "whop", server: spec(fake.url), threadId: "directory-fixture", budget: 600,
       toolScope: { allow: selected.map((name) => `mcp:whop:${name}`) }, directory: true });
-    expect(gated!.env.OMB_GATE_DIRECTORY).toBe("1");
+    expect(gated!.env.LUNABOT_GATE_DIRECTORY).toBe("1");
     start(gated!);
     await initialize();
     const listed = (await request("tools/list")).result.tools;
@@ -523,7 +523,7 @@ describe("remote MCP tool directory", () => {
 
   it("reads its settings from a private record when mounts share one environment", async () => {
     fake = await startFakeHttpMcp({ tools: catalog });
-    const record = `OMB_REMOTE_MCP_CONFIG_${"a".repeat(64)}`;
+    const record = `LUNABOT_REMOTE_MCP_CONFIG_${"a".repeat(64)}`;
     const descriptor = mcpStdioServer(spec(fake.url), { sourceEnv: {}, directory: { name: "whop" }, configEnvName: record })!;
     expect(descriptor.args!.slice(1)).toEqual(["--config-env", record]);
     expect(Object.keys(descriptor.env!)).toEqual([record]);
@@ -676,7 +676,7 @@ describe("remote MCP tool directory", () => {
   it("refuses to start on tool directory settings it cannot read", async () => {
     fake = await startFakeHttpMcp({ tools: catalog });
     const descriptor = mcpStdioServer(spec(fake.url))!;
-    start({ ...descriptor, env: { ...descriptor.env, OMB_REMOTE_MCP_DIRECTORY: JSON.stringify({ name: "whop", toolScope: { allow: null } }) } });
+    start({ ...descriptor, env: { ...descriptor.env, LUNABOT_REMOTE_MCP_DIRECTORY: JSON.stringify({ name: "whop", toolScope: { allow: null } }) } });
     const [code] = await once(child!, "close");
     expect(code).toBe(1);
     expect(fake.seenHeaders).toEqual([]);

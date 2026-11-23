@@ -64,7 +64,7 @@ async function passDirect(threadId: string, to: string, message: string) {
 }
 
 beforeAll(async () => {
-  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, cloudEnv: { OMB_TEST_INTERNAL_CAPABILITY_KEY: CLOUD_CAPABILITY_KEY },
+  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, cloudEnv: { LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: CLOUD_CAPABILITY_KEY },
     team: { id: "team-acme-1", name: "Acme", engine: ENGINE } });
   team = fx.team!;
   olive = (await team.pair(OLIVE)).token!;
@@ -89,7 +89,7 @@ it("lists the team's people for the @ menu and mounts message_person on a team's
   expect(people.map((person) => person.name).sort()).toEqual(["Ada", "Bob", "Carl", "Olive"]);
   script(null);
   const dump = await turn(ada, adaThread, "Hello Scout, my salary review is on Monday.");
-  expect(dump.mcpConfig.mcpServers.agents?.env?.OMB_TEAM_PEOPLE).toBe("1");
+  expect(dump.mcpConfig.mcpServers.agents?.env?.LUNABOT_TEAM_PEOPLE).toBe("1");
   expect(dump.systemPrompt).toContain('The people in Acme (the names they chose): "Bob", "Carl", "Olive" (owner).');
   expect(dump.systemPrompt).toContain("message_person");
 }, hostTimeout(90_000));

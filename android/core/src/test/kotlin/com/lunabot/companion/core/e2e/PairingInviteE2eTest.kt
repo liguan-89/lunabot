@@ -21,7 +21,7 @@ class PairingInviteE2eTest {
     private val descriptor = E2eDescriptor(
         k = E2eBase64.encode(transportKey.publicKey),
         h = E2eBase64.encode(hostId),
-        relays = listOf("relay1.openmausbot.com", "relay2.openmausbot.com"),
+        relays = listOf("relay1.lunabot.com", "relay2.lunabot.com"),
     )
 
     private fun link(e2e: String) =
@@ -82,7 +82,7 @@ class PairingInviteE2eTest {
 
     @Test
     fun `the endpoint-change event decodes without a sequence number`() {
-        val raw = """{"kind":"companion.endpoints","serverName":"Mac","endpoints":[{"url":"http://192.168.1.20:8810","kind":"lan","priority":1}],"e2e":{"v":1,"k":"${descriptor.k}","h":"${descriptor.h}","r":["relay1.openmausbot.com"],"routes":"local"}}"""
+        val raw = """{"kind":"companion.endpoints","serverName":"Mac","endpoints":[{"url":"http://192.168.1.20:8810","kind":"lan","priority":1}],"e2e":{"v":1,"k":"${descriptor.k}","h":"${descriptor.h}","r":["relay1.lunabot.com"],"routes":"local"}}"""
         val frame = CompanionJson.decodeFromString<StreamFrame>(raw)
         assertEquals(null, frame.seq)
         val endpoints = frame.frame as Frame.CompanionEndpoints

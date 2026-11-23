@@ -39,7 +39,7 @@ describe("BoxRunner.wrap", () => {
     const runner = new BoxRunner({ bwrap: "/usr/bin/bwrap", bridge, setup, denyEnv: new Set(["COMPOSIO_API_KEY"]) });
     const wrapped = runner.wrap({
       command: "/usr/local/bin/claude", args: ["-p", "--output-format", "stream-json"], cwd: "/data/.lunabot/task-workspaces/b1/t1",
-      env: { PATH: "/usr/bin", HOME: "/data", ANTHROPIC_API_KEY: "k", COMPOSIO_API_KEY: "c", OMB_CLOUD_BOOTSTRAP_SECRET: "s", RANDOM_SECRET: "r" },
+      env: { PATH: "/usr/bin", HOME: "/data", ANTHROPIC_API_KEY: "k", COMPOSIO_API_KEY: "c", LUNABOT_CLOUD_BOOTSTRAP_SECRET: "s", RANDOM_SECRET: "r" },
     });
     expect(wrapped.command).toBe("/usr/bin/bwrap");
     expect(wrapped.args.slice(0, 3)).toEqual(["--ro-bind", "/usr", "/usr"]);
@@ -76,7 +76,7 @@ describe("BoxRunner.wrap", () => {
 
   it("the env-all mutation hands over the whole environment (so the self-check can prove the allow-list)", () => {
     const runner = new BoxRunner({ bwrap: "/usr/bin/bwrap", bridge, setup: { ...setup, mutate: new Set(["env-all" as const]) }, denyEnv: new Set() });
-    expect(runner.wrap({ command: "x", args: [], env: { OMB_CLOUD_BOOTSTRAP_SECRET: "s", EMPTY: undefined } }).env).toMatchObject({ OMB_CLOUD_BOOTSTRAP_SECRET: "s" });
+    expect(runner.wrap({ command: "x", args: [], env: { LUNABOT_CLOUD_BOOTSTRAP_SECRET: "s", EMPTY: undefined } }).env).toMatchObject({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: "s" });
   });
 });
 

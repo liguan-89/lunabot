@@ -39,7 +39,7 @@ export { applyManagedBrokerMessage, brokerAccess, setManagedBrokerAccess, type B
 export { prepareProjectSession, trustedSessionMcpUrl } from "./composio-session.ts";
 
 function toolkitBase() {
-  return (process.env.OMB_COMPOSIO_TOOLKITS_API ?? `${DEFAULT_BACKEND_ORIGIN}/api/v3`).replace(/\/$/, "");
+  return (process.env.LUNABOT_COMPOSIO_TOOLKITS_API ?? `${DEFAULT_BACKEND_ORIGIN}/api/v3`).replace(/\/$/, "");
 }
 
 export interface ConnectedAccountSummary {
@@ -147,23 +147,23 @@ export function configured(cfg: AppConfig): boolean {
   return connectionMode(cfg) !== "unavailable";
 }
 
-/** "unreadable": the desktop shell set OMB_CREDENTIAL_STORE=unavailable, so the UI keeps its list instead of wiping it. */
+/** "unreadable": the desktop shell set LUNABOT_CREDENTIAL_STORE=unavailable, so the UI keeps its list instead of wiping it. */
 export type ConnectorAvailability = "configured" | "unconfigured" | "unreadable";
 
 export function connectorAvailability(
   cfg: AppConfig,
-  storeState: string | undefined = process.env.OMB_CREDENTIAL_STORE,
+  storeState: string | undefined = process.env.LUNABOT_CREDENTIAL_STORE,
 ): ConnectorAvailability {
   if (configured(cfg)) return "configured";
   return storeState === "unavailable" ? "unreadable" : "unconfigured";
 }
 
-/** Only a host the managed service comes with (the desktop app, OMB_DESKTOP_PARENT=1, or a Cloud home) calls a missing one an outage. */
+/** Only a host the managed service comes with (the desktop app, LUNABOT_DESKTOP_PARENT=1, or a Cloud home) calls a missing one an outage. */
 export type ConnectorSetup = "ready" | "needs-setup" | "service-unavailable";
 
 export function connectorSetup(
   cfg: AppConfig,
-  managedHost: boolean = process.env.OMB_DESKTOP_PARENT === "1",
+  managedHost: boolean = process.env.LUNABOT_DESKTOP_PARENT === "1",
 ): ConnectorSetup {
   if (configured(cfg)) return "ready";
   return managedHost && !managedComposioBrokerOff() ? "service-unavailable" : "needs-setup";
@@ -242,13 +242,13 @@ export async function mcpIntegration(
     env: {
       ELECTRON_RUN_AS_NODE: "1",
       // The bridge gets only this boot's loopback token; project and broker credentials never leave the harness.
-      OMB_CONNECTOR_UPSTREAM_URL: `${context.harnessUrl}/api/internal/connectors/mcp`,
-      OMB_CONNECTOR_UPSTREAM_HEADERS: JSON.stringify({ authorization: `Bearer ${context.commsToken}` }),
-      OMB_HARNESS_URL: context.harnessUrl,
+      LUNABOT_CONNECTOR_UPSTREAM_URL: `${context.harnessUrl}/api/internal/connectors/mcp`,
+      LUNABOT_CONNECTOR_UPSTREAM_HEADERS: JSON.stringify({ authorization: `Bearer ${context.commsToken}` }),
+      LUNABOT_HARNESS_URL: context.harnessUrl,
       // A name apart from the agents proxy token: Codex flattens all mounted MCP env into one environment.
-      OMB_CONNECTOR_TOKEN: context.commsToken,
-      OMB_BOT_ID: context.botId,
-      OMB_THREAD_ID: context.threadId,
+      LUNABOT_CONNECTOR_TOKEN: context.commsToken,
+      LUNABOT_BOT_ID: context.botId,
+      LUNABOT_THREAD_ID: context.threadId,
       ...(allowlist?.env ? { [CONNECTOR_ALLOWED_TOOLS_ENV]: allowlist.env } : {}),
       ...(serviceSlugs?.env ? { [CONNECTOR_SERVICE_SLUGS_ENV]: serviceSlugs.env } : {}),
     },

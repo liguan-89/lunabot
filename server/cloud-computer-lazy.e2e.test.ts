@@ -94,10 +94,10 @@ describe("a cloud computer starts only when the bot uses it", () => {
       .filter((message: any) => message.tool?.name?.startsWith("error:"));
   const selectComputer = (sent: { mcpConfig: PiMcpConfig }, surface?: string) => {
     const agents = sent.mcpConfig.mcpServers!.agents!;
-    const upstream = agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!;
+    const upstream = agents.env!.LUNABOT_GATE_UPSTREAM ? JSON.parse(agents.env!.LUNABOT_GATE_UPSTREAM).env : agents.env!;
     return fetch(`${base}/api/internal/computer/select`, {
       method: surface ? "POST" : "GET",
-      headers: { authorization: `Bearer ${upstream.OMB_COMMS_TOKEN}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${upstream.LUNABOT_COMMS_TOKEN}`, "content-type": "application/json" },
       ...(surface ? { body: JSON.stringify({ surface }) } : {}),
     }).then(response => response.json() as Promise<any>);
   };
@@ -120,9 +120,9 @@ describe("a cloud computer starts only when the bot uses it", () => {
    * harness-mcp-proxy sends it for the engine. */
   const computerCall = async (sent: { mcpConfig: PiMcpConfig }, method: string, params: unknown = {}) => {
     const env = sent.mcpConfig.mcpServers!.computer!.env!;
-    const response = await fetch(new URL("/api/internal/computer/mcp", env.OMB_HARNESS_URL), {
+    const response = await fetch(new URL("/api/internal/computer/mcp", env.LUNABOT_HARNESS_URL), {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${env.OMB_MCP_TOKEN_COMPUTER}` },
+      headers: { "content-type": "application/json", authorization: `Bearer ${env.LUNABOT_MCP_TOKEN_COMPUTER}` },
       body: JSON.stringify({ method, params }),
     });
     return { status: response.status, body: await response.json() as any };
@@ -238,12 +238,12 @@ describe("a cloud computer starts only when the bot uses it", () => {
       cwd: ROOT,
       env: {
         PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-        HOME: home, USERPROFILE: home, OMB_DATA_DIR: data, TEMP: home, TMP: home, TMPDIR: home,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+        HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: data, TEMP: home, TMP: home, TMPDIR: home,
+        LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
         // An own key would go here; nothing may use it.
-        OMB_BOAT_API: `${relayBase}/own-key-must-not-be-used`,
-        OMB_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`,
-        OMB_CLOUD_BOAT_TOKEN: INCLUDED,
+        LUNABOT_BOAT_API: `${relayBase}/own-key-must-not-be-used`,
+        LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`,
+        LUNABOT_CLOUD_BOAT_TOKEN: INCLUDED,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -313,7 +313,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
     await idle(bot.id);
     const fourth = await startTurn(bot.id, "after the stop");
     expect(fourth.pid).not.toBe(first.pid);
-    expect(fourth.mcpConfig.mcpServers!.computer!.env!.OMB_MCP_TOKEN_COMPUTER).not.toBe(first.mcpConfig.mcpServers!.computer!.env!.OMB_MCP_TOKEN_COMPUTER);
+    expect(fourth.mcpConfig.mcpServers!.computer!.env!.LUNABOT_MCP_TOKEN_COMPUTER).not.toBe(first.mcpConfig.mcpServers!.computer!.env!.LUNABOT_MCP_TOKEN_COMPUTER);
     expect((await computerCall(first, "tools/list")).status).toBe(401);
     await finish(bot.id);
     await apiOk("DELETE", `/api/bots/${bot.id}`);
@@ -386,9 +386,9 @@ describe("a cloud computer starts only when the bot uses it", () => {
     await apiOk("PATCH", `/api/bots/${bot.id}`, { computer: null });
     const sent = await startTurn(bot.id, "Which computers can you use?");
     const agents = sent.mcpConfig.mcpServers!.agents!;
-    const upstream = agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!;
+    const upstream = agents.env!.LUNABOT_GATE_UPSTREAM ? JSON.parse(agents.env!.LUNABOT_GATE_UPSTREAM).env : agents.env!;
     const selection = await fetch(`${base}/api/internal/computer/select`, {
-      headers: { authorization: `Bearer ${upstream.OMB_COMMS_TOKEN}` },
+      headers: { authorization: `Bearer ${upstream.LUNABOT_COMMS_TOKEN}` },
     }).then(response => response.json() as Promise<any>);
     expect(selection.options.find((option: { surface: string }) => option.surface === "cloud")).toMatchObject({
       available: false, reason: "What Scribe can use doesn't include a desktop. Change what Scribe can use in its settings.",
@@ -431,7 +431,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
     const sender = await cloudBot("Sender", { computer: null });
     const before = { creates: creates(), resumes: resumes() };
     const agents = (await startTurn(sender.id, "Hand the desktop check over")).mcpConfig.mcpServers!.agents!;
-    const token = (agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!).OMB_COMMS_TOKEN;
+    const token = (agents.env!.LUNABOT_GATE_UPSTREAM ? JSON.parse(agents.env!.LUNABOT_GATE_UPSTREAM).env : agents.env!).LUNABOT_COMMS_TOKEN;
     const handed = async (botId: string, call: Record<string, unknown>) => {
       rmSync(dumpFile, { force: true });
       const response = await fetch(`${base}/api/internal/coordinate-bots`, {

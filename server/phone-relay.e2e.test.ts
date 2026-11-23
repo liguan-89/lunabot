@@ -1,4 +1,4 @@
-// The real server with OMB_PHONE_RELAY=1, a fake control plane and the fake relay, driven by the reference phone: the
+// The real server with LUNABOT_PHONE_RELAY=1, a fake control plane and the fake relay, driven by the reference phone: the
 // pairing code the owner makes on the server is redeemed through the relay, and the phone is then a session like any.
 import { spawn, type ChildProcess } from "node:child_process";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
@@ -40,9 +40,9 @@ async function boot(extra: Record<string, string> = {}) {
   writeFileSync(join(dir, "tunnel-account.json"), JSON.stringify({ companionInstallationCredential: credential }), { mode: 0o600 });
   const env = {
     ...verificationServerEnvironment(process.env, dir, port),
-    OMB_PHONE_RELAY: "1",
-    OMB_PHONE_RELAY_URL: relay.url,
-    OMB_CONTROL_PLANE_URL: `http://127.0.0.1:${(controlPlane.address() as AddressInfo).port}`,
+    LUNABOT_PHONE_RELAY: "1",
+    LUNABOT_PHONE_RELAY_URL: relay.url,
+    LUNABOT_CONTROL_PLANE_URL: `http://127.0.0.1:${(controlPlane.address() as AddressInfo).port}`,
     ...extra,
   };
   const log = join(dir, "server.log");
@@ -74,7 +74,7 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => controlPlane.listen(0, "127.0.0.1", resolve));
   // As Docker runs it: its Caddy reaches the server over this socket, which is no tunnel.
-  ({ child, dataDir, logPath, base } = await boot({ OMB_TUNNEL_SOCKET: dockerSocket }));
+  ({ child, dataDir, logPath, base } = await boot({ LUNABOT_TUNNEL_SOCKET: dockerSocket }));
 }, 60_000);
 
 afterAll(async () => {
@@ -140,10 +140,10 @@ describe("serve --relay", () => {
   it("stays off on a server that serves a tunnel or runs on a fleet credential, and asks the control plane nothing", async () => {
     const asked = tokenRequests.length;
     const socket = join(tmpdir(), `omb-relay-e2e-${process.pid}-${Date.now()}.sock`);
-    const tunnel = await boot({ OMB_SERVES_TUNNEL: "1", OMB_TUNNEL_SOCKET: socket });
+    const tunnel = await boot({ LUNABOT_SERVES_TUNNEL: "1", LUNABOT_TUNNEL_SOCKET: socket });
     others.push(tunnel);
     onTestFinished(() => rmSync(socket, { force: true }));
-    const fleet = await boot({ OMB_INSTALLATION_CREDENTIAL: credential });
+    const fleet = await boot({ LUNABOT_INSTALLATION_CREDENTIAL: credential });
     others.push(fleet);
     for (const server of [tunnel, fleet]) {
       const status = await (await fetch(`${server.base}/api/auth/pairing`)).json() as { relay?: { grant: string; reason?: string } };

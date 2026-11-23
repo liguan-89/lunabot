@@ -16,7 +16,7 @@ if (at === -1) throw new Error("--shots <dir> is required");
 const shots = resolve(process.argv[at + 1] ?? "");
 const onlyAt = process.argv.indexOf("--only");
 const only = onlyAt === -1 ? null : new Set((process.argv[onlyAt + 1] ?? "").split(",").filter(Boolean));
-const CHROME = process.env.OMB_CDP_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const CHROME = process.env.LUNABOT_CDP_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const [WIDTH, HEIGHT] = [1280, 800];
 const PHONE = { width: 390, height: 844 };
 const SUBJECT = /^\/api\/(?:bots|threads|groups|routines)\//;

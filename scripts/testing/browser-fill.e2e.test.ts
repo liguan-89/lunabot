@@ -1,7 +1,7 @@
 // A person watching a bot's agent-browser page in a narrow panel, against the pinned agent-browser and its Chrome:
 // the page fills the panel at a desktop's width, a resize waits for the bot's running call, the bot's click lands on
 // the page as it is laid out, its screenshot of the tall page comes as JPEG, and the standard page returns once nobody
-// watches. Runs when agent-browser resolves (tools directory, OMB_AGENT_BROWSER_PATH or PATH) or OMB_UI_E2E=1 asks for
+// watches. Runs when agent-browser resolves (tools directory, LUNABOT_AGENT_BROWSER_PATH or PATH) or LUNABOT_UI_E2E=1 asks for
 // the download; otherwise skipped.
 import { randomBytes } from "node:crypto";
 import { mkdirSync, mkdtempSync } from "node:fs";
@@ -21,10 +21,10 @@ import { SseRecorder } from "../../server/browser/viewers/testing/v1-session.ts"
 import { removeTempDir } from "../../server/testing/cleanup.ts";
 import { ensureUiBrowser, UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
-const forced = process.env.OMB_UI_E2E === "1";
+const forced = process.env.LUNABOT_UI_E2E === "1";
 const enabled = forced || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));
 if (!enabled) {
-  console.log(`skipping browser fill e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, OMB_AGENT_BROWSER_PATH and PATH); set OMB_UI_E2E=1 to install the pinned release`);
+  console.log(`skipping browser fill e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, LUNABOT_AGENT_BROWSER_PATH and PATH); set LUNABOT_UI_E2E=1 to install the pinned release`);
 }
 const run = enabled ? it : it.skip;
 const posix = process.platform !== "win32";

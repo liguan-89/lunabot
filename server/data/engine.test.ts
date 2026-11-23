@@ -1,4 +1,4 @@
-// Loaded the way the packaged app loads it: from a tree outside node_modules named by OMB_DUCKDB_DIR.
+// Loaded the way the packaged app loads it: from a tree outside node_modules named by LUNABOT_DUCKDB_DIR.
 import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -30,7 +30,7 @@ function engine(overrides: Partial<DataEngineOptions> = {}): DataEngine {
   const created = createDataEngine({
     botFolder: (botId) => join(root, "bots", botId),
     dataDir: join(root, "data"),
-    env: { ...process.env, OMB_DUCKDB_DIR: outOfTree, OMB_RESOURCES_PATH: undefined },
+    env: { ...process.env, LUNABOT_DUCKDB_DIR: outOfTree, LUNABOT_RESOURCES_PATH: undefined },
     ...overrides,
   });
   engines.push(created);
@@ -76,12 +76,12 @@ describe("closing", () => {
 });
 
 describe("loading the binding", () => {
-  it("prefers OMB_DUCKDB_DIR, then a staged resources tree, then node_modules", () => {
+  it("prefers LUNABOT_DUCKDB_DIR, then a staged resources tree, then node_modules", () => {
     const staged = join(root, "resources");
     mkdirSync(join(staged, "duckdb"), { recursive: true });
-    expect(duckdbDirectory({ OMB_DUCKDB_DIR: "/x", OMB_RESOURCES_PATH: staged })).toBe("/x");
-    expect(duckdbDirectory({ OMB_RESOURCES_PATH: staged })).toBe(join(staged, "duckdb"));
-    expect(duckdbDirectory({ OMB_RESOURCES_PATH: join(root, "nowhere") })).toBeNull();
+    expect(duckdbDirectory({ LUNABOT_DUCKDB_DIR: "/x", LUNABOT_RESOURCES_PATH: staged })).toBe("/x");
+    expect(duckdbDirectory({ LUNABOT_RESOURCES_PATH: staged })).toBe(join(staged, "duckdb"));
+    expect(duckdbDirectory({ LUNABOT_RESOURCES_PATH: join(root, "nowhere") })).toBeNull();
     expect(duckdbDirectory({})).toBeNull();
   });
 
@@ -97,10 +97,10 @@ describe("loading the binding", () => {
 
   it("names the directory and an action when the binding is missing, in one line, without throwing", async () => {
     const missing = join(root, "no-binding-here");
-    const e = engine({ env: { ...process.env, OMB_DUCKDB_DIR: missing } });
+    const e = engine({ env: { ...process.env, LUNABOT_DUCKDB_DIR: missing } });
     const reason = e.unavailable();
     expect(reason).toContain(missing);
-    expect(reason).toMatch(/OMB_DUCKDB_DIR/);
+    expect(reason).toMatch(/LUNABOT_DUCKDB_DIR/);
     expect(reason).not.toContain("\n");
     const error = await failure(e.forBot("x"));
     expect(error.error.code).toBe("engine_unavailable");
@@ -132,11 +132,11 @@ describe("instance settings", () => {
     expect(settings.autoinstall_known_extensions).toBe("false");
     expect(settings.autoload_known_extensions).toBe("true");
     expect(settings.preserve_insertion_order).toBe("false");
-    expect(instanceSettings("/b", "/d", "v1", { OMB_DUCKDB_MEMORY_LIMIT: "3GB", OMB_DUCKDB_MAX_TEMP_SIZE: "1GB" })).toMatchObject({ memory_limit: "3GB", max_temp_directory_size: "1GB" });
+    expect(instanceSettings("/b", "/d", "v1", { LUNABOT_DUCKDB_MEMORY_LIMIT: "3GB", LUNABOT_DUCKDB_MAX_TEMP_SIZE: "1GB" })).toMatchObject({ memory_limit: "3GB", max_temp_directory_size: "1GB" });
   });
 
   it("applies them to the opened database", async () => {
-    const e = engine({ env: { ...process.env, OMB_DUCKDB_DIR: outOfTree, OMB_DUCKDB_MEMORY_LIMIT: "300MiB" } });
+    const e = engine({ env: { ...process.env, LUNABOT_DUCKDB_DIR: outOfTree, LUNABOT_DUCKDB_MEMORY_LIMIT: "300MiB" } });
     const db = await e.forBot("settings");
     const names = ["memory_limit", "threads", "temp_directory", "extension_directory", "allow_persistent_secrets", "preserve_insertion_order", "autoinstall_known_extensions", "autoload_known_extensions"];
     const result = await db.run(`SELECT ${names.map((name) => `current_setting('${name}')`).join(", ")}`, bot);

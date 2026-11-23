@@ -43,9 +43,9 @@ costs counting against the cap, and the once-a-month notices are covered by
 the unit suites below. (The former API fixture that held admin and chat-only
 event streams open across booked turns was retired with the engine teardown.)
 
-For the same by hand, launch a fixture with `OMB_ENTERPRISE_DIR` pointing at a
+For the same by hand, launch a fixture with `LUNABOT_ENTERPRISE_DIR` pointing at a
 folder whose `server/index.js` exports such a `register()`, and
-`OMB_LICENSE_KEY` set to any value, then use the normal chat-turn commands.
+`LUNABOT_LICENSE_KEY` set to any value, then use the normal chat-turn commands.
 
 ## Unit regressions
 

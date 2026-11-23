@@ -23,9 +23,9 @@ afterEach(() => {
   for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-it("puts synced folders beside the data folder unless OMB_SYNC_ROOT says otherwise", () => {
+it("puts synced folders beside the data folder unless LUNABOT_SYNC_ROOT says otherwise", () => {
   expect(syncRoot("/data/.lunabot", {})).toBe(join("/data", "Synced"));
-  expect(syncRoot("/data/.lunabot", { OMB_SYNC_ROOT: "/mnt/sync" })).toBe("/mnt/sync");
+  expect(syncRoot("/data/.lunabot", { LUNABOT_SYNC_ROOT: "/mnt/sync" })).toBe("/mnt/sync");
 });
 
 it("keeps a lent folder's copy in the data folder, out of bots' reach and the prompt; a copy kept before stays where it is", () => {

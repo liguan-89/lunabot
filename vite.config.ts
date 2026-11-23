@@ -15,7 +15,7 @@ const { version } = JSON.parse(
 ) as { version: string };
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const workers = Number(process.env.OMB_VITEST_WORKERS) || 1;
+const workers = Number(process.env.LUNABOT_VITEST_WORKERS) || 1;
 const page = (file: string) => fileURLToPath(new URL(file, import.meta.url));
 
 /** The window's rail of places loads /rail: rail.html, its own small page, in development as from the server. */
@@ -68,7 +68,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include,
-    // OMB_VITEST_E2E=host (CI's Windows and macOS shards) leaves the e2e files that run on Linux only.
+    // LUNABOT_VITEST_E2E=host (CI's Windows and macOS shards) leaves the e2e files that run on Linux only.
     exclude: [...configDefaults.exclude, ...(hostE2eOnly() ? portableE2eFiles(root, include) : [])],
     setupFiles: ["server/testing/setup.ts", "src/testing/all-locales.ts"],
     // One file at a time by default: the suite spawns fake provider CLIs and real
@@ -93,7 +93,7 @@ export default defineConfig({
     // IPv4 explicitly — a bare ::1 bind makes localhost a coin-flip for
     // clients that resolve IPv4 first
     host: "127.0.0.1",
-    port: Number(process.env.OMB_UI_PORT) || 5199,
+    port: Number(process.env.LUNABOT_UI_PORT) || 5199,
     // packager output lands inside the repo — its HTML files must never
     // trigger dev full-page reloads
     watch: {
@@ -106,10 +106,10 @@ export default defineConfig({
         ws: true,
         timeout: 1_600_000,
         proxyTimeout: 1_600_000,
-        target: `http://127.0.0.1:${process.env.OMB_PORT || process.env.OGB_PORT || 8799}`,
+        target: `http://127.0.0.1:${process.env.LUNABOT_PORT || process.env.OGB_PORT || 8799}`,
       },
       "/.well-known/openmausbot/environment": {
-        target: `http://127.0.0.1:${process.env.OMB_PORT || process.env.OGB_PORT || 8799}`,
+        target: `http://127.0.0.1:${process.env.LUNABOT_PORT || process.env.OGB_PORT || 8799}`,
       },
     },
   },

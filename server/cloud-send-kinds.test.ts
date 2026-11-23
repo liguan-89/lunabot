@@ -181,14 +181,14 @@ describe("My Cloud sets a bot's move-only fields", () => {
   });
 
   it("this computer answers a bot's record with its own name, which a Luna Bot that moves is named for when the place it goes keeps its own (email 1a1c22b6)", async () => {
-    const before = process.env.OMB_ENVIRONMENT_LABEL;
-    process.env.OMB_ENVIRONMENT_LABEL = "Amits-MacBook-Pro.local";
+    const before = process.env.LUNABOT_ENVIRONMENT_LABEL;
+    process.env.LUNABOT_ENVIRONMENT_LABEL = "Amits-MacBook-Pro.local";
     try {
       const answer = await ask(deps("/data"), "GET", `?key=${encodeURIComponent("bot:b1")}`);
       expect(answer).toMatchObject({ status: 200, body: { computer: "Amits-MacBook-Pro" } });
       expect((await ask(deps("/data"), "PUT", "", { v: 1, key: "bot:b1", dataDir: HERE, record: { pinned: true }, computer: "x".repeat(121) })).status).toBe(400);
     } finally {
-      if (before === undefined) delete process.env.OMB_ENVIRONMENT_LABEL; else process.env.OMB_ENVIRONMENT_LABEL = before;
+      if (before === undefined) delete process.env.LUNABOT_ENVIRONMENT_LABEL; else process.env.LUNABOT_ENVIRONMENT_LABEL = before;
     }
   });
 });

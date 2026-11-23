@@ -152,7 +152,7 @@ const RECORD_END = "\u001e";
 /** Run inside the home's container: curl comes with the image, and the home listens on its own loopback only. */
 export const HOME_READS_COMMAND = [
   "sh", "-c",
-  `for path in ${HOME_READS.join(" ")}; do curl -s --max-time 5 "http://127.0.0.1:\${OMB_PORT:-8799}$path" || true; printf '\\n\\036\\n'; done`,
+  `for path in ${HOME_READS.join(" ")}; do curl -s --max-time 5 "http://127.0.0.1:\${LUNABOT_PORT:-8799}$path" || true; printf '\\n\\036\\n'; done`,
 ] as const;
 
 export interface HomeFacts {

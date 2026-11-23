@@ -4620,7 +4620,7 @@
   "settings.domain.copyField": "Copiar {field}",
   "settings.domain.recordHint": "Deja el TTL en su valor predeterminado. Si tu proveedor ya añade tu dominio, escribe solo el subdominio en «Nombre» (o @ para el dominio raíz).",
   "settings.domain.missingIp": "Pide al administrador de tu servidor su dirección IPv4 pública.",
-  "settings.domain.ipAdminHint": "Para Docker, NAT o varias direcciones públicas, define OMB_PUBLIC_IPV4 con la dirección IPv4 donde está alojado tu proxy HTTPS y reinicia {app}. Las direcciones privadas nunca se muestran como valores DNS.",
+  "settings.domain.ipAdminHint": "Para Docker, NAT o varias direcciones públicas, define LUNABOT_PUBLIC_IPV4 con la dirección IPv4 donde está alojado tu proxy HTTPS y reinicia {app}. Las direcciones privadas nunca se muestran como valores DNS.",
   "settings.domain.httpsNeeded": "El administrador debe activar HTTPS en el servidor. Después, comprueba la conexión más abajo.",
   "settings.domain.dns": "En los ajustes DNS de tu dominio, crea un registro A para el nombre elegido que apunte a la dirección IPv4 pública de este servidor. Añade un registro AAAA solo si IPv6 llega a este mismo servidor. Deja tiempo para que el DNS se actualice.",
   "settings.domain.proxy": "El administrador de tu servidor debe configurar HTTPS delante de {app}. Para Caddy en el mismo host o espacio de nombres de red, usa este ejemplo y sustituye bots.example.com por tu dominio:",

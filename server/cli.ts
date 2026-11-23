@@ -134,7 +134,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   }
   const options: CliOptions = {
     command: command === "--help" || command === "-h" ? "help" : command === "--version" || command === "-v" ? "version" : command === "devices" ? "sessions" : (command as CliOptions["command"]),
-    port: Number(env.OMB_PORT || 8799),
+    port: Number(env.LUNABOT_PORT || 8799),
     dataDir: resolveDataDir(env),
     tailscale: false,
     tunnel: false,
@@ -280,7 +280,7 @@ async function api(port: number, path: string, init: { method?: string; body?: s
   return { status: res.status, body };
 }
 
-export const SERVICE_TRUST_HELP = "This server does not treat commands on this computer as its owner (OMB_LOOPBACK_TRUST=service, or a hosted workspace), so it will not pair devices or list sessions for them. Sign in as an admin and use Settings → Remote access, let people sign in with their email (lunabot access add you@example.com), or restart the server with OMB_LOOPBACK_TRUST=owner.";
+export const SERVICE_TRUST_HELP = "This server does not treat commands on this computer as its owner (LUNABOT_LOOPBACK_TRUST=service, or a hosted workspace), so it will not pair devices or list sessions for them. Sign in as an admin and use Settings → Remote access, let people sign in with their email (lunabot access add you@example.com), or restart the server with LUNABOT_LOOPBACK_TRUST=owner.";
 
 function refusedAsService(status: number, body: any): boolean {
   return status === 403 && typeof body?.error === "string" && /shared server|Sign in through the workspace portal/.test(body.error);
@@ -422,7 +422,7 @@ export async function runStatus(options: CliOptions, io: CliIo = defaultIo()): P
   return body ? 0 : 1;
 }
 
-/** Edits the sign-in allow-list in config.json, server live or stopped (read per request); OMB_SIGNIN_EMAILS wins when it names someone. */
+/** Edits the sign-in allow-list in config.json, server live or stopped (read per request); LUNABOT_SIGNIN_EMAILS wins when it names someone. */
 export async function runAccess(options: CliOptions, io: CliIo = defaultIo()): Promise<number> {
   const file = join(options.dataDir, "config.json");
   let raw: Record<string, unknown> = {};
@@ -463,7 +463,7 @@ export async function runAccess(options: CliOptions, io: CliIo = defaultIo()): P
     }
     for (const entry of admins) io.log(`${entry.padEnd(40)} full access`);
     for (const entry of members) io.log(`${entry.padEnd(40)} chat and approvals`);
-    if (overridden) io.log("(OMB_SIGNIN_EMAILS / OMB_SIGNIN_MEMBER_EMAILS are set in the environment and win over this list while the server runs)");
+    if (overridden) io.log("(LUNABOT_SIGNIN_EMAILS / LUNABOT_SIGNIN_MEMBER_EMAILS are set in the environment and win over this list while the server runs)");
     return 0;
   }
   const entry = (options.email ?? "").trim().toLowerCase();
@@ -483,7 +483,7 @@ export async function runAccess(options: CliOptions, io: CliIo = defaultIo()): P
   }
   await write(options.chatOnly ? { admins: without(admins), members: [...without(members), entry] } : { admins: [...without(admins), entry], members: without(members) });
   io.log(`${entry} can sign in at /pair with an emailed code (${options.chatOnly ? "chat and approvals" : "full access"})`);
-  if (overridden) io.log("note: OMB_SIGNIN_EMAILS / OMB_SIGNIN_MEMBER_EMAILS are set in the environment and win over this list while the server runs");
+  if (overridden) io.log("note: LUNABOT_SIGNIN_EMAILS / LUNABOT_SIGNIN_MEMBER_EMAILS are set in the environment and win over this list while the server runs");
   return 0;
 }
 
@@ -495,7 +495,7 @@ export async function runLogin(options: CliOptions, io: CliIo = defaultIo()): Pr
     return 1;
   }
   if (!account.controlPlane) {
-    io.error("OMB_CONTROL_PLANE_URL is set but is not an https address");
+    io.error("LUNABOT_CONTROL_PLANE_URL is set but is not an https address");
     return 1;
   }
   const existing = describeTunnelAccount(account.credentials.read());
@@ -697,24 +697,24 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
   if (!entry.staticDir) log("note: no built UI found next to the server; the API runs but browsers get no page (build with `pnpm exec vite build`)");
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    OMB_DATA_DIR: options.dataDir,
-    OMB_PORT: String(options.port),
-    OMB_WEBHOOK_PORT: process.env.OMB_WEBHOOK_PORT || String(options.port + 1), ...(options.relay ? { OMB_PHONE_RELAY: "1" } : {}),
+    LUNABOT_DATA_DIR: options.dataDir,
+    LUNABOT_PORT: String(options.port),
+    LUNABOT_WEBHOOK_PORT: process.env.LUNABOT_WEBHOOK_PORT || String(options.port + 1), ...(options.relay ? { LUNABOT_PHONE_RELAY: "1" } : {}),
   };
-  if (options.local) delete env.OMB_PUBLIC_URL;
+  if (options.local) delete env.LUNABOT_PUBLIC_URL;
   // The per-launch secret goes over stdin, not the environment that every engine the server starts inherits.
   const serviceTrust = resolveLoopbackTrust({ env, desktopManaged: false, hostedWorkspace: hostedWorkspaceConfigured(env) }).trust === "service";
   const ownerToken = serviceTrust ? randomBytes(32).toString("base64url") : undefined;
-  if (ownerToken) env.OMB_CLI_OWNER_STDIN = "1";
-  else delete env.OMB_CLI_OWNER_STDIN;
-  if (entry.staticDir) env.OMB_STATIC_DIR = entry.staticDir;
-  if (entry.skillsDir && !process.env.OMB_SKILLS_DIR) env.OMB_SKILLS_DIR = entry.skillsDir;
-  if (options.label && !process.env.OMB_ENVIRONMENT_LABEL) env.OMB_ENVIRONMENT_LABEL = options.label;
-  if (plan) Object.assign(env, { OMB_TUNNEL_SOCKET: plan.origin.socketPath, OMB_SERVES_TUNNEL: "1" });
+  if (ownerToken) env.LUNABOT_CLI_OWNER_STDIN = "1";
+  else delete env.LUNABOT_CLI_OWNER_STDIN;
+  if (entry.staticDir) env.LUNABOT_STATIC_DIR = entry.staticDir;
+  if (entry.skillsDir && !process.env.LUNABOT_SKILLS_DIR) env.LUNABOT_SKILLS_DIR = entry.skillsDir;
+  if (options.label && !process.env.LUNABOT_ENVIRONMENT_LABEL) env.LUNABOT_ENVIRONMENT_LABEL = options.label;
+  if (plan) Object.assign(env, { LUNABOT_TUNNEL_SOCKET: plan.origin.socketPath, LUNABOT_SERVES_TUNNEL: "1" });
   const lanRefusal = options.lan ? lanProblem() : null;
   if (lanRefusal) log(lanRefusal);
-  if (options.lan && !lanRefusal) env.OMB_LAN = "1";
-  else delete env.OMB_LAN;
+  if (options.lan && !lanRefusal) env.LUNABOT_LAN = "1";
+  else delete env.LUNABOT_LAN;
   let logPath: string | undefined;
   let logFd: number | undefined;
   let tailscaleShare: { origin: string; stop(): Promise<void> } | null = null;
@@ -740,7 +740,7 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
       log(`tailscale: serving https://${tailscale.dnsName} → http://127.0.0.1:${options.port} (only your tailnet can reach it)`);
     }
     if (startupCancelled) throw new SetupCancelled();
-    if (publicUrl) env.OMB_PUBLIC_URL = publicUrl;
+    if (publicUrl) env.LUNABOT_PUBLIC_URL = publicUrl;
     child = spawn(entry.command, entry.args, { env, stdio: [ownerToken ? "pipe" : "ignore", logFd ?? "inherit", logFd ?? "inherit"] });
     if (ownerToken) {
       child.stdin?.on("error", () => {});
@@ -811,7 +811,7 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
     if (stopping || exited !== null) return await childExit;
     if (options.domain && caddyBinary) {
       try {
-        caddy = await startCaddy({ binary: caddyBinary, dataDir: options.dataDir, domain: options.domain, appPort: options.port, webhookPort: Number(env.OMB_WEBHOOK_PORT), log });
+        caddy = await startCaddy({ binary: caddyBinary, dataDir: options.dataDir, domain: options.domain, appPort: options.port, webhookPort: Number(env.LUNABOT_WEBHOOK_PORT), log });
         log(`https: Caddy serves ${publicUrl} → http://127.0.0.1:${options.port}; it gets the certificate from Let's Encrypt once DNS for ${options.domain} points at this machine`);
         void caddy.exited.then((code) => {
           if (!stopping) log(`caddy: stopped (exit ${code ?? "signal"}); ${publicUrl} is no longer served. Stop and start the server again.`);
@@ -837,7 +837,7 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
     }
     const prefix = cliPrefix();
     const described = await api(options.port, "/.well-known/dexbot/environment").catch(() => null);
-    const route: Route | null = plan ? "tunnel" : options.domain ? "domain" : tailscaleShare ? "tailscale" : publicUrl ? "public-url" : env.OMB_LAN === "1" ? "lan" : null;
+    const route: Route | null = plan ? "tunnel" : options.domain ? "domain" : tailscaleShare ? "tailscale" : publicUrl ? "public-url" : env.LUNABOT_LAN === "1" ? "lan" : null;
     const origin = route === "lan" ? lanUrl(options.port, env) : publicUrl ?? null;
     log("");
     log(`Luna Bot ${serverVersion()} · server "${described?.body?.label ?? options.label ?? "this machine"}"`);
@@ -905,7 +905,7 @@ export async function runOnboardingCommand(
     io.error(`Setup needs an interactive terminal. Run ${cliCommand("setup")} in a terminal, or start unattended with ${cliCommand("serve")}.`);
     return 1;
   }
-  process.env.OMB_DATA_DIR = options.dataDir;
+  process.env.LUNABOT_DATA_DIR = options.dataDir;
   if (options.command !== "setup" && await (flow.running ?? isWorkspaceRunning)(options)) {
     if (options.local || options.tunnel || options.tailscale || options.publicUrl) {
       io.error("This workspace is already running. Stop it before changing local or remote access; the current connection was not changed.");
@@ -969,7 +969,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.error(`${options.error}\nAll commands and options: ${cliCommand("--help")}`);
     return 2;
   }
-  process.env.OMB_DATA_DIR = options.dataDir;
+  process.env.LUNABOT_DATA_DIR = options.dataDir;
   switch (options.command) {
     case "setup":
     case "start":
@@ -999,7 +999,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
           group: options.group,
           node: process.execPath,
           script: process.argv[1] ?? "",
-          licenseKey: options.licenseKey ?? process.env.OMB_LICENSE_KEY,
+          licenseKey: options.licenseKey ?? process.env.LUNABOT_LICENSE_KEY,
         }, { log: (line) => console.log(line) });
         await new Promise<void>((resolveStop) => {
           for (const signal of ["SIGTERM", "SIGINT"] as const) process.once(signal, () => resolveStop());
@@ -1016,7 +1016,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         brandFile: options.brandFile,
         anthropicKeyFile: options.anthropicKeyFile,
         cap: options.cap,
-        licenseKey: options.licenseKey ?? process.env.OMB_LICENSE_KEY,
+        licenseKey: options.licenseKey ?? process.env.LUNABOT_LICENSE_KEY,
         memory: options.memory,
         dryRun: options.dryRun ?? false,
         yes: options.yes ?? false,

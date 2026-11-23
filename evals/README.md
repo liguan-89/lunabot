@@ -9,7 +9,7 @@ The principle: evaluate the harness, never the models. A scripted engine replays
     pnpm eval                     # all scenarios, JSON + markdown report under evals/reports/runs/
     pnpm eval --scenario lazy-computer-claim
     pnpm eval --golden            # tier 2: replay redacted golden threads against committed trace baselines
-    pnpm eval --live              # tier 3: opt-in live-model smoke (skips unless OMB_EVAL_LIVE=1)
+    pnpm eval --live              # tier 3: opt-in live-model smoke (skips unless LUNABOT_EVAL_LIVE=1)
     pnpm typecheck && pnpm exec tsc -p evals/tsconfig.json   # evals are also typechecked standalone
     npx vitest run --config evals/vitest.config.ts   # the same scenarios as a test gate
 
@@ -58,22 +58,22 @@ been right. It runs a real model against the tool list as shipped, one thread pe
 case reached, whether it looked it up first, and what the turn cost. Use it before changing the tool list: the agents tool
 bridge, a shorter description, a removed built-in.
 
-    OMB_EVAL_LIVE=1 OMB_EVAL_LIVE_INSTANCE='{"instanceId":"claude","driver":"claudeAgent","model":"claude-sonnet-5","config":{"cli":"/path/to/claude"},"environmentFrom":["HOME","USER"]}' \
+    LUNABOT_EVAL_LIVE=1 LUNABOT_EVAL_LIVE_INSTANCE='{"instanceId":"claude","driver":"claudeAgent","model":"claude-sonnet-5","config":{"cli":"/path/to/claude"},"environmentFrom":["HOME","USER"]}' \
       node --experimental-strip-types evals/tool-choice/run-tool-choice.ts --only trigger-on-new-mail,what-did-we-decide
 
-Each case is one real turn on your account, so name the cases you need. It is closed unless `OMB_EVAL_LIVE=1`, never runs in CI, and its data folder is temporary. Add `OMB_AGENTS_TOOL_BRIDGE=1 OMB_EVAL_LIVE_PASS_ENV=OMB_AGENTS_TOOL_BRIDGE` to try the bridge. Only the scoring has an offline test.
+Each case is one real turn on your account, so name the cases you need. It is closed unless `LUNABOT_EVAL_LIVE=1`, never runs in CI, and its data folder is temporary. Add `LUNABOT_AGENTS_TOOL_BRIDGE=1 LUNABOT_EVAL_LIVE_PASS_ENV=LUNABOT_AGENTS_TOOL_BRIDGE` to try the bridge. Only the scoring has an offline test.
 
 ## Tier 3 — opt-in live-model smoke
 
 Live-model runs never execute by default: `pnpm eval --live` prints one skip line and exits 0 unless the gate is open.
 
-    OMB_EVAL_LIVE=1 OMB_EVAL_LIVE_CONFIG=/path/to/instance.json pnpm eval --live
+    LUNABOT_EVAL_LIVE=1 LUNABOT_EVAL_LIVE_CONFIG=/path/to/instance.json pnpm eval --live
 
-The instance file (or inline `OMB_EVAL_LIVE_INSTANCE` JSON) uses the product's own instance shape — `instanceId`, `driver`, `model`, optional `config` and `environmentFrom` — so credential variables are copied from the launching shell (`OMB_EVAL_LIVE_PASS_ENV` lists names to forward) and never inlined. Thresholds live in the committed `evals/live/config.json`: minimum suite score, maximum drift from the last recorded baseline, and turn and judge timeouts. Scenarios run cheap real models with state-based waits, deterministic checks (`botReplied`, tool traces), and a versioned judge whose prompt files are pinned by sha256 in a manifest; drift against the gitignored `evals/live/baselines/` baseline fails the suite.
+The instance file (or inline `LUNABOT_EVAL_LIVE_INSTANCE` JSON) uses the product's own instance shape — `instanceId`, `driver`, `model`, optional `config` and `environmentFrom` — so credential variables are copied from the launching shell (`LUNABOT_EVAL_LIVE_PASS_ENV` lists names to forward) and never inlined. Thresholds live in the committed `evals/live/config.json`: minimum suite score, maximum drift from the last recorded baseline, and turn and judge timeouts. Scenarios run cheap real models with state-based waits, deterministic checks (`botReplied`, tool traces), and a versioned judge whose prompt files are pinned by sha256 in a manifest; drift against the gitignored `evals/live/baselines/` baseline fails the suite.
 
 The `live-reply-*` scenarios grade how a bot talks (answer first, one question at most, no machinery named, plain time zones, remember and forget confirmed) with the `reply-habits-v1` judge. For a before/after of a prompt change, run them on a worktree of the base commit with these scenario and judge files copied in and `--update-baseline`, then on the change without it; the drift line compares the two.
 
-    OMB_EVAL_LIVE=1 OMB_EVAL_LIVE_CONFIG=/path/to/instance.json pnpm eval --live --scenario live-reply-research --scenario live-reply-plan-week --scenario live-reply-remember --scenario live-reply-routine --scenario live-reply-dead-link
+    LUNABOT_EVAL_LIVE=1 LUNABOT_EVAL_LIVE_CONFIG=/path/to/instance.json pnpm eval --live --scenario live-reply-research --scenario live-reply-plan-week --scenario live-reply-remember --scenario live-reply-routine --scenario live-reply-dead-link
 
 ## Skill bench (alpha)
 

@@ -143,9 +143,9 @@ async function main() {
   const harness = start("harness", [join(ROOT, "server", "index.ts")], {
     HOME: home,
     USERPROFILE: home,
-    OMB_PORT: String(HARNESS_PORT),
+    LUNABOT_PORT: String(HARNESS_PORT),
     FAKE_CLAUDE_MODE: "happy",
-    OMB_WEBHOOK_PORT: String(base + 1),
+    LUNABOT_WEBHOOK_PORT: String(base + 1),
   });
   await waitFor(`${HARNESS}/api/health`, "harness", harness);
 
@@ -154,12 +154,12 @@ async function main() {
   const sidecar = start("companion", [join(ROOT, "companion", "src", "index.ts")], {
     HOME: home,
     USERPROFILE: home,
-    OMB_PORT: String(HARNESS_PORT),
-    OMB_WEBHOOK_PORT: String(base + 1),
-    OMB_COMPANION_PORT: String(COMPANION_PORT),
-    OMB_CONTROL_PORT: String(CONTROL_PORT),
-    OMB_CONTROL_TOKEN: CONTROL_TOKEN,
-    OMB_COMPANION_DIR: join(home, "companion"),
+    LUNABOT_PORT: String(HARNESS_PORT),
+    LUNABOT_WEBHOOK_PORT: String(base + 1),
+    LUNABOT_COMPANION_PORT: String(COMPANION_PORT),
+    LUNABOT_CONTROL_PORT: String(CONTROL_PORT),
+    LUNABOT_CONTROL_TOKEN: CONTROL_TOKEN,
+    LUNABOT_COMPANION_DIR: join(home, "companion"),
   });
   await waitFor(`${CONTROL}/state`, "companion", sidecar, controlHeaders);
 

@@ -69,7 +69,7 @@ pnpm exec vitest run server/runtime/ server/runtime-coordinator.test.ts server/d
 pnpm exec vitest run server/delta-context.e2e.test.ts -t "restart"
 pnpm exec vitest run server/full-access-workflows.e2e.test.ts server/room-recovery.e2e.test.ts
 pnpm exec vitest run server/room-roots.e2e.test.ts
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
 ```
 
 The long-running Chief suite plays one Chief of Staff job per scenario through
@@ -329,7 +329,7 @@ pnpm exec vitest run server/direct-coordination.e2e.test.ts --maxWorkers=1
 pnpm exec vitest run server/turn-dispatch-guard.test.ts
 pnpm exec vitest run server/comms.test.ts server/thread-aware-bots.e2e.test.ts server/routine-delegation.e2e.test.ts server/steer-queue.test.ts
 pnpm exec vitest run server/runtime-paths.e2e.test.ts server/notification-routing.e2e.test.ts
-OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
+LUNABOT_UI_E2E=1 pnpm exec vitest run scripts/testing/direct-coordination-ui.e2e.test.ts
 ```
 
 The integration suite launches the disposable control fixture and drives the

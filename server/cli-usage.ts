@@ -17,7 +17,7 @@ export const HEADLESS_USAGE = `Drive a running workspace (scripts, CI, other age
   lunabot token create NAME --out FILE [--expires 90d]    a token for CI that ends on its date (token list, token revoke ID)
   lunabot new-bot | new-channel | set-model | edit | mcp
 
-  Server: --url URL (or DEXBOT_URL), --port N (or OMB_PORT), else this computer's.
+  Server: --url URL (or DEXBOT_URL), --port N (or LUNABOT_PORT), else this computer's.
   Token: DEXBOT_TOKEN or --token-file FILE. --json prints one JSON document;
   progress goes to stderr (--quiet drops it). lunabot help VERB for the details.`;
 

@@ -1,4 +1,4 @@
-// "Move to Acme" end to end: the person's My Cloud (OMB_CLOUD_ROLE=home) and their team's Cloud (OMB_CLOUD_ROLE=team)
+// "Move to Acme" end to end: the person's My Cloud (LUNABOT_CLOUD_ROLE=home) and their team's Cloud (LUNABOT_CLOUD_ROLE=team)
 // as real servers (scripts/testing/cloud-send-fixture.ts), the Admin's signed team pairing faked as the fixture fakes it,
 // and main's own wiring (team-move-main.mjs through one-home-main.mjs) moving one bot between them. The engine is the
 // fixture's synthetic pi, so this proves the plumbing, not a model's judgement.

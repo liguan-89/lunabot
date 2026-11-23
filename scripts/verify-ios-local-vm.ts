@@ -157,8 +157,8 @@ else if (args[0] === 'inspect' && (args[1] === 'openmausbot-computer' || args[1]
   Config:{Image:${JSON.stringify(IMAGE)},Labels:args[1] === target?.containerName ? {...labels,${JSON.stringify(TARGET_LABEL)}:target.label} : labels,Env:['VNC_PW=fixture-password']},
   State:{Running:true},Image:imageId,
   Mounts:[{Type:'bind',Source:args[1] === target?.containerName
-    ? require('node:path').join(process.env.OMB_DATA_DIR,'vm-homes',target.label.slice(0,16))
-    : require('node:path').join(process.env.OMB_DATA_DIR,'vm-home'),Destination:'/home/cua/workspace',RW:true}],
+    ? require('node:path').join(process.env.LUNABOT_DATA_DIR,'vm-homes',target.label.slice(0,16))
+    : require('node:path').join(process.env.LUNABOT_DATA_DIR,'vm-home'),Destination:'/home/cua/workspace',RW:true}],
   HostConfig:{PortBindings:{'6901/tcp':[{HostIp:'127.0.0.1',HostPort:'${desktop.port}'}]},
     Privileged:false,Memory:4294967296,MemorySwap:4294967296,NanoCpus:2000000000,PidsLimit:4096,
     CapDrop:['ALL'],CapAdd:['CAP_SETUID','CAP_SETGID'],IpcMode:'private',ShmSize:536870912,
@@ -197,11 +197,11 @@ process.stdout.write(typeof result === 'string' ? result : JSON.stringify(result
       PATH: process.env.PATH,
       HOME: companionHome,
       USERPROFILE: companionHome,
-      OMB_PORT: harnessPort,
-      OMB_COMPANION_PORT: String(companionPort),
-      OMB_CONTROL_PORT: String(controlPort),
-      OMB_CONTROL_TOKEN: controlToken,
-      OMB_COMPANION_DIR: join(companionHome, "companion"),
+      LUNABOT_PORT: harnessPort,
+      LUNABOT_COMPANION_PORT: String(companionPort),
+      LUNABOT_CONTROL_PORT: String(controlPort),
+      LUNABOT_CONTROL_TOKEN: controlToken,
+      LUNABOT_COMPANION_DIR: join(companionHome, "companion"),
     },
     stdio: ["ignore", "inherit", "inherit"],
   });

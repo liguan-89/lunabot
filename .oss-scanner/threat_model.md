@@ -49,7 +49,7 @@ Bots have tools:
      or loopback, and it carries no proxy headers (`X-Forwarded-*`,
      `Forwarded`).
    - A request on an IPC listener, such as the tunnel socket
-     (`OMB_TUNNEL_SOCKET`), is never loopback.
+     (`LUNABOT_TUNNEL_SOCKET`), is never loopback.
    - A browser never gets loopback trust. That covers any request with
      `Sec-Fetch-Site` or `Sec-Fetch-Dest`, and any WebSocket handshake with an
      `Origin`. A web page on the same machine, including a page a bot opened,
@@ -73,7 +73,7 @@ Bots have tools:
      active turn. It is revoked when the turn ends or a newer turn starts.
    - One bot or turn must never act with another's capability.
 4. **`SERVICE_ALLOW` on shared servers.**
-   - On a hosted workspace, or with `OMB_LOOPBACK_TRUST=service`, every bot's
+   - On a hosted workspace, or with `LUNABOT_LOOPBACK_TRUST=service`, every bot's
      shell is a loopback caller.
    - A loopback request without a session may use only the routes in
      `SERVICE_ALLOW`.
@@ -91,7 +91,7 @@ Bots have tools:
      a per-launch token.
    - The managed Cloudflare tunnel reaches only the desktop's own gateway
      on `:8812`, or the server's tunnel socket (`openmausbot serve --tunnel`,
-     `OMB_TUNNEL_SOCKET`). It never reaches the LAN listener on `:8810`.
+     `LUNABOT_TUNNEL_SOCKET`). It never reaches the LAN listener on `:8810`.
      Requests that arrive over the tunnel socket always need a paired session.
 6. **Egress gate for bots' browsers** (`server/browser/egress/`).
    - Every connection a bot's Chrome makes goes through a SOCKS5 gate on
@@ -127,7 +127,7 @@ Bots have tools:
      (`server/cloud-secrets.ts`).
    - Text that crosses a boundary is redacted (`shared/redact.ts`).
 9. **Per-bot workspaces and memory.**
-   - Each bot's workspace (`~/.openmausbot/workspaces/<botId>`) holds its
+   - Each bot's workspace (`~/.lunabot/workspaces/<botId>`) holds its
      memory. Harness tools such as memory, `session_search`, recall and the
      recent-work brief must return only the calling bot's own conversations
      and the rooms it belongs to.
@@ -143,7 +143,7 @@ Bots have tools:
       installation's credential must never read or act on another's
       endpoints, tunnels, Composio sessions or trigger events.
 11. **Webhook ingress.**
-    - Webhooks arrive on a separate listener (`OMB_WEBHOOK_PORT`;
+    - Webhooks arrive on a separate listener (`LUNABOT_WEBHOOK_PORT`;
       `server/webhook-ingress.ts`, `server/webhooks.ts`).
     - Each hook has its own random secret, stored only as a SHA-256 hash and
       compared in constant time.
@@ -315,7 +315,7 @@ The whole suite runs one file at a time and takes over an hour, so run
 focused files. Tests that need a real Electron binary, Chrome or a display
 cannot run here. Some skip themselves; for example
 `server/browser/egress/hostile-pages.e2e.test.ts` skips without
-`OMB_TEST_CHROME`. Every test file gets its own throwaway `HOME`.
+`LUNABOT_TEST_CHROME`. Every test file gets its own throwaway `HOME`.
 
 To reproduce against a live server, run it from source with a throwaway data
 directory. It prints a pairing code:
@@ -326,7 +326,7 @@ node --experimental-strip-types server/openmausbot.ts serve --data-dir "$D" --po
 curl -s http://127.0.0.1:8799/api/health
 ```
 
-Set `OMB_LOOPBACK_TRUST=service` to act as a shared workspace. Send a
+Set `LUNABOT_LOOPBACK_TRUST=service` to act as a shared workspace. Send a
 `Sec-Fetch-Site` header to act as a browser.
 
 ## Reports and patches

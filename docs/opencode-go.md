@@ -36,7 +36,7 @@ saving one reloads the engines, so OpenCode lists that provider's models
 straight away. On a Cloud, a hosted team or an organization's desktop,
 OpenCode still never reads provider keys from the server's own environment;
 the keys saved here are the exception. Names Luna Bot keeps for itself
-(`OPENCODE_*`, `OMB_*`, and the keys it saves for other engines, such as
+(`OPENCODE_*`, `LUNABOT_*`, and the keys it saves for other engines, such as
 `XAI_API_KEY`) are refused, and up to 20 keys can be saved.
 
 Luna Bot does not copy or rewrite `auth.json`. The OpenCode CLI remains the

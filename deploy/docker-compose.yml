@@ -19,9 +19,9 @@ services:
       context: ..
       args:
         ENGINES: ${ENGINES:-}
-    # update.sh pins OMB_IMAGE in .env to the stable version's digest. Without it: `latest`, prebuilt on every main
+    # update.sh pins LUNABOT_IMAGE in .env to the stable version's digest. Without it: `latest`, prebuilt on every main
     # push; `docker compose up --build` builds from source instead.
-    image: ${OMB_IMAGE:-ghcr.io/milind-soni/openmausbot:latest}
+    image: ${LUNABOT_IMAGE:-ghcr.io/milind-soni/openmausbot:latest}
     restart: unless-stopped
     # The bots' browsers (docs/browser-packaging.md, "Process hygiene"): an
     # init collects the browser processes whose parents exit, and Chrome
@@ -32,28 +32,28 @@ services:
       - data:/data
       - edge:/run/openmausbot
     environment:
-      OMB_PORT: "8799"
-      OMB_WEBHOOK_PORT: "8800"
+      LUNABOT_PORT: "8799"
+      LUNABOT_WEBHOOK_PORT: "8800"
       # What Caddy connects to (deploy/Caddyfile).
-      OMB_TUNNEL_SOCKET: /run/openmausbot/http.sock
-      OMB_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
+      LUNABOT_TUNNEL_SOCKET: /run/openmausbot/http.sock
+      LUNABOT_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
       # what the app prints as hook URLs — Caddy passes /hooks/* straight through
-      OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
       # pairing links for remote clients point here (docs/self-hosting.md)
-      OMB_PUBLIC_URL: https://${DOMAIN}
-      OMB_SERVER_NAME: ${OMB_SERVER_NAME:-${DOMAIN}}
+      LUNABOT_PUBLIC_URL: https://${DOMAIN}
+      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-${DOMAIN}}
       # Who may sign in with an emailed code at /pair (docs/self-hosting.md,
       # "Sign in with your email"), and your own mail server for the codes.
       # With no value here, each is passed only when .env sets it. A list
       # .env leaves empty is Settings → Remote access's to manage; one that
       # names someone decides that list, and Settings refuses to change it.
-      OMB_SIGNIN_EMAILS:
-      OMB_SIGNIN_MEMBER_EMAILS:
-      OMB_SIGNIN_SMTP_URL:
-      OMB_SIGNIN_SMTP_FROM:
+      LUNABOT_SIGNIN_EMAILS:
+      LUNABOT_SIGNIN_MEMBER_EMAILS:
+      LUNABOT_SIGNIN_SMTP_URL:
+      LUNABOT_SIGNIN_SMTP_FROM:
       # "1": phones pair by QR through MausBot Relay (docs/phone-relay-server.md). Sign the
       # container in once first: docker compose exec omb openmausbot login --relay
-      OMB_PHONE_RELAY:
+      LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
       interval: 30s

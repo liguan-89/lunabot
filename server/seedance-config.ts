@@ -57,24 +57,24 @@ export function seedanceConfigWithEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): SeedanceConfig {
   const next: SeedanceConfig = { ...cfg };
-  const envProvider = env.OMB_SEEDANCE_PROVIDER?.trim().toLowerCase();
+  const envProvider = env.LUNABOT_SEEDANCE_PROVIDER?.trim().toLowerCase();
   if (envProvider === "ark" || envProvider === "tk1688") next.provider = envProvider;
-  if (env.OMB_SEEDANCE_ARK_ENDPOINT !== undefined) next.arkEndpoint = env.OMB_SEEDANCE_ARK_ENDPOINT.trim();
-  if (env.OMB_SEEDANCE_ARK_KEY !== undefined) next.arkKey = env.OMB_SEEDANCE_ARK_KEY.trim();
-  if (env.OMB_SEEDANCE_ARK_MODEL !== undefined) next.arkModel = env.OMB_SEEDANCE_ARK_MODEL.trim();
-  if (env.OMB_SEEDANCE_TK1688_ENDPOINT !== undefined) next.tk1688Endpoint = env.OMB_SEEDANCE_TK1688_ENDPOINT.trim();
-  if (env.OMB_SEEDANCE_TK1688_KEY !== undefined) next.tk1688Key = env.OMB_SEEDANCE_TK1688_KEY.trim();
-  if (env.OMB_SEEDANCE_TK1688_MODEL !== undefined) next.tk1688Model = env.OMB_SEEDANCE_TK1688_MODEL.trim();
+  if (env.LUNABOT_SEEDANCE_ARK_ENDPOINT !== undefined) next.arkEndpoint = env.LUNABOT_SEEDANCE_ARK_ENDPOINT.trim();
+  if (env.LUNABOT_SEEDANCE_ARK_KEY !== undefined) next.arkKey = env.LUNABOT_SEEDANCE_ARK_KEY.trim();
+  if (env.LUNABOT_SEEDANCE_ARK_MODEL !== undefined) next.arkModel = env.LUNABOT_SEEDANCE_ARK_MODEL.trim();
+  if (env.LUNABOT_SEEDANCE_TK1688_ENDPOINT !== undefined) next.tk1688Endpoint = env.LUNABOT_SEEDANCE_TK1688_ENDPOINT.trim();
+  if (env.LUNABOT_SEEDANCE_TK1688_KEY !== undefined) next.tk1688Key = env.LUNABOT_SEEDANCE_TK1688_KEY.trim();
+  if (env.LUNABOT_SEEDANCE_TK1688_MODEL !== undefined) next.tk1688Model = env.LUNABOT_SEEDANCE_TK1688_MODEL.trim();
   return next;
 }
 
 export function seedanceSettingEnv(cfg: SeedanceConfig | undefined): Array<[value: string | undefined, name: string]> {
   return [
-    [cfg?.provider, "OMB_SEEDANCE_PROVIDER"],
-    [cfg?.arkEndpoint, "OMB_SEEDANCE_ARK_ENDPOINT"],
-    [cfg?.arkModel, "OMB_SEEDANCE_ARK_MODEL"],
-    [cfg?.tk1688Endpoint, "OMB_SEEDANCE_TK1688_ENDPOINT"],
-    [cfg?.tk1688Model, "OMB_SEEDANCE_TK1688_MODEL"],
+    [cfg?.provider, "LUNABOT_SEEDANCE_PROVIDER"],
+    [cfg?.arkEndpoint, "LUNABOT_SEEDANCE_ARK_ENDPOINT"],
+    [cfg?.arkModel, "LUNABOT_SEEDANCE_ARK_MODEL"],
+    [cfg?.tk1688Endpoint, "LUNABOT_SEEDANCE_TK1688_ENDPOINT"],
+    [cfg?.tk1688Model, "LUNABOT_SEEDANCE_TK1688_MODEL"],
   ];
 }
 

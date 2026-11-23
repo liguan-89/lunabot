@@ -3,7 +3,7 @@ import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.
 import { openSse } from "./testing/sse.ts";
 
 it("opening a conversation reads its notifications in the feed and tells every open app, leaving other conversations' alone", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" });
+  const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
   const { url } = fixture.info;
   const stream = await openSse(`${url}/api/events`, { origin: url });
   const api = async (method: string, path: string, body?: unknown, status = 200) => {

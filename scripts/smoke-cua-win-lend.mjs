@@ -39,7 +39,7 @@ async function lendSmoke(label, code) {
   const run = join(work, label.replace(/\W+/g, "-"));
   mkdirSync(run, { recursive: true });
   const report = join(run, "report.json");
-  const env = { ...process.env, OMB_SMOKE_USER_DATA: join(run, "user-data"), OMB_SMOKE_REPORT: report, OMB_SMOKE_CODE: code, OMB_SMOKE_LABEL: label,
+  const env = { ...process.env, LUNABOT_SMOKE_USER_DATA: join(run, "user-data"), LUNABOT_SMOKE_REPORT: report, LUNABOT_SMOKE_CODE: code, LUNABOT_SMOKE_LABEL: label,
     CUA_DRIVER_RS_TELEMETRY_ENABLED: "0" };
   delete env.CUA_DRIVER_PATH;
   delete env.ELECTRON_RUN_AS_NODE;

@@ -163,12 +163,12 @@ describe("the local computer proxy", () => {
     try {
       const { port } = gate.address() as AddressInfo;
       const { bridge, call, reply, initialize } = startBridge(resolve("server/local-computer-proxy.ts"), {
-        OMB_CUA_COMMAND: process.execPath,
-        OMB_CUA_ARGS: JSON.stringify([helper]),
-        OMB_CUA_PLATFORM: platform,
-        OMB_CONTROL_URL: `http://127.0.0.1:${port}/control`,
-        OMB_CONTROL_TOKEN: "fixture-token",
-        OMB_COMPUTER_JOURNAL: "0",
+        LUNABOT_CUA_COMMAND: process.execPath,
+        LUNABOT_CUA_ARGS: JSON.stringify([helper]),
+        LUNABOT_CUA_PLATFORM: platform,
+        LUNABOT_CONTROL_URL: `http://127.0.0.1:${port}/control`,
+        LUNABOT_CONTROL_TOKEN: "fixture-token",
+        LUNABOT_COMPUTER_JOURNAL: "0",
       });
       await initialize(1);
       call(2, tool);

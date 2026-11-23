@@ -25,7 +25,7 @@ posixOnly("a text a paired phone receives reaches the bot and the reply comes ba
       instances: { pi: { driver: "piAgent", config: { cli: join(SERVER_DIR, "testing", "fake-pi-cli.ts"), fullAuto: true } } },
     }));
     let stderr = "";
-    const env: NodeJS.ProcessEnv = { HOME: home, USERPROFILE: home, OMB_PORT: String(port) };
+    const env: NodeJS.ProcessEnv = { HOME: home, USERPROFILE: home, LUNABOT_PORT: String(port) };
     if (process.env.PATH) env.PATH = process.env.PATH;
     const child: ChildProcess = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], { cwd: join(SERVER_DIR, ".."), env, stdio: ["ignore", "pipe", "pipe"] });
     child.stderr!.on("data", (chunk) => { stderr += chunk; });

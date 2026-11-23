@@ -18,7 +18,7 @@ import { DATA_DIR } from "./config.ts";
 export const DEFAULT_BACKEND_ORIGIN = "https://backend.composio.dev";
 
 export function apiBase() {
-  return (process.env.OMB_COMPOSIO_API ?? `${DEFAULT_BACKEND_ORIGIN}/api/v3.1`).replace(/\/$/, "");
+  return (process.env.LUNABOT_COMPOSIO_API ?? `${DEFAULT_BACKEND_ORIGIN}/api/v3.1`).replace(/\/$/, "");
 }
 
 export function projectHeaders(apiKey: string, json = false) {

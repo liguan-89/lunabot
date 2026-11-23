@@ -4974,7 +4974,7 @@
   "settings.domain.copyField": "Kopiuj {field}",
   "settings.domain.recordHint": "Pozostaw TTL z wartością domyślną. Jeśli twój dostawca automatycznie dodaje twoją domenę, wpisz w polu Nazwa tylko subdomenę (lub @ dla domeny głównej).",
   "settings.domain.missingIp": "Poproś administratora serwera o publiczny adres IPv4.",
-  "settings.domain.ipAdminHint": "W przypadku Dockera, NAT lub wielu publicznych adresów ustaw OMB_PUBLIC_IPV4 na adres IPv4, pod którym działa twój proxy HTTPS, i uruchom ponownie {app}. Prywatne adresy nigdy nie są pokazywane jako wartości DNS.",
+  "settings.domain.ipAdminHint": "W przypadku Dockera, NAT lub wielu publicznych adresów ustaw LUNABOT_PUBLIC_IPV4 na adres IPv4, pod którym działa twój proxy HTTPS, i uruchom ponownie {app}. Prywatne adresy nigdy nie są pokazywane jako wartości DNS.",
   "settings.domain.httpsNeeded": "Administrator musi włączyć HTTPS na serwerze. Następnie sprawdź połączenie poniżej.",
   "settings.domain.dns": "W ustawieniach DNS swojej domeny utwórz rekord A dla wybranej nazwy wskazujący na publiczny adres IPv4 tego serwera. Dodaj rekord AAAA tylko wtedy, gdy IPv6 dociera do tego samego serwera. Poczekaj na aktualizację DNS.",
   "settings.domain.proxy": "Administrator serwera musi skonfigurować HTTPS przed {app}. W przypadku Caddy działającego na tym samym hoście lub w tej samej przestrzeni nazw sieci użyj tego przykładu i zastąp bots.example.com swoją domeną:",

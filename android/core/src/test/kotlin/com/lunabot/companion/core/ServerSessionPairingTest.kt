@@ -195,7 +195,7 @@ class ServerSessionPairingTest {
         val descriptor = com.lunabot.companion.core.e2e.E2eDescriptor(
             k = com.lunabot.companion.core.e2e.E2eBase64.encode(transportKey.publicKey),
             h = com.lunabot.companion.core.e2e.E2eBase64.encode(ByteArray(16) { 3 }),
-            relays = listOf("relay1.openmausbot.com"),
+            relays = listOf("relay1.lunabot.com"),
         )
         Fixture(
             saved = saved,
@@ -223,7 +223,7 @@ class ServerSessionPairingTest {
 
     /** The descriptor's own JSON, as `/api/companion/endpoints` writes it. */
     private fun descriptorObject(descriptor: com.lunabot.companion.core.e2e.E2eDescriptor): String =
-        """{"v":1,"k":"${descriptor.k}","h":"${descriptor.h}","r":["relay1.openmausbot.com"]}"""
+        """{"v":1,"k":"${descriptor.k}","h":"${descriptor.h}","r":["relay1.lunabot.com"]}"""
 
     private class Fixture(
         val saved: Connection? = null,

@@ -23,7 +23,7 @@ it("starts the server with the original workspace after an interrupted restore p
     commitPendingWorkspaceRestore(target, staged.id);
     mkdirSync(join(target, ".backups", `safety-${staged.id}`, "data"), { recursive: true });
     const env = verificationServerEnvironment({}, join(source, "home"), Number(new URL(fixture.info.url).port));
-    env.OMB_DATA_DIR = target;
+    env.LUNABOT_DATA_DIR = target;
     mkdirSync(env.TMPDIR!, { recursive: true });
     const log = openSync(fixture.info.logPath, "a", 0o600);
     try {

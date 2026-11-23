@@ -25,8 +25,8 @@ export interface CodingJob {
 export type GitRun = (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>;
 
 const realRun: GitRun = (args, cwd) => new Promise((resolve) => {
-  // OMB_GIT_PATH: sealed test environments keep git off PATH.
-  execFile(process.env.OMB_GIT_PATH || "git", args, { cwd, timeout: 30_000 }, (error, stdout, stderr) => {
+  // LUNABOT_GIT_PATH: sealed test environments keep git off PATH.
+  execFile(process.env.LUNABOT_GIT_PATH || "git", args, { cwd, timeout: 30_000 }, (error, stdout, stderr) => {
     resolve({ code: error ? (typeof error.code === "number" ? error.code : 1) : 0, stdout, stderr });
   });
 });
@@ -61,7 +61,7 @@ export interface PreparedJob {
   base: string;
 }
 
-/** Resolve the repo root, then check out a fresh `dexbot/job-*` branch in a worktree under the data dir. */
+/** Resolve the repo root, then check out a fresh `lunabot/job-*` branch in a worktree under the data dir. */
 export async function prepareCodingJob(repo: string, jobId: string, worktreesDir: string, run: GitRun = realRun): Promise<PreparedJob | { error: string }> {
   const top = await run(["-C", repo, "rev-parse", "--show-toplevel"]);
   if (top.code !== 0 || !top.stdout.trim()) return { error: `${repo} is not a git repository${top.stderr.trim() ? `: ${top.stderr.trim()}` : ""}` };
@@ -70,7 +70,7 @@ export async function prepareCodingJob(repo: string, jobId: string, worktreesDir
   if (base.code !== 0 || !base.stdout.trim()) return { error: `${root} has no commits yet` };
   const worktree = join(worktreesDir, jobId);
   mkdirSync(worktreesDir, { recursive: true });
-  const branch = `dexbot/job-${jobId}`;
+  const branch = `lunabot/job-${jobId}`;
   const added = await run(["-C", root, "worktree", "add", worktree, "-b", branch]);
   if (added.code !== 0) return { error: `git worktree add failed: ${added.stderr.trim() || added.stdout.trim()}` };
   return { repo: root, worktree, branch, base: base.stdout.trim() };

@@ -17,7 +17,7 @@
 #   docker buildx build --platform linux/arm64 -t openmausbot .   # Raspberry Pi 4/5, ARM servers
 #
 # HOME is the /data volume, so engine CLI logins (~/.claude, ~/.codex, ~/.grok,
-# ...) and OpenMausBot's own state (~/.openmausbot) persist across container
+# ...) and OpenMausBot's own state (~/.lunabot) persist across container
 # restarts.
 #
 # A plain `docker run` of either image wants `--init --shm-size=512m`, as the
@@ -68,7 +68,7 @@ RUN pnpm build:server && NODE_OPTIONS=--max-old-space-size=6144 pnpm exec vite b
 # (pnpm-workspace.yaml supportedArchitectures).
 ARG TARGETARCH
 RUN arch=x64 && if [ "$TARGETARCH" = arm64 ]; then arch=arm64; fi \
-  && OMB_DUCKDB_ARCH=$arch node scripts/prepare-duckdb.mjs \
+  && LUNABOT_DUCKDB_ARCH=$arch node scripts/prepare-duckdb.mjs \
   && mv "dist-native/duckdb/linux-$arch" dist-native/duckdb/target && chmod -R go-w dist-native/duckdb
 
 FROM node:24-bookworm-slim AS runtime
@@ -104,9 +104,9 @@ RUN echo "agent-browser ${AGENT_BROWSER_VERSION}, Chrome for Testing ${CHROME_CA
   && npm install -g --cache /tmp/npm-cache agent-browser@${AGENT_BROWSER_VERSION} \
   && if [ "$TARGETARCH" = arm64 ]; then \
        apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/* \
-       && mkdir -p /opt/openmausbot-browser && ln -s /usr/lib/chromium/chromium /opt/openmausbot-browser/chrome; \
-     else HOME=/opt/openmausbot-browser agent-browser install \
-       && ln -s /opt/openmausbot-browser/.agent-browser/browsers/chrome-*/chrome /opt/openmausbot-browser/chrome; \
+       && mkdir -p /opt/lunabot-browser && ln -s /usr/lib/chromium/chromium /opt/lunabot-browser/chrome; \
+     else HOME=/opt/lunabot-browser agent-browser install \
+       && ln -s /opt/lunabot-browser/.agent-browser/browsers/chrome-*/chrome /opt/lunabot-browser/chrome; \
      fi \
   && native="$(readlink -f "$(command -v agent-browser)")" \
   && case "$native" in */agent-browser/bin/agent-browser-linux-*) ;; *) echo "agent-browser is not a native binary: $native" >&2; exit 1;; esac \
@@ -118,13 +118,13 @@ RUN echo "agent-browser ${AGENT_BROWSER_VERSION}, Chrome for Testing ${CHROME_CA
 # which may be an existing mounted volume. Session state still lives in HOME,
 # which each image sets after its last build step, so no build step writes
 # into what a fresh volume starts with.
-#  OMB_DUCKDB_DIR: the DuckDB binding tree the server requires (no node_modules here).
-ENV AGENT_BROWSER_EXECUTABLE_PATH=/opt/openmausbot-browser/chrome \
-    OMB_DUCKDB_DIR=/app/duckdb \
-    OMB_DATA_DIR=/data/.openmausbot \
-    OMB_STATIC_DIR=/app/dist \
-    OMB_PORT=8799 \
-    OMB_WEBHOOK_PORT=8800 \
+#  LUNABOT_DUCKDB_DIR: the DuckDB binding tree the server requires (no node_modules here).
+ENV AGENT_BROWSER_EXECUTABLE_PATH=/opt/lunabot-browser/chrome \
+    LUNABOT_DUCKDB_DIR=/app/duckdb \
+    LUNABOT_DATA_DIR=/data/.lunabot \
+    LUNABOT_STATIC_DIR=/app/dist \
+    LUNABOT_PORT=8799 \
+    LUNABOT_WEBHOOK_PORT=8800 \
     NODE_ENV=production
 WORKDIR /app
 
@@ -197,10 +197,10 @@ RUN export HOME=/tmp/omb-build-home \
  && chmod go-w /app/cloud /app/cloud/Caddyfile /app/cloud/Caddyfile.tls /app/cloud/Caddyfile.tunnel /app/cloud/edge-routes.caddy \
  && caddy version \
  && cloudflared version \
- && OMB_CLOUD_PUBLIC_HOST=validate.fly.dev caddy validate --config /app/cloud/Caddyfile --adapter caddyfile \
- && OMB_CLOUD_PUBLIC_HOST=validate.example.com OMB_CLOUD_EDGE_STORAGE=/tmp/omb-build-home/edge caddy validate --config /app/cloud/Caddyfile.tls --adapter caddyfile \
- && OMB_CLOUD_PUBLIC_HOST=validate.example.com OMB_CLOUD_EDGE_STORAGE=/tmp/omb-build-home/edge OMB_CLOUD_EDGE_CERT_ISSUERS="$(OMB_CLOUD_EDGE_ACME_EMAIL=validate@example.com node --input-type=module -e 'import { edgeCertIssuers } from "/app/dist-server/cloud-home-start.js"; process.stdout.write(edgeCertIssuers(process.env));')" caddy validate --config /app/cloud/Caddyfile.tls --adapter caddyfile \
- && OMB_CLOUD_PUBLIC_HOST=validate.example.com caddy validate --config /app/cloud/Caddyfile.tunnel --adapter caddyfile \
+ && LUNABOT_CLOUD_PUBLIC_HOST=validate.fly.dev caddy validate --config /app/cloud/Caddyfile --adapter caddyfile \
+ && LUNABOT_CLOUD_PUBLIC_HOST=validate.example.com LUNABOT_CLOUD_EDGE_STORAGE=/tmp/omb-build-home/edge caddy validate --config /app/cloud/Caddyfile.tls --adapter caddyfile \
+ && LUNABOT_CLOUD_PUBLIC_HOST=validate.example.com LUNABOT_CLOUD_EDGE_STORAGE=/tmp/omb-build-home/edge LUNABOT_CLOUD_EDGE_CERT_ISSUERS="$(LUNABOT_CLOUD_EDGE_ACME_EMAIL=validate@example.com node --input-type=module -e 'import { edgeCertIssuers } from "/app/dist-server/cloud-home-start.js"; process.stdout.write(edgeCertIssuers(process.env));')" caddy validate --config /app/cloud/Caddyfile.tls --adapter caddyfile \
+ && LUNABOT_CLOUD_PUBLIC_HOST=validate.example.com caddy validate --config /app/cloud/Caddyfile.tunnel --adapter caddyfile \
  && test -f /app/dist-server/cloud-home-start.js \
  && untrusted="$(find /app /usr/local/bin/caddy /usr/local/bin/cloudflared \( ! -user root -o ! -type l -perm /022 \) -print)" \
  && if [ -n "$untrusted" ]; then echo "not root's, or writable by others:" >&2; echo "$untrusted" >&2; exit 1; fi \
@@ -230,7 +230,7 @@ COPY --from=build --chown=maus:maus /src/skills ./skills
 # `docker compose exec omb openmausbot pair`: the commands the CLI prints start the same way.
 RUN printf '#!/bin/sh\nexec node /app/dist-server/lunabot.js "$@"\n' > /usr/local/bin/lunabot && chmod 0755 /usr/local/bin/lunabot
 ENV HOME=/data \
-    OMB_CLI_PREFIX="docker compose exec omb lunabot"
+    LUNABOT_CLI_PREFIX="docker compose exec omb lunabot"
 VOLUME ["/data"]
 USER maus
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

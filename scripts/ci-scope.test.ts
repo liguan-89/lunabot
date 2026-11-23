@@ -411,7 +411,7 @@ describe("the Linux work in the static job, on a Boat VM", () => {
     writeFileSync(eventPath, JSON.stringify({ pull_request: { base: { sha: base }, head: { sha: git("rev-parse", "HEAD") } } }));
     const result = spawnSync(process.execPath, [script], {
       cwd: directory, encoding: "utf8", timeout: 5_000,
-      env: { ...process.env, GITHUB_EVENT_NAME: "pull_request", GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath, OMB_CI_LINUX_IN_STATIC: "true" },
+      env: { ...process.env, GITHUB_EVENT_NAME: "pull_request", GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath, LUNABOT_CI_LINUX_IN_STATIC: "true" },
     });
     expect(result.status, result.stderr).toBe(0);
     expect(outputs(readFileSync(outputPath, "utf8"))).toEqual(moveLinuxIntoStatic(ciOutputs(selectCiScope(["src/App.tsx"]), LINUX)));

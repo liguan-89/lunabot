@@ -160,23 +160,23 @@ describe("container images", () => {
     expect(last(home, "EXPOSE")).toBe("8080");
     expect(last(home, "CMD")).toBe('["node", "/app/dist-server/cloud-home-start.js"]');
     expect(last(home, "HEALTHCHECK")).toContain("http://127.0.0.1:8080/api/health");
-    expect(last(chain("runtime"), "ENV")).toMatch(/^AGENT_BROWSER_EXECUTABLE_PATH=\/opt\/openmausbot-browser\/chrome .*NODE_ENV=production$/);
+    expect(last(chain("runtime"), "ENV")).toMatch(/^AGENT_BROWSER_EXECUTABLE_PATH=\/opt\/lunabot-browser\/chrome .*NODE_ENV=production$/);
   });
 
   it("hands the Cloud home's server every setting the image's ENV gives it", () => {
     // The root supervisor passes the server an allow-listed environment; a setting the image sets but the list drops is
-    // lost silently (OMB_DUCKDB_DIR was: the server then found neither the 1Password SDK nor DuckDB in /app/duckdb).
+    // lost silently (LUNABOT_DUCKDB_DIR was: the server then found neither the 1Password SDK nor DuckDB in /app/duckdb).
     const image: Record<string, string> = {};
     for (const step of chain("cloud-home").filter(step => step.op === "ENV")) {
       for (const [, name, value] of step.args.matchAll(/(?:^|\s)([A-Z][A-Z0-9_]*)=(\S*)/g)) image[name] = value;
     }
-    expect(image.OMB_DUCKDB_DIR).toBe("/app/duckdb");
-    const contract = { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_PUBLIC_URL: "https://omb-u-1a2b3c4d5e6f.fly.dev", OMB_CLOUD_BOOTSTRAP_SECRET: "S".repeat(43) };
+    expect(image.LUNABOT_DUCKDB_DIR).toBe("/app/duckdb");
+    const contract = { LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      LUNABOT_PUBLIC_URL: "https://omb-u-1a2b3c4d5e6f.fly.dev", LUNABOT_CLOUD_BOOTSTRAP_SECRET: "S".repeat(43) };
     const { server } = cloudHomeChildEnvironments(cloudHomeConfiguration(contract)!, { ...image, ...contract }, "/data");
     // The launcher sets HOME, the ports and the data folder itself; everything else must come through unchanged.
     for (const name of Object.keys(image)) expect(server, name).toHaveProperty(name);
-    expect(server.OMB_DUCKDB_DIR).toBe("/app/duckdb");
+    expect(server.LUNABOT_DUCKDB_DIR).toBe("/app/duckdb");
   });
 
   it("never runs a build step with HOME on the volume, so nothing lands in what a fresh volume starts with", () => {
@@ -231,7 +231,7 @@ describe("container images", () => {
         temporaryDirectories.push(root);
         mkdirSync(join(root, "scripts"));
         // A stand-in for the staging script: it stages the CPU it is told to, and records which.
-        writeFileSync(join(root, "scripts/prepare-duckdb.mjs"), 'import { mkdirSync, writeFileSync } from "node:fs"; const d = `dist-native/duckdb/linux-${process.env.OMB_DUCKDB_ARCH}`; mkdirSync(d, { recursive: true }); writeFileSync(`${d}/arch`, process.env.OMB_DUCKDB_ARCH);');
+        writeFileSync(join(root, "scripts/prepare-duckdb.mjs"), 'import { mkdirSync, writeFileSync } from "node:fs"; const d = `dist-native/duckdb/linux-${process.env.LUNABOT_DUCKDB_ARCH}`; mkdirSync(d, { recursive: true }); writeFileSync(`${d}/arch`, process.env.LUNABOT_DUCKDB_ARCH);');
         const result = spawnSync("sh", ["-c", stage.args], { cwd: root, env: { PATH: process.env.PATH, TARGETARCH: targetArch }, encoding: "utf8" });
         expect(result.status, `${targetArch}: ${result.stderr}`).toBe(0);
         expect(readdirSync(join(root, "dist-native/duckdb")), targetArch).toEqual(["target"]);
@@ -241,7 +241,7 @@ describe("container images", () => {
     // Chrome for Testing has no Linux ARM64 build: an arm64 image takes Debian's Chromium at the same path.
     const runtime = chain("runtime");
     expect(runtime.slice(0, runtime.indexOf(browserRun()))).toContainEqual({ op: "ARG", args: "TARGETARCH" });
-    expect(browserRun().args).toMatch(/if \[ "\$TARGETARCH" = arm64 \]; then .*apt-get install -y --no-install-recommends chromium .*ln -s \/usr\/lib\/chromium\/chromium \/opt\/openmausbot-browser\/chrome; +else .*agent-browser install .*; +fi/);
+    expect(browserRun().args).toMatch(/if \[ "\$TARGETARCH" = arm64 \]; then .*apt-get install -y --no-install-recommends chromium .*ln -s \/usr\/lib\/chromium\/chromium \/opt\/lunabot-browser\/chrome; +else .*agent-browser install .*; +fi/);
     // Published for both CPUs; the Cloud home (Fly, amd64) stays as it is.
     const steps = workflow.jobs.publish.steps as { id?: string; uses?: string; with?: Record<string, string> }[];
     const server = steps.findIndex(step => step.uses?.startsWith("docker/build-push-action@") && step.id !== "home");
@@ -339,15 +339,15 @@ describe("container images", () => {
     for (const [file, caddyfile] of [["../compose.yaml", "../deploy/local/Caddyfile"], ["../deploy/docker-compose.yml", "../deploy/Caddyfile"]]) {
       const { services, volumes } = parse(readFileSync(new URL(file, import.meta.url), "utf8"));
       expect(services.caddy.network_mode, file).toBeUndefined();
-      // `OMB_PHONE_RELAY=1` in .env reaches the server, never Caddy.
-      expect(Object.keys(services.omb.environment), file).toContain("OMB_PHONE_RELAY");
-      expect(Object.keys(services.caddy.environment ?? {}), file).not.toContain("OMB_PHONE_RELAY");
+      // `LUNABOT_PHONE_RELAY=1` in .env reaches the server, never Caddy.
+      expect(Object.keys(services.omb.environment), file).toContain("LUNABOT_PHONE_RELAY");
+      expect(Object.keys(services.caddy.environment ?? {}), file).not.toContain("LUNABOT_PHONE_RELAY");
       expect(services.omb.ports, file).toBeUndefined();
       expect(services.caddy.ports.length, file).toBeGreaterThan(0);
       expect(services.omb.volumes, file).toContain("edge:/run/openmausbot");
       expect(services.caddy.volumes, file).toContain("edge:/run/openmausbot");
       expect(volumes.edge.driver_opts.type, file).toBe("tmpfs");
-      const { OMB_TUNNEL_SOCKET: api, OMB_WEBHOOK_SOCKET: hooks } = services.omb.environment;
+      const { LUNABOT_TUNNEL_SOCKET: api, LUNABOT_WEBHOOK_SOCKET: hooks } = services.omb.environment;
       expect([api, hooks], file).toEqual(["/run/openmausbot/http.sock", "/run/openmausbot/hooks.sock"]);
       const proxied = [...readFileSync(new URL(caddyfile, import.meta.url), "utf8").matchAll(/reverse_proxy (\S+)/g)].map((m) => m[1]);
       expect(proxied, caddyfile).toEqual([`unix/${hooks}`, `unix/${api}`]);

@@ -27,8 +27,8 @@ The bundle output, relative to the repository root, is
 
 Gradle reads signing material from the environment or the gitignored
 `android/keystore.properties`; environment values take precedence. The required
-settings are `OPENMAUSBOT_KEYSTORE_FILE`, `OPENMAUSBOT_KEYSTORE_PASSWORD`, and
-`OPENMAUSBOT_KEY_ALIAS`. `OPENMAUSBOT_KEY_PASSWORD` is optional and defaults to
+settings are `LUNABOT_KEYSTORE_FILE`, `LUNABOT_KEYSTORE_PASSWORD`, and
+`LUNABOT_KEY_ALIAS`. `LUNABOT_KEY_PASSWORD` is optional and defaults to
 the store password. File equivalents are `storeFile`, `storePassword`,
 `keyAlias`, and `keyPassword`.
 

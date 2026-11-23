@@ -51,7 +51,7 @@ interface ChatRequest { messages: Array<{ role: string; content: unknown; tool_c
 
 const cleanups: Array<() => Promise<void>> = [];
 // A shell that already exports the switch must not turn the floor on here.
-beforeEach(() => { delete process.env.OMB_SAFETY_FLOOR; });
+beforeEach(() => { delete process.env.LUNABOT_SAFETY_FLOOR; });
 afterEach(async () => {
   bindSafetyFloor(() => ({}));
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();

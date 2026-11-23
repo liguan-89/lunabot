@@ -55,12 +55,12 @@ async function boot(asCloud: boolean) {
   child = spawn(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
     cwd: join(SERVER_DIR, ".."),
     env: {
-      PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      PATH: process.env.PATH, HOME: home, USERPROFILE: home, LUNABOT_DATA_DIR: dataDir, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1),
       // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
       // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
-      OMB_BOT_BOX: "0",
-      ...(asCloud ? { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE_ID, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-        OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}` } : {}),
+      LUNABOT_BOT_BOX: "0",
+      ...(asCloud ? { LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: MACHINE_ID, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+        LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}` } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -84,7 +84,7 @@ async function ownersDevice(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   return (await api("POST", "/api/auth/pair", { body: { code: granted.code } })).body.token;
@@ -98,11 +98,11 @@ const release = async (botId: string, token?: string) => {
   rmSync(join(home, "release"), { force: true });
 };
 
-/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in LUNABOT_GATE_UPSTREAM instead. */
 const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
   const env = agents?.env ?? {};
-  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
-  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+  if (env.LUNABOT_BOT_ID || env.LUNABOT_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.LUNABOT_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
 };
 
 /** The first turn at or after `before` that `wanted` accepts. */
@@ -119,7 +119,7 @@ const turnAfter = async (before: number, wanted: (turn: PiTurn) => boolean, _wha
 async function agentToolsFor(start: () => Promise<void>, botId: string) {
   const before = piTurns(dump()).length;
   await start();
-  const turn = await turnAfter(before, (candidate) => agentsEnv(candidate.launch?.mcpConfig?.mcpServers?.agents).OMB_BOT_ID === botId, `a turn of ${botId}`);
+  const turn = await turnAfter(before, (candidate) => agentsEnv(candidate.launch?.mcpConfig?.mcpServers?.agents).LUNABOT_BOT_ID === botId, `a turn of ${botId}`);
   const agents = turn.launch!.mcpConfig!.mcpServers!.agents! as { command: string; args: string[]; env: Record<string, string> };
   const proxy = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);

@@ -15,8 +15,8 @@ describe("relay host allow-list", () => {
     "cloud.dexai.vip",
     "relay1.dexai.vip",
     "relay99.dexai.vip",
-    "relay1.openmausbot.com",
-    "relay12.openmausbot.com",
+    "relay1.lunabot.com",
+    "relay12.lunabot.com",
   ])("accepts %s", (host) => {
     expect(parseDescriptor(descriptor([host])).outcome).toBe("ok");
   });
@@ -24,7 +24,7 @@ describe("relay host allow-list", () => {
   it.each([
     "relay0.dexai.vip",
     "cloud.dexai.vip.evil.com",
-    "relay1.openmausbot.com.evil.com",
+    "relay1.lunabot.com.evil.com",
     "relay1.lunabot.com.evil.com",
     // The domain is parked for sale, so a node under it belongs to whoever buys it, not to this fleet.
     "relay1.lunabot.com",

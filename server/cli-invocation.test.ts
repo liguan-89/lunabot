@@ -7,7 +7,7 @@ describe("cliPrefix", () => {
     expect(cliPrefix({}, "/home/me/.npm/_npx/1a2b/node_modules/openmausbot/dist-server/lunabot.js")).toBe("npx openmausbot");
     expect(cliPrefix({ npm_command: "exec" }, "/repo/node_modules/vitest/vitest.mjs"), "another tool run by npx").toBe("lunabot");
     expect(cliPrefix({ npm_lifecycle_event: "omb" }, "/repo/server/lunabot.ts")).toBe("pnpm omb");
-    expect(cliPrefix({ OMB_CLI_PREFIX: "docker compose exec omb openmausbot" }, "/app/dist-server/lunabot.js")).toBe("docker compose exec omb openmausbot");
+    expect(cliPrefix({ LUNABOT_CLI_PREFIX: "docker compose exec omb openmausbot" }, "/app/dist-server/lunabot.js")).toBe("docker compose exec omb openmausbot");
     expect(cliPrefix({}, "/usr/lib/node_modules/openmausbot/dist-server/lunabot.js")).toBe("openmausbot");
     expect(cliCommand("pair", {}, "C:\\Users\\me\\AppData\\Local\\npm-cache\\_npx\\9\\node_modules\\openmausbot\\x.js")).toBe("npx openmausbot pair");
     // The npm package's other bin: its shell sees its own name, not the current one.

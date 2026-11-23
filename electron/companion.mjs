@@ -209,19 +209,19 @@ async function start({ resourcesPath, harnessPort, mutationToken, hostedUrl = nu
 
   // Never inherit an endpoint from the launch environment: main passes one only after verifying the connector.
   const childEnvironment = { ...process.env };
-  delete childEnvironment.OMB_COMPANION_HOSTED_URL;
-  delete childEnvironment.OMB_COMPANION_INTERNAL_ORIGIN;
-  delete childEnvironment.OMB_PHONE_SECRET_PUBLIC_KEY;
-  delete childEnvironment.OMB_COMPANION_TAILNET_NAME;
-  childEnvironment.OMB_APP_VERSION = app.getVersion();
+  delete childEnvironment.LUNABOT_COMPANION_HOSTED_URL;
+  delete childEnvironment.LUNABOT_COMPANION_INTERNAL_ORIGIN;
+  delete childEnvironment.LUNABOT_PHONE_SECRET_PUBLIC_KEY;
+  delete childEnvironment.LUNABOT_COMPANION_TAILNET_NAME;
+  childEnvironment.LUNABOT_APP_VERSION = app.getVersion();
   const settings = companionSettings();
   const direct = directRoutesOn(settings);
-  childEnvironment.OMB_COMPANION_ROUTES = Object.keys(direct).filter((route) => direct[route]).join(",");
-  if (direct.tailscale && settings.routes.tailscale.name) childEnvironment.OMB_COMPANION_TAILNET_NAME = settings.routes.tailscale.name;
-  if (hostedUrl) childEnvironment.OMB_COMPANION_HOSTED_URL = hostedUrl;
-  childEnvironment.OMB_COMPANION_INTERNAL_ORIGIN = allocatedOrigin.socketPath;
+  childEnvironment.LUNABOT_COMPANION_ROUTES = Object.keys(direct).filter((route) => direct[route]).join(",");
+  if (direct.tailscale && settings.routes.tailscale.name) childEnvironment.LUNABOT_COMPANION_TAILNET_NAME = settings.routes.tailscale.name;
+  if (hostedUrl) childEnvironment.LUNABOT_COMPANION_HOSTED_URL = hostedUrl;
+  childEnvironment.LUNABOT_COMPANION_INTERNAL_ORIGIN = allocatedOrigin.socketPath;
   if (/^[A-Za-z0-9_-]{87}$/.test(String(secretPublicKey ?? ""))) {
-    childEnvironment.OMB_PHONE_SECRET_PUBLIC_KEY = secretPublicKey;
+    childEnvironment.LUNABOT_PHONE_SECRET_PUBLIC_KEY = secretPublicKey;
   }
 
   controlToken = randomBytes(32).toString("base64url");
@@ -230,9 +230,9 @@ async function start({ resourcesPath, harnessPort, mutationToken, hostedUrl = nu
     child = utilityProcess.fork(resolved.entry, [], {
       env: {
         ...childEnvironment,
-        OMB_PORT: String(harnessPort),
-        OMB_COMPANION_PORT: String(COMPANION_PORT),
-        OMB_CONTROL_PORT: String(CONTROL_PORT),
+        LUNABOT_PORT: String(harnessPort),
+        LUNABOT_COMPANION_PORT: String(COMPANION_PORT),
+        LUNABOT_CONTROL_PORT: String(CONTROL_PORT),
       },
       execArgv: resolved.execArgv,
       stdio: ["ignore", "pipe", "pipe"],

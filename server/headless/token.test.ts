@@ -115,6 +115,6 @@ describe("token", () => {
   it("passes on the server's own limit on a token's term", async () => {
     const made = await run(["token", "create", "CI", "--expires", "3000d", "--out", join(dir, "long-token")]);
     expect(made.code).toBe(1);
-    expect(made.err[0]).toContain("OMB_SESSION_MAX_DAYS");
+    expect(made.err[0]).toContain("LUNABOT_SESSION_MAX_DAYS");
   });
 });

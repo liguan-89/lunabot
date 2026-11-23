@@ -7,12 +7,12 @@ import { launchVerificationServer } from "./control-omb.ts";
 import { ensureUiBrowser } from "./testing/control-omb-ui.ts";
 import { fixtureApi, mountPreview, parkUntilSignal } from "./testing/preview-fixture.ts";
 
-const cli = process.env.OMB_VERIFY_CODEX_CLI;
-const auth = process.env.OMB_VERIFY_CODEX_AUTH;
-const model = process.env.OMB_VERIFY_CODEX_MODEL;
-if (!cli || !auth || !model) throw new Error("Supply OMB_VERIFY_CODEX_CLI, OMB_VERIFY_CODEX_AUTH and OMB_VERIFY_CODEX_MODEL explicitly. This test uses real model quota.");
+const cli = process.env.LUNABOT_VERIFY_CODEX_CLI;
+const auth = process.env.LUNABOT_VERIFY_CODEX_AUTH;
+const model = process.env.LUNABOT_VERIFY_CODEX_MODEL;
+if (!cli || !auth || !model) throw new Error("Supply LUNABOT_VERIFY_CODEX_CLI, LUNABOT_VERIFY_CODEX_AUTH and LUNABOT_VERIFY_CODEX_MODEL explicitly. This test uses real model quota.");
 const browser = await ensureUiBrowser(process.env, console.error);
-const fixture = await launchVerificationServer({ OMB_BROWSER_TIMING: process.env.OMB_BROWSER_TIMING }, undefined, undefined,
+const fixture = await launchVerificationServer({ LUNABOT_BROWSER_TIMING: process.env.LUNABOT_BROWSER_TIMING }, undefined, undefined,
   { binaryPath: browser.binary, executablePath: browser.chrome ?? "" }, undefined, undefined, ["codex"]);
 let preview: Awaited<ReturnType<typeof mountPreview>> | undefined;
 try {

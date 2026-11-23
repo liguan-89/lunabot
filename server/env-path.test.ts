@@ -22,7 +22,7 @@ const posixIt = it.skipIf(process.platform === "win32");
 
 describe("augmentedPath", () => {
   afterEach(() => {
-    delete process.env.OMB_EXTRA_PATH;
+    delete process.env.LUNABOT_EXTRA_PATH;
     resetPathCacheForTests();
   });
 
@@ -30,12 +30,12 @@ describe("augmentedPath", () => {
     resetPathCacheForTests();
     const path = augmentedPath();
     const firstExisting = (process.env.PATH ?? "").split(delimiter).filter(Boolean)[0];
-    // OMB_EXTRA_PATH is unset here, so the inherited PATH leads
+    // LUNABOT_EXTRA_PATH is unset here, so the inherited PATH leads
     expect(path.split(delimiter)[0]).toBe(firstExisting);
   });
 
-  it("prepends OMB_EXTRA_PATH and dedupes", () => {
-    process.env.OMB_EXTRA_PATH = ["/tmp/omb-extra", "/tmp/omb-extra"].join(delimiter);
+  it("prepends LUNABOT_EXTRA_PATH and dedupes", () => {
+    process.env.LUNABOT_EXTRA_PATH = ["/tmp/omb-extra", "/tmp/omb-extra"].join(delimiter);
     resetPathCacheForTests();
     const parts = augmentedPath().split(delimiter);
     expect(parts[0]).toBe("/tmp/omb-extra");
@@ -135,13 +135,13 @@ describe("augmentedPath", () => {
       delete process.env.VITEST;
 
       // Control: unsealed, the product scans both dirs; that is the leak.
-      delete process.env.OMB_TEST_SEALED_PATH;
+      delete process.env.LUNABOT_TEST_SEALED_PATH;
       resetPathCacheForTests();
       expect(augmentedPath().split(delimiter)).toEqual(expect.arrayContaining(machineDirs));
       await vi.waitFor(() => expect(augmentedPath().split(delimiter)).toContain(rcOnlyBin));
       rmSync(ran);
 
-      process.env.OMB_TEST_SEALED_PATH = "1";
+      process.env.LUNABOT_TEST_SEALED_PATH = "1";
       resetPathCacheForTests();
       const sealed = augmentedPath().split(delimiter);
       for (const dir of machineDirs) expect(sealed).not.toContain(dir);
@@ -151,7 +151,7 @@ describe("augmentedPath", () => {
       expect(existsSync(ran)).toBe(false);
       expect(augmentedPath().split(delimiter)).not.toContain(rcOnlyBin);
     } finally {
-      delete process.env.OMB_TEST_SEALED_PATH;
+      delete process.env.LUNABOT_TEST_SEALED_PATH;
       restore("PATH");
       restore("SHELL");
       restore("VITEST");
@@ -402,7 +402,7 @@ describe("resolveCli", () => {
 winOnly("resolveCli (Windows)", () => {
   let dir: string;
   const onPath = () => {
-    process.env.OMB_EXTRA_PATH = dir;
+    process.env.LUNABOT_EXTRA_PATH = dir;
     resetPathCacheForTests();
   };
   const shimWith = (name: string, body: string, target: string, targetBody: string) => {
@@ -415,7 +415,7 @@ winOnly("resolveCli (Windows)", () => {
     dir = mkdtempSync(join(tmpdir(), "omb-shim-"));
   });
   afterEach(async () => {
-    delete process.env.OMB_EXTRA_PATH;
+    delete process.env.LUNABOT_EXTRA_PATH;
     resetPathCacheForTests();
     // These tests spawn the shims out of this directory; a just-exited one can
     // still be holding it for a beat after the call returns.

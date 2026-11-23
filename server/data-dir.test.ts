@@ -48,12 +48,12 @@ describe("resolveDataDir", () => {
     expect(readFileSync(join(dir, LEGACY_DATA_DIR_NAME, "old.txt"), "utf8")).toBe("old");
   });
 
-  it("uses OMB_DATA_DIR as given, and never migrates around it", () => {
+  it("uses LUNABOT_DATA_DIR as given, and never migrates around it", () => {
     const dir = home();
     mkdirSync(join(dir, LEGACY_DATA_DIR_NAME));
     const custom = join(dir, "elsewhere");
 
-    expect(resolveDataDir({ OMB_DATA_DIR: custom }, { home: dir })).toBe(custom);
+    expect(resolveDataDir({ LUNABOT_DATA_DIR: custom }, { home: dir })).toBe(custom);
     expect(existsSync(join(dir, LEGACY_DATA_DIR_NAME))).toBe(true);
     expect(existsSync(join(dir, DATA_DIR_NAME))).toBe(false);
   });

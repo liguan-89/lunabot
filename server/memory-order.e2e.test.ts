@@ -10,7 +10,7 @@ import { readHandoffs } from "./testing/handoff-rows.ts";
 const GB = 1024 ** 3, MB = 1024 ** 2;
 
 async function fixture(test: (f: any) => Promise<void>) {
-  const session = await launchVerificationServer({ ...process.env, OMB_TEST_MEMORY_GATE: "1", OMB_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
+  const session = await launchVerificationServer({ ...process.env, LUNABOT_TEST_MEMORY_GATE: "1", LUNABOT_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
   const { dataDir } = session.info;
   const free = (bytes: number) => writeFileSync(join(dataDir, "host-memory.json"), JSON.stringify({ totalBytes: 2 * GB, availableBytes: bytes, swapFreeBytes: 0, oomKills: 0, fullStall10: 0 }));
   free(900 * MB);

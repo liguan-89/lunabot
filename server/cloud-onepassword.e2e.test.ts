@@ -1,6 +1,6 @@
 // A real server started the way a Cloud home's root supervisor starts it: the environment is what cloudHomeChildEnvironments
 // hands the server from the image's ENV, and the secrets come over the launcher's pipe. The 1Password SDK is a fake kept
-// where the image keeps the real one, in the native-module tree OMB_DUCKDB_DIR names. Disposable home; no network.
+// where the image keeps the real one, in the native-module tree LUNABOT_DUCKDB_DIR names. Disposable home; no network.
 import { randomBytes } from "node:crypto";
 import { type ChildProcess } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -56,7 +56,7 @@ async function pairOwner(): Promise<string> {
   const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("base64url");
   const response = await fetch(`${base}/api/cloud/pairing`, { method: "POST", headers: {
     host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https", "content-type": "application/json",
-    "x-omb-cloud-timestamp": timestamp, "x-omb-cloud-nonce": nonce, "x-omb-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
+    "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce, "x-lunabot-cloud-signature": `v1=${cloudPairingSignature(secret, timestamp, nonce, body)}`,
   }, body });
   const granted = await response.json() as { code: string };
   const paired = await api("POST", "/api/auth/pair", { code: granted.code });
@@ -115,16 +115,16 @@ async function proxyFor(start: () => Promise<void>) {
 
 /** The server alone, as the supervisor starts it; resolves once it answers health. */
 async function startCloudHome(at: string, tree: string, port: number, onLog: (chunk: string) => void): Promise<ChildProcess> {
-  const contract = { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-    OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}` };
+  const contract = { LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
+    LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_PUBLIC_URL: `https://${HOST}` };
   // What the image's ENV sets for the native modules, then the supervisor's own allow-list and secrets pipe. No bot box:
   // a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi writes its launch
   // log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
-  const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: tree, OMB_BOT_BOX: "0", ...contract };
+  const imageEnv = { PATH: process.env.PATH, LUNABOT_DUCKDB_DIR: tree, LUNABOT_BOT_BOX: "0", ...contract };
   const { server, secrets } = cloudHomeChildEnvironments(cloudHomeConfiguration(imageEnv)!, imageEnv, at);
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
   const started = spawnWithSecrets(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
-    ...server, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), USERPROFILE: at,
+    ...server, LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), USERPROFILE: at,
     ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
   }, secrets, null, true);
   let seen = "";

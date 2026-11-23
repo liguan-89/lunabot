@@ -527,7 +527,7 @@ spoken line is answered aloud). The docs page says so.
 - **Fake GPT-Live** (`server/testing/fake-openai-live.ts`): HTTP
   `POST /v1/live/sessions` + WebSocket `/v1/live/sessions/:id/attach` that plays
   scripted events and records commands; the harness reads its base URL from
-  `OMB_OPENAI_LIVE_URL` (tests and fixtures only).
+  `LUNABOT_OPENAI_LIVE_URL` (tests and fixtures only).
 - Unit tests: controller (delegation → turn with `via: "call"`, relays,
   approvals yes/no/unclear, skill refusal, typed messages, idle hang-up,
   sideband loss, one call at a time), routes, companion allowlist, settings

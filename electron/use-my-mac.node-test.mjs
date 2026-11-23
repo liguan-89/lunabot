@@ -107,8 +107,8 @@ test("the internet connection alone is lent: it registers with My Cloud and open
   const [socket] = sockets.made;
   assert.equal(socket.url, `wss://omb-u-fixture.fly.dev/api/shared-computers/${home.connects[0].id}/link`);
   assert.equal(socket.headers.cookie, "omb_session_fixture=token");
-  assert.match(socket.headers["x-omb-computer-secret"], /^[a-f0-9]{64}$/);
-  assert.equal(socket.headers["x-omb-background"], "1", "the link never counts as the person using My Cloud");
+  assert.match(socket.headers["x-lunabot-computer-secret"], /^[a-f0-9]{64}$/);
+  assert.equal(socket.headers["x-lunabot-background"], "1", "the link never counts as the person using My Cloud");
   assert.equal(socket.headers.origin, ORIGIN);
   assert.deepEqual({ internet: sharing.cloudState(env).internet, link: sharing.cloudState(env).link }, { internet: true, link: "on" });
 });
@@ -348,7 +348,7 @@ test("a desktop signed in to its own Cloud lends itself by itself: the internet 
   again.start();
   await until(() => home.connects.length === 2 && sockets.open().length === 1 && again.cloudState(env).link === "on", "the same grant to come back after the app restarts");
   assert.equal(home.connects[1].id, lent.id);
-  assert.equal(sockets.made.at(-1).headers["x-omb-computer-secret"], sockets.made[0].headers["x-omb-computer-secret"]);
+  assert.equal(sockets.made.at(-1).headers["x-lunabot-computer-secret"], sockets.made[0].headers["x-lunabot-computer-secret"]);
 });
 test("nothing is lent until this app is signed in to My Cloud itself, and only to My Cloud", async (t) => {
   const state = await fixture(t, { myCloud: true, signIn: { status: "restoring", accountId: null, origin: null } });

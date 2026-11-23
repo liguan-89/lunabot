@@ -11,7 +11,7 @@ import { detectBox } from "./bot-box/detect.ts";
 import { boxUploadsDir, bwrapArgs, planBox } from "./bot-box/plan.ts";
 import { attachmentsForBox } from "./box-attachments.ts";
 
-const detection = detectBox({ env: { ...process.env, OMB_BOT_BOX: "1" } });
+const detection = detectBox({ env: { ...process.env, LUNABOT_BOT_BOX: "1" } });
 // Ubuntu 26.04's bubblewrap probes fine but changed behavior: boxed commands hang and shared-net variants no
 // longer reach the host loopback (observed failing the same way on main, 2026-11). Skip there until the box learns
 // the new bwrap.

@@ -65,7 +65,7 @@ const noPhoneConflict = async (...botIds: string[]) => {
 async function withPhoneProxy<T>(spec: any, run: (call: (name: string) => Promise<any>) => Promise<T>): Promise<T> {
   // Node acts as an inert cross-platform ADB; never discover or contact a real attached phone.
   const proxy = spawn(spec.command, spec.args, { cwd: fixtureHome,
-    env: { ...process.env, ...spec.env, HOME: fixtureHome, USERPROFILE: fixtureHome, OMB_ADB_PATH: process.execPath },
+    env: { ...process.env, ...spec.env, HOME: fixtureHome, USERPROFILE: fixtureHome, LUNABOT_ADB_PATH: process.execPath },
     stdio: ["pipe", "pipe", "ignore"] });
   try {
     const responses = new Map<number, any>();
@@ -125,10 +125,10 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${port}`;
   child = spawn(process.execPath, [join(ROOT, "server/index.ts")], {
     cwd: ROOT, env: {
-      PATH: process.env.PATH, HOME: fixtureHome, USERPROFILE: fixtureHome, OMB_DATA_DIR: data,
+      PATH: process.env.PATH, HOME: fixtureHome, USERPROFILE: fixtureHome, LUNABOT_DATA_DIR: data,
       APPDATA: join(fixtureHome, "appdata"), LOCALAPPDATA: join(fixtureHome, "localappdata"),
       TEMP: fixtureHome, TMP: fixtureHome, TMPDIR: fixtureHome,
-      OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui,
+      LUNABOT_PORT: String(port), LUNABOT_WEBHOOK_PORT: String(port + 1), LUNABOT_STATIC_DIR: ui,
     }, stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout!.on("data", () => {});
@@ -193,7 +193,7 @@ describe("Lazy phone claim on the real server", () => {
     rmSync(finishFile, { force: true });
     const holder = await makeBot("Android words holder");
     const holderSpec = await holdDirectTurn(holder, "help me review this android build log");
-    expect(holderSpec.env.OMB_PHONE_TOKEN).toBeTruthy();
+    expect(holderSpec.env.LUNABOT_PHONE_TOKEN).toBeTruthy();
     await busy(holder.id);
 
     const roomBot = await makeBot("Room phone words");
@@ -240,8 +240,8 @@ describe("Lazy phone claim on the real server", () => {
     const claim = (token: string) => fetch(base + "/api/internal/phone/claim", {
       method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: "{}",
     });
-    expect((await claim(holderSpec.env.OMB_PHONE_TOKEN)).status).toBe(200);
-    expect((await claim(otherSpec.env.OMB_PHONE_TOKEN)).status).toBe(409);
+    expect((await claim(holderSpec.env.LUNABOT_PHONE_TOKEN)).status).toBe(200);
+    expect((await claim(otherSpec.env.LUNABOT_PHONE_TOKEN)).status).toBe(409);
 
     await withPhoneProxy(otherSpec, async (call) => {
       const blocked = await call("status");

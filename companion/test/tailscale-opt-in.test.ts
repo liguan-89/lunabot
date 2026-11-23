@@ -35,11 +35,11 @@ async function startSidecar(env: Record<string, string>): Promise<{ programs: st
       PATH: process.env.PATH ?? "",
       HOME: home,
       USERPROFILE: home,
-      OMB_COMPANION_DIR: join(home, "companion"),
-      OMB_PORT: "9150",
-      OMB_COMPANION_PORT: String(companionPort),
-      OMB_CONTROL_PORT: String(controlPort),
-      OMB_COMPANION_BONJOUR: "0",
+      LUNABOT_COMPANION_DIR: join(home, "companion"),
+      LUNABOT_PORT: "9150",
+      LUNABOT_COMPANION_PORT: String(companionPort),
+      LUNABOT_CONTROL_PORT: String(controlPort),
+      LUNABOT_COMPANION_BONJOUR: "0",
       RECORD_EXEC_FILE: record,
       ...env,
     },
@@ -71,13 +71,13 @@ const isTailscale = (program: string[]) => /tailscale/i.test(program[0] ?? "");
 describe("the phone link and Tailscale", () => {
   it("never runs a Tailscale program when it starts, with Tailscale off or on", async () => {
     expect((await startSidecar({})).programs.filter(isTailscale)).toEqual([]);
-    const on = await startSidecar({ OMB_COMPANION_ROUTES: "wifi,tailscale", OMB_COMPANION_TAILNET_NAME: "mac.tail1.ts.net" });
+    const on = await startSidecar({ LUNABOT_COMPANION_ROUTES: "wifi,tailscale", LUNABOT_COMPANION_TAILNET_NAME: "mac.tail1.ts.net" });
     expect(on.programs.filter(isTailscale)).toEqual([]);
     expect(on.out).toContain("(wifi, tailscale)");
   }, 30_000);
 
   it("binds no device port when only the relay or the HTTPS address is on", async () => {
-    const { out } = await startSidecar({ OMB_COMPANION_ROUTES: "" });
+    const { out } = await startSidecar({ LUNABOT_COMPANION_ROUTES: "" });
     expect(out).toContain("no direct way in is on");
     expect(out).not.toContain("http://0.0.0.0");
   }, 30_000);

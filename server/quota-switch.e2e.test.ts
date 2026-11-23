@@ -1,7 +1,7 @@
 // A turn its engine's usage limit refused, end to end against the real server. This build runs one agent (pi) and no
 // other AI can be set up, so the switch-to-another-AI behaviour has nothing to switch to: the refused turn is reported
 // once with the provider's own words, the message is never resent, no offer card appears, and the conversation stays on
-// pi. OMB_QUOTA_SWITCH=0 reads the same, because there was never a backup to fall back to.
+// pi. LUNABOT_QUOTA_SWITCH=0 reads the same, because there was never a backup to fall back to.
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -151,8 +151,8 @@ it("reports a usage-limit refusal once with the provider's words, resends nothin
   });
 }, 240_000);
 
-it("reads the same with OMB_QUOTA_SWITCH=0: one notice, nothing resent, nothing moved", async () => {
-  await withLimitFixture({ env: { OMB_QUOTA_SWITCH: "0" } }, async ({ api, control, dataDir }) => {
+it("reads the same with LUNABOT_QUOTA_SWITCH=0: one notice, nothing resent, nothing moved", async () => {
+  await withLimitFixture({ env: { LUNABOT_QUOTA_SWITCH: "0" } }, async ({ api, control, dataDir }) => {
     const text = "NO_MOVE_WHEN_OFF_2B";
     const { bot, threadId, messages, state } = await meetTheLimit(api, control, text, dataDir);
     const mine = async () => (await api("GET", "/api/notifications")).notifications.filter((entry: any) => entry.kind === "notice" && entry.botId === bot.id);

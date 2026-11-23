@@ -17,7 +17,7 @@ const COMPUTER = "MacBook Air";
 let fx: CloudSendFixture;
 
 beforeAll(async () => {
-  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, env: { OMB_ENVIRONMENT_LABEL: COMPUTER } });
+  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, env: { LUNABOT_ENVIRONMENT_LABEL: COMPUTER } });
 }, hostTimeout(90_000));
 afterAll(async () => { await fx?.close(); });
 
@@ -189,7 +189,7 @@ it("when My Cloud ends, everything comes home: this computer at once, then My Cl
     if (asked === 1) return { starting: true };
     return { grant: { origin: fx.cloudBase, code: (await fx.grant("Bring My Cloud home")).code, expiresAt: Date.now() + 300_000 } };
   };
-  await fx.relaunch({ kill: false, cloud: { OMB_CLOUD_EXPORT_ONLY: "1" } });
+  await fx.relaunch({ kill: false, cloud: { LUNABOT_CLOUD_EXPORT_ONLY: "1" } });
   expect((await onCloud("POST", `/api/bots/${scout.id}/messages`, { text: "Anyone?", threadId: scout.threadId })).status, "a held Cloud runs nothing").toBe(409);
 
   await fx.oneHome.kick();

@@ -26,7 +26,7 @@ const HEALTHY = {
   FAKE_UID: "0", FAKE_ARCH: "x86_64", FAKE_CPUS: "4", FAKE_FREE_GB: "80", FAKE_DOCKER: "27.3.1", FAKE_SECURITY: '["name=apparmor","name=seccomp,profile=builtin"]',
   FAKE_COMPOSE: "0", FAKE_PUBLIC_IP: "203.0.113.7", FAKE_LOCAL_IP: "10.0.0.5", FAKE_DNS: "203.0.113.7", FAKE_NOW: "1794268800", FAKE_THEIRS: "1794268790",
   FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "dexbot",
-  FAKE_IMAGE_ENV: '["PATH=/usr/bin","HOME=/data","OMB_IMAGE=server"]', FAKE_BOX_CHECK: BOX_PASSED, FAKE_SOURCE: "published",
+  FAKE_IMAGE_ENV: '["PATH=/usr/bin","HOME=/data","LUNABOT_IMAGE=server"]', FAKE_BOX_CHECK: BOX_PASSED, FAKE_SOURCE: "published",
 };
 
 interface Server {
@@ -148,7 +148,7 @@ function run(args: string[], server: Server = {}, kept?: { dir: string }) {
   if (server.userns?.clone !== undefined) writeFileSync(join(sysroot, "proc", "sys", "kernel", "unprivileged_userns_clone"), `${server.userns.clone}\n`);
   const result = spawnSync("/bin/sh", [SCRIPT, ...args], {
     encoding: "utf8",
-    env: { PATH: bin, FAKE_LOG: log, OMB_INSTALL_SYSROOT: sysroot, OMB_INSTALL_DIR: install, MAUSBOT_ADMIN_URL: "https://admin.example.test", ...HEALTHY, ...server.env },
+    env: { PATH: bin, FAKE_LOG: log, LUNABOT_INSTALL_SYSROOT: sysroot, LUNABOT_INSTALL_DIR: install, MAUSBOT_ADMIN_URL: "https://admin.example.test", ...HEALTHY, ...server.env },
     timeout: 60_000,
   });
   const calls = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").filter(Boolean) : [];
@@ -182,7 +182,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     for (let cut = 1; cut < lines.length - 1; cut += 7) {
       const partial = join(dir, "partial.sh");
       writeFileSync(partial, lines.slice(0, cut).join("\n"));
-      spawnSync("/bin/sh", [partial, "--domain", "maus.example.com"], { env: { PATH: bin, OMB_INSTALL_DIR: join(dir, "opt") }, timeout: 20_000 });
+      spawnSync("/bin/sh", [partial, "--domain", "maus.example.com"], { env: { PATH: bin, LUNABOT_INSTALL_DIR: join(dir, "opt") }, timeout: 20_000 });
       expect(existsSync(marker), `cut after line ${cut}`).toBe(false);
       expect(existsSync(join(dir, "opt")), `cut after line ${cut}`).toBe(false);
     }
@@ -231,7 +231,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     ["a clock an hour off", { env: { FAKE_THEIRS: "1794265200" } }, /^This server's clock is 60 minutes off, so HTTPS certificates will be refused\. Run: sudo timedatectl set-ntp true/],
     ["a release without an image", { env: { FAKE_RELEASE_STATUS: "404" } }, /^MausBot v0\.1\.151 has no server image yet/],
     ["a registry that is throttling", { env: { FAKE_RELEASE_STATUS: "429" } }, /^The image registry ghcr\.io did not say whether it has MausBot v0\.1\.151 \(it answered 429\)\. Run this again in a few minutes\.$/],
-    ["the latest tag asked for", { env: { OMB_INSTALL_IMAGE: "ghcr.io/milind-soni/openmausbot:latest" } }, /^OMB_INSTALL_IMAGE names the latest tag/],
+    ["the latest tag asked for", { env: { LUNABOT_INSTALL_IMAGE: "ghcr.io/milind-soni/openmausbot:latest" } }, /^LUNABOT_INSTALL_IMAGE names the latest tag/],
   ])("--check on %s prints the one thing to fix", (_name, server, sentence) => {
     const result = run(["--check", "--domain", "maus.example.com"], server);
     expect(result.fixes).toHaveLength(1);
@@ -257,7 +257,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(own.stdout).toContain("  ok    ports 80 and 443: held by this install");
     const local = run(["--check", "--domain", "maus.example.com"], { env: { FAKE_DNS: "10.0.0.5" } });
     expect(local.stdout).toContain("DNS: maus.example.com points at this server (10.0.0.5)");
-    const skipped = run(["--check", "--domain", "maus.example.com"], { env: { FAKE_DNS: "198.51.100.9", OMB_INSTALL_SKIP_DNS: "1" } });
+    const skipped = run(["--check", "--domain", "maus.example.com"], { env: { FAKE_DNS: "198.51.100.9", LUNABOT_INSTALL_SKIP_DNS: "1" } });
     expect(skipped.fixes).toEqual([]);
     expect(skipped.stdout).toContain("note  The DNS record of maus.example.com was not checked, as asked.");
   });
@@ -345,7 +345,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
       `https://ghcr.io/v2/milind-soni/openmausbot/manifests/${digest("b")}`,
       `https://ghcr.io/v2/milind-soni/openmausbot/blobs/${digest("d")}`,
     ]);
-    expect(run(["--check", "--domain", "maus.example.com"], registry("OMB_IMAGE=server")).stdout).not.toContain("no bots' sandbox");
+    expect(run(["--check", "--domain", "maus.example.com"], registry("LUNABOT_IMAGE=server")).stdout).not.toContain("no bots' sandbox");
     // Asked for no sandbox, or a registry that does not say: nothing to add.
     expect(run(["--check", "--domain", "maus.example.com", "--no-sandbox"], registry("")).stdout).not.toContain("no bots' sandbox");
     expect(run(["--check", "--domain", "maus.example.com"]).stdout).not.toContain("no bots' sandbox");
@@ -354,7 +354,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
   it("uses the stable channel once it is published, and never the latest tag", () => {
     const result = run(["--domain", "maus.example.com"], { env: { FAKE_STABLE: "200" } });
     expect(result.stdout).toContain("  ok    version: the stable channel");
-    expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("OMB_IMAGE=ghcr.io/milind-soni/openmausbot:stable\n");
+    expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot:stable\n");
     expect(script).not.toMatch(/lunabot:latest/);
     expect(result.calls.some((call) => call.includes("releases/latest"))).toBe(false);
   });
@@ -393,7 +393,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     const first = run(["--domain", "maus.example.com"]);
     expect(first.status).toBe(0);
     const env = join(first.install, ".env");
-    writeFileSync(env, `${readFileSync(env, "utf8")}OMB_SIGNIN_SMTP_URL=smtps://mail.example.com\n`);
+    writeFileSync(env, `${readFileSync(env, "utf8")}LUNABOT_SIGNIN_SMTP_URL=smtps://mail.example.com\n`);
     writeFileSync(join(first.install, "data", "messages.db"), "chats");
     writeFileSync(join(first.install, "compose.yaml"), "broken");
     const before = statSync(join(first.install, "data"));
@@ -402,7 +402,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(second.all).toContain("MausBot is running at https://maus.example.com");
     expect(second.status).toBe(0);
     expect(readFileSync(env, "utf8").split("\n").filter((line) => /^[A-Z_]+=/.test(line))).toEqual([
-      "OMB_SIGNIN_SMTP_URL=smtps://mail.example.com", "DOMAIN=maus.example.com", "OMB_IMAGE=ghcr.io/milind-soni/openmausbot:v0.1.152", "COMPOSE_FILE=compose.yaml:compose.box.yaml",
+      "LUNABOT_SIGNIN_SMTP_URL=smtps://mail.example.com", "DOMAIN=maus.example.com", "LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot:v0.1.152", "COMPOSE_FILE=compose.yaml:compose.box.yaml",
     ]);
     expect(readFileSync(join(first.install, "compose.yaml"), "utf8")).toContain("name: openmausbot");
     expect(readFileSync(join(first.install, "data", "messages.db"), "utf8")).toBe("chats");
@@ -412,10 +412,10 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
   });
 
   it("says so when the server does not come up, or HTTPS does not answer", () => {
-    const sick = run(["--domain", "maus.example.com"], { env: { FAKE_HEALTH: "starting", OMB_INSTALL_HEALTH_WAIT_S: "10" } });
+    const sick = run(["--domain", "maus.example.com"], { env: { FAKE_HEALTH: "starting", LUNABOT_INSTALL_HEALTH_WAIT_S: "10" } });
     expect(sick.status).toBe(1);
     expect(sick.stderr).toContain("MausBot started but did not report healthy within 10 seconds.");
-    const noCertificate = run(["--domain", "maus.example.com"], { env: { FAKE_HTTPS: "", OMB_INSTALL_HTTPS_WAIT_S: "10" } });
+    const noCertificate = run(["--domain", "maus.example.com"], { env: { FAKE_HTTPS: "", LUNABOT_INSTALL_HTTPS_WAIT_S: "10" } });
     expect(noCertificate.status).toBe(1);
     expect(noCertificate.stderr).toContain("MausBot is running, but https://maus.example.com did not answer within 10 seconds, usually because the certificate could not be issued.");
     expect(noCertificate.all).not.toContain("MausBot is running at");
@@ -530,7 +530,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(stable.stdout).toContain("  note  The sandbox's files are MausBot v0.1.160's own.");
     const unlabelled = run(["--domain", "maus.example.com"], { env: { FAKE_IMAGE_VERSION: "" } });
     expect(unlabelled.stdout).toContain("  note  The sandbox's files are the newest in the repository.");
-    const copy = run(["--domain", "maus.example.com"], { env: { OMB_INSTALL_SOURCE: "https://mirror.example.test/omb" } });
+    const copy = run(["--domain", "maus.example.com"], { env: { LUNABOT_INSTALL_SOURCE: "https://mirror.example.test/omb" } });
     expect(copy.status).toBe(1);
     expect(copy.calls.some((call) => call.includes("https://mirror.example.test/omb/deploy/box/prepare-host.sh -o "))).toBe(true);
     expect(copy.calls.some((call) => call.includes(FILES) && call.includes(" -o "))).toBe(false);
@@ -560,11 +560,11 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(first.stdout).toContain(`To update later, with a backup first and a way back:  sudo ${first.install}/update.sh`);
     const env = join(first.install, ".env");
     const pin = `ghcr.io/milind-soni/openmausbot@sha256:${"a".repeat(64)}`;
-    writeFileSync(env, readFileSync(env, "utf8").replace("OMB_IMAGE=ghcr.io/milind-soni/openmausbot:stable", `OMB_IMAGE=${pin}`));
+    writeFileSync(env, readFileSync(env, "utf8").replace("LUNABOT_IMAGE=ghcr.io/milind-soni/openmausbot:stable", `LUNABOT_IMAGE=${pin}`));
     const again = run([], { env: { FAKE_STABLE: "200" } }, { dir: first.dir });
     expect(again.status).toBe(0);
     expect(again.stdout).toContain("  ok    version: the one update.sh pinned here; it stays until update.sh changes it");
-    expect(readFileSync(env, "utf8")).toContain(`OMB_IMAGE=${pin}\n`);
+    expect(readFileSync(env, "utf8")).toContain(`LUNABOT_IMAGE=${pin}\n`);
     expect(readFileSync(env, "utf8")).not.toContain(":stable");
     expect(again.calls.some((call) => call.includes("ghcr.io/token"))).toBe(false);
     const unpublished = run(["--domain", "maus.example.com", "--no-sandbox"], { env: { FAKE_SOURCE: "missing" } });
@@ -587,10 +587,10 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(readFileSync(join(result.install, "Caddyfile"), "utf8")).toBe(caddyfile.slice(caddyfile.indexOf("{$DOMAIN} {")));
     const manual = readFileSync(join(ROOT, "deploy", "docker-compose.yml"), "utf8");
     const written = readFileSync(join(result.install, "compose.yaml"), "utf8");
-    const settings = (text: string) => [...text.matchAll(/^ {6}(OMB_[A-Z_]+:.*)$/gm)].map((match) => match[1]);
+    const settings = (text: string) => [...text.matchAll(/^ {6}(LUNABOT_[A-Z_]+:.*)$/gm)].map((match) => match[1]);
     expect(settings(written)).toEqual(settings(manual));
     // The sign-in lists and mail server are passed only when .env sets them: an empty one would still be set.
-    for (const name of ["OMB_SIGNIN_EMAILS", "OMB_SIGNIN_MEMBER_EMAILS", "OMB_SIGNIN_SMTP_URL", "OMB_SIGNIN_SMTP_FROM", "OMB_PHONE_RELAY"]) expect(settings(written)).toContain(`${name}:`);
+    for (const name of ["LUNABOT_SIGNIN_EMAILS", "LUNABOT_SIGNIN_MEMBER_EMAILS", "LUNABOT_SIGNIN_SMTP_URL", "LUNABOT_SIGNIN_SMTP_FROM", "LUNABOT_PHONE_RELAY"]) expect(settings(written)).toContain(`${name}:`);
     for (const line of [`test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]`, "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
       "- edge:/run/openmausbot", "type: tmpfs"]) {
       expect(written).toContain(line);

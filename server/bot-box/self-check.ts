@@ -92,7 +92,7 @@ export async function runBoxSelfCheck(options: SelfCheckOptions): Promise<SelfCh
   // The key the broker takes over: its own value, so a box that is never brokered (the host's network) is not counted
   // as leaking the canary when the raw key stays.
   const brokerKey = `sk-ant-${randomBytes(12).toString("hex")}`;
-  const canary = spawn("sleep", ["120"], { env: { PATH: process.env.PATH ?? "/usr/bin:/bin", OMB_BOX_CANARY: marker }, stdio: "ignore" });
+  const canary = spawn("sleep", ["120"], { env: { PATH: process.env.PATH ?? "/usr/bin:/bin", LUNABOT_BOX_CANARY: marker }, stdio: "ignore" });
   const answer = (req: { url?: string; headers: Record<string, string | string[] | undefined> }, res: { writeHead(code: number, headers: Record<string, string>): unknown; end(body: string): void }) => {
     // A model call must arrive with the real key, never the token (so the broker forwarded and swapped it).
     const model = req.url?.startsWith("/v1/");
@@ -142,7 +142,7 @@ export async function runBoxSelfCheck(options: SelfCheckOptions): Promise<SelfCh
       PATH: [engineBin, process.env.PATH].filter(Boolean).join(delimiter), HOME: home, LANG: process.env.LANG, TMPDIR: "/tmp",
       // What must not get in: a control-plane secret, a workspace credential, an operator's own setting, the CLI's
       // session token and an unlisted name, each holding the marker.
-      OMB_CLOUD_BOOTSTRAP_SECRET: marker, COMPOSIO_API_KEY: marker, OMB_SIGNIN_SMTP_URL: `smtp://user:${marker}@mail.invalid`, LUNABOT_TOKEN: marker, SOME_OTHER_SECRET: marker,
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: marker, COMPOSIO_API_KEY: marker, LUNABOT_SIGNIN_SMTP_URL: `smtp://user:${marker}@mail.invalid`, LUNABOT_TOKEN: marker, SOME_OTHER_SECRET: marker,
       // The real-looking key the broker takes over; its upstream is the fixture server, which answers 200 only to the real key.
       ...(credentials ? { ANTHROPIC_API_KEY: brokerKey, ANTHROPIC_BASE_URL: `http://127.0.0.1:${serverPort}/v1` } : {}),
     },

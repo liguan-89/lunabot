@@ -53,9 +53,9 @@ it("learns a server's apps, observes its tool call into an app row, and runs its
       mounts = launched()?.launch?.mcpConfig?.mcpServers;
       return Boolean(mounts?.agents && mounts?.board);
     }, { timeout: 15_000 }).toBe(true);
-    const token: string = mounts.agents.env.OMB_COMMS_TOKEN;
+    const token: string = mounts.agents.env.LUNABOT_COMMS_TOKEN;
     expect(mounts.board.args[0]).toContain("mcp-gate");
-    expect(JSON.parse(mounts.board.env.OMB_GATE_APPS)).toEqual({ server: "board", harnessUrl: fixture.info.url, token, extension: true });
+    expect(JSON.parse(mounts.board.env.LUNABOT_GATE_APPS)).toEqual({ server: "board", harnessUrl: fixture.info.url, token, extension: true });
 
     engineSide = spawn(mounts.board.command, ["--experimental-strip-types", "--no-warnings", ...mounts.board.args], { stdio: "pipe", env: { ...process.env, ...mounts.board.env } });
     const lines = createInterface({ input: engineSide.stdout })[Symbol.asyncIterator]();

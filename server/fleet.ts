@@ -161,7 +161,7 @@ export function templateUnit(spec: { node: string; script: string; layout?: Flee
     `EnvironmentFile=${layout.instancesDir}/%i.env`,
     `Environment=HOME=${layout.homesDir}/%i`,
     "Environment=PATH=/usr/local/bin:/usr/bin:/bin",
-    `ExecStart=${spec.node}${strip} ${spec.script} serve --port \${OMB_PORT} --data-dir \${OMB_DATA_DIR} --public-url \${OMB_PUBLIC_URL} --label %i --no-pair`,
+    `ExecStart=${spec.node}${strip} ${spec.script} serve --port \${LUNABOT_PORT} --data-dir \${LUNABOT_DATA_DIR} --public-url \${LUNABOT_PUBLIC_URL} --label %i --no-pair`,
     "Restart=always",
     "RestartSec=3",
     "KillMode=mixed",
@@ -234,13 +234,13 @@ export function caddyImportLine(layout = fleetLayout()): string {
 
 export function instanceEnv(input: { workspace: FleetWorkspace; dataDir: string; licenseKey?: string; portalUrl?: string }): string {
   const lines = [
-    `OMB_DATA_DIR=${input.dataDir}`,
-    `OMB_PORT=${input.workspace.port}`,
-    `OMB_WEBHOOK_PORT=${input.workspace.webhookPort}`,
-    `OMB_PUBLIC_URL=https://${input.workspace.host}`,
+    `LUNABOT_DATA_DIR=${input.dataDir}`,
+    `LUNABOT_PORT=${input.workspace.port}`,
+    `LUNABOT_WEBHOOK_PORT=${input.workspace.webhookPort}`,
+    `LUNABOT_PUBLIC_URL=https://${input.workspace.host}`,
   ];
-  if (input.licenseKey) lines.push(`OMB_LICENSE_KEY=${input.licenseKey}`);
-  if (input.portalUrl) lines.push(`OMB_ADMIN_URL=${input.portalUrl}`, `OMB_ADMIN_WORKSPACE=${input.workspace.slug}`);
+  if (input.licenseKey) lines.push(`LUNABOT_LICENSE_KEY=${input.licenseKey}`);
+  if (input.portalUrl) lines.push(`LUNABOT_ADMIN_URL=${input.portalUrl}`, `LUNABOT_ADMIN_WORKSPACE=${input.workspace.slug}`);
   return lines.join("\n") + "\n";
 }
 
@@ -523,7 +523,7 @@ export function describeSteps(steps: FleetStep[]): string[] {
           lines.push(`# Write ${shellQuote(step.path)} mode ${step.mode.toString(8)} as ${step.owner} (use fleet --yes; tenant content omitted)`);
           break;
         }
-        lines.push(`cat > ${shellQuote(step.path)} <<'OMB_EOF'`, step.content.replace(/\n$/, ""), "OMB_EOF", `chmod ${step.mode.toString(8)} ${shellQuote(step.path)}`);
+        lines.push(`cat > ${shellQuote(step.path)} <<'LUNABOT_EOF'`, step.content.replace(/\n$/, ""), "LUNABOT_EOF", `chmod ${step.mode.toString(8)} ${shellQuote(step.path)}`);
         break;
       case "append-once":
         lines.push(`grep -qxF ${shellQuote(step.line)} ${shellQuote(step.path)} || printf '\\n%s\\n' ${shellQuote(step.line)} >> ${shellQuote(step.path)}`);

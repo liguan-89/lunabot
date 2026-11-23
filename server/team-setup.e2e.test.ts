@@ -52,7 +52,7 @@ it("Clive sets up multi-model teams at Ask with no card, keeps existing threads 
       const before = piTurns(dump()).length;
       await control("send", "--bot", chief.id, "--task", chief.threadId, "--text", text);
       await expect.poll(() => piTurns(dump()).length > before, { timeout: 15_000 }).toBe(true);
-      return piTurns(dump()).at(-1)!.launch!.mcpConfig!.mcpServers!.agents!.env!.OMB_COMMS_TOKEN as string;
+      return piTurns(dump()).at(-1)!.launch!.mcpConfig!.mcpServers!.agents!.env!.LUNABOT_COMMS_TOKEN as string;
     };
     const finish = async () => {
       writeFileSync(gate, "finish");
@@ -128,7 +128,7 @@ it("Clive sets up multi-model teams at Ask with no card, keeps existing threads 
     await control("send-channel", "--channel", room.id, "--task", room.activeTaskId, "--text", "@Clive Add a helper for this room.");
     await expect.poll(() => piTurns(dump()).length, { timeout: 15_000 }).toBeGreaterThan(beforeRoom);
     const roomPick = await api("POST", "/api/internal/create-bot", { name: "RoomHelper", role: "Room helper", instructions: "Help the room.", suggestion: true },
-      201, piTurns(dump()).at(-1)!.launch!.mcpConfig!.mcpServers!.agents!.env!.OMB_COMMS_TOKEN as string);
+      201, piTurns(dump()).at(-1)!.launch!.mcpConfig!.mcpServers!.agents!.env!.LUNABOT_COMMS_TOKEN as string);
     expect(roomPick).toMatchObject({ state: "applied", applied: true });
     writeFileSync(gate, "finish");
     await control("wait", "--channel", room.id, "--task", room.activeTaskId, "--timeout", "15");

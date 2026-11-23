@@ -53,7 +53,7 @@ or taller than the card shows a box the app never draws.
 - A packaged build of the branch installed beside, never over, the installed
   Luna Bot (maintainers: the OMB2 side-by-side build). Never touch
   `/Applications/Luna Bot.app` or `~/.lunabot`.
-- Launch with `OMB_DATA_DIR=$HOME/.lunabot-test` unless the check needs real
+- Launch with `LUNABOT_DATA_DIR=$HOME/.lunabot-test` unless the check needs real
   bots. Only one running app may hold the key: quit any other Luna Bot first.
 - Use composer dictation once first so Microphone and Speech Recognition are
   granted.

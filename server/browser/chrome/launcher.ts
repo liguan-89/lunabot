@@ -1,6 +1,6 @@
 // The Chrome agent-browser starts for the bots, prepared once per binary: found or downloaded, its identity read, and a
 // launcher written that gives it that identity. The engine's own browser stays when nothing here applies, or with
-// OMB_BROWSER_LEGACY_SHELL=1; once a machine's choice is made it is not switched while the server runs.
+// LUNABOT_BROWSER_LEGACY_SHELL=1; once a machine's choice is made it is not switched while the server runs.
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { userInfo } from "node:os";
@@ -29,7 +29,7 @@ type LaunchSpec = { command: string; env?: Record<string, string | undefined> };
 const SOURCES: Record<FoundChrome["source"], string> = {
   installed: "installed",
   downloaded: "downloaded",
-  named: "named by OMB_CHROME_PATH or AGENT_BROWSER_EXECUTABLE_PATH",
+  named: "named by LUNABOT_CHROME_PATH or AGENT_BROWSER_EXECUTABLE_PATH",
   "agent-browser": "installed by agent-browser",
 };
 
@@ -304,7 +304,7 @@ export class ChromeLauncher implements BrowserLaunch {
   private engineBrowser(): string {
     const named = this.options.env.AGENT_BROWSER_EXECUTABLE_PATH?.trim();
     if (named) return named;
-    return this.options.env.OMB_RESOURCES_PATH ? "the bundled Chromium headless shell" : "agent-browser's own browser";
+    return this.options.env.LUNABOT_RESOURCES_PATH ? "the bundled Chromium headless shell" : "agent-browser's own browser";
   }
 
   private log(line: string): void {

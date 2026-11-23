@@ -23,7 +23,7 @@ const volume = (name) => join(dir, "volumes", name.replaceAll("/", "_"));
 /** An image by any name it has: its id, a tag, or a digest reference. */
 const image = (ref) => state.images.find((candidate) => candidate.local && (candidate.id === ref || candidate.refs.includes(ref)));
 const envFile = () => (existsSync(join(process.cwd(), ".env")) ? readFileSync(join(process.cwd(), ".env"), "utf8") : "");
-const pinned = () => process.env.OMB_IMAGE ?? /^OMB_IMAGE=(.*)$/m.exec(envFile())?.[1] ?? null;
+const pinned = () => process.env.LUNABOT_IMAGE ?? /^LUNABOT_IMAGE=(.*)$/m.exec(envFile())?.[1] ?? null;
 const composeImage = () => (state.composeReadsPin && pinned()) || state.defaultImage;
 
 /** `{step: "compose up", signal: "SIGKILL"}`: the update script is signalled as this call starts, once. `match`, a

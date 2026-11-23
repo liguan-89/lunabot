@@ -9,7 +9,7 @@ import { hostTimeout } from "./testing/host-timeout.ts";
 it("ends a stopped turn with one quiet stop, keeps what it said, and a second Stop on it leaves the queued message running", async () => {
   const fixture = await launchVerificationServer({
     ...process.env,
-    OMB_TEST_FIXTURE_ENGINE: "pi",
+    LUNABOT_TEST_FIXTURE_ENGINE: "pi",
     FAKE_PI_HOLD_ON: "Hold this one",
     FAKE_PI_STALL_ON: "Start, then stall.",
     FAKE_PI_DELAY_ON: "Second message",

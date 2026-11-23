@@ -33,7 +33,7 @@ describe("host setup", () => {
     expect(new BrowserHostError("libraries", ["libnss3.so"]).message).toContain(LIBRARIES_COMMAND);
     expect(await diagnoseLaunchFailure({ executable: "/opt/chrome", output: "something else", platform: "darwin" })).toBeNull();
     expect(sandboxDisabled({})).toBe(false);
-    expect(sandboxDisabled({ OMB_BROWSER_SANDBOX: "0" })).toBe(true);
+    expect(sandboxDisabled({ LUNABOT_BROWSER_SANDBOX: "0" })).toBe(true);
   });
 
   it.skipIf(process.platform === "win32")("asks the browser's own loader which libraries are missing, in the environment the browser launched with", async () => {

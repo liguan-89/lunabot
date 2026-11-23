@@ -365,12 +365,12 @@ describe("a Cloud kept off the managed service", () => {
     expect(broker.registrations()).toBe(1);
   });
 
-  it("OMB_COMPOSIO_BROKER=off: a Cloud home registers nothing and shows the needs-a-key state, even with a token on the volume", async () => {
+  it("LUNABOT_COMPOSIO_BROKER=off: a Cloud home registers nothing and shows the needs-a-key state, even with a token on the volume", async () => {
     store(OLD);
     const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchSpy);
-    vi.stubEnv("OMB_COMPOSIO_BROKER_URL", BROKER);
-    vi.stubEnv("OMB_COMPOSIO_BROKER", "off");
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER_URL", BROKER);
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER", "off");
     const apply = vi.fn();
     startCloudHomeConnectedApps({ cloudHome: true, dataDir, apply, cloudGrant: GRANT });
     expect(apply).not.toHaveBeenCalled();
@@ -388,23 +388,23 @@ describe("a Cloud kept off the managed service", () => {
   });
 
   it("the switch also wins over a token named in the server's environment", async () => {
-    vi.stubEnv("OMB_COMPOSIO_BROKER_URL", BROKER);
-    vi.stubEnv("OMB_COMPOSIO_BROKER_TOKEN", OLD);
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER_URL", BROKER);
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER_TOKEN", OLD);
     vi.resetModules();
     const fresh = await import("./composio-broker-access.ts");
     expect(fresh.brokerAccess()).toEqual({ url: BROKER, token: OLD });
-    vi.stubEnv("OMB_COMPOSIO_BROKER", "off");
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER", "off");
     expect(fresh.brokerAccess()).toBeNull();
   });
 
-  it("OMB_COMPOSIO_BROKER=off: a Team Cloud member's own apps report unavailable, and the member's installation is kept", async () => {
+  it("LUNABOT_COMPOSIO_BROKER=off: a Team Cloud member's own apps report unavailable, and the member's installation is kept", async () => {
     const person = `p_${"a".repeat(22)}`;
     const fetchImpl = vi.fn(async () => json(201, { installationId: "install-p", token: NEW }));
     const people = new PeopleConnections({ dataDir, brokerUrl: () => BROKER, clients: () => undefined, isOwnerLive: () => true, fetchImpl: fetchImpl as unknown as typeof fetch });
     await expect(people.ensureAppsAccess(person, "m@example.test")).resolves.toEqual({ url: BROKER, token: NEW });
     expect(fetchImpl).toHaveBeenCalledOnce();
 
-    vi.stubEnv("OMB_COMPOSIO_BROKER", "off");
+    vi.stubEnv("LUNABOT_COMPOSIO_BROKER", "off");
     expect(people.appsAccess(person)).toBeNull();
     expect(people.appsPeople()).toEqual([]);
     await expect(people.ensureAppsAccess(`p_${"b".repeat(22)}`, "n@example.test")).resolves.toBeNull();

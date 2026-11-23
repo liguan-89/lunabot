@@ -242,9 +242,9 @@ file, so adding the helper or taking it out again applies without a restart:
 { "helper": { "instanceId": "claude", "model": "claude-haiku-4-5" } }
 ```
 
-or set `OMB_HELPER_INSTANCE` (and, if you want, `OMB_HELPER_MODEL`) in the
+or set `LUNABOT_HELPER_INSTANCE` (and, if you want, `LUNABOT_HELPER_MODEL`) in the
 server's environment before it starts. The environment wins over the file,
-and an empty `OMB_HELPER_INSTANCE` switches a saved helper off. `instanceId` is the id of
+and an empty `LUNABOT_HELPER_INSTANCE` switches a saved helper off. `instanceId` is the id of
 a connected instance as `config.json` and `GET /api/instances` name it, such
 as `claude`, `claudeApi`, `openai` or `openrouter`; it has to be Claude or an
 API model, the engines with a quick text call of their own. `model` is

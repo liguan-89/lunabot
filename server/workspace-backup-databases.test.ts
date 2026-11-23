@@ -131,7 +131,7 @@ CREATE VIEW large AS SELECT id, big FROM measures WHERE big > 0;`;
 describe("a bot's Data tables in a full backup", () => {
   it("round-trips them exactly: columns, types, views, rows, and what the engine had not yet written into the file", async () => {
     const source = directory();
-    const env = { ...process.env, OMB_DUCKDB_DIR: undefined, OMB_RESOURCES_PATH: undefined };
+    const env = { ...process.env, LUNABOT_DUCKDB_DIR: undefined, LUNABOT_RESOURCES_PATH: undefined };
     const engine = createDataEngine({ botFolder: (id) => join(source, "bots", id), dataDir: source, env });
     try {
       const database = await engine.forBot("b1");

@@ -28,7 +28,7 @@ it("preserves team identity, rejects stale writes and searches omitted shared no
     const log = openSync(fixture.info.logPath, "a", 0o600);
     child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
       cwd: fileURLToPath(new URL("..", import.meta.url)), stdio: ["ignore", log, log],
-      env: { ...verificationServerEnvironment({ FAKE_CLAUDE_TEXT_ROUTES: routes }, fixture.info.dataDir, Number(new URL(fixture.info.url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: capabilityKey },
+      env: { ...verificationServerEnvironment({ FAKE_CLAUDE_TEXT_ROUTES: routes }, fixture.info.dataDir, Number(new URL(fixture.info.url).port)), LUNABOT_TEST_INTERNAL_CAPABILITY_KEY: capabilityKey },
     });
     closeSync(log);
     await expect.poll(async () => { try { return (await fetch(fixture.info.url + "/api/health")).ok; } catch { return false; } }, { timeout: 30_000 }).toBe(true);

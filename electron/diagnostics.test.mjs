@@ -99,7 +99,7 @@ describe("buildDiagnosticsReport", () => {
 
   it("masks JSON credential fields and cookies in updater HTTP dumps", () => {
     const redacted = redactSecretsInLine([
-      '{"OMB_COMPOSIO_BROKER_TOKEN":"opaque-broker-value","password":"opaque-password-value"}',
+      '{"LUNABOT_COMPOSIO_BROKER_TOKEN":"opaque-broker-value","password":"opaque-password-value"}',
       '{"Cookie":"session=private-cookie; tracking=private-tracker"}',
       "Cookie: session=private-session; tracking=private-tracking",
     ].join("\n"));
@@ -115,7 +115,7 @@ describe("buildDiagnosticsReport", () => {
     const report = buildDiagnosticsReport({
       appInfo,
       configSummary: { groq: { configured: true } },
-      logTail: `Groq HTTP 401: invalid key ${key}\nspawn env OMB_GROQ_API_KEY=${workspaceKey}`,
+      logTail: `Groq HTTP 401: invalid key ${key}\nspawn env LUNABOT_GROQ_API_KEY=${workspaceKey}`,
       updaterLogTail: `upstream rejected ${otherKey}`,
     });
     for (const secret of [key, otherKey, workspaceKey]) expect(report).not.toContain(secret);

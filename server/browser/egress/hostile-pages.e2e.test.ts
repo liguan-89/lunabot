@@ -22,7 +22,7 @@ import { BrowserEgress, OwnListeners } from "./registry.ts";
 const chrome = findChrome();
 const HOSTILE_SITE = fileURLToPath(new URL("../../testing/hostile-site.mjs", import.meta.url));
 
-if (!chrome) console.log("skipping the hostile-page suite: no Chrome found (set OMB_TEST_CHROME)");
+if (!chrome) console.log("skipping the hostile-page suite: no Chrome found (set LUNABOT_TEST_CHROME)");
 
 describe("the hostile-page suite runs where CI promises it", () => {
   it.skipIf(!process.env.CI || process.platform === "win32")("finds Chrome on this CI runner", () => {

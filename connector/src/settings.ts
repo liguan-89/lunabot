@@ -48,7 +48,7 @@ export const APPARMOR_PROFILE = "omb-home-narrow";
 
 /** Where the home's edge listens on the server: loopback only, reached by the connector. */
 export const HOME_PORT = 8080;
-/** With OMB_CLOUD_EDGE_TLS=1 the edge also serves HTTPS on the owner's domain here, published on IPv4 only: over IPv6, Docker's
+/** With LUNABOT_CLOUD_EDGE_TLS=1 the edge also serves HTTPS on the owner's domain here, published on IPv4 only: over IPv6, Docker's
  * proxy on the default bridge hands every client the bridge's address, the connector's own, so one stranger's wrong
  * pairing codes would lock out the Admin's signed pairing too. */
 export const HOME_TLS_PORT = 443;
@@ -77,8 +77,8 @@ export const HIDEPID_CAPABILITIES = ["SYS_ADMIN", "SETPCAP"] as const;
 
 /** The home's secrets: kept out of its container's environment (docker inspect shows that) once its launcher reads the file. */
 export const HOME_SECRET_ENV = [
-  "OMB_CLOUD_BOOTSTRAP_SECRET", "OMB_CLOUD_BOAT_TOKEN", "OMB_CLOUD_VOICE_TOKEN", "OMB_CLOUD_DECIDER_TOKEN", "OMB_CLOUD_AI_TOKEN",
-  "OMB_CLOUD_CONNECTED_APPS_GRANT", "OMB_CLOUD_X_TOKEN", "OMB_CLOUD_TUNNEL_TOKEN",
+  "LUNABOT_CLOUD_BOOTSTRAP_SECRET", "LUNABOT_CLOUD_BOAT_TOKEN", "LUNABOT_CLOUD_VOICE_TOKEN", "LUNABOT_CLOUD_DECIDER_TOKEN", "LUNABOT_CLOUD_AI_TOKEN",
+  "LUNABOT_CLOUD_CONNECTED_APPS_GRANT", "LUNABOT_CLOUD_X_TOKEN", "LUNABOT_CLOUD_TUNNEL_TOKEN",
 ] as const;
 /** In the home: a read-only folder holding only `secrets.json`, root's alone. The launcher reads it at start. */
 export const HOME_SECRETS_TARGET = "/run/mausbot";

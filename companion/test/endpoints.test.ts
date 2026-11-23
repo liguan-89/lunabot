@@ -24,7 +24,7 @@ describe("hostedCompanionUrl", () => {
       "https://maus.example#pair",
       "not a URL",
     ]) {
-      expect(() => hostedCompanionUrl(value)).toThrow(/OMB_COMPANION_HOSTED_URL/);
+      expect(() => hostedCompanionUrl(value)).toThrow(/LUNABOT_COMPANION_HOSTED_URL/);
     }
   });
 });

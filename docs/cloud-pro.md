@@ -461,7 +461,7 @@ the Cloud's address.
 
 ### Open in the app: `lunabot://cloud`
 
-The Cloud page (`https://cloud.openmausbot.com/cloud`) can offer **Open in the
+The Cloud page (`https://cloud.lunabot.com/cloud`) can offer **Open in the
 app** as a link to exactly `lunabot://cloud`. The app accepts that string
 and nothing else: no path, query, fragment or trailing slash, and it ignores
 any other form. Like `lunabot://organization`, it is an action, not a
@@ -977,7 +977,7 @@ On the Cloud home (`server/shared-computers.ts`, `server/index.ts`):
   conversations someone else's. A guest never carries it.
 - On a Cloud home a request from the machine itself without a session (a
   bot's shell, any local process) is only a service, whatever
-  `OMB_LOOPBACK_TRUST` says: it may reach the health check, the Slack
+  `LUNABOT_LOOPBACK_TRUST` says: it may reach the health check, the Slack
   worker's guarded routes and a turn's own capability routes, decline a card
   and nothing else. It cannot open a pairing window, change a setting or a
   bot, answer a card or review memory.
@@ -1127,13 +1127,13 @@ and Fly restarts the machine. The one exception: after a restore commits
 (a backup restored in Settings), the server exits with code 75
 (`server/restart.ts`) and the launcher starts only the server again.
 
-The machine's secrets (`OMB_CLOUD_BOOTSTRAP_SECRET` and the relay tokens
-`OMB_CLOUD_BOAT_TOKEN`, `OMB_CLOUD_VOICE_TOKEN`, `OMB_CLOUD_DECIDER_TOKEN`, `OMB_CLOUD_X_TOKEN`)
+The machine's secrets (`LUNABOT_CLOUD_BOOTSTRAP_SECRET` and the relay tokens
+`LUNABOT_CLOUD_BOAT_TOKEN`, `LUNABOT_CLOUD_VOICE_TOKEN`, `LUNABOT_CLOUD_DECIDER_TOKEN`, `LUNABOT_CLOUD_X_TOKEN`)
 arrive as the launcher's environment, from the Fly app secrets the Admin
 sets. The launcher never puts them in a child's environment, because
 `/proc/<pid>/environ` keeps a process's starting environment for anything
 running as the same user to read. It writes them to the server over an
-inherited pipe (`OMB_CLOUD_SECRETS_FD`). The server reads it and closes it
+inherited pipe (`LUNABOT_CLOUD_SECRETS_FD`). The server reads it and closes it
 as its very first step (`server/cloud-secrets-boot.ts`, its first import),
 before any other module loads, so no process it starts inherits the pipe.
 The server's environment is built from an allow-list: the process basics,
@@ -1280,23 +1280,23 @@ reach the edge's loopback, it trusts no client-address header by default: the
 client is the connection's peer. Only proxies the owner names may name one
 (below). The launcher sets these values (`edgeClientAddress`). That address
 feeds the pairing lockout, never authorization. Apart from `/api/health`,
-Caddy answers only for the machine's own name (`OMB_PUBLIC_URL`) and refuses
+Caddy answers only for the machine's own name (`LUNABOT_PUBLIC_URL`) and refuses
 any other `Host`.
 
 **A home that moved to another provider.** Its old address (say
 `<app>.fly.dev`) is served by a forwarder that proxies to the new one and
 rewrites `Host` to the new name, so the edge's host matcher, and in
-`OMB_CLOUD_EDGE_TLS` mode the certificate it serves for that name, already
+`LUNABOT_CLOUD_EDGE_TLS` mode the certificate it serves for that name, already
 match: the edge is not widened for the old name. What still names the old
 address is the `Origin` of a page or client on it (a browser tab, a device
 paired by code straight to it), which the server's same-origin checks would
-refuse. `OMB_CLOUD_LEGACY_ORIGINS` lists those old origins, and the server
+refuse. `LUNABOT_CLOUD_LEGACY_ORIGINS` lists those old origins, and the server
 counts exactly those as its own besides its `Host`'s: for cookie sessions,
 a browser sign-in's changes, WebSockets, the event stream and the viewers.
 `X-Forwarded-Host` is never read. Requests through the forwarder reach the
-edge from the forwarder's address, so in `OMB_CLOUD_EDGE_TLS` mode they share
+edge from the forwarder's address, so in `LUNABOT_CLOUD_EDGE_TLS` mode they share
 one pairing lockout unless the forwarder is named in
-`OMB_CLOUD_TRUSTED_PROXIES`. New pairing links name the new address.
+`LUNABOT_CLOUD_TRUSTED_PROXIES`. New pairing links name the new address.
 
 ### On your own server: how people reach it
 
@@ -1307,14 +1307,14 @@ start.
 
 | Variable | Value |
 | --- | --- |
-| `OMB_PUBLIC_URL` | `https://` and the name people use, e.g. `https://mausbot.acme.eu`. Its DNS points at the server. |
-| `OMB_CLOUD_EDGE_TLS` | `1`: the edge gets and renews a Let's Encrypt certificate for that name and serves it on 443. Unset or `0`: the edge serves only `:8080`, for the agent, and something else ends TLS. |
-| `OMB_CLOUD_EDGE_ACME_EMAIL` | With `OMB_CLOUD_EDGE_TLS=1`: a fallback CA for when Let's Encrypt refuses a certificate (its rate limits, say). The address of the account ZeroSSL's ACME endpoint gets: Caddy creates that account by itself from the address, with no sign-up or key to set. Let's Encrypt stays first and keeps its own account, and whichever CA issued the certificate stays on the volume. Unset or empty: Let's Encrypt alone. Anything but one plain address stops the home with a message naming the variable. It has no default; the operator sets it. |
-| `OMB_CLOUD_TRUSTED_PROXIES` | Only when the owner's own proxy stands in front: its addresses or ranges (`10.0.0.5`, `10.0.0.0/24`, `private_ranges`), separated by spaces or commas, at most 32. Unset: none. A `/0` range, a host name or anything else stops the home with a message naming the variable. |
-| `OMB_CLOUD_CLIENT_IP_HEADER` | The header those proxies put the client's address in. Default `X-Forwarded-For`; it needs `OMB_CLOUD_TRUSTED_PROXIES`. |
-| `OMB_CLOUD_TUNNEL_TOKEN` | For a server with no inbound port: the connector token of the home's own Cloudflare tunnel. `OMB_PUBLIC_URL` is then the tunnel's address. Not with `OMB_CLOUD_EDGE_TLS`. |
+| `LUNABOT_PUBLIC_URL` | `https://` and the name people use, e.g. `https://mausbot.acme.eu`. Its DNS points at the server. |
+| `LUNABOT_CLOUD_EDGE_TLS` | `1`: the edge gets and renews a Let's Encrypt certificate for that name and serves it on 443. Unset or `0`: the edge serves only `:8080`, for the agent, and something else ends TLS. |
+| `LUNABOT_CLOUD_EDGE_ACME_EMAIL` | With `LUNABOT_CLOUD_EDGE_TLS=1`: a fallback CA for when Let's Encrypt refuses a certificate (its rate limits, say). The address of the account ZeroSSL's ACME endpoint gets: Caddy creates that account by itself from the address, with no sign-up or key to set. Let's Encrypt stays first and keeps its own account, and whichever CA issued the certificate stays on the volume. Unset or empty: Let's Encrypt alone. Anything but one plain address stops the home with a message naming the variable. It has no default; the operator sets it. |
+| `LUNABOT_CLOUD_TRUSTED_PROXIES` | Only when the owner's own proxy stands in front: its addresses or ranges (`10.0.0.5`, `10.0.0.0/24`, `private_ranges`), separated by spaces or commas, at most 32. Unset: none. A `/0` range, a host name or anything else stops the home with a message naming the variable. |
+| `LUNABOT_CLOUD_CLIENT_IP_HEADER` | The header those proxies put the client's address in. Default `X-Forwarded-For`; it needs `LUNABOT_CLOUD_TRUSTED_PROXIES`. |
+| `LUNABOT_CLOUD_TUNNEL_TOKEN` | For a server with no inbound port: the connector token of the home's own Cloudflare tunnel. `LUNABOT_PUBLIC_URL` is then the tunnel's address. Not with `LUNABOT_CLOUD_EDGE_TLS`. |
 
-**Its own domain (`OMB_CLOUD_EDGE_TLS=1`).** The agent publishes the
+**Its own domain (`LUNABOT_CLOUD_EDGE_TLS=1`).** The agent publishes the
 container's 443 (and 80 if the owner opens it). Let's Encrypt checks the name
 over TLS on 443 (TLS-ALPN), so port 80 is optional; a certificate took 6 to 8 s
 in tests. Clients reach 443 directly, so the edge counts each by its own
@@ -1336,8 +1336,8 @@ network has IPv6 of its own (not verified).
 
 **The owner's own proxy in front.** It ends TLS and forwards to the home's
 `:8080` (published where the proxy can reach it). Name it in
-`OMB_CLOUD_TRUSTED_PROXIES` and, if it does not use `X-Forwarded-For`, its
-header in `OMB_CLOUD_CLIENT_IP_HEADER`, or every member shares one lockout:
+`LUNABOT_CLOUD_TRUSTED_PROXIES` and, if it does not use `X-Forwarded-For`, its
+header in `LUNABOT_CLOUD_CLIENT_IP_HEADER`, or every member shares one lockout:
 ten wrong codes from anyone would also refuse the Admin's own pairings for a
 minute. A proxy on the same host reaches a published port from the Docker
 bridge's gateway (usually `172.17.0.1`), which the agent shares; naming the
@@ -1351,7 +1351,7 @@ so a client's own `X-Forwarded-For` or `Cf-Connecting-IP` changes nothing.
 `ensureEndpoint`, called with the server's installation credential
 (`fleetAccess` in `server/tunnel.ts`), returns the address
 (`https://c-<32 hex>.<zone>`) and the connector token, which go into
-`OMB_PUBLIC_URL` and `OMB_CLOUD_TUNNEL_TOKEN`. The home then runs the pinned
+`LUNABOT_PUBLIC_URL` and `LUNABOT_CLOUD_TUNNEL_TOKEN`. The home then runs the pinned
 `cloudflared` from its image (`/usr/local/bin/cloudflared`, the release
 `scripts/prepare-cloudflared.mjs` checks) as its own user, `omb-tunnel`: the
 token rides that process's environment, which `maus`, and so no bot or engine,
@@ -1368,8 +1368,8 @@ only whose lockout its own failed codes count toward, never who is signed in.
 
 **Private, on a tailnet.** `tailscale serve --bg --https=443
 http://127.0.0.1:8080` on the server serves `https://<machine>.<tailnet>.ts.net`
-to the tailnet; set `OMB_PUBLIC_URL` to that name, and name the bridge's
-gateway in `OMB_CLOUD_TRUSTED_PROXIES` so each member's tailnet address is
+to the tailnet; set `LUNABOT_PUBLIC_URL` to that name, and name the bridge's
+gateway in `LUNABOT_CLOUD_TRUSTED_PROXIES` so each member's tailnet address is
 counted apart. The Admin never needs that address: its requests come through
 the agent. Not verified on a tailnet.
 
@@ -1392,25 +1392,25 @@ never echoes a secret.
 
 | Variable | Fly | Value |
 | --- | --- | --- |
-| `OMB_CLOUD_ROLE` | env | `home`. (`desktop` belongs to the Cloud desktop image and is refused here.) |
-| `OMB_CLOUD_MACHINE_ID` | env | The Admin's machine id (a UUID). Binds the volume. |
-| `OMB_CLOUD_ADMIN_URL` | secret | The Cloud origin, exact `https://`, e.g. `https://cloud.openmausbot.com`. |
-| `OMB_CLOUD_BOOTSTRAP_SECRET` | secret | 43 base64url characters (256 bits): the key the Admin signs pairing requests with. |
-| `OMB_PUBLIC_URL` | env | The machine's exact `https://` origin, `https://<app>.fly.dev`. |
-| `OMB_CLOUD_LEGACY_ORIGINS` | env | Optional, only for a home that moved to another provider: the exact `https://` origins it answered at before, comma-separated (at most 8, never a loopback name), e.g. `https://<app>.fly.dev`. |
+| `LUNABOT_CLOUD_ROLE` | env | `home`. (`desktop` belongs to the Cloud desktop image and is refused here.) |
+| `LUNABOT_CLOUD_MACHINE_ID` | env | The Admin's machine id (a UUID). Binds the volume. |
+| `LUNABOT_CLOUD_ADMIN_URL` | secret | The Cloud origin, exact `https://`, e.g. `https://cloud.lunabot.com`. |
+| `LUNABOT_CLOUD_BOOTSTRAP_SECRET` | secret | 43 base64url characters (256 bits): the key the Admin signs pairing requests with. |
+| `LUNABOT_PUBLIC_URL` | env | The machine's exact `https://` origin, `https://<app>.fly.dev`. |
+| `LUNABOT_CLOUD_LEGACY_ORIGINS` | env | Optional, only for a home that moved to another provider: the exact `https://` origins it answered at before, comma-separated (at most 8, never a loopback name), e.g. `https://<app>.fly.dev`. |
 
-- The machine must not also carry `OMB_ADMIN_URL`, `OMB_ADMIN_WORKSPACE` or
-  `OMB_ADMIN_MEMBERSHIP`: a Cloud home is a personal server with pairing codes
+- The machine must not also carry `LUNABOT_ADMIN_URL`, `LUNABOT_ADMIN_WORKSPACE` or
+  `LUNABOT_ADMIN_MEMBERSHIP`: a Cloud home is a personal server with pairing codes
   on, not a hosted team workspace with portal membership.
-- `HOME=/data` and `OMB_DATA_DIR=/data/.lunabot` are set by the image.
+- `HOME=/data` and `LUNABOT_DATA_DIR=/data/.lunabot` are set by the image.
 - The server keeps the secret in memory and removes it from its environment at
   startup; no engine or tool it starts ever inherits it.
 
 ### No model gateway
 
 OMB Cloud includes no AI, so the contract has no model gateway. If a Cloud
-home is ever given `OMB_HOSTED_MODEL_URL`, `OMB_HOSTED_MODEL_TOKEN` or
-`OMB_HOSTED_MODELS` (an Admin from before this decision set all three), it
+home is ever given `LUNABOT_HOSTED_MODEL_URL`, `LUNABOT_HOSTED_MODEL_TOKEN` or
+`LUNABOT_HOSTED_MODELS` (an Admin from before this decision set all three), it
 still boots, logs one warning naming the variables (never their values), and
 ignores them:
 
@@ -1430,15 +1430,15 @@ For each service the Admin has configured, it also sets:
 
 | Variable | Fly | Value |
 | --- | --- | --- |
-| `OMB_CLOUD_BOAT_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/boat/api/box/v1`, the Admin's Boat relay. The app speaks Boat's public API v1 (`/sandboxes`, `sandbox` envelopes); this relay still serves Boat's retired box API (`/boxes`, `box` envelopes), so for a base ending in `/api/box/v1` the app translates paths and answers in one place, `server/boat-relay.ts`. A base ending in `/api/v1` gets v1 as it is. Bots use it only for cloud computers, as a tool on their own engine; no turn runs on Boat's own agent, so nothing calls its `/prompt`, `/events`, `/prompts/{id}` or `/interrupt` routes. |
-| `OMB_CLOUD_BOAT_TOKEN` | secret | This machine's Boat relay token (`box_omb_…`). It is not a Boat key and works only through the relay. |
-| `OMB_CLOUD_VOICE_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/voice/v1`, the Admin's voice relay. |
-| `OMB_CLOUD_VOICE_TOKEN` | secret | This machine's voice relay token (`omb_voice_…`). |
-| `OMB_TTS_DEFAULT_VOICE` | env | An ElevenLabs voice id, used until the person picks a voice or another speech provider in Settings. |
-| `OMB_CLOUD_DECIDER_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/decider`, the Admin's Jev relay. It is a Jev base URL, used as it is: the decider adds `/v1/systemone`, so every included decision goes to exactly `<OMB_CLOUD_DECIDER_URL>/v1/systemone`, and extraction adds `/v1/extract`. |
-| `OMB_CLOUD_DECIDER_TOKEN` | secret | This machine's decision relay token (`omb_decide_…`). It is not a Jev key and works only through the relay. |
-| `OMB_CLOUD_X_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/x`, the Admin's treg relay; the client calls `<OMB_CLOUD_X_URL>/call/<endpoint>` for the X tools' eight endpoints, `/research/search`, `/research/endpoints/<id>` and `/research/call/<id>` for the research tools, and `GET /usage` for the month's calls on the Apps page's X card (`GET /api/x/status`). The home asks `GET /research/search` with no job at start, which spends nothing: a 400 means research is on, an off answer hides the research tools (x_search stays) until an hour later or a restart, and a research call refused as off does the same. A person's own treg key (Settings → API keys) wins over it and goes straight to treg. |
-| `OMB_CLOUD_X_TOKEN` | secret | This machine's X research relay token (`omb_x_…`). Not a treg key; it works only through the relay, within the plan's monthly X research calls. A signed-in desktop gets its own (`omb_xd_…`) from `POST /api/cloud/desktop/services/x` and hands it to its server in memory. |
+| `LUNABOT_CLOUD_BOAT_URL` | env | `https://cloud.lunabot.com/api/cloud/services/boat/api/box/v1`, the Admin's Boat relay. The app speaks Boat's public API v1 (`/sandboxes`, `sandbox` envelopes); this relay still serves Boat's retired box API (`/boxes`, `box` envelopes), so for a base ending in `/api/box/v1` the app translates paths and answers in one place, `server/boat-relay.ts`. A base ending in `/api/v1` gets v1 as it is. Bots use it only for cloud computers, as a tool on their own engine; no turn runs on Boat's own agent, so nothing calls its `/prompt`, `/events`, `/prompts/{id}` or `/interrupt` routes. |
+| `LUNABOT_CLOUD_BOAT_TOKEN` | secret | This machine's Boat relay token (`box_omb_…`). It is not a Boat key and works only through the relay. |
+| `LUNABOT_CLOUD_VOICE_URL` | env | `https://cloud.lunabot.com/api/cloud/services/voice/v1`, the Admin's voice relay. |
+| `LUNABOT_CLOUD_VOICE_TOKEN` | secret | This machine's voice relay token (`omb_voice_…`). |
+| `LUNABOT_TTS_DEFAULT_VOICE` | env | An ElevenLabs voice id, used until the person picks a voice or another speech provider in Settings. |
+| `LUNABOT_CLOUD_DECIDER_URL` | env | `https://cloud.lunabot.com/api/cloud/services/decider`, the Admin's Jev relay. It is a Jev base URL, used as it is: the decider adds `/v1/systemone`, so every included decision goes to exactly `<LUNABOT_CLOUD_DECIDER_URL>/v1/systemone`, and extraction adds `/v1/extract`. |
+| `LUNABOT_CLOUD_DECIDER_TOKEN` | secret | This machine's decision relay token (`omb_decide_…`). It is not a Jev key and works only through the relay. |
+| `LUNABOT_CLOUD_X_URL` | env | `https://cloud.lunabot.com/api/cloud/services/x`, the Admin's treg relay; the client calls `<LUNABOT_CLOUD_X_URL>/call/<endpoint>` for the X tools' eight endpoints, `/research/search`, `/research/endpoints/<id>` and `/research/call/<id>` for the research tools, and `GET /usage` for the month's calls on the Apps page's X card (`GET /api/x/status`). The home asks `GET /research/search` with no job at start, which spends nothing: a 400 means research is on, an off answer hides the research tools (x_search stays) until an hour later or a restart, and a research call refused as off does the same. A person's own treg key (Settings → API keys) wins over it and goes straight to treg. |
+| `LUNABOT_CLOUD_X_TOKEN` | secret | This machine's X research relay token (`omb_x_…`). Not a treg key; it works only through the relay, within the plan's monthly X research calls. A signed-in desktop gets its own (`omb_xd_…`) from `POST /api/cloud/desktop/services/x` and hands it to its server in memory. |
 
 A service is included only when both its URL and its token are set
 (`server/included-services.ts`). The real Boat, ElevenLabs and Jev keys stay
@@ -1448,15 +1448,15 @@ computers belong to this machine on every request.
 - **The person's own key always wins.** An included token is a fallback, used
   only while the person has no key of their own: none saved in Settings
   (`box.token`, `tts.key`, `decider.key`, `decider.workersAiToken`) and no
-  `BOX_TOKEN`, `OMB_TTS_KEY`, `OMB_JEV_API_KEY` or `OMB_WORKERS_AI_TOKEN` in
+  `BOX_TOKEN`, `LUNABOT_TTS_KEY`, `LUNABOT_JEV_API_KEY` or `LUNABOT_WORKERS_AI_TOKEN` in
   the environment (for extraction, only a Workers AI token with its account ID
   counts: a Jev key does not read). Adding a key switches to it at
   once; removing it falls back to the included service again (for Boat, once
   that key's cloud computers are deleted: removing a Boat key that still has
   computers is refused). The choice is made on every request.
 - **Each credential goes to one place.** The relays know only the Admin's
-  accounts, so an own key goes only to the provider (`OMB_BOAT_API`,
-  `OMB_ELEVENLABS_API` or `decider.baseUrl` when set, for development and
+  accounts, so an own key goes only to the provider (`LUNABOT_BOAT_API`,
+  `LUNABOT_ELEVENLABS_API` or `decider.baseUrl` when set, for development and
   tests, else Boat's, ElevenLabs' and Jev's own APIs) and an included token
   only to its relay, whatever those settings say.
 - **The decision relay takes four decision requests and three extraction
@@ -1545,10 +1545,10 @@ keeps the token owner-only in `/data/.lunabot/connected-apps-installation.json`
 (never in a backup, a move or `config.json`), checks it with the service, and
 retries with backoff while the service is down, without holding up the start.
 An owner's own Composio project key still wins. The details are in
-[composio.md](composio.md#mausbot-cloud). `OMB_COMPOSIO_BROKER_URL` (env, not
+[composio.md](composio.md#mausbot-cloud). `LUNABOT_COMPOSIO_BROKER_URL` (env, not
 secret, optional) points a Cloud at another service, such as a staging one.
 
-For a paid plan the Admin also sets `OMB_CLOUD_CONNECTED_APPS_GRANT` (secret):
+For a paid plan the Admin also sets `LUNABOT_CLOUD_CONNECTED_APPS_GRANT` (secret):
 a grant it signs for the machine id, which the server presents to the service
 once it holds its token. The service then gives this installation a paid
 Cloud's app-event limit (2,000 a day instead of a desktop's 500). Without it a
@@ -1558,15 +1558,15 @@ Cloud gets the desktop limit. The grant's format is in
 ### Trial Claude credit
 
 A free trial may come with a one-time Claude credit (the Admin's
-`OMB_CLOUD_TRIAL_CREDIT_USD`). While it lasts, and only while the person has
+`LUNABOT_CLOUD_TRIAL_CREDIT_USD`). While it lasts, and only while the person has
 no AI of their own on My Cloud, bots run on Claude through the Admin's relay,
 which holds the provider key and meters the credit. For an account with a
 credit, the Admin also sets:
 
 | Variable | Fly | Value |
 | --- | --- | --- |
-| `OMB_CLOUD_AI_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/ai/v1`, an OpenAI-compatible base URL with its `/v1` (as the Admin sends it): `POST {url}/chat/completions` and `GET {url}/models` only. Nothing Anthropic-shaped (no `/v1/messages`) answers a credit token. |
-| `OMB_CLOUD_AI_TOKEN` | secret | This machine's credit token (`omb_ai_…`), sent as `Authorization: Bearer`. It works only through the relay, only for this account's credit, and not at all once it is spent or the Cloud is deleted. |
+| `LUNABOT_CLOUD_AI_URL` | env | `https://cloud.lunabot.com/api/cloud/services/ai/v1`, an OpenAI-compatible base URL with its `/v1` (as the Admin sends it): `POST {url}/chat/completions` and `GET {url}/models` only. Nothing Anthropic-shaped (no `/v1/messages`) answers a credit token. |
+| `LUNABOT_CLOUD_AI_TOKEN` | secret | This machine's credit token (`omb_ai_…`), sent as `Authorization: Bearer`. It works only through the relay, only for this account's credit, and not at all once it is spent or the Cloud is deleted. |
 
 - **Luna Bot's own chat engine, nothing else.** `server/cloud-credit-provider.ts`
   adds one read-only **Trial credit · Claude** engine: the OpenAI-compatible
@@ -1636,9 +1636,9 @@ credit, the Admin also sets:
 ```http
 POST /api/cloud/pairing
 Content-Type: application/json
-x-omb-cloud-timestamp: 1790000000
-x-omb-cloud-nonce: <base64url, 16–128 characters>
-x-omb-cloud-signature: v1=<base64url HMAC-SHA256(OMB_CLOUD_BOOTSTRAP_SECRET, canonical)>
+x-lunabot-cloud-timestamp: 1790000000
+x-lunabot-cloud-nonce: <base64url, 16–128 characters>
+x-lunabot-cloud-signature: v1=<base64url HMAC-SHA256(LUNABOT_CLOUD_BOOTSTRAP_SECRET, canonical)>
 
 {"label":"Luna Bot app (Cloud)","ttlSeconds":300}
 ```
@@ -1835,7 +1835,7 @@ judge a pending timer by a wall-clock time stored when it was set.
 - nobody used the home for 10 minutes (the Admin may ask for another window).
   A use is an authenticated request, except the event stream, `/api/health`,
   `/api/sync/…`, `/api/shared-computers/…` and requests the page marks
-  `x-omb-background: 1` (its own polls). A request with no mark counts, so an
+  `x-lunabot-background: 1` (its own polls). A request with no mark counts, so an
   older client can only keep a home awake, never let it sleep under someone;
 - work ended 2 minutes ago, the home has been awake 2 minutes, and the next
   scheduled run is at least 5 minutes away.
@@ -1895,7 +1895,7 @@ resume, someone's use, or 120 s (a sleep the Admin never carried out):
   hidden tab whose stream dropped (the laptop slept) can't wake a sleeping home
   every minute;
 - held `GET /api/sync/changes` and `POST /api/shared-computers/<id>/poll`
-  answer `503 {"error":"asleep"}` with `x-omb-cloud-power: asleep`, and new
+  answer `503 {"error":"asleep"}` with `x-lunabot-cloud-power: asleep`, and new
   ones get the same, so the desktop's Files sync and lending pause instead of
   waking it;
 - `cloud-sleep.json` in the data folder marks the sleep. A boot that finds it
@@ -1903,7 +1903,7 @@ resume, someone's use, or 120 s (a sleep the Admin never carried out):
   startup" routines don't fire. Any other boot removes nothing and runs them as
   before.
 
-**The edge on a cold wake.** `OMB_CLOUD_EDGE_HOLD` (whole seconds, at most
+**The edge on a cold wake.** `LUNABOT_CLOUD_EDGE_HOLD` (whole seconds, at most
 120, such as `30s`; unset: `0s`, today's edge) makes Caddy hold a request while
 the server starts instead of answering 502, so a webhook or the app's first
 request after a stop is answered late rather than refused; Caddy dials the
@@ -2135,9 +2135,9 @@ launch: What's new comes first, and the Boat card waits for a later one.
    button carries the slide's tag on the Cloud's funnel (`app_whats_new_pro`,
    `app_whats_new_team`): **Get Pro** opens the Add a Cloud dialog with
    `source: app_whats_new_pro`, which its checkout sends; **See the new Cloud**
-   opens `https://cloud.openmausbot.com/cloud?src=app_whats_new_pro` (the plans,
+   opens `https://cloud.lunabot.com/cloud?src=app_whats_new_pro` (the plans,
    for someone without one); **Start a Team** opens
-   `https://cloud.openmausbot.com/pro/buy?plan=team&src=app_whats_new_team`, the
+   `https://cloud.lunabot.com/pro/buy?plan=team&src=app_whats_new_team`, the
    website's Get Team with this slide's tag (the staging Admin's site for an app
    on staging), and for someone with a plan of their own, whom that page would
    only tell to write in, the Add a Cloud dialog with `source:
@@ -2227,7 +2227,7 @@ its proxy). The session's `cloud.power` (additive, only for such a plan) says `{
 sleeps: true}`; `cloud.state` stays `ready`. Without `cloud.power`, nothing below happens (`electron/cloud-power.mjs`).
 
 - **Files sync and lending pause** while the session says `asleep`, and also at once when My Cloud answers a held poll
-  `503` with `x-omb-cloud-power: asleep` (it does just before it sleeps). They make no request to My Cloud then, not even
+  `503` with `x-lunabot-cloud-power: asleep` (it does just before it sleeps). They make no request to My Cloud then, not even
   a retry, and the session is read every 15 s instead of 60 s while they wait. They resume when it says awake. Files and
   lending show "My Cloud is asleep" meanwhile.
 - **Opening My Cloud while it sleeps** asks the Admin to wake it first (`POST /api/cloud/desktop/wake`), shows "Waking
@@ -2245,7 +2245,7 @@ ready: the plan (`tier`), when the monthly allowances start over (`resetsAt`, th
 during a free trial), each included allowance as `{kind, used, max, usedUp?}` (`computerHours` in hours, `voice` in
 characters, `decisions`, `x` in calls, `research` in dollars, `storage` in GB of the most the disk grows to), and the bigger
 plans the app can move to itself (`upgrades: [{tier, amount}]`, US cents a month; empty on Max, a team's plan, or while
-the Admin's `OMB_CLOUD_APP_UPGRADES` is off). `electron/cloud-home.mjs` `parseCloudUsage` drops anything malformed (an
+the Admin's `LUNABOT_CLOUD_APP_UPGRADES` is off). `electron/cloud-home.mjs` `parseCloudUsage` drops anything malformed (an
 unknown kind, an allowance of nothing, a plan it doesn't know); it is display only and never grants or limits anything.
 Main keeps it on the account's state, and `cloudPlanSnapshot` hands it to this computer's page and the person's own Cloud
 page alike (`ogb.cloudPlan`), so the meter reads the same on both (`src/components/CloudUsageMeter.tsx`,
@@ -2277,7 +2277,7 @@ page alike (`ogb.cloudPlan`), so the meter reads the same on both (`src/componen
 ### Room card: short on memory or disk, and the plan that fixes it
 
 The session's `cloud.room` (additive, only beside `cloud.usage`; the Admin's `server/cloud-room.ts`, behind its
-`OMB_CLOUD_ROOM_OFFERS`) says this Cloud is short on room, from its health report's `room` and disk: `cause` is
+`LUNABOT_CLOUD_ROOM_OFFERS`) says this Cloud is short on room, from its health report's `room` and disk: `cause` is
 `{kind: "memory", waits, waitMinutes, stopped}` (the last day) or `{kind: "disk", usedGb, capGb}`, then either `plan`
 (the next plan up that fixes it: `tier`, `amount` in US cents a month, `memoryMb`/`fromMemoryMb`, `diskGb`/`fromDiskGb`)
 or `tip: true` on the top plan, and `id`. `electron/cloud-home.mjs` `parseCloudRoom` drops anything malformed; it is display
@@ -2451,7 +2451,7 @@ ends the move as before.
   characters.
 - The signing secret is removed from the server's environment at startup and
   is never passed to engines or to Caddy.
-- There is no platform model gateway: stray `OMB_HOSTED_*` settings are
+- There is no platform model gateway: stray `LUNABOT_HOSTED_*` settings are
   ignored with one warning and never reach the server's environment or an
   engine. Every model call uses the person's own sign-in or key.
 - A volume binds to one machine and is never adopted by another.
@@ -2466,5 +2466,5 @@ Every push to `main` and every release tag publishes the home machine image as
 `ghcr.io/milind-soni/openmausbot-cloud-home`, tagged `latest` (main only), `sha-<commit>` and the release tag.
 It is the `Dockerfile`'s `cloud-home` target for the same commit, with Grok and the current Claude Code and
 Codex installed. The Docker workflow's summary prints the digest. Set it in the Admin as
-`OMB_CLOUD_HOME_IMAGE=ghcr.io/milind-soni/openmausbot-cloud-home@sha256:…`; changing it rolls the new image
+`LUNABOT_CLOUD_HOME_IMAGE=ghcr.io/milind-soni/openmausbot-cloud-home@sha256:…`; changing it rolls the new image
 out to existing machines one at a time, reverting automatically on a failed health check.

@@ -6,9 +6,9 @@ const { createInterface } = require("node:readline");
 const { join, resolve } = require("node:path");
 const { pathToFileURL } = require("node:url");
 
-const code = process.env.OMB_SMOKE_CODE || resolve(__dirname, "..", "electron");
-app.setPath("userData", process.env.OMB_SMOKE_USER_DATA);
-const report = { code: process.env.OMB_SMOKE_LABEL ?? "this branch", packaged: app.isPackaged, resourcesPath: process.resourcesPath };
+const code = process.env.LUNABOT_SMOKE_CODE || resolve(__dirname, "..", "electron");
+app.setPath("userData", process.env.LUNABOT_SMOKE_USER_DATA);
+const report = { code: process.env.LUNABOT_SMOKE_LABEL ?? "this branch", packaged: app.isPackaged, resourcesPath: process.resourcesPath };
 const say = (line) => console.log(`[lend smoke, ${report.code}] ${line}`);
 const load = (file) => import(pathToFileURL(join(code, file)).href);
 const firstText = (result) => String(result?.content?.find?.((part) => part?.type === "text")?.text ?? "");
@@ -118,7 +118,7 @@ app.whenReady().then(async () => {
     say(`failed: ${report.error}`);
   }
   report.ok = ok;
-  writeFileSync(process.env.OMB_SMOKE_REPORT, JSON.stringify(report, null, 2));
+  writeFileSync(process.env.LUNABOT_SMOKE_REPORT, JSON.stringify(report, null, 2));
   say(ok ? "smoke:cua-win-lend OK" : "smoke:cua-win-lend FAILED");
   app.exit(ok ? 0 : 1);
 });

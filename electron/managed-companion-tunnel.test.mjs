@@ -17,7 +17,7 @@ import {
 } from "./managed-companion-tunnel.mjs";
 
 const TOKEN = `eyJ${"a".repeat(120)}=`;
-const ENDPOINT = "https://c-installation.openmausbot.com";
+const ENDPOINT = "https://c-installation.lunabot.com";
 const BINARY = "/trusted/cloudflared";
 const GUARDIAN = "/trusted/managed-companion-guardian.mjs";
 const RUNTIME = "/trusted/electron";
@@ -199,7 +199,7 @@ describe("cloudflared binary resolution", () => {
         appPath: "/checkout",
         platform: "linux",
         arch: "x64",
-        environment: { OMB_CLOUDFLARED_PATH: "./untrusted-cloudflared" },
+        environment: { LUNABOT_CLOUDFLARED_PATH: "./untrusted-cloudflared" },
         exists: () => true,
       }),
     ).toBeNull();

@@ -166,7 +166,7 @@ describe("harness MCP capability proxy", () => {
     payload = { result: { tools: [{ name: "agent_browser_snapshot" }] } };
     const child: ChildProcessWithoutNullStreams = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./harness-mcp-proxy.ts", import.meta.url)), "computer"], {
       // Codex hands every server the same environment: each reads only its own family's token.
-      env: { OMB_HARNESS_URL: url, OMB_MCP_TOKEN_COMPUTER: "entrypoint-capability", OMB_MCP_TOKEN_DATA: "data-capability" }, stdio: ["pipe", "pipe", "pipe"],
+      env: { LUNABOT_HARNESS_URL: url, LUNABOT_MCP_TOKEN_COMPUTER: "entrypoint-capability", LUNABOT_MCP_TOKEN_DATA: "data-capability" }, stdio: ["pipe", "pipe", "pipe"],
     });
     let output = "";
     const result = new Promise<unknown>((resolve, reject) => {
@@ -189,7 +189,7 @@ describe("harness MCP capability proxy", () => {
 
   it("refuses to start without a known tool family", async () => {
     const child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./harness-mcp-proxy.ts", import.meta.url)), "shell"], {
-      env: { OMB_HARNESS_URL: url, OMB_MCP_TOKEN_BROWSER: "entrypoint-capability" }, stdio: ["pipe", "pipe", "pipe"],
+      env: { LUNABOT_HARNESS_URL: url, LUNABOT_MCP_TOKEN_BROWSER: "entrypoint-capability" }, stdio: ["pipe", "pipe", "pipe"],
     });
     const code = await new Promise<number | null>((resolve) => child.once("close", resolve));
     expect(code).toBe(2);
