@@ -340,7 +340,7 @@ const appConfigSchema = z.object({
   mistral: z.object({ key: optionalText }).optional(),
   cerebras: z.object({ key: optionalText }).optional(), treg: z.object({ key: optionalText }).optional(), postiz: z.object({ key: optionalText, url: optionalText }).optional(),
   groq: z.object({ key: optionalText, url: optionalText }).optional(),
-  greenference: z.object({ key: optionalText }).optional(), modelgo: z.object({ key: optionalText }).optional(),
+  greenference: z.object({ key: optionalText }).optional(), tk1688: z.object({ key: optionalText }).optional(),
   meta: z.object({ key: optionalText, url: optionalText }).optional(),
   deepseek: z.object({ key: optionalText }).optional(),
   xai: z.object({ key: optionalText, url: optionalText }).optional(),
@@ -547,7 +547,7 @@ export interface AppConfig extends HelperConfig {
   mistral?: { key?: string };
   cerebras?: { key?: string }; treg?: { key?: string }; /** Postiz: an organisation API key and the server it belongs to (blank: Postiz Cloud). */ postiz?: { key?: string; url?: string };
   groq?: { key?: string; url?: string };
-  greenference?: { key?: string }; modelgo?: { key?: string };
+  greenference?: { key?: string }; tk1688?: { key?: string };
   meta?: { key?: string; url?: string };
   /** DeepSeek API key for the DeepSeek Harness engine (`dsh`). */
   deepseek?: { key?: string };
@@ -845,7 +845,7 @@ export function loadConfig(): AppConfig {
   }
   // Env wins over the file for every credential: the desktop shell injects them as env at spawn.
   for (const [name, env] of [["mistral", "MISTRAL_API_KEY"], ["cerebras", "CEREBRAS_API_KEY"], ["groq", "LUNABOT_GROQ_API_KEY"], ["meta", "LUNABOT_META_API_KEY"],
-    ["deepseek", "LUNABOT_DEEPSEEK_API_KEY"], ["greenference", "LUNABOT_GREENFERENCE_API_KEY"], ["modelgo", "LUNABOT_MODELGO_API_KEY"], ["xai", "XAI_API_KEY"]] as const) {
+    ["deepseek", "LUNABOT_DEEPSEEK_API_KEY"], ["greenference", "LUNABOT_GREENFERENCE_API_KEY"], ["tk1688", "LUNABOT_TK1688_API_KEY"], ["xai", "XAI_API_KEY"]] as const) {
     cfg[name] = { ...cfg[name], ...(process.env[env] !== undefined ? { key: process.env[env] } : {}) };
   }
   if (process.env.LUNABOT_TREG_KEY !== undefined) cfg.treg = { ...cfg.treg, key: process.env.LUNABOT_TREG_KEY }; if (process.env.LUNABOT_POSTIZ_API_KEY !== undefined) cfg.postiz = { ...cfg.postiz, key: process.env.LUNABOT_POSTIZ_API_KEY };
@@ -909,7 +909,7 @@ export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "ne
     [patch.mistral?.key, "MISTRAL_API_KEY"],
     [patch.cerebras?.key, "CEREBRAS_API_KEY"], [patch.treg?.key, "LUNABOT_TREG_KEY"], [patch.postiz?.key, "LUNABOT_POSTIZ_API_KEY"],
     [patch.groq?.key, "LUNABOT_GROQ_API_KEY"],
-    [patch.greenference?.key, "LUNABOT_GREENFERENCE_API_KEY"], [patch.modelgo?.key, "LUNABOT_MODELGO_API_KEY"],
+    [patch.greenference?.key, "LUNABOT_GREENFERENCE_API_KEY"], [patch.tk1688?.key, "LUNABOT_TK1688_API_KEY"],
     [patch.meta?.key, "LUNABOT_META_API_KEY"],
     [patch.deepseek?.key, "LUNABOT_DEEPSEEK_API_KEY"],
     [patch.anthropic?.key, "LUNABOT_ANTHROPIC_API_KEY"],
@@ -1028,7 +1028,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "seedance", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "wechat", "webauthn"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "tk1688", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "seedance", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "wechat", "webauthn"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);
@@ -1199,7 +1199,7 @@ function injectedEnvironment(cfg: AppConfig, instanceId: string, driver: string)
   if (driver === "mistral" && cfg.mistral?.key) environment.set("MISTRAL_API_KEY", cfg.mistral.key);
   if (driver === "cerebras" && cfg.cerebras?.key) environment.set("CEREBRAS_API_KEY", cfg.cerebras.key);
   if (driver === "groq" && cfg.groq?.key) environment.set("GROQ_API_KEY", cfg.groq.key);
-  if (driver === "greenference" && cfg.greenference?.key) environment.set("GREENFERENCE_API_KEY", cfg.greenference.key); if (driver === "modelgo" && cfg.modelgo?.key) environment.set("MODELGO_API_KEY", cfg.modelgo.key);
+  if (driver === "greenference" && cfg.greenference?.key) environment.set("GREENFERENCE_API_KEY", cfg.greenference.key); if (driver === "tk1688" && cfg.tk1688?.key) environment.set("TK1688_API_KEY", cfg.tk1688.key);
   if (driver === "meta" && cfg.meta?.key) environment.set("META_API_KEY", cfg.meta.key);
   if (driver === "deepseekAgent" && cfg.deepseek?.key) environment.set("DEEPSEEK_API_KEY", cfg.deepseek.key);
   if (driver === "grok" && cfg.xai?.key) environment.set("XAI_API_KEY", cfg.xai.key);
