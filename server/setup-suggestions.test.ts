@@ -86,8 +86,10 @@ describe("what is sent", () => {
 
   it("asks only when there is something to go on, or the fixed answers are not in the app's language", () => {
     const nothing: SuggestionBasis = { otherJobs: [], language: "English", languageCode: "en", canBrowse: true };
-    expect(isPickedBotName("Pesto")).toBe(true);
-    expect(isPickedBotName("Pesto 2")).toBe(true);
+    expect(isPickedBotName("Pikachu")).toBe(true);
+    expect(isPickedBotName("Pikachu 2")).toBe(true);
+    expect(isPickedBotName("哪吒")).toBe(true);
+    expect(isPickedBotName("達摩 3")).toBe(true);
     expect(isPickedBotName("Bookkeeper")).toBe(false);
     expect(worthAsking(nothing, null)).toBe(false);
     expect(worthAsking(nothing, { known: [] })).toBe(false);
@@ -111,7 +113,7 @@ describe("what is sent", () => {
   });
 
   it("sends a typed name, the title, the department and what the other bots do, and on a shared place no About me or other bots", () => {
-    const bot = (extra: Record<string, unknown>) => ({ id: "b", name: "Pesto", title: "", description: "", ...extra }) as unknown as BotRecord;
+    const bot = (extra: Record<string, unknown>) => ({ id: "b", name: "Pikachu", title: "", description: "", ...extra }) as unknown as BotRecord;
     const made = bot({ id: "new", name: "Ledger", title: "Bookkeeper", section: "Finance" });
     const bots = [made, bot({ id: "a", title: "Travel planner" }), bot({ id: "b", description: "Plans meals\nand shops" }),
       bot({ id: "c", title: "Hidden", hidden: true }), bot({ id: "d", title: "Default", defaultBot: {} }),
@@ -119,7 +121,7 @@ describe("what is sent", () => {
     const place = { bots, shared: false, aboutMe: "I keep the books for a bakery.", languageCode: "pt-BR", canBrowse: true };
     expect(suggestionBasis(made, place)).toEqual({ name: "Ledger", title: "Bookkeeper", department: "Finance", aboutMe: "I keep the books for a bakery.",
       otherJobs: ["Travel planner", "Plans meals"], language: "Brazilian Portuguese", languageCode: "pt-BR", canBrowse: true });
-    expect(suggestionBasis(bot({ id: "new", name: "Pesto 2" }), { ...place, shared: true })).toEqual({ otherJobs: [], language: "Brazilian Portuguese",
+    expect(suggestionBasis(bot({ id: "new", name: "Pikachu 2" }), { ...place, shared: true })).toEqual({ otherJobs: [], language: "Brazilian Portuguese",
       languageCode: "pt-BR", canBrowse: true });
   });
 });
@@ -259,7 +261,7 @@ describe("renaming a new bot before its card is answered", () => {
 
   function setup(options: { name?: string; replies?: Record<string, Reply>; withinBudget?: () => boolean; canSetUp?: () => boolean } = {}) {
     const store = new Store(() => ({ instanceId: "claude", model: "claude-sonnet-5" }), undefined, undefined, "en");
-    const bot = store.createBot({ name: options.name ?? "Pepper" });
+    const bot = store.createBot({ name: options.name ?? "Paimon" });
     const replies: Record<string, Reply> = { Recruiter: replying(RECRUITER), Gardener: replying(GARDENER), "Party Planner": replying(PLANNER), ...options.replies };
     const calls: Array<{ name: string; signal?: AbortSignal }> = [];
     const writer: SideJobText = { via: "engine", generateText: (prompt, callOptions) => {
@@ -307,7 +309,7 @@ describe("renaming a new bot before its card is answered", () => {
     s.store.patchBot(s.bot.id, { name: "Gardener" });
     await s.settle();
     expect(s.greeting().setupChoices).toEqual(GARDENER);
-    s.store.patchBotProfile(s.bot.id, { name: "Pepper", title: "Party Planner" });
+    s.store.patchBotProfile(s.bot.id, { name: "Paimon", title: "Party Planner" });
     await s.settle();
     expect(s.calls.at(-1)!.name).toBe("");
     s.store.patchBot(s.bot.id, { section: "Hiring" });
@@ -324,13 +326,13 @@ describe("renaming a new bot before its card is answered", () => {
     const s = setup({ name: "Recruiter" });
     await vi.advanceTimersByTimeAsync(0);
     expect(s.greeting().setupChoices).toEqual(RECRUITER);
-    s.rename("Pesto");
+    s.rename("Pikachu");
     await s.settle();
     expect(s.named()).toEqual(["Recruiter"]);
     expect(s.greeting().setupChoices).toEqual(FIXED);
     expect(s.greeting().setupChoicesUpdating).toBeUndefined();
     const seen = s.patches.length;
-    s.rename("Pepper 2");
+    s.rename("Paimon 2");
     await s.settle();
     expect(s.patches).toHaveLength(seen);
     s.rename("Gardener");

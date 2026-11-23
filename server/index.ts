@@ -15320,7 +15320,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, {
         defaults: structuredClone(cfg.newBotDefaults ?? newBotDefaultsSchema.parse({})),
         modelSelection: await defaultSelection(),
-        suggestedName: pickBotName(store.bots.map(bot => bot.name)),
+        suggestedName: pickBotName(store.bots.map(bot => bot.name), personLanguages.forLine(auth.kind === "session" ? actorKey(auth) : undefined)),
       });
     }
     if (method === "POST" && path === "/api/bot-defaults/skills/preview") {
