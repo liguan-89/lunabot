@@ -248,7 +248,18 @@ class E2eSession(
     fun openStream(): E2eStream {
         check(keys != null) { "e2e: handshake incomplete" }
         val active = mux ?: throw NoiseException("session_closed")
-        val streamId = active.open()
+        val streamId = try {
+            active.open()
+        } catch (error: YamuxException) {
+            // The mux refuses a new stream while 64 slots are held (a library
+            // that opened streams and wrote nothing) or the IDs are spent.
+            // Nothing on this session can carry a new request any more: fail it
+            // so isUsable goes false and the transport dials a fresh session on
+            // the next request instead of reusing this one until the socket
+            // itself dies.
+            fail(error.reason)
+            throw error
+        }
         return E2eStream(this, streamId).also { streams[streamId] = it }
     }
 
