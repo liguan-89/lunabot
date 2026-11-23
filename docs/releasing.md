@@ -130,12 +130,24 @@ provider, `https://cloud.dexai.vip/desktop` (`electron-builder.yml`'s
 `publish`). That is the only source installed apps read, and `release.yml`
 gates every platform build on it:
 
+The release matrix is deliberately minimal: macOS arm64 (`dmg` + `zip`),
+Windows x64 (`setup.exe`), Linux x64 (`amd64.deb` only — no AppImage or RPM),
+and the Android channel APK. `release.yml` gates every platform build on the
+feed:
+
 1. The GitHub release on `liguan-89/lunabot` is the distribution record: the
    installers, the stable download names (`LUNABOT.dmg`, `LUNABOT-setup.exe`,
-   `LUNABOT-amd64.deb`, `LUNABOT.AppImage`), the blockmaps and `latest*.yml`.
-2. Installed apps update from the generic feed: copy the same assets and the
-   three `latest*.yml` files into the Cloud server's `/data/downloads/desktop`
-   directory, which `/desktop/*` serves.
+   `LUNABOT-amd64.deb`), the blockmaps, `latest*.yml` and
+   `SHA256SUMS-ubuntu-x64.txt` — 14 assets.
+2. Installed apps update from the generic feed. `pnpm publish:feed` uploads
+   the assembled asset set plus the channel APK to the Cloud server's
+   `/data/downloads/desktop` directory (served under `/desktop/*`), swaps
+   `downloads/dexbot.apk` and rewrites `downloads/update.json`, then deletes
+   every `LUNABOT-<old-version>-*` file and all `*.bak-*` backups. The server
+   therefore keeps only the newest version; `--dry-run` prints the plan
+   first. Hosts and paths come from `LUNABOT_PUBLISH_HOST` (default
+   `wholesale`) and `LUNABOT_PUBLISH_DATA_DIR` (default
+   `/opt/dex-cloud/data`).
 3. There is no second repository and no mirror. Nothing in the release pipeline
    writes outside `liguan-89/lunabot`.
 

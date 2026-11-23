@@ -1,6 +1,6 @@
 # 最小化发布矩阵 + 服务器只留最新版
 
-日期：2026-11-23 · 分支：`chore/minimal-release-matrix` · 状态：待评审
+日期：2026-11-23 · 分支：`chore/minimal-release-matrix` · 状态：实施中
 
 ## 背景与拍板（用户，2026-11-23）
 
@@ -50,26 +50,36 @@ deb 安装走包管理器升级链路；被砍的 AppImage/rpm 存量用户失�
      `pnpm smoke:linux-package` 依赖 AppImage → 改对 `release/linux-unpacked`
      或已装 deb 跑 `smoke-linux-package.mjs`（支持 `LUNABOT_SMOKE_EXECUTABLE`）。
    - assemble job：`required` 列表与 feed 校验 `expectedUrls` 同步减项。
-   - **实现期核查点**：electron-builder 只产 deb 时是否仍生成
-     `latest-linux.yml`；若不生成，从 required/expected 中一并摘除，
-     并在服务器清理规则里删掉陈旧 yml。
+   - **核查结论**：app-builder-lib 26.15.3 的 `getUpdateInfoFileName` 按
+     平台生成 `latest-linux.yml`，deb 产物同样触发 update-info 任务——
+     deb-only 下 yml 照常生成，无需摘除。
 3. `scripts/verify-linux-package.mjs`：删 AppImage/rpm 断言（exactlyOne
    .AppImage/.rpm、rpm 元数据与 scriptlet、AppImage 解包验证）。
 4. `scripts/run-linux-package-smoke.mjs`：不再断言「恰好一个 AppImage」，
-   改跑 `release/linux-unpacked/lunabot`（或参数化可执行文件）。
-5. `scripts/bundle-updater.mjs` + `patch-appimage-updater.mjs`：AppImage
-   补丁链路成死代码——摘除 bundle-updater 里的调用，patch 脚本与
-   `vendor-updater.node-test.mjs` 引用同步处理（倾向整段删除）。
-6. `.github/workflows/package-linux.yml`：手工打包流同步减项（job 名、
-   AppImage 断言与稳定名段）。
-7. 新增 `scripts/publish-desktop-feed.sh`（或 .mjs）：输入 release 目录 →
-   rsync 精确资产集到 `wholesale:/opt/dex-cloud/data/downloads/desktop/` →
-   删除不属于当前版本的 `LUNABOT-<旧版>-*`（保留稳定名、`LUNABOT.*`、
-   `latest*.yml`、`SHA256SUMS-*`）→ curl 复核三份 yml。姊妹逻辑处理 Android
-   渠道：换 `dexbot.apk`+`update.json`，删 `downloads/` 下全部 `.bak-*`。
-   脚本先 `--dry-run` 打印将删清单。
-8. 文档：`docs/releasing.md`（矩阵、资产数、上传步骤改脚本化）、
-   `docs/linux-desktop.md`、README/README.zh-CN 下载矩阵按需更新。
+   改跑 `release/linux-unpacked/lunabot`；SIGTERM/SIGKILL 生命周期测试
+   同样改指 unpacked 可执行文件。`scripts/smoke-linux-update.mjs`（仅服务
+   于 AppImage 更新链路的手工诊断）与 `package.json` 的 `smoke:linux-update`
+   一并删除。
+5. `scripts/bundle-updater.mjs` + `patch-appimage-updater.mjs`：**实施期
+   决定保留**。vendored electron-updater 的 `AppImageUpdater` 代码无论如何
+   都在 bundle 里，patch 修的是上游真实的 launcher 孤儿 bug；服务器上仍
+   可下载的 2.1.7 AppImage 及任何手工 AppImage 构建都受其保护。摘除只省
+   构建期几毫秒，却要重写 ~330 行 updater 测试，得不偿失。
+6. `.github/workflows/package-linux.yml` + `ci.yml` 的 `package-linux` job：
+   同步减项（job 名、apt 工具清单、AppImage 断言与稳定名段、artifact path）。
+7. 新增 `scripts/publish-desktop-feed.mjs`（`pnpm publish:feed`）：输入
+   组装后的 assets 目录 → rsync 精确资产集到
+   `wholesale:/opt/dex-cloud/data/downloads/desktop/` → 删除所有不在本次
+   上传清单内的 `LUNABOT-<semver>-*`（不仅限旧版本——同版本的 AppImage/rpm
+   残留同样清掉）→ `--apk` 时换 `downloads/dexbot.apk`、按 APK 字节重写
+   `update.json`（versionCode=MAJOR*10000+MINOR*100+PATCH，沿用
+   `?v=<versionCode>` 缓存戳），并删 `downloads/` 下 `*.bak-*` → curl 复核
+   三份 yml 与 update.json。`--dry-run` 只打印 put/delete/keep 清单。
+   宿主与路径走 `LUNABOT_PUBLISH_HOST` / `LUNABOT_PUBLISH_DATA_DIR` /
+   `LUNABOT_FEED_BASE` 环境变量覆盖。
+8. 文档：`docs/releasing.md`（矩阵、14 assets、`publish:feed` 步骤）、
+   `docs/linux-desktop.md`（DEB-only 全文）、`docs/cloud-pro.md`、
+   `docs/browser-packaging.md` 同步。
 
 ## 服务器留存规则（`/opt/dex-cloud/data/downloads/`）
 
@@ -94,8 +104,8 @@ deb 安装走包管理器升级链路；被砍的 AppImage/rpm 存量用户失�
 - `release.yml` 的 verify/feed-check 是硬门禁，required 列表与三 feed
   `expectedUrls` 必须同步改漏一处 CI 即红。
 - win zip target 删除只省 CI 时间，产物本就不上传。
-- Android `.bak-*` 全清后，换包出问题无服务器端回滚副本——发布脚本内仍
-  建临时备份到 `/tmp` 校验后再切换，不落 `downloads/`。
+- Android `.bak-*` 全清后服务器端无回滚副本；回滚靠本地/CI 留存的 APK
+  产物重传，`publish:feed --apk` 重跑即可。
 
 ## 验证
 

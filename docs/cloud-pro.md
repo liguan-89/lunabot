@@ -496,8 +496,8 @@ to **Settings → Luna Bot Cloud** never signs in or connects by itself.
 The link does nothing in development builds, and in companion client mode it
 explains that the app must be disconnected from the other computer first.
 The `lunabot` scheme belongs to the installed app: on macOS through the
-app bundle, on Linux through the `.deb`'s desktop entry, and on Windows (and
-for an AppImage) once the installed app has started at least once, since it
+app bundle, on Linux through the `.deb`'s desktop entry, and on Windows once
+the installed app has started at least once, since it
 registers itself at startup. Before that, or if the app is not installed, the
 browser has nothing to open (it shows nothing or an error), so the Cloud page
 should keep a download link next to the button.
