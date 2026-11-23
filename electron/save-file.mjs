@@ -37,7 +37,7 @@ async function canonicalPath(target, fsp, message) {
 
 // This computer's data folder: `~/.lunabot` now, `~/.dexbot` from before the rename. A bot's work can sit in
 // either while an install is mid-migration, so both count as "created by your bots".
-const BOT_DATA_DIR_NAMES = [".lunabot", ".dexbot"];
+const BOT_DATA_DIR_NAMES = [".lunabot", ".openmausbot", ".dexbot"];
 
 const insideAny = (roots, target) => roots.some((root) => target === root || target.startsWith(root + path.sep));
 

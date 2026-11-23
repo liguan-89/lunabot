@@ -98,7 +98,7 @@ Account for each supported connection, provider, and hosting configuration:
 - [Network configuration](../app/src/main/res/xml/network_security_config.xml)
   permits cleartext local LAN traffic. Do not claim all traffic is encrypted in
   transit based on the availability of HTTPS or Tailscale routes.
-- [Composer dictation](../app/src/main/kotlin/com/openmausbot/companion/dictation/SpeechDictation.kt)
+- [Composer dictation](../app/src/main/kotlin/com/lunabot/companion/dictation/SpeechDictation.kt)
   can fall back to a platform speech recognizer that uses the network. Review
   that processing alongside messages, attachments, credentials, identifiers,
   optional hosted sign-in, and any other enabled data flows.

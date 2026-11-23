@@ -660,7 +660,7 @@ describe("VPS computer", () => {
       "/usr/local/libexec/lunabot/cua-driver",
       "mcp",
       "--socket",
-      "/run/user/1000/openmausbot-cua.sock",
+      "/run/user/1000/lunabot-cua.sock",
     ]);
   });
 

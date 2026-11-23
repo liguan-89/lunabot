@@ -246,8 +246,9 @@ deb:
   packageCategory: utils
   priority: optional
   # Add the narrow browser policy's parser without replacing Electron's
-  # default shared-library dependencies.
-  fpm: ["--depends", "apparmor"]
+  # default shared-library dependencies. The package used to ship as
+  # `dexbot`; replacing it is what turns an old install into this one.
+  fpm: ["--depends", "apparmor", "--conflicts", "dexbot", "--replaces", "dexbot"]
   # dpkg can preserve legacy directory modes during an upgrade. This
   # idempotent hook repairs only the exact package-owned CUA path.
   afterInstall: build/linux-after-install.sh
@@ -260,7 +261,7 @@ rpm:
   # Own the install folder as well, so removing the package leaves no empty directories.
   # No /usr/lib/.build-id links: another RPM bundling the same Electron binary
   # would own the same link paths and the install would fail with a file conflict.
-  fpm: ["--directories", "/opt/LunaBot", "--rpm-rpmbuild-define", "_build_id_links none"]
+  fpm: ["--directories", "/opt/LunaBot", "--rpm-rpmbuild-define", "_build_id_links none", "--obsoletes", "dexbot"]
   afterInstall: build/linux-after-install.sh
   afterRemove: build/linux-after-remove.sh
 

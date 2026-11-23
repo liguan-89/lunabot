@@ -9,7 +9,7 @@ import { readAdvancedMode } from "@/lib/interface-mode";
 // exists only so the test suite can exercise the loading path; the shipped app
 // never sets it.
 const TOKEN =
-  (globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ ?? "";
+  (globalThis as { __LUNABOT_ANALYTICS_TOKEN__?: string }).__LUNABOT_ANALYTICS_TOKEN__ ?? "";
 
 // Read before init(): an opted-out install must never call posthog.init(), so no request leaves the machine.
 const OPT_OUT_KEY = "omb-analytics-opt-out";

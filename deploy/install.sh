@@ -395,8 +395,8 @@ check_outbound() {
     return
   fi
   ok "outbound: the image registries and Let's Encrypt are reachable"
-  if ! reachable https://accounts.lunabot.com/; then
-    note "accounts.lunabot.com is not reachable, so signing in with an emailed code needs a mail server of your own (LUNABOT_SIGNIN_SMTP_URL). Pairing codes work without it."
+  if ! reachable https://accounts.openmausbot.com/; then
+    note "accounts.openmausbot.com is not reachable, so signing in with an emailed code needs a mail server of your own (LUNABOT_SIGNIN_SMTP_URL). Pairing codes work without it."
   fi
 }
 

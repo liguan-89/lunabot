@@ -22,7 +22,7 @@ delete process.env.CODEX_HOME;
 process.env.LUNABOT_COMPANION_DIR = join(home, ".lunabot-companion");
 
 // The shipped app has no analytics key; tests exercise the loading path with a throwaway write-only key.
-(globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ = "phc_test_token";
+(globalThis as { __LUNABOT_ANALYTICS_TOKEN__?: string }).__LUNABOT_ANALYTICS_TOKEN__ = "phc_test_token";
 
 // Product code follows navigator.language; pin it so English assertions do not depend on the host locale.
 Object.defineProperty(globalThis.navigator, "language", { value: "en", configurable: true });

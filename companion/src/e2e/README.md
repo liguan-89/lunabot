@@ -52,7 +52,7 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
   `e2e=<b64u(JSON)>`, where the JSON is:
 
 ```json
-{"v":1,"k":"<b64u 65-byte T.pub, 87 chars>","h":"<b64u 16-byte hostId, 22 chars>","r":["relay1.lunabot.com","relay2.lunabot.com"]}
+{"v":1,"k":"<b64u 65-byte T.pub, 87 chars>","h":"<b64u 16-byte hostId, 22 chars>","r":["relay1.openmausbot.com","relay2.openmausbot.com"]}
 ```
 
 - **Field rules:**
@@ -65,7 +65,7 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
     `^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The two families are the names a
     phone paired before the rename holds pinned, and the node the deployed control plane issues today. An implementation
     MUST accept both and MUST NOT write a host outside them.
-  - `lunabot.com` is deliberately not in that list. This fleet does not own the domain, so a `relayN.lunabot.com` node
+  - `openmausbot.com` is deliberately not in that list. This fleet does not own the domain, so a `relayN.openmausbot.com` node
     belongs to whoever holds the registration, not to the fleet: a phone sent there would hand a stranger its `hostId`
     and admission hash, and a stranger's silence would read as "your computer is asleep". A descriptor naming one MUST
     be refused like any other host outside the list.

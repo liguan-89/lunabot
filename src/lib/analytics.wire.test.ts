@@ -102,7 +102,7 @@ async function minutes(count: number) {
 it("sends events without any stored or current address, polls nothing, and sends nothing once switched off", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
   try {
-    (globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ = TOKEN;
+    (globalThis as { __LUNABOT_ANALYTICS_TOKEN__?: string }).__LUNABOT_ANALYTICS_TOKEN__ = TOKEN;
     const analytics = await import("./analytics");
     await analytics.initAnalytics();
     analytics.track("app_snapshot", { bots: 3 });

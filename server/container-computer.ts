@@ -64,7 +64,7 @@ export const TARGET_LABEL = "com.lunabot.local-vm-target";
 export const VM_WORKSPACE_DIR = join(DATA_DIR, "vm-home");
 export const VM_WORKSPACE_GUEST = "/home/cua/workspace";
 export const DISPLAY = ":1";
-export const CUA_SOCKET = "/run/user/1000/openmausbot-cua.sock";
+export const CUA_SOCKET = "/run/user/1000/lunabot-cua.sock";
 export const CUA_EXECUTABLE = "/usr/local/libexec/lunabot/cua-driver";
 
 const RUNTIMES = ["docker", "podman", "container"] as const;
@@ -190,12 +190,12 @@ RUN printf '%s\\n' \\
       '  sleep 1' \\
       'done' \\
       'exec env CUA_DRIVER_BROWSER_NO_SANDBOX=1 CUA_DRIVER_INSTALL_CHANNEL=python_package CUA_DRIVER_RS_TELEMETRY_ENABLED=0 CUA_DRIVER_WINDOW_CHANGE_TIMEOUT_MS=200 NO_COLOR=1 ${CUA_EXECUTABLE} serve --socket ${CUA_SOCKET} --permission-mode standard --cursor-reduced-motion on' \\
-      > /usr/local/bin/start-openmausbot-cua-driver.sh \\
-    && chmod 0755 /usr/local/bin/start-openmausbot-cua-driver.sh
+      > /usr/local/bin/start-lunabot-cua-driver.sh \\
+    && chmod 0755 /usr/local/bin/start-lunabot-cua-driver.sh
 RUN printf '%s\\n' \\
       '' \\
-      '[program:openmausbot-cua-driver]' \\
-      'command=/usr/local/bin/start-openmausbot-cua-driver.sh' \\
+      '[program:lunabot-cua-driver]' \\
+      'command=/usr/local/bin/start-lunabot-cua-driver.sh' \\
       'user=cua' \\
       'environment=HOME="/home/cua",USER="cua",DISPLAY=":1"' \\
       'autorestart=true' \\
@@ -859,7 +859,7 @@ function baseImagePullArgs(runtime: Runtime): string[] {
 
 async function prepareManagedImage(runtime: Runtime, runner: CommandRunner): Promise<void> {
   await runner(runtime, baseImagePullArgs(runtime), 10 * 60_000);
-  const context = await mkdtemp(join(tmpdir(), "openmausbot-cua-image-"));
+  const context = await mkdtemp(join(tmpdir(), "lunabot-cua-image-"));
   try {
     await writeFile(join(context, "Dockerfile"), managedImageDockerfile(), { mode: 0o600 });
     await runner(runtime, ["build", ...(runtime === "container" ? [] : ["--force-rm"]), "-t", IMAGE, context], 10 * 60_000); // the legacy builder keeps a failed step's container without --force-rm
