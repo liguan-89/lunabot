@@ -104,10 +104,12 @@ describe("createInactivityWatchdog", () => {
 
 describe("runLivenessProbe", () => {
   it("uses the bridge's explicit environment for its transport probe", async () => {
+    // The probe here asserts env propagation, not the 1s product default: a loaded CI runner can
+    // take longer than that just to spawn node, so give the spawn room to land.
     await expect(runLivenessProbe({
       command: process.execPath,
       args: ["-e", "process.exit(process.env.OMB_TEST_BRIDGE_ENV === 'shared-ssh' ? 0 : 1)"],
-    }, 1_000, { ...process.env, OMB_TEST_BRIDGE_ENV: "shared-ssh" })).resolves.toBe(true);
+    }, 5_000, { ...process.env, OMB_TEST_BRIDGE_ENV: "shared-ssh" })).resolves.toBe(true);
   });
 
   it("maps exit status to liveness and treats an unspawnable probe as dead", async () => {

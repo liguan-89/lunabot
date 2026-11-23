@@ -30,7 +30,12 @@ describe("redactSecretsInText on large text", () => {
   }
 
   it("still masks what it masked before, the blob around it unchanged", () => {
-    const blob = randomBytes(300_000).toString("base64url");
+    // A random base64url run occasionally embeds a credential-shaped token (a "-sk-…" where the
+    // dash lands on the \b boundary), which the high-precision redactor has always masked — that
+    // over-mask predates the linearization and is by design. Redraw until the blob itself is not
+    // credential-shaped, so this test pins the blob-untouched invariant instead of the draw.
+    let blob = randomBytes(300_000).toString("base64url");
+    while (redactSecretsInText(blob) !== blob) blob = randomBytes(300_000).toString("base64url");
     const text = `${blob} MY_SERVICE_API_KEY=abcd1234efgh ${blob}`;
     const out = redactSecretsInText(text);
     expect(out).not.toContain("abcd1234efgh");
