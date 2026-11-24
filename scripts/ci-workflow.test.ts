@@ -267,10 +267,10 @@ describe("CI concurrency", () => {
     )).toBe(true);
     for (const [name, job] of Object.entries(workflow.jobs) as [string, { needs?: string | string[]; if?: string }][]) {
       if (["static", "gate"].includes(name)) continue;
-      // The one deploy job: after the control-plane checks, on main pushes only. It is
+      // The one deploy job: after the static checks, on main pushes only. It is
       // not part of the merge gate.
       if (name === "deploy-composio-broker") {
-        expect(job.needs).toEqual(["control-plane"]);
+        expect(job.needs).toEqual(["static"]);
         expect(job.if).toBe("github.event_name == 'push' && github.ref == 'refs/heads/main'");
         expect(workflow.jobs.gate.needs).not.toContain(name);
         // Without the Cloudflare token the deploy is skipped with a warning, not failed:

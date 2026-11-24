@@ -69,7 +69,7 @@ const packaged = (oses: string[]) => oses.filter((os) => os !== "macos-latest");
 const everything = (oses: string[]) => ({ jobs: SELECTABLE_JOBS, vitest_os: oses, packaged_server_os: packaged(oses), vitest_matrix: vitestMatrix(oses) });
 const staticOnly = (oses: string[], build: boolean) => ({ jobs: build ? ["build"] : [], vitest_os: oses, packaged_server_os: packaged(oses), vitest_matrix: vitestMatrix(oses) });
 /** What a push to main and a merge group run: Linux's and Windows' shards, the macOS smokes and the short Linux checks. */
-const MAIN_JOBS = ["build", "vitest", "behavior-evals", "packaged-server", "electron-smokes", "foss", "control-plane", "ui-smoke", "browser-identity"];
+const MAIN_JOBS = ["build", "vitest", "behavior-evals", "packaged-server", "electron-smokes", "foss", "ui-smoke", "browser-identity"];
 const mainLane = () => ({ jobs: MAIN_JOBS, vitest_os: MAIN, packaged_server_os: MAIN, vitest_matrix: vitestMatrix(MAIN) });
 
 describe("vitest matrix", () => {
@@ -133,10 +133,6 @@ describe("CI path scope", () => {
     expect(selectCiScope([file])).toEqual({ areas: ["desktop"], checks: checks("server") });
   });
 
-  it("runs only the control-plane job for the control plane", () => {
-    expect(selectCiScope(["cloudflare/control-plane/src/index.ts"])).toEqual({ areas: ["control-plane"], checks: ["control-plane"] });
-  });
-
   it.each([["relay/src/server.ts"], ["relay/pnpm-lock.yaml"], ["relay/Dockerfile"], ["relay/deploy/Caddyfile"], ["relay/README.md"]])(
     "runs only the relay job for the relay's %j", (file) => {
       expect(selectCiScope([file])).toEqual({ areas: ["relay"], checks: ["relay"] });
@@ -148,8 +144,8 @@ describe("CI path scope", () => {
   });
 
   it("selects every area's checks for a change across areas", () => {
-    expect(selectCiScope(["src/App.tsx", "src/locales/de.json", "cloudflare/control-plane/src/index.ts"]))
-      .toEqual({ areas: ["control-plane", "locales", "web"], checks: ["build", "control-plane", "linux-tests", "locale-tests", "ui-smoke"] });
+    expect(selectCiScope(["src/App.tsx", "src/locales/de.json", "relay/src/server.ts"]))
+      .toEqual({ areas: ["locales", "relay", "web"], checks: ["build", "linux-tests", "locale-tests", "relay", "ui-smoke"] });
   });
 
   it("keeps filenames containing newlines as one path that can affect anything", () => {
@@ -358,8 +354,8 @@ describe("CI outputs", () => {
     expect(WINDOWS_OS).toEqual(PR);
   });
 
-  it("runs only the broker's control-plane checks for a commit the merge queue already tested", () => {
-    expect(ciOutputs(QUEUED_SCOPE, MAIN)).toEqual({ ...staticOnly(MAIN, false), jobs: ["control-plane"] });
+  it("runs no test jobs for a commit the merge queue already tested", () => {
+    expect(ciOutputs(QUEUED_SCOPE, MAIN)).toEqual({ ...staticOnly(MAIN, false), jobs: [] });
   });
 
   it("names each event's lane: a pull request its areas, main and the merge queue Linux, the rest every platform", () => {
@@ -701,7 +697,7 @@ describe("version-only package.json", () => {
 
   it("never narrows a push the way it narrows a pull request", () => {
     const show = () => pkg("0.1.100");
-    for (const file of ["apps/docs/content/index.mdx", "src/locales/de.json", "src/App.tsx", "cloudflare/control-plane/src/index.ts", "server/index.ts"]) {
+    for (const file of ["apps/docs/content/index.mdx", "src/locales/de.json", "src/App.tsx", "server/index.ts"]) {
       expect(selectPushScope([file], show), file).toEqual({ runtime: true });
     }
     expect(selectPushScope([], show)).toEqual({ runtime: true });
@@ -772,7 +768,7 @@ describe("CI scope CLI on a push to main", () => {
     }
   });
 
-  it.each([["a code change", code], ["the version bump", bump]])("runs only the control-plane checks for %s the merge queue already passed", async (_, change) => {
+  it.each([["a code change", code], ["the version bump", bump]])("runs no test jobs for %s the merge queue already passed", async (_, change) => {
     const { directory, before, after } = pushFixture(change);
     // The queue lands its group's commit once the gate passes, before the run's last job has finished.
     const api = await fakeRunsApi({ [after]: [{ id: 77, event: "merge_group", status: "in_progress", conclusion: null }] }, {

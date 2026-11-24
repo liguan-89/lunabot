@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 // where the event runs it), and the subsets in VITEST_SUBSETS.
 export const SELECTABLE_JOBS = [
   "build", "vitest", "behavior-evals", "packaged-server", "windows-cua", "electron-smokes", "cloudflared-linux-arm64",
-  "foss", "control-plane", "ui-smoke", "browser-identity", "package-linux", "browser-driver", "relay",
+  "foss", "ui-smoke", "browser-identity", "package-linux", "browser-driver", "relay",
 ];
 
 // The server imports Electron and renderer modules, and the macOS smokes run
@@ -19,7 +19,7 @@ const SERVER_CHECKS = [
   "build", "linux-tests", "host-tests", "behavior-evals", "packaged-server", "foss", "electron-smokes",
   "ui-smoke", "browser-identity", "browser-driver", "package-linux",
 ];
-const EVERY_CHECK = [...SERVER_CHECKS, "windows-cua", "cloudflared-linux-arm64", "control-plane", "relay"];
+const EVERY_CHECK = [...SERVER_CHECKS, "windows-cua", "cloudflared-linux-arm64", "relay"];
 
 /** What a pull request's change in each area can affect. */
 export const AREA_CHECKS = {
@@ -31,7 +31,6 @@ export const AREA_CHECKS = {
   desktop: SERVER_CHECKS,
   // The Windows CUA job starts these the way the installed app does, then lends the PC's screen through them.
   "windows-computer-control": [...SERVER_CHECKS, "windows-cua"],
-  "control-plane": ["control-plane"],
   // The relay is its own package with its own lockfile; nothing outside relay/ reaches it except the shared vectors,
   // which it keeps a pinned copy of.
   relay: ["relay"],
@@ -209,7 +208,6 @@ const AREAS = [
   [/^(?:server|shared|enterprise|companion|evals|skills|deploy|cloudflare\/composio-broker)\/|^(?:Dockerfile|\.dockerignore|compose\.yaml)$/, "server"],
   [/^electron\/(?:cua|cua-failure|cua-connection|capabilities|screen-status|shared-cua-connection|shared-computer-access|lent-screen-tools|lent-screen-failures|paced-typing)\.[cm]js$/, "windows-computer-control"],
   [/^(?:electron|build)\/|^(?:electron-builder\.yml|index\.html|rail\.html)$/, "desktop"],
-  [/^cloudflare\/control-plane\//, "control-plane"],
   [/^relay\//, "relay"],
 ];
 
@@ -229,13 +227,13 @@ export const FULL_SCOPE = { areas: ["everything"], checks: [...EVERY_CHECK].sort
 export const MAIN_SCOPE = {
   areas: ["main"],
   checks: [
-    "behavior-evals", "browser-identity", "build", "control-plane", "electron-smokes", "foss", "host-tests", "linux-tests", "packaged-server",
-    "ui-smoke",
+    "behavior-evals", "browser-identity", "build", "electron-smokes", "foss", "host-tests", "linux-tests", "packaged-server", "ui-smoke",
   ],
 };
 
-/** A push whose commit already passed the CI gate in the merge queue: only the control-plane checks the broker deploy needs. */
-export const QUEUED_SCOPE = { areas: ["tested in the merge queue"], checks: ["control-plane"] };
+/** A push whose commit already passed the CI gate in the merge queue: no test jobs — the broker deploy typechecks and
+ * tests the broker in the same checkout it deploys. */
+export const QUEUED_SCOPE = { areas: ["tested in the merge queue"], checks: [] };
 
 /** A pull request's areas and the checks they select, from its changed files. */
 export function selectCiScope(files) {
