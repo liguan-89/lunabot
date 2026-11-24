@@ -211,6 +211,24 @@ class ConnectionTest {
         assertNull(Connection.parse("host name"))
     }
 
+    private fun shape(text: String): Connection? = Connection.parse(text)?.copy(id = "")
+
+    @Test
+    fun aChineseKeyboardPunctuationNamesTheSameAddress() {
+        val lan = shape("192.168.1.42:8810")
+        assertEquals(lan, shape("192。168。1。42：8810"))
+        assertEquals(lan, shape("１９２．１６８．１．４２：８８１０"))
+        assertEquals(shape("http://mac.example"), shape("ｈｔｔｐ：／／ｍａｃ．ｅｘａｍｐｌｅ"))
+        assertEquals(shape("macbook.tail1234.ts.net"), shape("ｍａｃｂｏｏｋ．ｔａｉｌ１２３４．ｔｓ．ｎｅｔ"))
+    }
+
+    @Test
+    fun whatAKeyboardPutsInThatIsNotAnAddressIsRefused() {
+        assertNull(Connection.parse("192，168，1，42"))
+        assertNull(Connection.parse("192.168.1.42、8810"))
+        assertNull(Connection.parse("mac example.com"))
+    }
+
     @Test
     fun parsesADesktopPairingInvite() {
         val token = "omb_pair_" + "a".repeat(43)

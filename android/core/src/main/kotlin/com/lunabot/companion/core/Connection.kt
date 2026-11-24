@@ -372,7 +372,7 @@ data class Connection(
         }
 
         fun parse(text: String, defaultPort: Int = 8810): Connection? {
-            var trimmed = text.trim()
+            var trimmed = typedAddress(text)
             val lowercased = trimmed.lowercase()
             if (lowercased.startsWith("http://") || lowercased.startsWith("https://")) {
                 val parsed = runCatching { URI(trimmed) }.getOrNull() ?: return null
@@ -395,7 +395,8 @@ data class Connection(
 
             var parsedHost = trimmed
             var parsedPort = defaultPort
-            if (trimmed.startsWith("[")) {
+            val bracketed = trimmed.startsWith("[")
+            if (bracketed) {
                 val close = trimmed.indexOf(']')
                 if (close < 0) return null
                 parsedHost = trimmed.substring(1, close)
@@ -410,10 +411,26 @@ data class Connection(
                 parsedPort = trimmed.substring(colon + 1).toIntOrNull() ?: return null
             }
 
-            if (parsedHost.isEmpty() || parsedHost.any { it.isWhitespace() || it in "/?#[]" }) return null
+            if (parsedHost.isEmpty()) return null
+            val legalHost = if (bracketed) {
+                parsedHost.none { it.isWhitespace() || it in "/?#[]" }
+            } else {
+                parsedHost.all { it in HOST_NAME_CHARS }
+            }
+            if (!legalHost) return null
             if (parsedPort !in 1..65535) return null
             return Connection(name = parsedHost, host = urlHost(parsedHost), port = parsedPort)
         }
+
+        /**
+         * A Chinese keyboard turns "." and ":" into full-width marks (`。` `．` `：`) that name the same address, and a
+         * full-width digit or letter looks the same at a glance. Anything else it may put there is not part of an
+         * address, and is refused rather than dialed.
+         */
+        private fun typedAddress(text: String): String =
+            java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKC).replace('。', '.').trim()
+
+        private const val HOST_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%"
 
         private const val MAX_ENDPOINTS = 8
     }
