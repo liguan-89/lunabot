@@ -101,6 +101,7 @@ import { DATA_INTERNAL_MCP_PATH, dataRpc } from "./data/rpc.ts";
 import { dataExportFolders } from "./data/roots.ts";
 import { removeRetiredAppFiles } from "./retired-apps.ts"; import { createEmailRoutes } from "./routes/email.ts"; import { createEmailHost, EMAIL_INTERNAL_MCP_PATH, emailAccess } from "./email/host.ts"; import { createEmailService } from "./email/service.ts"; import { createPostizRoutes } from "./routes/postiz.ts"; import { createPostiz } from "./postiz/service.ts";
 import { createPhones } from "./host/phones.ts";
+import { channelStatuses } from "./host/channel-status.ts";
 import { macAppCall } from "./host/mac-apps.ts";
 import { NOT_THE_OWNER } from "./phones/owner.ts";
 import { PHONE_INTERNAL_MCP_PATH } from "./phones/rpc.ts";
@@ -12149,11 +12150,7 @@ function configStatus() {
     opencodeGo: { ...keyStatus(cfg.opencodeGo?.apiKey), providerKeys: Object.keys(openCodeProviderKeys(cfg)) },
     tts: tts.describeVoice(cfg),
     decider: describeDecider(cfg), helpers: describeHelpers(cfg),
-    feishu: { configured: Boolean(cfg.feishu?.appId && cfg.feishu.appSecret && cfg.feishu.botId), botId: cfg.feishu?.botId ?? "", appId: cfg.feishu?.appId ?? "" },
-    dingtalk: { configured: Boolean(cfg.dingtalk?.appKey && cfg.dingtalk.appSecret && cfg.dingtalk.botId), botId: cfg.dingtalk?.botId ?? "", appKey: cfg.dingtalk?.appKey ?? "" },
-    wecom: { configured: Boolean(cfg.wecom?.corpId && cfg.wecom.corpSecret && cfg.wecom.token && cfg.wecom.encodingAesKey && cfg.wecom.agentId && cfg.wecom.botId), botId: cfg.wecom?.botId ?? "", corpId: cfg.wecom?.corpId ?? "", agentId: cfg.wecom?.agentId ?? "" },
-    botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
-    sms: { configured: Boolean(cfg.sms?.botId), botId: cfg.sms?.botId ?? "", owners: cfg.sms?.owners ?? [] },
+    ...channelStatuses(cfg),
     webauthn: { required: Boolean(cfg.webauthn?.required), enrolled: webAuthnCredentials.length },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),
