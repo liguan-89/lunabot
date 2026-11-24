@@ -1504,6 +1504,24 @@ class Session(
     }
 
     /**
+     * A widget press. Unlike [send] this lets [APIError] bubble: the card shows
+     * the server's own refusal words ("This widget changed. Check it and press
+     * again.") rather than the app-wide error banner, and a non-status failure
+     * means the press may be retried under the same sendId.
+     */
+    suspend fun sendWidgetAction(botId: String, widgetAction: JsonObject, threadId: String, sendId: String): SendReceipt {
+        val activeClient = client ?: throw IllegalStateException("此电脑当前离线。")
+        try {
+            return activeClient.sendWidgetAction(botId, widgetAction, threadId, sendId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            throw error
+        }
+    }
+
+    /**
      * Update Claude Code for the engine a failed turn ran on. The answer is
      * for the card that asked, not the app-wide error banner: it shows the
      * version on success and the harness's own words (already written for a
