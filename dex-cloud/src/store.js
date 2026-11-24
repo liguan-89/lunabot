@@ -302,6 +302,17 @@ export class Store {
   }
 
   /**
+   * A desktop's relay-token refresh doubles as its heartbeat: keep the row's
+   * view of the app current so the account page shows what actually runs, not
+   * what registered. The version only moves forward on what the client
+   * reported — an absent report leaves the stored one alone.
+   */
+  installationSeen(id, appVersion = null) {
+    this.db.prepare("UPDATE installations SET app_version = COALESCE(?, app_version), last_seen_at = ? WHERE id = ?")
+      .run(appVersion, now(), id);
+  }
+
+  /**
    * Drops phone rows that stopped reporting.
    *
    * Only `kind = 'phone'` qualifies: a desktop row may be pinned by a paired
