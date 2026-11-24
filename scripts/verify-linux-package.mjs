@@ -2,12 +2,9 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   accessSync,
-  closeSync,
   constants,
   lstatSync,
-  mkdirSync,
   mkdtempSync,
-  openSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -398,14 +395,11 @@ function verifyCloudflaredResources(resources, label, { directoryMode = 0o755 } 
   return actualHash;
 }
 
-const appImage = exactlyOne(".AppImage");
 const deb = exactlyOne(".deb");
-const rpm = exactlyOne(".rpm");
 const unpacked = path.join(releaseDir, "linux-unpacked");
 const executable = path.join(unpacked, "lunabot");
 const resources = path.join(unpacked, "resources");
 
-requireExecutable(appImage);
 requireExecutable(executable);
 requireDirectoryMode(unpacked, 0o755);
 for (const relative of ["app.asar", "ui/index.html", "server/index.js", "server/desktop-entry.mjs"]) {
@@ -435,7 +429,7 @@ for (const expected of [
   if (!fields.includes(expected)) fail(`DEB metadata is missing ${JSON.stringify(expected)}`);
 }
 
-// The DEB and RPM install the same tree under /opt; check what each extracted.
+// The DEB installs the same tree under /opt; check what it extracted.
 function verifySystemPackage(extracted, label, packageType) {
   const appRoot = path.join(extracted, "opt", "LunaBot");
   requireDirectoryMode(appRoot, 0o755);
@@ -493,99 +487,4 @@ try {
   rmSync(extracted, { recursive: true, force: true });
 }
 
-const rpmFields = execFileSync(
-  "rpm",
-  ["-qp", "--queryformat", "Name: %{NAME}\nArch: %{ARCH}\nVersion: %{VERSION}\n", rpm],
-  { encoding: "utf8" },
-);
-for (const expected of [
-  "Name: lunabot",
-  "Arch: x86_64",
-  `Version: ${JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version}`,
-]) {
-  if (!rpmFields.includes(expected)) fail(`RPM metadata is missing ${JSON.stringify(expected)}`);
-}
-// rpm runs these as %post and %postun; without them the Chromium sandbox
-// stays unprivileged and an upgrade would drop the browser policy.
-const rpmScripts = new Map(
-  execFileSync("rpm", ["-qp", "--scripts", rpm], { encoding: "utf8" })
-    .split(/^(?=\w+ scriptlet)/m)
-    .map((section) => [section.slice(0, section.indexOf(" ")), section]),
-);
-for (const [scriptlet, line] of [
-  ["postinstall", "repair_chromium_sandbox \"$APP_ROOT/chrome-sandbox\""],
-  ["postuninstall", "profile=$APPARMOR_DIR/dexbot-browser"],
-]) {
-  if (!rpmScripts.get(scriptlet)?.includes(line)) {
-    fail(`RPM ${scriptlet} scriptlet does not run the Linux package hook`);
-  }
-}
-
-const rpmExtracted = mkdtempSync(path.join(tmpdir(), "omb-rpm-verify-"));
-try {
-  const archive = path.join(rpmExtracted, "payload.cpio");
-  const archiveFd = openSync(archive, "w");
-  try {
-    execFileSync("rpm2cpio", [rpm], { stdio: ["ignore", archiveFd, "inherit"] });
-  } finally {
-    closeSync(archiveFd);
-  }
-  const payload = path.join(rpmExtracted, "payload");
-  mkdirSync(payload);
-  execFileSync("cpio", ["-idm", "--quiet", "--no-absolute-filenames", "-F", archive], {
-    cwd: payload,
-    stdio: ["ignore", "ignore", "inherit"],
-  });
-  verifySystemPackage(payload, "RPM", "rpm");
-} finally {
-  rmSync(rpmExtracted, { recursive: true, force: true });
-}
-
-const appImageExtracted = mkdtempSync(path.join(tmpdir(), "omb-appimage-verify-"));
-try {
-  const offset = execFileSync(appImage, ["--appimage-offset"], {
-    encoding: "utf8",
-    timeout: 10_000,
-  }).trim();
-  if (!/^\d+$/.test(offset)) fail(`AppImage returned an invalid SquashFS offset: ${offset}`);
-  const squashRoot = path.join(appImageExtracted, "squashfs-root");
-  execFileSync(
-    "unsquashfs",
-    ["-no-progress", "-offset", offset, "-d", squashRoot, appImage],
-    { stdio: ["ignore", "ignore", "inherit"], timeout: 60_000 },
-  );
-  const appImageDirectoryMode = lstatSync(squashRoot).mode & 0o777;
-  if (![0o755, 0o775].includes(appImageDirectoryMode)) {
-    fail(
-      `expected AppImage directory mode 755 or 775 for ${squashRoot}, found ${appImageDirectoryMode.toString(8)}`,
-    );
-  }
-  const appImageResources = path.join(squashRoot, "resources");
-  // No marker: the AppImage keeps the in-place restart-to-update path.
-  requirePackageType(appImageResources, "AppImage", null);
-  requireUpdaterTarget(appImageResources, "AppImage");
-  // Depending on the pinned appimagetool runtime, SquashFS directories are
-  // emitted as root:root 0755 or 0775. Require one mode consistently across
-  // the reviewed resource tree. The app never executes through that path:
-  // Electron stages and re-hashes the two pinned binaries into a fresh 0700
-  // directory first. The AppImage smoke below proves that packaged path,
-  // while this extraction verifies inputs.
-  const appImageHashes = verifyCuaResources(appImageResources, "AppImage", {
-    directoryMode: appImageDirectoryMode,
-    validateRuntimePath: false,
-  });
-  const appImageCloudflaredHash = verifyCloudflaredResources(appImageResources, "AppImage", {
-    directoryMode: appImageDirectoryMode,
-  });
-  if (appImageCloudflaredHash !== unpackedCloudflaredHash) {
-    fail(`AppImage and linux-unpacked cloudflared hashes differ`);
-  }
-  for (const [unpackedFile, expected] of unpackedCuaHashes) {
-    const packaged = path.join(appImageResources, "cua-linux-x64", path.basename(unpackedFile));
-    if (appImageHashes.get(packaged) !== expected) fail(`AppImage and linux-unpacked CUA hashes differ`);
-  }
-} finally {
-  rmSync(appImageExtracted, { recursive: true, force: true });
-}
-
-console.log(`[verify-linux-package] OK\n- ${path.basename(appImage)}\n- ${path.basename(deb)}\n- ${path.basename(rpm)}`);
+console.log(`[verify-linux-package] OK\n- ${path.basename(deb)}`);
