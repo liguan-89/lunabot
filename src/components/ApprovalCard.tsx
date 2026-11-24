@@ -537,7 +537,7 @@ export function ApprovalCard({
       )}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <div className="text-[15.5px] font-semibold text-ink">
+        <div className="text-[15px] font-semibold text-ink">
           {titled ? card.title : outbound ? outbound.headline : profileHeader ?? (
             <>
               {bot

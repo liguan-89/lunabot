@@ -94,7 +94,7 @@ export function RoutineRunCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="truncate text-[14.5px] font-semibold text-ink">{run.routineName}</h3>
+            <h3 className="truncate text-[14px] font-semibold text-ink">{run.routineName}</h3>
             <span aria-live="polite" className={cn("inline-flex items-center gap-1 rounded-full bg-inset px-2.5 py-0.5 text-[11px] font-medium", copy.tone)}>
               {run.status === "running" && !run.goalStatus && <Loader2 aria-hidden="true" className="size-3 animate-spin" />}
               {t(copy.label)}

@@ -86,8 +86,8 @@ export function GoalRunCard({ message, solo = false, onStop }: { message: Messag
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <h3 className="truncate text-[14.5px] font-semibold text-ink">{goal || t("routines.goal.groupGoal")}</h3>
-            <span aria-live="polite" className={cn("rounded-full bg-inset px-2.5 py-0.5 text-[11.5px] font-medium", copy.tone)}>
+            <h3 className="truncate text-[14px] font-semibold text-ink">{goal || t("routines.goal.groupGoal")}</h3>
+            <span aria-live="polite" className={cn("rounded-full bg-inset px-2.5 py-0.5 text-[11px] font-medium", copy.tone)}>
               {t(copy.label)}
             </span>
           </div>
