@@ -112,7 +112,7 @@ class WidgetFormState(
 /**
  * 一条 `kind == "widget"` 消息的完整渲染：与桌面 WidgetMessage 同一协议——
  * 树来自 wire `widget.root`，按下经 `POST /api/bots/{id}/messages {widgetAction}`。
- * `openLink`/`openThread`/`openChat`/`openPhonePairing` 处理 client action。
+ * `openLink`/`openThread`/`openChat` 处理 client action。
  */
 @Composable
 fun WidgetCardMessage(
@@ -212,7 +212,8 @@ private fun WidgetCard(
                 is WidgetThreadTarget.Group -> state.rooms.firstOrNull { it.id == target.groupId }
                     ?.let { openChat?.invoke(Chat.RoomChat(it)) }
                 null -> if (entry.action.type == PHONE_PAIRING_ACTION) {
-                    // 手机端没有「配对一台手机」的页——配对在本机设置里。
+                    // 配对是配对前的流程：能在聊天里看到这张卡的手机已经配对过了，
+                    // 目标页只存在于电脑端。
                     problemText = "配对请在电脑端操作"
                 }
             }

@@ -74,16 +74,18 @@
 - `MessageRow.kt`：WIDGET 分支换 `WidgetCardMessage`（`root` 缺失仍回退
   `WidgetSummaryCard`）；接入现有 `openLink`/`openThread` 回调，
   `open_thread` 的 `groupId` 目标经 `state.rooms` → `onOpenChat(RoomChat)`
-  （回调沿 `openThread` 同一管道加 `openChat`）；`open_phone_pairing` 打开
-  本机配对页入口。
+  （回调沿 `openThread` 同一管道加 `openChat`）；`open_phone_pairing` 在手机上
+  无可达目标（配对是配对前流程，能看到卡的手机已配对过），卡面给出
+  「配对请在电脑端操作」提示。
 
 ## 不做
 
 - 服务端零改动；`kind: "app"` 沙箱页仍是收据（bridge 是电脑端的）。
 - 不移植 `parseWidgetInput`/`resolveWidgetAction`/`widgetToText`：树已是规范形，
   按下由服务端复核；`widgetAdvice`/`widgetActionByLabel` 是模型侧。
-- `open_phone_pairing` 在手机上映射为本机配对入口（语义是「打开手机配对」，与
-  桌面「配对一台手机」同一张卡）。
+- `open_phone_pairing` 在手机上是卡面提示而非跳转——导航栈（Navigation.kt
+  Destination）没有配对目的地，配对页只在未配对阶段存在，语义上
+  「配对一台手机」本来就是电脑侧动作。
 
 ## 验证
 
