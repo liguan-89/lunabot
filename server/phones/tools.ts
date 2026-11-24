@@ -257,6 +257,26 @@ function wrapEach(value: unknown, wrap: (item: unknown) => unknown): unknown {
   return Array.isArray(value) ? value.map(wrap) : value;
 }
 
+/** A calendar entry's own words: its title, where it is, its notes and the calendar it sits on. */
+const EVENT_TEXT = ["title", "location", "notes", "calendar"] as const;
+/** A reminder's own words: what it says, its notes and the list it sits in. */
+const REMINDER_TEXT = ["title", "notes", "list"] as const;
+/** A contact's own words, under whichever names its list row and its detail record use. */
+const CONTACT_TEXT = ["name", "displayName", "givenName", "familyName", "organization", "notes"] as const;
+
+/** A contact or its list row: the name fields above, plus the numbers and addresses it carries — all of it is the
+ * person's data. */
+function wrapContact(value: unknown): unknown {
+  const wrapped = asRecord(wrapFields(value, CONTACT_TEXT));
+  if (!wrapped) return value;
+  const copy = { ...wrapped };
+  for (const key of ["phones", "emails"] as const) {
+    const list = copy[key];
+    if (Array.isArray(list)) copy[key] = list.map((item) => (typeof item === "string" ? wrapUntrusted(item) : item));
+  }
+  return copy;
+}
+
 /**
  * Where the phone's own app content sits, and so what gets the untrusted markers. The phone's answers keep these field
  * names stable, so the wrapper reads the shape rather than being told the tool:
@@ -275,6 +295,10 @@ function wrapEach(value: unknown, wrap: (item: unknown) => unknown): unknown {
  * | PHONE_CLIPBOARD_GET     | text (when hasText says there is one)                         |
  * | PHONE_FILE_LIST         | files[].name                                                  |
  * | PHONE_FILE_READ         | name, and text for a text file                                |
+ * | calendar reads/writes   | events[].title/.location/.notes/.calendar, event.*            |
+ * | contact reads/writes    | contacts[].name, contact.* (names, notes, phones[], emails[]) |
+ * | reminder reads/writes   | reminders[].title/.notes/.list, reminder.*                    |
+ * | PHONE_GET_LOCATION      | place                                                         |
  *
  * Refs, bounds, view ids, class names, counts, package names, urls, mime types, ids, base64 images and every value in
  * structuredContent are machine data and stay raw. So do our own note and error, a screen's size, and the query an
@@ -297,6 +321,14 @@ function untrustedContent(record: Record<string, unknown>): Record<string, unkno
   if (typeof shown.text === "string" && (typeof shown.hasText === "boolean" || typeof shown.name === "string")) {
     shown.text = wrapUntrusted(shown.text);
   }
+  // The phone's own data: calendar entries, contacts, reminders and the geocoder's name for the place.
+  if (Array.isArray(shown.events)) shown.events = shown.events.map((event) => wrapFields(event, EVENT_TEXT));
+  if (shown.event) shown.event = wrapFields(shown.event, EVENT_TEXT);
+  if (Array.isArray(shown.contacts)) shown.contacts = shown.contacts.map(wrapContact);
+  if (shown.contact) shown.contact = wrapContact(shown.contact);
+  if (Array.isArray(shown.reminders)) shown.reminders = shown.reminders.map((reminder) => wrapFields(reminder, REMINDER_TEXT));
+  if (shown.reminder) shown.reminder = wrapFields(shown.reminder, REMINDER_TEXT);
+  if (typeof shown.place === "string") shown.place = wrapUntrusted(shown.place);
   return shown;
 }
 
