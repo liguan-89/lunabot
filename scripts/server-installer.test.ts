@@ -444,7 +444,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
   it("prepares the server for the bots' sandbox with the repository's own files, starts with its settings, and checks that it holds", () => {
     const result = run(["--domain", "maus.example.com"]);
     expect(result.status).toBe(0);
-    for (const path of ["deploy/box/prepare-host.sh", "deploy/box/compose.box.yaml", "connector/profiles/seccomp-lunabot-home.json", "connector/profiles/lunabot-home-narrow.apparmor"]) {
+    for (const path of ["deploy/box/prepare-host.sh", "deploy/box/compose.box.yaml", "connector/profiles/seccomp-omb-home.json", "connector/profiles/omb-home-narrow.apparmor"]) {
       expect(result.calls.some((call) => call.startsWith("curl ") && call.includes(`${SOURCE}/${path} -o `)), path).toBe(true);
     }
     expect(result.calls).toContain(`prepare-host profiles=${result.install}/box/profiles`);

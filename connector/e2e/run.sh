@@ -118,7 +118,7 @@ printf '%s\n' "$status" >"$OUT/status-start.json"
 expect '.result.home.health.box | .box == "bwrap" and .checks == "33/33" and .failed == []' "$status" "the box passes 33/33"
 settings=$(home_settings)
 printf '%s\n' "$settings" >"$OUT/home-settings.json"
-expect '.apparmor == "lunabot-home-narrow" and .stopTimeout == 30' "$settings" "the home's AppArmor profile and stop timeout"
+expect '.apparmor == "omb-home-narrow" and .stopTimeout == 30' "$settings" "the home's AppArmor profile and stop timeout"
 expect '.host | .Init and .ShmSize == 536870912 and (.MaskedPaths // [] | length) == 0 and (.ReadonlyPaths // [] | length) == 0 and (.Privileged | not) and .OomScoreAdj == -800 and .RestartPolicy.Name == "no"' "$settings" "the home's container settings"
 expect '.host | (.CapDrop | map(sub("^CAP_"; ""))) == ["ALL"] and (.CapAdd | map(sub("^CAP_"; "")) | sort) == ["CHOWN", "KILL", "SETGID", "SETUID"]' "$settings" "the home's capabilities"
 expect '.host | .PortBindings["8080/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "8080"}] and (.SecurityOpt | any(startswith("seccomp="))) and (.SecurityOpt | any(. == "no-new-privileges=true" or . == "no-new-privileges"))' "$settings" "the home's port and seccomp"

@@ -121,10 +121,10 @@ step "the bots' sandbox: on and holding where the image has it, left out with a 
 if sudo grep -qx "COMPOSE_FILE=compose.yaml:compose.box.yaml" "$DIR/.env"; then
   contains "$OUT/install.txt" "The bots' sandbox is on: a bot cannot read the server's settings, keys or other bots' files." "the install did not say the sandbox is on"
   sudo cmp "$ROOT/deploy/box/compose.box.yaml" "$DIR/compose.box.yaml" || fail "the sandbox's Compose settings are not the repository's"
-  sudo cmp "$ROOT/connector/profiles/seccomp-lunabot-home.json" /etc/mausbot/seccomp-lunabot-home.json || fail "the seccomp profile on the host is not the repository's"
-  sudo grep -q '^lunabot-home-narrow ' /sys/kernel/security/apparmor/profiles || fail "the AppArmor profile is not loaded"
+  sudo cmp "$ROOT/connector/profiles/seccomp-omb-home.json" /etc/mausbot/seccomp-omb-home.json || fail "the seccomp profile on the host is not the repository's"
+  sudo grep -q '^omb-home-narrow ' /sys/kernel/security/apparmor/profiles || fail "the AppArmor profile is not loaded"
   container=$(cd "$DIR" && sudo docker compose ps -q "$(svc)")
-  [ "$(sudo docker inspect -f '{{.AppArmorProfile}}' "$container")" = lunabot-home-narrow ] || fail "the server does not run under the sandbox's AppArmor profile"
+  [ "$(sudo docker inspect -f '{{.AppArmorProfile}}' "$container")" = omb-home-narrow ] || fail "the server does not run under the sandbox's AppArmor profile"
   [ "$(sudo docker inspect -f '{{.HostConfig.Privileged}} {{json .HostConfig.CapAdd}}' "$container")" = "false null" ] || fail "the server was given privileges"
   (cd "$DIR" && sudo docker compose logs "$(svc)" 2>&1) | grep -F "bot box: on (bubblewrap" || fail "the server did not start its bot box"
   # The installer has already judged every result (it stops on all but a few named ones); here, the ones this is about.

@@ -29,8 +29,8 @@ settings() {
   # bot reach what it must not, or stops bots working. Every other check, and any check this list has never heard
   # of, stops it. A result that carries its own "severity" says so itself and this list is not asked.
   SANDBOX_WARN_ONLY="keyring-denied hostname-private cpu-list-readable fly-api-hidden egress-public-allowed"
-  SECCOMP=seccomp-lunabot-home.json
-  APPARMOR_PROFILE=lunabot-home-narrow
+  SECCOMP=seccomp-omb-home.json
+  APPARMOR_PROFILE=omb-home-narrow
   PROJECT=lunabot
   MIN_DOCKER=24
   MIN_CPUS=2
