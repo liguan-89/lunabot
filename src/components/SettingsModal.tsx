@@ -36,8 +36,7 @@ import { ChannelsSettings } from "./ChannelsSettings";
 import { RemoteComputerSection } from "./RemoteComputerSection";
 import { ConnectedWorkspacesSettings } from "./ConnectedWorkspacesSettings";
 import { PlaceLookCard } from "./PlaceLookCard";
-import { ChromeRailRow } from "./ChromeRailToggle";
-import { WindowFrameRow } from "./WindowFrameRow";
+
 import { OrganizationSettings } from "./OrganizationSettings";
 import { CloudAccountSettings } from "./CloudAccountSettings";
 import { MarketSubscriptionCard } from "./MarketSubscriptionCard";
@@ -382,8 +381,6 @@ function SettingsDialog() {
 
             <SettingsGroupBlock label={t("settings.group.sidebar")} stack>
               <SidebarToolsLayoutRow />
-              <ChromeRailRow />
-              <WindowFrameRow />
               <ShowThreadsRow />
               <PinnedCirclesRow />
               <UniversalPinsRow />

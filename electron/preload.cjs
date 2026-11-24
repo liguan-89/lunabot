@@ -60,32 +60,18 @@ ipcRenderer.on("app:open-settings", (_event, section) => {
 const localOrigin = process.argv.find((arg) => arg.startsWith("--omb-local-origin="))?.slice("--omb-local-origin=".length) ?? null;
 const isLocalPage = !localOrigin || location.origin === localOrigin;
 
-// The window's own rail of places stands at its left edge (electron/chrome-rail.mjs): main says how wide, and every page
-// beside it, whatever server it comes from, moves over by that much, at any zoom (a zoom change resizes the page). The
-// page reads how far in `--rail-beside`, which changes with the move itself.
-let railBeside = 0, railRoom = null;
-function leaveRailRoom() {
-  if (typeof document === "undefined" || !document.documentElement) return;
-  const zoom = Number(webFrame?.getZoomFactor?.()) || 1;
-  if (!railBeside) { railRoom?.remove(); railRoom = null; return; }
-  railRoom ??= document.createElement("style");
-  const room = `${Math.round((railBeside / zoom) * 100) / 100}px`;
-  railRoom.textContent = `html { box-sizing: border-box !important; padding-left: ${room} !important; --rail-beside: ${room}; }`;
-  if (!railRoom.isConnected) (document.head ?? document.documentElement).append(railRoom);
-}
-const railState = (state) => ({ available: state?.available === true, hidden: state?.hidden === true, popoverOpen: state?.popoverOpen === true });
-ipcRenderer.on("rail:beside", (_event, width) => { railBeside = Math.max(0, Math.min(200, Number(width) || 0)); leaveRailRoom(); });
+const railState = (state) => ({ available: state?.available === true, popoverOpen: state?.popoverOpen === true });
 // The rail's own page keeps its size whatever the zoom of this app's page: Chromium gives every page of a host the same
-// zoom, the rail's included, so the rail takes it back out and stays as wide as its strip.
+// zoom, the rail's included, so the rail takes it back out and its popover stays where the capsule put it.
 function railKeepsItsSize() {
   if (!isLocalPage || location.pathname !== "/rail" || typeof document === "undefined" || !document.documentElement) return;
   const zoom = Number(webFrame?.getZoomFactor?.()) || 1;
   document.documentElement.style.zoom = zoom === 1 ? "" : String(Math.round((1 / zoom) * 10000) / 10000);
 }
 if (typeof window !== "undefined") {
-  for (const type of ["resize", "DOMContentLoaded"]) window.addEventListener(type, () => { leaveRailRoom(); railKeepsItsSize(); });
+  for (const type of ["resize", "DOMContentLoaded"]) window.addEventListener(type, railKeepsItsSize);
 }
-const REMOTE_SAFE = new Set(["platform", "app", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "rail", "cloudAdd", "cloudPlan", "cloudSendPage", "accountSheet", "desktopNotices", "desktopNotifications", "desktopAnalytics", "desktopLanguage", "updatesConsent", "windowControls", "onOpenAppSettings", "windowFrame", "softwareRendering"]);
+const REMOTE_SAFE = new Set(["platform", "app", "getCapabilities", "onCapabilitiesChanged", "applySkin", "setUnreadCount", "permStatus", "workspaces", "rail", "cloudAdd", "cloudPlan", "cloudSendPage", "accountSheet", "desktopNotices", "desktopNotifications", "desktopAnalytics", "desktopLanguage", "updatesConsent", "onOpenAppSettings", "softwareRendering", "windowFrame", "windowControls"]);
 /** My Cloud's own page once it is the person's home (main checks the sender again): it is this app's page then. */
 const HOME_PAGE = ["home", "onChatLink", "onPackageInstall", "exportDiagnostics", "openLogsFolder", "openAtLogin", "callActive"];
 function updaterOffered() {
@@ -206,15 +192,14 @@ const bridge = {
       return () => ipcRenderer.removeListener("workspaces:new-local", handler);
     },
   },
-  // The window's own rail (this app's page at /rail, beside every place's page): while a sheet of its own is open it
-  // covers the window; the skin of the page beside it comes from main, and whether that page draws the window's frame.
-  // The page beside it, from whichever server, offers the button that hides and shows it, and learns only whether there
-  // is one to hide, never its places; it says when it draws the frame, so main puts the traffic lights in its top bar.
+  // The window's own rail (this app's page at /rail): while a sheet of its own is open it covers the window, and the
+  // skin of the page beside it comes from main. The page beside it, from whichever server, offers the button that opens
+  // its places popover, and learns only whether there is one, never its places.
   rail: {
     state: () => ipcRenderer.invoke("rail:offer").then(railState),
-    drawsFrame: (drawn) => ipcRenderer.invoke("rail:draws-frame", drawn !== false),
-    setHidden: (hidden) => isLocalPage || navigator.userActivation?.isActive === true
-      ? ipcRenderer.invoke("rail:hide", hidden === true).then(railState) : Promise.reject(new Error("Choose to hide or show your computers.")),
+    // No-ops kept for pages of the last two releases (bridge-contract.json): their features are gone from the desktop.
+    drawsFrame: () => Promise.resolve(),
+    setHidden: () => ipcRenderer.invoke("rail:offer").then(railState),
     openPopover: (anchor) => isLocalPage || navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("rail:open-popover", anchor ? { x: Number(anchor.x) || 0, y: Number(anchor.y) || 0 } : null).then(railState)
       : Promise.reject(new Error("Choose to open your computers.")),
@@ -236,20 +221,22 @@ const bridge = {
         ipcRenderer.on("rail:skin", handler);
         return () => ipcRenderer.removeListener("rail:skin", handler);
       },
-      onFramed: (cb) => {
-        const handler = (_event, framed) => cb(framed === true);
-        ipcRenderer.on("rail:framed", handler);
-        return () => ipcRenderer.removeListener("rail:framed", handler);
-      },
     } : {}),
   },
-  // The window's own frame, this desktop's choice for every page of its window; a server's page changes it only from the
-  // person's click.
+  // Stubs kept for pages of the last two releases (bridge-contract.json): the window frame and its Windows caption
+  // buttons are gone; an older page asking gets "off" and its calls do nothing.
   windowFrame: {
-    state: () => ipcRenderer.invoke("window-frame:state"),
-    set: (on) => isLocalPage || navigator.userActivation?.isActive === true
-      ? ipcRenderer.invoke("window-frame:set", on === true) : Promise.reject(new Error("Choose to turn the window frame on or off.")),
+    state: () => Promise.resolve({ on: false, restart: false }),
+    set: () => Promise.resolve({ on: false, restart: false }),
   },
+  windowControls: {
+    minimize: () => Promise.resolve(false),
+    toggleMaximize: () => Promise.resolve(false),
+    close: () => Promise.resolve(false),
+    state: () => Promise.resolve({ maximized: false }),
+    onMaximizedChanged: () => () => {},
+  },
+
   // Buying another Cloud from the rail's ＋, on this app's page or a hosted Cloud's: plain words in, what the sheet says
   // out; the account, the token and the checkout page stay in main. Only from the person's click where it opens anything.
   cloudAdd: {
@@ -388,17 +375,7 @@ const bridge = {
   /** Unlike window.open, this still works after an asynchronous API request. */
   openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
   applySkin: (skin) => ipcRenderer.invoke("desktop:skin", skin),
-  windowControls: {
-    minimize: () => ipcRenderer.invoke("window:minimize"),
-    toggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
-    close: () => ipcRenderer.invoke("window:close"),
-    state: () => ipcRenderer.invoke("window:state"),
-    onMaximizedChanged: (cb) => {
-      const handler = (_event, maximized) => cb(maximized);
-      ipcRenderer.on("window:maximized-changed", handler);
-      return () => ipcRenderer.removeListener("window:maximized-changed", handler);
-    },
-  },
+
   onPackageInstall: (cb) => {
     packageInstallListeners.add(cb);
     if (pendingPackageInstallUrl) cb(pendingPackageInstallUrl);

@@ -28,8 +28,6 @@ const fixture = vi.hoisted(() => ({
   api: vi.fn(),
   dispatch: vi.fn(),
   switches: [] as ComponentProps<typeof Switch>[],
-  rail: null as { available: boolean; hidden: boolean } | null,
-  railHidden: [] as boolean[],
 }));
 // The Cloud account card reads the host platform (what a saved sign-in still locked asks for).
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({ capabilities: { host: { platform: "darwin" } } }) }));
@@ -76,7 +74,6 @@ vi.mock("@/lib/interface-mode", () => ({
 }));
 vi.mock("@/lib/analytics", () => ({ analyticsEnabled: () => false, setAnalyticsEnabled: vi.fn() }));
 vi.mock("./PeopleSection", () => ({ PeopleSection: () => null }));
-vi.mock("@/lib/chrome-rail", () => ({ useChromeRail: () => fixture.rail, setChromeRailHidden: (hidden: boolean) => fixture.railHidden.push(hidden) }));
 vi.mock("./SettingsPrimitives", async (importOriginal) => {
   const original = await importOriginal<typeof import("./SettingsPrimitives")>();
   return {
@@ -100,8 +97,6 @@ beforeEach(() => {
   // these pin the Advanced rail; Simple has its own suite (SettingsModal.simple.test.ts)
   fixture.advancedMode = true;
   fixture.switches = [];
-  fixture.rail = null;
-  fixture.railHidden = [];
   vi.stubGlobal("window", {});
   vi.stubGlobal("document", { documentElement: { dataset: {} } });
   setLocale("en");
@@ -171,19 +166,6 @@ describe("Settings → Appearance", () => {
     expect(html).not.toContain("Stop after no progress for");
   });
 
-  it("keeps the switch for the window's rail of places with the sidebar's rows, where this window has one", () => {
-    expect(render()).not.toContain("Show your computers");
-    fixture.rail = { available: true, hidden: true };
-    const html = render();
-    const at = html.indexOf('aria-label="Show your computers"');
-    expect(at).toBeGreaterThan(html.indexOf('aria-label="Choose tools layout"'));
-    expect(at).toBeLessThan(html.indexOf('aria-label="Show threads"'));
-    const toggle = fixture.switches.find((props) => props["aria-label"] === "Show your computers")!;
-    expect(toggle.checked).toBe(false);
-    toggle.onClick!({} as never);
-    expect(fixture.railHidden).toEqual([false]);
-  });
-
   it.each([true, false])("only updates the local preference when the switch is %s", (enabled) => {
     fixture.showThreads = enabled;
     render();
@@ -251,12 +233,12 @@ describe("Settings → Appearance", () => {
     expect(fixture.dispatch).not.toHaveBeenCalled();
   });
 
-  it("asks Japanese speakers in Japanese, with the key named for this computer", () => {
-    setLocale("ja");
+  it("asks in the person's language, with the key named for this computer", () => {
+    setLocale("zh");
     fixture.sendKey = "shift-enter";
     const html = render();
-    expect(html).toContain("メッセージの送信キー");
-    expect(html).toContain("日本語入力のように Enter で変換を確定する場合は、Shift+Enter か Ctrl+Enter を選ぶと Enter で改行できます。");
+    expect(html).toContain("发送消息的按键");
+    expect(html).toContain("选择 Shift+Enter 或 Ctrl+Enter 后，按 Enter 会换行，适合用 Enter 确认候选词的输入法（例如日文输入）。");
     expect(html).toContain('<option value="enter">Enter</option>');
     expect(html).toContain('<option value="shift-enter" selected="">Shift+Enter</option>');
     expect(html).toContain('<option value="mod-enter">Ctrl+Enter</option>');
@@ -389,8 +371,8 @@ describe("Settings → Appearance", () => {
     expect(html).toContain("Older team backups and shareable templates");
   });
 
-  it("renders Appearance and its controls in Japanese", () => {
-    setLocale("ja");
+  it("renders Appearance and its controls in Chinese", () => {
+    setLocale("zh");
     const html = render();
     for (const key of [
       "settings.section.appearance", "settings.threadDisplay.show",
@@ -398,9 +380,9 @@ describe("Settings → Appearance", () => {
       "settings.pinnedCircles.subtitle", "settings.universalPins.title",
       "settings.universalPins.subtitle",
     ] as const) {
-      expect(locales.ja[key], key).toBeTruthy();
-      expect(locales.ja[key], key).not.toBe(en[key]);
-      expect(html, key).toContain(locales.ja[key]!);
+      expect(locales.zh[key], key).toBeTruthy();
+      expect(locales.zh[key], key).not.toBe(en[key]);
+      expect(html, key).toContain(locales.zh[key]!);
     }
   });
 

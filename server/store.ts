@@ -1261,7 +1261,7 @@ export class Store {
     const toolScope = parseToolScope(profile.toolScope);
     if (!toolScope.ok) throw new Error(toolScope.error);
     this.rememberSections([profile.section]);
-    const name = profile.name?.trim() || pickBotName(this.bots.map((b) => b.name), this.initialLanguage);
+    const name = profile.name?.trim() || pickBotName(this.bots.map((b) => b.name));
     const section = sectionKey(profile.section);
     const bot: BotRecord = {
       id: opts.id ?? newId(),

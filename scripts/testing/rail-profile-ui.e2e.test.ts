@@ -46,19 +46,18 @@ function harness(get: () => { world: HomeWorld; shots: string }) {
   const tiles = () => rail<Array<{ id: string; label: string; current: boolean; cloud: boolean; local: boolean }>>(
     "[...document.querySelectorAll('[data-rail-place]')].map((tile) => ({ id: tile.dataset.railPlace, label: tile.getAttribute('aria-label'), current: tile.getAttribute('aria-current') === 'page', cloud: Boolean(tile.querySelector('[data-rail-cloud]')), local: Boolean(tile.querySelector('[data-rail-local]')) }))");
   const onLocal = () => /^https?:/.test(get().world.window.url) && new URL(get().world.window.url).origin === get().world.localOrigin;
-  /** The window as the person sees it: the rail at its left edge beside the page, or, while a sheet of the rail's is open,
-   * the rail's see-through view over the whole window. */
+  /** The window as the person sees it: while a sheet or the popover of the rail's is open its see-through view is over
+   * the whole window, and the rest of the time the page is all there is. */
   const picture = async (name: string) => {
     const { world, shots } = get();
     await new Promise((resolve) => setTimeout(resolve, 400));
     await world.rail!.screenshot(join(shots, `${name}-rail.png`));
     await world.window.screenshot(join(shots, `${name}-page.png`));
     const over = decodePng(readFileSync(join(shots, `${name}-rail.png`))), under = decodePng(readFileSync(join(shots, `${name}-page.png`)));
-    const covers = world.railCovers(), width = covers ? under.width : over.width + under.width, height = Math.max(over.height, under.height);
+    const covers = world.railCovers(), width = under.width, height = Math.max(over.height, under.height);
     writeFileSync(join(shots, `${name}.png`), encodePng(width, height, (x, y) => {
-      const base = covers ? (y < under.height ? under.pixel(x, y) : [255, 255, 255] as [number, number, number])
-        : x < over.width ? [255, 255, 255] as [number, number, number] : y < under.height ? under.pixel(x - over.width, y) : [255, 255, 255] as [number, number, number];
-      if (x >= over.width || y >= over.height) return base;
+      const base = y < under.height ? under.pixel(x, y) : [255, 255, 255] as [number, number, number];
+      if (!covers || x >= over.width || y >= over.height) return base;
       const top = over.pixel(x, y), alpha = over.alpha(x, y) / 255;
       return [0, 1, 2].map((at) => Math.round(top[at]! * alpha + base[at]! * (1 - alpha))) as [number, number, number];
     }));

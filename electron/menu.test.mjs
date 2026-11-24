@@ -115,17 +115,17 @@ describe("buildApplicationMenu", () => {
     expect(onCloud.find((entry) => entry.id === "back-to-my-cloud").enabled).toBe(false);
   });
 
-  it("speaks Brazilian Portuguese: Servidor, Configurações… and This computer as the app names it", () => {
-    const { t } = nativeText.createNativeText({ saved: "pt-br" });
-    const pt = JSON.parse(readFileSync(new URL("../src/locales/pt-br.json", import.meta.url), "utf8"));
+  it("speaks Chinese: 服务器, 偏好设置… and 这台电脑 as the app names it", () => {
+    const { t } = nativeText.createNativeText({ saved: "zh" });
+    const zh = JSON.parse(readFileSync(new URL("../src/locales/zh.json", import.meta.url), "utf8"));
     const template = build("darwin", { t, activeId: "local", onAddCloud: vi.fn() });
-    const server = template.find((entry) => entry.label === "Servidor");
-    expect(server.submenu[0].label).toBe(pt["place.local"]);
-    expect(server.submenu.find((entry) => entry.id === "add-cloud").label).toBe("Adicionar um Cloud…");
-    expect(template[0].submenu.find((entry) => entry.accelerator === "CmdOrCtrl+,").label).toBe("Configurações…");
-    expect(template[0].submenu.at(-1)).toEqual({ role: "quit", label: "Sair do app Luna Bot" });
-    expect(template.map((entry) => entry.label)).toEqual(["Luna Bot", "Arquivo", "Editar", "Servidor", "Visualizar", "Janela"]);
-    for (const platform of ["win32", "linux"]) expect(build(platform, { t })[0].submenu[0].label).toBe("Sair do Luna Bot");
+    const server = template.find((entry) => entry.label === "服务器");
+    expect(server.submenu[0].label).toBe(zh["place.local"]);
+    expect(server.submenu.find((entry) => entry.id === "add-cloud").label).toBe("添加 Cloud…");
+    expect(template[0].submenu.find((entry) => entry.accelerator === "CmdOrCtrl+,").label).toBe("偏好设置…");
+    expect(template[0].submenu.at(-1)).toEqual({ role: "quit", label: "退出 Luna Bot" });
+    expect(template.map((entry) => entry.label)).toEqual(["Luna Bot", "文件", "编辑", "服务器", "显示", "窗口"]);
+    for (const platform of ["win32", "linux"]) expect(build(platform, { t })[0].submenu[0].label).toBe("退出");
   });
 
   // Electron 43.7.9 lib/browser/api/menu-item-roles.ts: each role menu's default items, in order.

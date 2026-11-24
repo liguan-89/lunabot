@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
-import de from "../src/locales/de.json" with { type: "json" };
+import zh from "../src/locales/zh.json" with { type: "json" };
 import { addServerLinePacks } from "./server-lines.ts";
 import { skillSwitchCardCopy, skillSwitchStillMatches, skillSwitchTarget, type SwitchableSkill } from "./skill-switch.ts";
 
@@ -65,7 +65,7 @@ describe("skillSwitchCardCopy", () => {
   });
 
   it("writes the card in the person's language but keeps the answer it sends back", () => {
-    addServerLinePacks({ de });
-    expect(skillSwitchCardCopy("disable", "notes", "", "de")).toMatchObject({ title: "Skill „notes“ ausschalten?", option: "Turn off", done: "Skill „notes“ ausgeschaltet" });
+    addServerLinePacks({ zh });
+    expect(skillSwitchCardCopy("disable", "notes", "", "zh")).toMatchObject({ title: "关闭技能「notes」？", option: "Turn off", done: "技能「notes」已关闭" });
   });
 });

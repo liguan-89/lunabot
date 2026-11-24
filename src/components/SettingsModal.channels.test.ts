@@ -21,7 +21,6 @@ vi.mock("@/state/store", async (importOriginal) => ({
 vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => fixture.advanced, setAdvancedMode: vi.fn() }));
 vi.mock("@/lib/analytics", () => ({ analyticsEnabled: () => false, setAnalyticsEnabled: vi.fn() }));
 vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => true }));
-vi.mock("@/lib/chrome-rail", () => ({ useChromeRail: () => ({ available: true, hidden: false }), setChromeRailHidden: vi.fn() }));
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({ capabilities: {} }), useCaptionChrome: () => ({ dragProps: {} }) }));
 vi.mock("./SidebarProfileMenu", async (importOriginal) => ({ ...await importOriginal<typeof import("./SidebarProfileMenu")>(), useServerUpdateItem: () => null }));
 vi.mock("./VaultSettings", () => ({ VaultSettings: () => "VAULT MARKER" }));

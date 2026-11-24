@@ -16,7 +16,7 @@ afterEach(() => setLocale("en"));
 describe("browser window controls", () => {
   it.each([
     ["en", "Maximize (fill the app window)", "Full screen (whole display)", "Maximize", "Full screen"],
-    ["pt-br", "Maximizar (ocupar a janela do app)", "Usar tela cheia (ocupar o monitor inteiro)", "Maximizar", "Tela cheia"],
+    ["zh", "最大化（填满应用窗口）", "全屏（整个显示器）", "最大化", "全屏"],
   ])("distinguishes the app window from the whole display in %s", (locale, maximizeHint, fullscreenHint, maximize, fullscreen) => {
     setLocale(locale);
     const html = renderToStaticMarkup(createElement(ChromeRow, props));
@@ -26,7 +26,7 @@ describe("browser window controls", () => {
 
   it.each([
     ["en", "Restore size", "Exit full screen"],
-    ["pt-br", "Restaurar tamanho", "Sair da tela cheia"],
+    ["zh", "恢复大小", "退出全屏"],
   ])("keeps restore and exit labels in %s", (locale, restore, exit) => {
     setLocale(locale);
     const html = renderToStaticMarkup(createElement(ChromeRow, { ...props, maximized: true, fullscreen: true }));

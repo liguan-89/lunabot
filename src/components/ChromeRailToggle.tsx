@@ -1,48 +1,42 @@
 import type { CSSProperties, MouseEvent } from "react";
 import { ChevronDown, Cloud, Laptop } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { openChromeRailPopover, setChromeRailHidden, useChromeRail } from "@/lib/chrome-rail";
+import { openChromeRailPopover, useChromeRail } from "@/lib/chrome-rail";
 import { cloudColor } from "@/lib/cloud-look";
 import { t } from "@/lib/i18n";
 import { CloudTile } from "./cloud-buy/parts";
 import { useWorkspacePlace } from "./DesktopWorkspaceSwitcher";
 import { ELEVATED_CONTROL, ELEVATED_HOVER } from "./elevated";
-import { SettingRow, Switch } from "./SettingsPrimitives";
 import { SIMPLE_TOP_TOGGLE } from "./SidebarSimpleTop";
 
-/** The window's rail of places, drawn small: a window with the rail at its left edge and three places on it. */
+/** The places the button lists, drawn small: a card with three places on it. */
 export function RailStripIcon({ size }: { size: number }) {
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M9 3v18" />
-    <circle cx="6" cy="7.5" r="0.75" fill="currentColor" />
-    <circle cx="6" cy="12" r="0.75" fill="currentColor" />
-    <circle cx="6" cy="16.5" r="0.75" fill="currentColor" />
+    <rect x="4" y="3" width="16" height="18" rx="3" />
+    <circle cx="8.5" cy="8" r="0.75" fill="currentColor" />
+    <path d="M12 8h4.5" />
+    <circle cx="8.5" cy="12" r="0.75" fill="currentColor" />
+    <path d="M12 12h4.5" />
+    <circle cx="8.5" cy="16" r="0.75" fill="currentColor" />
+    <path d="M12 16h4.5" />
   </svg>;
 }
 
-/** The button that opens the isolated places popover (when the docked strip is hidden) or hides the docked strip:
- * in Simple mode it renders as a macOS-style elevated capsule pill showing the active workspace's icon and name,
- * keeping cross-environment isolation intact (remote pages only read their own current place and never the saved list). */
-export function ChromeRailToggle({ advanced = false, icons = false, bar, style }: { advanced?: boolean; icons?: boolean; bar?: string; style?: CSSProperties }) {
+/** The button that opens the isolated places popover: in Simple mode it renders as a macOS-style elevated capsule pill
+ * showing the active workspace's icon and name, keeping cross-environment isolation intact (remote pages only read
+ * their own current place and never the saved list). */
+export function ChromeRailToggle({ advanced = false, icons = false, style }: { advanced?: boolean; icons?: boolean; style?: CSSProperties }) {
   const rail = useChromeRail();
   const { current } = useWorkspacePlace({});
   if (!rail?.available) return null;
-  const usesPopover = rail.hidden && typeof window !== "undefined" && typeof window.ogb?.rail?.openPopover === "function";
-  const label = usesPopover
-    ? t("rail.show")
-    : t(rail.hidden ? "rail.show" : "rail.hide");
-  const expanded = usesPopover ? rail.popoverOpen === true : !rail.hidden;
+  const label = t("rail.show");
+  const expanded = rail.popoverOpen === true;
   const onClick = (event: MouseEvent<HTMLButtonElement>) => {
-    if (usesPopover) {
-      const rect = event.currentTarget.getBoundingClientRect();
-      openChromeRailPopover({ x: Math.round(rect.left), y: Math.round(rect.bottom + 8) });
-      return;
-    }
-    setChromeRailHidden(!rail.hidden);
+    const rect = event.currentTarget.getBoundingClientRect();
+    openChromeRailPopover({ x: Math.round(rect.left), y: Math.round(rect.bottom + 8) });
   };
 
-  if (usesPopover && !bar && !icons) {
+  if (!icons) {
     const name = current?.profileName ?? (current?.local && !current.localPath ? t("place.local") : current?.name) ?? t("sidebar.servers");
     const Icon = current?.local === false ? Cloud : Laptop;
     const hasColor = Boolean(cloudColor(current?.color));
@@ -67,21 +61,10 @@ export function ChromeRailToggle({ advanced = false, icons = false, bar, style }
     </button>;
   }
 
-  return <button type="button" data-rail-toggle aria-label={label} title={label} aria-haspopup={usesPopover ? "dialog" : undefined} aria-expanded={expanded} style={style}
+  return <button type="button" data-rail-toggle aria-label={label} title={label} aria-haspopup="dialog" aria-expanded={expanded} style={style}
     onClick={onClick}
-    className={bar ?? (advanced ? cn("flex shrink-0 items-center justify-center text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-      icons ? "size-[46px] rounded-xl" : "size-8 rounded-full") : SIMPLE_TOP_TOGGLE)}>
-    <RailStripIcon size={bar ? 15 : advanced && icons ? 20 : 18} />
+    className={advanced ? cn("flex shrink-0 items-center justify-center text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+      icons ? "size-[46px] rounded-xl" : "size-8 rounded-full") : SIMPLE_TOP_TOGGLE}>
+    <RailStripIcon size={advanced && icons ? 20 : 18} />
   </button>;
-}
-
-/** Settings' switch for the same rail, while this window has one. */
-export function ChromeRailRow() {
-  const rail = useChromeRail();
-  if (!rail?.available) return null;
-  return <div data-rail-switch>
-    <SettingRow title={t("rail.show")} subtitle={t("rail.showSub")}>
-      <Switch checked={!rail.hidden} aria-label={t("rail.show")} onClick={() => setChromeRailHidden(!rail.hidden)} />
-    </SettingRow>
-  </div>;
 }

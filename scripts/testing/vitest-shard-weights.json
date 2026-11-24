@@ -568,7 +568,6 @@
     "server/webhook-room-post.e2e.test.ts": 3,
     "server/workspace-backup-workflow.test.ts": 11,
     "server/workspace-backup.test.ts": 65,
-    "server/workspace-banner.e2e.test.ts": 8,
     "server/x-research.e2e.test.ts": 14,
     "src/components/ComputerPanel.takeover.test.ts": 5
   },

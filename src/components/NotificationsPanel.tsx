@@ -66,8 +66,7 @@ export function filterNotifications<T extends { botId: string }>(entries: T[], b
   return botId === ALL_BOTS ? entries : entries.filter((entry) => entry.botId === botId);
 }
 
-/** `bar` is the top bar's button class, which also selects the top-bar layout. */
-export function NotificationBell({ bar }: { bar?: string }) {
+export function NotificationBell() {
   const { state, dispatch } = useStore();
   const unread = state.notifications.reduce((count, n) => count + (n.read ? 0 : 1), 0);
   return (
@@ -78,11 +77,11 @@ export function NotificationBell({ bar }: { bar?: string }) {
       aria-label={unread > 0 ? t("notifications.railUnread", { count: unread }) : t("notifications.title")}
       title={t("notifications.title")}
       aria-pressed={state.notificationsOpen}
-      className={cn("relative", bar ?? "flex size-8 items-center justify-center rounded-md text-ink-secondary hover:bg-raised hover:text-ink", bar && state.notificationsOpen && "text-accent hover:text-accent")}
+      className="relative flex size-8 items-center justify-center rounded-md text-ink-secondary hover:bg-raised hover:text-ink"
     >
-      <Bell size={bar ? 15 : 17} strokeWidth={bar ? 1.75 : undefined} aria-hidden="true" />
+      <Bell size={17} aria-hidden="true" />
       {unread > 0 && (
-        <span className={cn("absolute flex items-center justify-center rounded-full bg-accent font-semibold text-accent-ink", bar ? "-right-1 -top-0.5 h-[13px] min-w-[13px] px-0.5 text-[9px]" : "-right-0.5 -top-0.5 h-[15px] min-w-[15px] px-1 text-[10px]")}>
+        <span className="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-ink">
           {unread > 99 ? "99+" : unread}
         </span>
       )}
@@ -90,7 +89,7 @@ export function NotificationBell({ bar }: { bar?: string }) {
   );
 }
 
-/** The bell on the window's right edge, for windows without the top bar (a browser, or the frame turned off). */
+/** The bell on the window's right edge. */
 export function NotificationRail() {
   const { state } = useStore();
   if (state.notificationsOpen) return null;

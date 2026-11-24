@@ -57,8 +57,8 @@ describe("a routine's date and time", () => {
     }
   });
 
-  it("writes two-digit 24-hour times in pt-BR", () => {
-    setLocale("pt-br");
+  it("writes two-digit 24-hour times in zh", () => {
+    setLocale("zh");
     expect(routineDateTime(at)).toMatch(/06:00$/);
   });
 });

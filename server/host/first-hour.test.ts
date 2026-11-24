@@ -98,15 +98,15 @@ describe("a new Cloud's first hour", () => {
     fh.begin();
     expect(s.texts()[0]).toBe("Hi! I'm Luna Bot, your Chief of Staff. I live on the Cloud, so I keep working while your computer is off. What do you want off your plate?");
     s.world.person = { email: "sam.lee@example.test" };
-    s.world.language = "de";
+    s.world.language = "zh";
     fh.arrived();
     fh.stop();
-    expect(s.texts()[0]).toBe("Hallo Sam! Ich bin Luna Bot, dein Chief of Staff. Ich lebe in deiner Cloud und arbeite weiter, auch wenn dein Computer aus ist. Was soll ich dir abnehmen?");
-    s.write("Mein Postfach");
+    expect(s.texts()[0]).toBe("你好，Sam！我是 Luna Bot，你的 Luna。我在你的 Cloud 上，所以电脑关机时我也在工作。你想让我帮你分担什么？");
+    s.write("我的收件箱");
     s.world.language = "fr";
     fh.arrived();
     fh.stop();
-    expect(s.texts()[0]).toMatch(/^Hallo Sam!/);
+    expect(s.texts()[0]).toMatch(/^你好，Sam！/);
   });
 
   it("offers Gmail and Google Calendar once, after the Chief's first answer, with the reason first", async () => {

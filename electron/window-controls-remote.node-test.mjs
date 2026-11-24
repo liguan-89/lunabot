@@ -25,19 +25,28 @@ function loadPreload(origin) {
   return { bridge, invoked };
 }
 
-// Windows hides the native caption buttons (titleBarStyle "hidden"), so a remote server's page must still be able to draw them.
-test("a remote server's page gets the window controls, and they reach only the window channels", async () => {
+/** Values made in the vm's realm fail deepEqual's prototype check; a JSON round brings them here. */
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+// The window's own frame is gone; a remote server's page on the last two releases still calls these, so they answer
+// "off" and do nothing (bridge-contract.json).
+test("a remote server's page keeps the windowControls and windowFrame keys, as stubs that never reach main", async () => {
   const remote = loadPreload(REMOTE);
   assert.deepEqual(Object.keys(remote.bridge.windowControls).sort(), ["close", "minimize", "onMaximizedChanged", "state", "toggleMaximize"]);
-  await remote.bridge.windowControls.minimize();
-  await remote.bridge.windowControls.toggleMaximize();
-  await remote.bridge.windowControls.state();
-  await remote.bridge.windowControls.close();
-  assert.deepEqual(remote.invoked, [["window:minimize"], ["window:toggle-maximize"], ["window:state"], ["window:close"]]);
+  assert.equal(await remote.bridge.windowControls.minimize(), false);
+  assert.equal(await remote.bridge.windowControls.toggleMaximize(), false);
+  assert.equal(await remote.bridge.windowControls.close(), false);
+  assert.deepEqual(plain(await remote.bridge.windowControls.state()), { maximized: false });
+  assert.equal(typeof remote.bridge.windowControls.onMaximizedChanged(), "function");
+  assert.deepEqual(plain(await remote.bridge.windowFrame.state()), { on: false, restart: false });
+  assert.deepEqual(plain(await remote.bridge.windowFrame.set(true)), { on: false, restart: false });
+  assert.deepEqual(remote.invoked, [], "stubs never reach main's channels");
   assert.equal(remote.bridge.copyText, undefined, "local-only APIs stay off the remote bridge");
 });
 
-test("the local page keeps its window controls", () => {
+test("the local page keeps the same stubs", async () => {
   const local = loadPreload(LOCAL);
   assert.equal(typeof local.bridge.windowControls.minimize, "function");
+  assert.equal(await local.bridge.windowControls.minimize(), false);
+  assert.deepEqual(plain(await local.bridge.windowFrame.state()), { on: false, restart: false });
 });

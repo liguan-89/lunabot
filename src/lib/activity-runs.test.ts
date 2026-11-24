@@ -225,10 +225,10 @@ describe("describeRun", () => {
 
   it("words a server notice in the person's language and leaves real tool names as they are", () => {
     const resumed: Message = { ...tool("Resuming after a restart"), tool: { name: "Resuming after a restart", ok: true, nameCode: "chat.notice.resumingAfterRestart" } };
-    setLocale("pt-br");
+    setLocale("zh");
     try {
-      expect(describeRun([resumed, tool("Bash")])).toBe("Passos: 2 · Retomando após uma reinicialização, Bash");
-      expect(describeRun([resumed, tool("Bash")], toolStepLabel)).toBe("Passos: 2 · Retomando após uma reinicialização, Executar um comando");
+      expect(describeRun([resumed, tool("Bash")])).toBe("2 步 · 重启后正在恢复, Bash");
+      expect(describeRun([resumed, tool("Bash")], toolStepLabel)).toBe("2 步 · 重启后正在恢复, 运行命令");
     } finally {
       setLocale("en");
     }

@@ -59,25 +59,11 @@ const NO_DRAG_STYLE = { WebkitAppRegion: "no-drag" } as CSSProperties;
 
 export type WindowDragProps = { "data-window-drag"?: ""; style?: CSSProperties };
 
-/** A window with no title bar of its own, which the page can frame: the person may turn that frame off. */
-export function windowFrameable(capabilities: Pick<DesktopCapabilities, "windowChrome"> | undefined): boolean {
-  return capabilities?.windowChrome === "mac-inset" || capabilities?.windowChrome === "win-caption";
-}
-
-/** A window that draws its own frame: the top bar holding the traffic lights or the Windows caption buttons
- * (WindowFrameBar) and the rail of places in the frame's colour, and the app, its sidebar and the chat or page, in a
- * rounded card beside them. Nothing under the bar makes room for the window's buttons. Off once the person turned the frame off. */
-export function windowFramed(capabilities: Pick<DesktopCapabilities, "windowChrome" | "windowFrame"> | undefined): boolean {
-  return windowFrameable(capabilities) && capabilities?.windowFrame !== false;
-}
-
-/** A window with no title bar of its own: the page's headers drag it, framed or not. */
+/** A window with no title bar of its own: the page's headers drag it. */
 export function captionChrome(windowChrome: DesktopCapabilities["windowChrome"] | undefined) {
-  const windowsCaption = windowChrome === "win-caption";
-  const draggable = windowsCaption || windowChrome === "mac-inset";
+  const draggable = windowChrome === "mac-inset";
   const dragProps: WindowDragProps = draggable ? { "data-window-drag": "", style: DRAG_STYLE } : {};
   return {
-    windowsCaption,
     draggable,
     dragProps,
     dragStyle: draggable ? DRAG_STYLE : undefined,

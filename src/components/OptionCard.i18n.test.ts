@@ -48,19 +48,19 @@ const render = (message: Message) => act(() => root.render(createElement(OptionC
 const buttons = () => [...host.querySelectorAll<HTMLButtonElement>("[data-ask-choice]")];
 
 const actions = [
-  ["enable", "Turn on", "Ligar"],
-  ["update", "Change", "Alterar"],
-  ["remove", "Remove", "Remover"],
+  ["enable", "Turn on", "开启"],
+  ["update", "Change", "更改"],
+  ["remove", "Remove", "移除"],
 ] as const;
 
 describe("MCP option cards", () => {
-  it.each(actions)("localizes MCP %s choices but answers with their original protocol tokens", (action, english, portuguese) => {
+  it.each(actions)("localizes MCP %s choices but answers with their original protocol tokens", (action, english, chinese) => {
     const card = message(action, english);
     render(card);
     expect(buttons().map((button) => button.textContent)).toEqual([english, "Cancel"]);
-    setLocale("pt-br");
+    setLocale("zh");
     render(card);
-    expect(buttons().map((button) => button.textContent)).toEqual([portuguese, "Cancelar"]);
+    expect(buttons().map((button) => button.textContent)).toEqual([chinese, "取消"]);
     act(() => buttons()[0]!.click());
     expect(fixture.dispatch).toHaveBeenLastCalledWith({ type: "answerCard", botId: "bot-1", threadId: "thread-1", messageId: "mcp-card", answer: english, groupId: undefined });
     act(() => buttons()[1]!.click());
@@ -68,15 +68,15 @@ describe("MCP option cards", () => {
     expect(card.card!.options).toEqual([english, "Cancel"]);
   });
 
-  it.each(actions)("localizes a settled MCP %s answer without changing the saved answer", (action, english, portuguese) => {
+  it.each(actions)("localizes a settled MCP %s answer without changing the saved answer", (action, english, chinese) => {
     const card = message(action, english);
     card.card!.answered = "answer";
     card.card!.answeredText = english;
     render(card);
     expect(host.textContent).toContain(english);
-    setLocale("pt-br");
+    setLocale("zh");
     render(card);
-    expect(host.textContent).toContain(portuguese);
+    expect(host.textContent).toContain(chinese);
     expect(card.card!.answeredText).toBe(english);
     expect(host.querySelector("[data-ask-choice]")).toBeNull();
   });
@@ -84,7 +84,7 @@ describe("MCP option cards", () => {
   it("leaves bot-authored choices unchanged when there is no MCP request", () => {
     const card = message("update", "Change");
     delete card.card!.mcpRequest;
-    setLocale("pt-br");
+    setLocale("zh");
     render(card);
     expect(buttons().map((button) => button.textContent)).toEqual(["Change", "Cancel"]);
   });
