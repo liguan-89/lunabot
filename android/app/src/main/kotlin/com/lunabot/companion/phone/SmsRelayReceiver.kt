@@ -7,15 +7,22 @@ import android.provider.Telephony
 import android.telephony.SmsMessage
 import android.util.Log
 import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.RECEIVER_CONNECT_BUDGET_MS
 import com.lunabot.companion.core.PhoneSmsEvent
 import com.lunabot.companion.core.Session
 import com.lunabot.companion.storage.ChatPreferences
-import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+
+/** How long after its arrival a text may still reach the computer: past that, its answer would be out of time. */
+internal const val SMS_DELIVER_WITHIN_MS = 2 * 60_000L
 
 /**
  * The inbound half of SMS relay: a text arriving on this phone becomes a
@@ -37,29 +44,68 @@ class SmsRelayReceiver : BroadcastReceiver() {
         }
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
         val app = context.applicationContext as? OpenMausApp ?: return
+        val events = inboundSmsEvents(parts)
+        if (events.isEmpty()) return
         val pending = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                for (event in inboundSmsEvents(parts)) {
-                    // The same text's notification reaches SmsNotificationRelay; whichever path runs first wins.
-                    if (!SmsEventDedup.note(event.from, event.text)) continue
-                    app.session.connect()
-                    val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
-                        app.session.status.first { it is Session.Status.Live }
-                    } ?: break
-                    Log.i(TAG, "posting sms event from=${event.from} parts=${parts.size}")
-                    Log.i(TAG, "post result=${app.session.postPhoneEvent(event)}")
-                }
-            } finally {
-                pending.finish()
+        // The delivery is the app's, not the broadcast's: a computer that takes longer to reach than a receiver
+        // may be held still gets its text, and the text is not lost with the process.
+        val delivery = app.appScope.async(Dispatchers.IO) {
+            val delivered = try {
+                deliverInboundSms(
+                    events = events,
+                    deliverWithinMs = SMS_DELIVER_WITHIN_MS,
+                    connect = app.session::connect,
+                    live = { app.session.status.first { it is Session.Status.Live } },
+                    post = app.session::postPhoneEvent,
+                )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                Log.w(TAG, "inbound sms not delivered: ${error::class.simpleName}")
+                0
             }
+            Log.i(TAG, "inbound sms delivered=$delivered of=${events.size}")
+            delivered
         }
+        app.appScope.launch { holdBroadcastWhile(delivery, pending::finish) }
     }
 
     private companion object {
         const val TAG = "SmsRelay"
-        const val CONNECT_TIMEOUT_MS = 10_000L
     }
+}
+
+/** Holds a receiver's broadcast for [delivery] only as long as the system allows a receiver to be held. */
+internal suspend fun holdBroadcastWhile(delivery: Deferred<*>, finish: () -> Unit) {
+    withTimeoutOrNull(RECEIVER_CONNECT_BUDGET_MS) { delivery.await() }
+    finish()
+}
+
+/**
+ * Tells the computer about each text, once a session is live, and says how many it took.
+ *
+ * The whole delivery gives up after [deliverWithinMs]. A text is never handed over twice: whichever path reaches
+ * a live session first — this one, or the text's notification through [com.lunabot.companion.phone.SmsNotificationRelay] — is the one that delivers it.
+ */
+internal suspend fun deliverInboundSms(
+    events: Collection<PhoneSmsEvent>,
+    deliverWithinMs: Long,
+    connect: () -> Unit,
+    live: suspend () -> Unit,
+    post: suspend (PhoneSmsEvent) -> Boolean,
+    note: (from: String, text: String) -> Boolean = SmsEventDedup::note,
+): Int {
+    var delivered = 0
+    withTimeoutOrNull(deliverWithinMs) {
+        for (event in events) {
+            connect()
+            live()
+            if (!note(event.from, event.text)) continue
+            // A request already on its way is finished: cut off halfway, neither side could say whether it arrived.
+            if (withContext(NonCancellable) { post(event) }) delivered += 1
+        }
+    }
+    return delivered
 }
 
 /**
