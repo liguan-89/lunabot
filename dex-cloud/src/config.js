@@ -66,7 +66,7 @@ export function loadConfig(env = process.env) {
     planMode: trim(env.LUNABOT_CLOUD_PLAN_MODE) || "pro",
     adminEmails: list(env.LUNABOT_CLOUD_ADMIN_EMAILS).map((email) => email.toLowerCase()),
     latestVersion: trim(env.LUNABOT_CLOUD_LATEST_VERSION) || "2.0.0",
-    apkPath: trim(env.LUNABOT_CLOUD_APK_PATH) || "/data/downloads/dexbot.apk",
+    apkPath: trim(env.LUNABOT_CLOUD_APK_PATH) || "/data/downloads/lunabot.apk",
     updatePath: trim(env.LUNABOT_CLOUD_UPDATE_PATH) || "/data/downloads/update.json",
     landingPath: trim(env.LUNABOT_CLOUD_LANDING_PATH) || "/data/downloads/landing.html",
     /** The share/OG card, bundled beside this module and served at /og.png. */

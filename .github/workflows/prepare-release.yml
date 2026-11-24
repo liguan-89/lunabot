@@ -88,6 +88,8 @@ jobs:
         run: |
           npm pkg set "version=$VERSION"
           test "$(node -p "require('./package.json').version")" = "$VERSION"
+          sed -i -E "s/^private val appVersionName = \".*\"$/private val appVersionName = \"$VERSION\"/" android/app/build.gradle.kts
+          grep -q "appVersionName = \"$VERSION\"" android/app/build.gradle.kts
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -95,7 +97,7 @@ jobs:
           node scripts/tighten-ratchets.mjs
           node scripts/record-data-format.mjs
           node scripts/generate-locale.mjs --record-hashes
-          git add package.json server/data-format-released.json scripts/testing/file-size-ratchet.test.ts scripts/testing/index-route-ratchet.test.ts src/locales/source-hashes.json
+          git add package.json android/app/build.gradle.kts server/data-format-released.json scripts/testing/file-size-ratchet.test.ts scripts/testing/index-route-ratchet.test.ts src/locales/source-hashes.json
           git commit -m "chore(release): bump version to $VERSION"
           git push --set-upstream origin "release/v$VERSION"
 

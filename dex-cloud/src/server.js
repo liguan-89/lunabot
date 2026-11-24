@@ -70,7 +70,7 @@ function updateManifest(config) {
   return JSON.stringify({
     versionCode: versionCodeOf(config.latestVersion),
     versionName: config.latestVersion,
-    apkUrl: "/download/dexbot.apk",
+    apkUrl: "/download/lunabot.apk",
     notes: `Luna Bot ${config.latestVersion} · 自建 Luna Bot Cloud，支持与官方版同时安装`,
     ...(size ? { size } : {}),
     ...(sha256 ? { sha256 } : {}),
@@ -230,9 +230,13 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
         if (!cloud) return html(res, 404, errorPage("云电脑不存在或已被移除。"));
         return html(res, 200, provisionPage(cloud));
       }
-      if (path === "/download/dexbot.apk") {
-        if (staticResponse(res, config.apkPath, { downloadName: "dexbot.apk", immutable: true })) return;
+      if (path === "/download/lunabot.apk") {
+        if (staticResponse(res, config.apkPath, { downloadName: "lunabot.apk", immutable: true })) return;
         return html(res, 404, errorPage("APK 还没有上传到这个服务器。"));
+      }
+      if (path === "/download/dexbot.apk") {
+        res.writeHead(303, { location: `/download/lunabot.apk${url.search}` });
+        return res.end();
       }
       if (path === "/update.json") {
         if (existsSync(config.updatePath) && staticResponse(res, config.updatePath)) return;
