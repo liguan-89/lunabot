@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { EVALS_LANE, PACKAGED_SERVER_LANE, vitestLane } from "./ci-linux-lanes.mjs";
+import { EVALS_LANE, FOSS_LANE, PACKAGED_SERVER_LANE, vitestLane } from "./ci-linux-lanes.mjs";
 import { SELECTABLE_JOBS, vitestMatrix } from "./ci-scope.mjs";
 import { interpolate } from "./testing/github-expression.ts";
 
@@ -392,6 +392,9 @@ describe("CI on Boat", () => {
     }
     expect(EVALS_LANE.commands).toEqual(work("behavior-evals"));
     expect(PACKAGED_SERVER_LANE.commands).toEqual(work("packaged-server"));
+    // The foss lane isolates the check in its own worktree first (it deletes
+    // enterprise/, which the vitest lanes still import); the rest is the job's.
+    expect(FOSS_LANE.commands.slice(-work("foss").length)).toEqual(work("foss"));
   });
 
   it("starts Boat VMs from no other workflow", () => {

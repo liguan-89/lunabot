@@ -36,12 +36,39 @@ printf '%s\\n' "$output" | grep -q "live tier skipped"
 
 export const PACKAGED_SERVER_LANE = { name: "packaged server smoke (ubuntu-latest)", env: {}, commands: ["pnpm test:packaged-server"] };
 
+// The lanes share one checkout, and this check's first step deletes enterprise/, so it runs in its own worktree
+// instead of racing the vitest lanes' imports of it. Everything after the worktree setup is the foss job's own steps.
+export const FOSS_LANE = {
+  name: "open-source edition builds without enterprise/",
+  env: {},
+  commands: [
+    'foss="$(mktemp -d)"',
+    'git worktree add --detach "$foss" HEAD',
+    'cd "$foss"',
+    "pnpm install --frozen-lockfile",
+    "rm -rf enterprise",
+    "pnpm typecheck",
+    "pnpm exec vitest run server/enterprise.test.ts server/brand.test.ts",
+    `mkdir -p /tmp/lunabot-foss/home
+HOME=/tmp/lunabot-foss/home LUNABOT_DATA_DIR=/tmp/lunabot-foss/data LUNABOT_PORT=18797 LUNABOT_WEBHOOK_PORT=18796 \\
+  LUNABOT_BROWSER_CONNECTION=/tmp/lunabot-foss/browser-connection.json LUNABOT_LICENSE_KEY=omb1.not.real \\
+  node --experimental-strip-types server/index.ts > /tmp/lunabot-foss/server.log 2>&1 &
+for i in $(seq 1 60); do curl -sf http://127.0.0.1:18797/api/health >/dev/null && break; sleep 1; done
+curl -sf http://127.0.0.1:18797/api/edition | tee /tmp/lunabot-foss/edition.json; echo
+grep -q '"edition":"oss"' /tmp/lunabot-foss/edition.json
+grep -q 'no enterprise layer exists' /tmp/lunabot-foss/edition.json
+kill %1; wait %1 || true
+`,
+  ],
+};
+
 /** Every lane of ci-scope's `linux_lanes` plan. */
 export function lanesFor(plan, retryLog) {
   return [
     ...plan.vitest.map((entry) => vitestLane(entry, retryLog)),
     ...(plan.evals ? [EVALS_LANE] : []),
     ...(plan.packaged_server ? [PACKAGED_SERVER_LANE] : []),
+    ...(plan.foss ? [FOSS_LANE] : []),
   ];
 }
 
