@@ -381,6 +381,15 @@ private fun pairsField(node: WidgetNode) =
 
 private fun flows(children: List<WidgetNode>) = children.size > 1 && children.all { it.type in FLOWS }
 
+/** 内部 fillMaxWidth 的子项：在收缩行里按 flex=1 分剩余宽（对应桌面 width:100% 基项收缩后的等效结果）。 */
+private fun wantsRowFill(c: WidgetNode): Boolean = when {
+    (c["width"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull == "full" -> true
+    c.type == "Button" && c.bool("block") -> true
+    c.type in WIDGET_FIELD_TYPES -> true
+    c.type in setOf("Progress", "Divider", "Table", "Card", "ListViewItem", "Chart", "Image") -> true
+    else -> false
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WidgetLayout(node: WidgetNode, form: WidgetFormState, press: (String) -> Unit, ctx: Ctx) {
@@ -454,16 +463,18 @@ private fun ShrinkRow(
     children: List<WidgetNode>,
     content: @Composable () -> Unit,
 ) {
-    val flexes = children.map { widgetNumber(it, "flex")?.toFloat() ?: 0f }
+    val flexes = children.map { c ->
+        widgetNumber(c, "flex")?.toFloat()?.takeIf { it > 0f } ?: if (wantsRowFill(c)) 1f else 0f
+    }
     Layout(content = content, modifier = modifier) { measurables, constraints ->
         val n = measurables.size
         if (n == 0) return@Layout layout(0, 0) {}
         val gapPx = gap.roundToPx()
         val avail = (constraints.maxWidth - gapPx * (n - 1)).coerceAtLeast(0)
-        val loose = Constraints(minWidth = 0, maxWidth = avail, maxHeight = constraints.maxHeight)
-        val first = measurables.map { it.measure(loose) }
+        // measure() 对每个 Measurable 只能调一次：固有宽与 stretch 行高都走
+        // intrinsic 预估，最终尺寸在唯一一次 measure 里以固定宽约束下发。
+        val widths = IntArray(n) { measurables[it].maxIntrinsicWidth(Constraints.Infinity) }
         val flexSum = flexes.sumOf { it.coerceAtLeast(0f).toDouble() }.toFloat()
-        val widths = IntArray(n) { first[it].width }
         when {
             flexSum > 0f -> {
                 val room = (avail - widths.filterIndexed { i, _ -> flexes[i] <= 0f }.sum()).coerceAtLeast(0)
@@ -474,16 +485,19 @@ private fun ShrinkRow(
                 for (i in 0 until n) widths[i] = (avail.toLong() * widths[i] / total).toInt()
             }
         }
-        val laid = measurables.mapIndexed { i, m ->
-            if (widths[i] == first[i].width) first[i]
+        val height = if (stretch) {
+            maxOf(
+                measurables.indices.maxOf { measurables[it].maxIntrinsicHeight(widths[it]) },
+                constraints.minHeight,
+            ).coerceAtMost(constraints.maxHeight)
+        } else 0
+        val placed = measurables.mapIndexed { i, m ->
+            if (stretch) m.measure(Constraints.fixed(widths[i], height))
             else m.measure(Constraints(minWidth = widths[i], maxWidth = widths[i], maxHeight = constraints.maxHeight))
         }
-        var height = maxOf(laid.maxOf { it.height }, constraints.minHeight).coerceAtMost(constraints.maxHeight)
-        val placed = if (stretch) {
-            measurables.mapIndexed { i, m -> m.measure(Constraints.fixed(widths[i], height)) }
-        } else laid
-        height = maxOf(placed.maxOf { it.height }, constraints.minHeight).coerceAtMost(constraints.maxHeight)
-        layout(constraints.maxWidth, height) {
+        val rowH = if (stretch) height
+        else maxOf(placed.maxOf { it.height }, constraints.minHeight).coerceAtMost(constraints.maxHeight)
+        layout(constraints.maxWidth, rowH) {
             val free = (avail - widths.sum()).coerceAtLeast(0)
             var x = 0
             var between = gapPx
@@ -496,8 +510,8 @@ private fun ShrinkRow(
             }
             placed.forEach { p ->
                 p.place(x, when (vAlign) {
-                    Alignment.CenterVertically -> (height - p.height) / 2
-                    Alignment.Bottom -> height - p.height
+                    Alignment.CenterVertically -> (rowH - p.height) / 2
+                    Alignment.Bottom -> rowH - p.height
                     else -> 0
                 })
                 x += p.width + between
