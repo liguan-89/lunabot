@@ -93,7 +93,8 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
         sheetState = sheetState,
         containerColor = minisCanvas,
         shape = MinisSheetShape,
-        scrimColor = Color.Black.copy(alpha = 0.22f),
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         GlassBackdrop()
         Column(

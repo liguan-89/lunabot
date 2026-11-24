@@ -187,7 +187,7 @@ fun ConnectedAppsScreen(onBack: () -> Unit, embedded: Boolean = false) {
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
-                                .chromeCapsule(surface = true),
+                                .museFloatingPill(CircleShape, elevation = 4.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -325,7 +325,7 @@ fun ConnectedAppsScreen(onBack: () -> Unit, embedded: Boolean = false) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(18.dp))
-                                .background(if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3))
+                                .background(minisSoftCard)
                                 .padding(horizontal = 16.dp, vertical = 14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
@@ -423,12 +423,12 @@ fun ConnectedAppsScreen(onBack: () -> Unit, embedded: Boolean = false) {
             title = { Text("账号别名") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    MinisSheetField(
                         value = alias,
                         onValueChange = { alias = it },
-                        label = { Text("工作、个人、客户…") },
+                        placeholder = "工作、个人、客户…",
+                        label = "账号别名",
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
                         "当智能体使用多个 ${target.label} 账号时，别名可以明确区分不同账号。",
@@ -488,11 +488,11 @@ private fun WhiteCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val cardFill = minisSoftCard
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(cardFill)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -536,11 +536,11 @@ private fun ConnectorCardView(
     val connected = status?.connected == true
     val pending = status?.pending == true
 
-    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val cardFill = minisSoftCard
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(cardFill),
     ) {
         Row(
@@ -637,7 +637,7 @@ private fun ConnectorIconTile(card: ConnectorCard) {
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
+                .background(if (minisIsDark()) Color(0xFFE6E6E8) else Color.White)
                 .padding(8.dp),
             contentAlignment = Alignment.Center,
         ) {

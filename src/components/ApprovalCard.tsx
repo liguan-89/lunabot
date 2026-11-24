@@ -20,6 +20,7 @@ import { computerAskWords } from "@/lib/computer-ask";
 import { mcpRequestActionLabel } from "@/lib/mcp-request-label";
 import { TriggerCard } from "./TriggerCard";
 import { CardHint } from "./CardHint";
+import { ELEVATED_CARD } from "./elevated";
 
 interface ToolLabels {
   [tool: string]: LocaleKey;
@@ -530,8 +531,9 @@ export function ApprovalCard({
     <div
       data-tour={settled || expired ? undefined : "approval"}
       className={cn(
-        "w-full max-w-[840px] rounded-2xl border bg-card p-4",
-        settled || expired ? "border-hairline/30 opacity-70" : card.danger ? "border-danger/45 bg-danger/[0.03]" : "border-accent/40",
+        "w-full max-w-[840px] rounded-[24px] p-[18px]",
+        ELEVATED_CARD,
+        settled || expired ? "opacity-75" : card.danger ? "ring-danger/40" : "",
       )}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -544,9 +546,9 @@ export function ApprovalCard({
             </>
           )}
         </div>
-        {displayTool && !titled && !outbound && <span className="shrink-0 font-mono text-[11px] text-ink-secondary">{displayTool}</span>}
+        {displayTool && !titled && !outbound && <span className="shrink-0 rounded-full bg-inset px-2.5 py-0.5 font-mono text-[11px] text-ink-secondary">{displayTool}</span>}
       </div>
-      {outbound?.summary && <div className="mt-0.5 text-[13px] text-ink-secondary">{outbound.summary}</div>}
+      {outbound?.summary && <div className="mt-1 text-[13px] text-ink-secondary">{outbound.summary}</div>}
 
       <pre
         tabIndex={0}
@@ -559,7 +561,7 @@ export function ApprovalCard({
                 ? t("approval.aria.profileChange")
                 : t("approval.aria.details")
         }
-        className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-inset px-3 py-2 font-mono text-[13px] leading-relaxed text-ink"
+        className="mt-2.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-inset/80 px-3.5 py-2.5 font-mono text-[13px] leading-relaxed text-ink"
       >
         {approvalDetailText(card)}
       </pre>
@@ -567,12 +569,12 @@ export function ApprovalCard({
       {card.skillRequest && <SkillRequestPreview request={card.skillRequest} />}
 
       {heldNote && (
-        <div className="mt-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[13px] text-warning">
+        <div className="mt-2.5 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-2 text-[13px] text-warning">
           {heldNote}
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-1.5 text-[13px] text-ink-secondary">
+      <div className="mt-3.5 flex items-center gap-1.5 border-t border-hairline/40 pt-3 text-[13px] text-ink-secondary">
         {outcome ? (
           <>
             {settled === "allow" && !expired ? <Check size={14} className="text-success" /> : <X size={14} />} {outcome}
@@ -580,7 +582,7 @@ export function ApprovalCard({
           </>
         ) : (
           <>
-            {card.danger ? <TriangleAlert size={14} className="text-danger" /> : <ShieldCheck size={14} className="text-accent" />}
+            {card.danger ? <TriangleAlert size={14} className="text-danger" /> : <ShieldCheck size={14} className="text-ink-secondary" />}
             {isRoutineRequest || isSkillRequest || isProfileRequest || titled
               ? t("approval.status.waitingConfirmation")
               : t("approval.status.waitingAnswer")}

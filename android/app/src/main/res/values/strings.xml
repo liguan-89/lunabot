@@ -11,20 +11,20 @@
     <string name="notification_channel_always_on_desc">当 Luna Bot 在后台保持连接时显示</string>
     <string name="always_on_notification_title">Luna Bot 正在后台保持连接</string>
     <string name="always_on_notification_text">即使关闭应用也能实时收到通知</string>
-    <string name="settings_phone_pace">Operation pace</string>
-    <string name="settings_phone_pace_fast">Fast</string>
-    <string name="settings_phone_pace_fast_caption">No extra waiting, the whole text in one write (today\'s behaviour)</string>
-    <string name="settings_phone_pace_standard">Standard</string>
-    <string name="settings_phone_pace_standard_caption">Pauses between actions, text typed in pieces</string>
-    <string name="settings_phone_pace_human">Human</string>
-    <string name="settings_phone_pace_human_caption">Slower pauses and typing everywhere</string>
-    <string name="settings_phone_pace_footnote">Slower levels make automation look less mechanical on apps that rate-limit or notice automation; they make tasks take longer.</string>
-    <string name="settings_phone_self_check">Self check</string>
-    <string name="settings_phone_self_check_caption">Checks the device, permissions, helper and controlled screen</string>
-    <string name="settings_phone_self_check_title">Self check report</string>
-    <string name="settings_phone_repair_wireless">Re-enable wireless debugging after a reboot</string>
-    <string name="settings_phone_repair_wireless_caption">Off: nothing is granted and the app cannot touch this setting.</string>
-    <string name="settings_phone_repair_wireless_pending">On: the helper is asked for the grant once it connects; until then nothing has been granted.</string>
+    <string name="settings_phone_pace">操作节奏</string>
+    <string name="settings_phone_pace_fast">快速</string>
+    <string name="settings_phone_pace_fast_caption">无额外等待，整段文本一次性输入</string>
+    <string name="settings_phone_pace_standard">标准</string>
+    <string name="settings_phone_pace_standard_caption">操作间加入短暂停顿，文本分段输入</string>
+    <string name="settings_phone_pace_human">拟人</string>
+    <string name="settings_phone_pace_human_caption">更自然的停顿与逐段打字节奏</string>
+    <string name="settings_phone_pace_footnote">较慢的节奏可降低部分应用对自动化操作的风控或限流概率，但任务耗时也会相应增加。</string>
+    <string name="settings_phone_self_check">运行自检</string>
+    <string name="settings_phone_self_check_caption">检查设备环境、权限、辅助进程与受控屏幕状态</string>
+    <string name="settings_phone_self_check_title">自检报告</string>
+    <string name="settings_phone_repair_wireless">重启后自动恢复无线调试</string>
+    <string name="settings_phone_repair_wireless_caption">关闭：不申请相关权限，应用不会修改该系统设置。</string>
+    <string name="settings_phone_repair_wireless_pending">开启：辅助进程连接后会申请该权限；在此之前不会进行任何授权。</string>
     <!--
       WeChat relay. The notification says only that the channel is listening;
       it never names a sender or shows message text, because a notification is

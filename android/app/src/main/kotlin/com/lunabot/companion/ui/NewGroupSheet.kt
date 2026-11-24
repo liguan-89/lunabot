@@ -77,8 +77,9 @@ internal fun NewGroupSheet(onCreated: (Room) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = { if (!creating) onDismiss() },
         containerColor = minisCanvas,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        scrimColor = Color.Black.copy(alpha = 0.20f),
+        shape = MinisSheetShape,
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         GlassBackdrop()
         Column(

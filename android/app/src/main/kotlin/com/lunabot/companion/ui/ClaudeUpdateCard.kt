@@ -91,25 +91,34 @@ fun ClaudeUpdateCard(messageId: String, instanceId: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(secondaryTint.copy(alpha = 0.13f), RoundedCornerShape(22.dp))
-            .padding(16.dp)
+            .musePaperCard()
+            .padding(18.dp)
             .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         when (val current = phase) {
             ClaudeUpdatePhase.Ask -> {
                 Text(
                     "当前模型需要更新版本的 Claude Code，我可以帮你自动更新。",
                     fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                    color = minisInk,
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                MuseCardDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Button(onClick = ::update) { Text("帮我更新 Claude") }
-                    TextButton(onClick = { phase = ClaudeUpdatePhase.Manual }) {
-                        Text("我自己手动更新")
-                    }
+                    MuseSecondaryPillButton(
+                        text = "手动更新",
+                        onClick = { phase = ClaudeUpdatePhase.Manual },
+                        modifier = Modifier.weight(1f),
+                    )
+                    MusePrimaryPillButton(
+                        text = "自动更新",
+                        onClick = ::update,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
             ClaudeUpdatePhase.Updating -> Row(
@@ -119,60 +128,63 @@ fun ClaudeUpdateCard(messageId: String, instanceId: String) {
                 CircularProgressIndicator(
                     strokeWidth = 1.5.dp,
                     modifier = Modifier.size(14.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = minisSecondary,
                 )
                 Text(
                     "正在更新 Claude Code… 可能需要一分钟左右。",
-                    fontSize = 15.sp,
-                    color = secondaryTint,
+                    fontSize = 14.5.sp,
+                    color = minisSecondary,
                 )
             }
             is ClaudeUpdatePhase.Updated -> Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                val green = minisSuccess
-                Icon(Icons.Filled.Check, contentDescription = null, tint = green, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Check, contentDescription = null, tint = minisSuccess, modifier = Modifier.size(16.dp))
                 Text(
                     "Claude 已更新至 ${current.version}，请重新发送你的消息。",
-                    fontSize = 15.sp,
+                    fontSize = 14.5.sp,
+                    color = minisInk,
                 )
             }
             ClaudeUpdatePhase.Manual, is ClaudeUpdatePhase.Failed -> {
                 if (current is ClaudeUpdatePhase.Failed) {
                     SelectionContainer {
-                        Text(current.error, fontSize = 15.sp, color = MaterialTheme.colorScheme.error)
+                        Text(current.error, fontSize = 14.sp, color = minisDanger)
                     }
                 }
                 Text(
                     "请在电脑终端中运行以下命令，然后重新发送消息：",
-                    fontSize = 15.sp,
-                    color = secondaryTint,
+                    fontSize = 14.sp,
+                    color = minisSecondary,
                 )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(secondaryTint.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                        .background(minisSoftCard, RoundedCornerShape(12.dp))
                         .padding(start = 12.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SelectionContainer(modifier = Modifier.weight(1f)) {
-                        Text(UPDATE_COMMAND, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+                        Text(UPDATE_COMMAND, fontSize = 13.5.sp, fontFamily = FontFamily.Monospace, color = minisInk)
                     }
                     TextButton(
                         onClick = {
                             scope.launch {
-                                // "Copied" once the clipboard has it: `setClipEntry` suspends.
                                 clipboard.setClipEntry(
                                     ClipEntry(ClipData.newPlainText(UPDATE_CLIP_LABEL, UPDATE_COMMAND)),
                                 )
                                 copied = true
                             }
                         },
-                    ) { Text(if (copied) "已复制" else "复制", fontWeight = FontWeight.Medium) }
+                    ) { Text(if (copied) "已复制" else "复制", fontWeight = FontWeight.Medium, color = minisInk) }
                 }
                 if (current is ClaudeUpdatePhase.Failed) {
-                    Button(onClick = ::update) { Text("重试更新") }
+                    MusePrimaryPillButton(
+                        text = "重试更新",
+                        onClick = ::update,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

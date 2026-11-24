@@ -859,6 +859,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
         ComputerSheet(
             connections = connections,
             activeId = connection?.id,
+            status = status,
             onChoose = { id ->
                 choosingComputer = false
                 if (id != connection?.id) session.switchComputer(id)
@@ -1016,7 +1017,7 @@ private fun RosterHeader(
             ) {
                 TouchTarget(onClick = onOpenSearch, contentDescription = "搜索会话", size = 40.dp) {
                     Icon(
-                        imageVector = Icons.Filled.Search,
+                        painter = painterResource(R.drawable.ic_search_line),
                         contentDescription = null,
                         tint = minisInk,
                         modifier = Modifier.size(19.dp),
@@ -1486,6 +1487,7 @@ private fun LivingSpacesStrip(
 private fun ComputerSheet(
     connections: List<Connection>,
     activeId: String?,
+    status: Session.Status,
     onChoose: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -1493,7 +1495,8 @@ private fun ComputerSheet(
         onDismissRequest = onDismiss,
         containerColor = minisCanvas,
         shape = MinisSheetShape,
-        scrimColor = Color.Black.copy(alpha = 0.22f),
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         GlassBackdrop()
         Column(
@@ -1511,17 +1514,29 @@ private fun ComputerSheet(
             )
             connections.forEachIndexed { index, computer ->
                 val active = computer.id == activeId
+                val dotColor = if (active) {
+                    when (status) {
+                        Session.Status.Live -> MinisTokens.Success
+                        Session.Status.Connecting -> MinisTokens.Warning
+                        else -> MinisTokens.Danger
+                    }
+                } else {
+                    minisTertiary.copy(alpha = 0.45f)
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(role = Role.Button) { onChoose(computer.id) }
                         .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Box(Modifier.size(8.dp).background(dotColor, CircleShape))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = computer.name,
                             fontSize = 16.sp,
+                            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                             color = minisInk,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -1543,7 +1558,7 @@ private fun ComputerSheet(
                         )
                     }
                 }
-                if (index < connections.lastIndex) MinisDivider(insetStart = 20.dp)
+                if (index < connections.lastIndex) MinisDivider(insetStart = 40.dp)
             }
         }
     }
@@ -2394,7 +2409,7 @@ private fun MuseDesktopTab(
         Session.Status.Connecting -> MinisTokens.Warning
         else -> MinisTokens.Danger
     }
-    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val cardFill = minisSoftCard
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -2566,14 +2581,61 @@ private fun MuseDrawerContent(
             .navigationBarsPadding()
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-        Text(
-            text = "Luna Bot",
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.4).sp,
-            color = minisInk,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Luna Bot",
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.4).sp,
+                color = minisInk,
+                maxLines = 1,
+            )
+            if (computerName != null) {
+                val statusDot = when (status) {
+                    Session.Status.Live -> MinisTokens.Success
+                    Session.Status.Connecting -> MinisTokens.Warning
+                    else -> MinisTokens.Danger
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "切换设备，当前 $computerName"
+                        },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(CircleShape)
+                            .background(pillFill)
+                            .clickable(role = Role.Button, onClick = onSwitchComputer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_display_line),
+                            contentDescription = null,
+                            tint = minisInk,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 1.dp, end = 1.dp)
+                            .size(11.dp)
+                            .background(minisCanvas, CircleShape)
+                            .padding(2.dp)
+                            .background(statusDot, CircleShape),
+                    )
+                }
+            }
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -2706,25 +2768,7 @@ private fun MuseDrawerContent(
                 Icon(painterResource(R.drawable.ic_muse_chat_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
                 Text("新建群组", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
             }
-            if (computerName != null) {
-                Spacer(Modifier.height(10.dp))
-                HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-                Spacer(Modifier.height(10.dp))
-                val statusDot = if (status == Session.Status.Live) MinisTokens.Success else MinisTokens.Warning
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable(role = Role.Button, onClick = onSwitchComputer)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(8.dp).background(statusDot, CircleShape))
-                    Text(computerName, fontSize = 14.5.sp, color = minisSecondary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = minisTertiary, modifier = Modifier.size(16.dp))
-                }
-            }
+
             Spacer(Modifier.height(8.dp))
         }
         Spacer(Modifier.height(10.dp))
@@ -2755,7 +2799,7 @@ private fun MuseDrawerContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Search, null, tint = minisSecondary, modifier = Modifier.size(19.dp))
+                Icon(painterResource(R.drawable.ic_search_line), null, tint = minisSecondary, modifier = Modifier.size(19.dp))
                 Text("搜索", fontSize = 15.5.sp, color = minisSecondary)
             }
             Box(
@@ -2766,7 +2810,7 @@ private fun MuseDrawerContent(
                     .clickable(role = Role.Button, onClick = onCreateBot),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Filled.Create, "新建", tint = minisInk, modifier = Modifier.size(19.dp))
+                Icon(painterResource(R.drawable.ic_edit_line), "新建", tint = minisInk, modifier = Modifier.size(19.dp))
             }
         }
     }

@@ -10,20 +10,20 @@ const classesOf = (html: string, at: RegExp) => (at.exec(html)?.[1] ?? "").split
 const LONG = "Yes, the welcome text too, and the footer text of the pricing page, on branch fix/pricing-page-footer";
 
 describe("AskCard", () => {
-  it("is one raised card in both modes: the composer's elevated surface, a 0.5px hairline, rounded 18, 560 wide", () => {
+  it("is one raised card in both modes: the composer's elevated surface, a 0.75px hairline, rounded 24, 560 wide", () => {
     const html = renderToStaticMarkup(createElement(AskCard, { ariaLabel: "Plan", title: "Choose a plan", explanation: "Why it asks." }));
     const card = classesOf(html, /^<div[^>]*class="([^"]*)"/);
-    expect(card).toEqual(expect.arrayContaining(["bg-composer", "ring-[0.5px]", "ring-ink/[0.11]", "rounded-[18px]", "max-w-[560px]", "w-full", "text-start"]));
+    expect(card).toEqual(expect.arrayContaining(["bg-composer", "ring-[0.75px]", "ring-ink/[0.10]", "rounded-[24px]", "max-w-[560px]", "w-full", "text-start"]));
     expect(html).toContain('role="group"');
     expect(html).toContain('aria-label="Plan"');
     expect(html).toContain("Why it asks.");
-    expect(html).toContain("shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-ink)_6%,transparent)]");
+    expect(html).toContain("shadow-[0_2px_12px_rgba(24,24,27,0.045),inset_0_1px_0_color-mix(in_srgb,var(--color-ink)_5%,transparent)]");
   });
 
   it("puts the question in clear ink at reading size, under a header line in secondary ink that names the bot that asks", () => {
     const header = createElement(AskHeader, { asker: { name: "Ledger", color: "teal" }, line: "Ledger asks" });
     const html = renderToStaticMarkup(createElement(AskCard, { ariaLabel: "Q", header, title: "Should I apply the fix?" }));
-    expect(html).toMatch(/text-\[15px\] font-medium leading-\[22px\] text-ink"><bdi dir="auto">Should I apply the fix\?</);
+    expect(html).toMatch(/text-\[15px\] font-semibold leading-\[22px\] text-ink"><bdi dir="auto">Should I apply the fix\?</);
     expect(html).toMatch(/data-ask-header="" class="[^"]*text-\[13px\][^"]*text-ink-secondary[^"]*"/);
     expect(html.indexOf("Ledger asks")).toBeLessThan(html.indexOf("Should I apply the fix?"));
   });
@@ -40,13 +40,13 @@ describe("AskChoices", () => {
     choices: [{ label: "Yes, only the footer text" }, { label: LONG }, { label: "No" }], label: "Should I?", onPick: () => {}, ...props,
   }));
 
-  it("is one button per choice, stacked, at least 36px tall and 44 on touch, with a label that wraps instead of being cut", () => {
+  it("is one button per choice, stacked, at least 44px tall and 48 on touch, with a label that wraps instead of being cut", () => {
     const html = render();
     const buttons = html.match(/<button[^>]*data-ask-choice[^>]*>/g)!;
     expect(buttons).toHaveLength(3);
     for (const tag of buttons) {
       const classes = classesOf(tag, /class="([^"]*)"/);
-      expect(classes).toEqual(expect.arrayContaining(["min-h-10", "pointer-coarse:min-h-11", "w-full", "text-start", "focus-visible:ring-2"]));
+      expect(classes).toEqual(expect.arrayContaining(["min-h-11", "pointer-coarse:min-h-12", "w-full", "text-start", "focus-visible:ring-2"]));
       expect(classes).not.toContain("truncate");
       expect(classes).not.toContain("whitespace-nowrap");
     }
@@ -83,7 +83,7 @@ describe("the card's buttons", () => {
     const primary = askPrimary("teal");
     expect(primary.className.split(" ")).toEqual(expect.arrayContaining(["bot-button", "min-h-9", "pointer-coarse:min-h-11"]));
     expect(askPrimary(undefined).className.split(" ")).toEqual(expect.arrayContaining(["ui-button-primary", "min-h-9"]));
-    expect(ASK_SECONDARY_BUTTON.split(" ")).toEqual(expect.arrayContaining(["min-h-9", "pointer-coarse:min-h-11", "bg-ink/[0.07]", "text-ink"]));
+    expect(ASK_SECONDARY_BUTTON.split(" ")).toEqual(expect.arrayContaining(["min-h-9", "pointer-coarse:min-h-11", "bg-inset", "text-ink"]));
     expect(ASK_SECONDARY_BUTTON).not.toContain("danger");
     expect(ASK_QUIET_ANSWER.split(" ")).toEqual(expect.arrayContaining(["min-h-9", "text-ink-secondary"]));
   });

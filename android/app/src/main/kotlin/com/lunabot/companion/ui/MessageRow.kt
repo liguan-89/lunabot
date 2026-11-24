@@ -233,11 +233,26 @@ fun MessageRow(
                 openComputer = openComputer,
             )
 
-            message.comm?.let {
-                Text(
-                    text = "已向 ${it.withName} 发送消息",
-                    fontSize = 12.sp,
-                    color = secondaryTint,
+            message.comm?.let { comm ->
+                val targetBot = state.bot(comm.withBotId)
+                TranscriptEventPill(
+                    text = "已向 ${comm.withName} 发送消息",
+                    leading = {
+                        if (targetBot != null) {
+                            BotAvatar(
+                                bot = targetBot,
+                                size = 18.dp,
+                                animated = false,
+                                fallback = AvatarFallback.PRESET,
+                            )
+                        } else {
+                            PresetBotAvatar(
+                                color = comm.withColor,
+                                size = 18.dp,
+                                contentDescription = null,
+                            )
+                        }
+                    },
                 )
             }
 
@@ -1395,83 +1410,85 @@ private fun ActivityChip(
     val status = ActivityReceipt.status(tool.ok)
     val dark = minisIsDark()
     val errorInk = if (dark) Color(0xFFE59688) else Color(0xFF9E4B3B)
-    val errorFill = if (dark) Color(0xFF2B211F) else Color(0xFFF5EFEA)
-    val tint = when (status) {
-        ActivityStatus.RUNNING -> minisAccent
-        ActivityStatus.SUCCESS -> secondaryTint
-        ActivityStatus.ERROR -> errorInk
-    }
-    val shape = RoundedCornerShape(50)
-    // Muse-style borderless quiet trace pill: muted warm rose on error, soft
-    // warm stone on normal tool steps, with zero harsh outlines.
-    val wash = when (status) {
-        ActivityStatus.ERROR -> errorFill
-        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisInk.copy(alpha = 0.045f)
-    }
     val haptics = rememberHaptics()
+    val state by LocalCompanion.current.session.state.collectAsState()
     val label = readableActivityName(
         ActivityNaming.toolLabel(ActivityNaming.rescueEngine(tool.name, tool.rescue)),
     )
-    val linked = if (threadRef != null && openThread != null) {
-        Modifier
-            .heightIn(min = MIN_TOUCH_TARGET)
-            .clickable(role = Role.Button) {
-                haptics.play(TactileAction.OPEN_THREAD_CHIP)
-                openThread(threadRef)
+    val handoffBot = remember(state.bots, threadRef, label) {
+        threadRef?.botId?.let(state::bot)
+            ?: state.bots.firstOrNull { bot ->
+                bot.name.isNotBlank() && (
+                    label.startsWith("${bot.name} ") ||
+                        label.endsWith(" ${bot.name}") ||
+                        label.contains("「${bot.name}」")
+                    )
             }
+    }
+    val onOpen = if (threadRef != null && openThread != null) {
+        {
+            haptics.play(TactileAction.OPEN_THREAD_CHIP)
+            openThread(threadRef)
+        }
     } else {
-        Modifier
+        null
     }
-    Row(
-        modifier = Modifier
-            .padding(start = 2.dp)
-            .widthIn(max = 280.dp)
-            .clip(shape)
-            .background(wash)
-            .then(linked)
-            .padding(horizontal = 11.dp, vertical = 5.5.dp)
-            .semantics(mergeDescendants = true) {
-                contentDescription = ActivityReceipt.announcement(label, status)
-            },
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        when (status) {
-            ActivityStatus.ERROR -> Icon(
-                imageVector = Icons.Filled.Warning,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(12.dp),
-            )
-            ActivityStatus.SUCCESS -> Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = null,
-                tint = secondaryTint.copy(alpha = 0.78f),
-                modifier = Modifier.size(12.dp),
-            )
-            ActivityStatus.RUNNING -> Box(
-                modifier = Modifier
-                    .size(ACTIVITY_DOT)
-                    .background(tint, CircleShape),
-            )
-        }
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            color = if (status == ActivityStatus.ERROR) tint else secondaryTint,
-        )
-        if (ActivityReceipt.showsLabel(status)) {
-            Text(
-                text = ActivityReceipt.label(status),
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                color = tint,
-            )
-        }
-    }
+    TranscriptEventPill(
+        text = label,
+        error = status == ActivityStatus.ERROR,
+        onClick = onOpen,
+        contentDescriptionText = ActivityReceipt.announcement(label, status),
+        leading = {
+            when {
+                handoffBot != null -> BotAvatar(
+                    bot = handoffBot,
+                    size = 18.dp,
+                    animated = false,
+                    fallback = AvatarFallback.PRESET,
+                )
+                status == ActivityStatus.ERROR -> Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = errorInk,
+                    modifier = Modifier.size(13.dp),
+                )
+                status == ActivityStatus.RUNNING -> CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    strokeWidth = 1.5.dp,
+                )
+                else -> Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = minisSecondary.copy(alpha = 0.78f),
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+        },
+        trailing = when {
+            ActivityReceipt.showsLabel(status) -> {
+                {
+                    Text(
+                        text = ActivityReceipt.label(status),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        color = if (status == ActivityStatus.ERROR) errorInk else minisSecondary,
+                    )
+                }
+            }
+            onOpen != null -> {
+                {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = minisSecondary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+            else -> null
+        },
+    )
 }
 
 /**
@@ -1568,30 +1585,49 @@ private fun ReceiptChip(label: String, detail: String) {
     if (label.isEmpty()) return
     var expanded by remember(label) { mutableStateOf(false) }
     val haptics = rememberHaptics()
-    Column(
-        modifier = Modifier
-            .padding(start = 4.dp)
-            .heightIn(min = MIN_TOUCH_TARGET)
-            .clickable(role = Role.Button) {
-                haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
-                expanded = !expanded
-            }
-            .semantics(mergeDescendants = true) { contentDescription = label },
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
+    val hasDetail = detail.isNotEmpty() && detail != label
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        TranscriptEventPill(
+            text = label,
+            leading = {
+                Box(
+                    modifier = Modifier
+                        .size(ACTIVITY_DOT)
+                        .background(minisSecondary.copy(alpha = 0.72f), CircleShape),
+                )
+            },
+            trailing = if (hasDetail) {
+                {
+                    Text(
+                        text = if (expanded) "收起" else "展开",
+                        fontSize = 11.5.sp,
+                        color = minisSecondary,
+                    )
+                }
+            } else {
+                null
+            },
+            onClick = if (hasDetail) {
+                {
+                    haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
+                    expanded = !expanded
+                }
+            } else {
+                null
+            },
+        )
+        if (expanded && hasDetail) {
+            Text(
+                text = detail,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                color = minisSecondary,
                 modifier = Modifier
-                    .size(ACTIVITY_DOT)
-                    .background(secondaryTint, CircleShape),
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(minisSoftCard)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
             )
-            Text(text = label, fontSize = 13.sp, maxLines = 1, color = secondaryTint)
-        }
-        if (expanded && detail.isNotEmpty() && detail != label) {
-            Text(text = detail, fontSize = 12.sp, color = secondaryTint)
         }
     }
 }
@@ -1600,17 +1636,10 @@ private fun ReceiptChip(label: String, detail: String) {
 @Composable
 fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = null) {
     if (items.isEmpty()) return
-    // Keyed on the run's identity — the same one the LazyColumn keys the row by
-    // (`TranscriptRow.ActivityRun.id = "run.${head.id}"`). Keying on the last id
-    // too would throw the reader's disclosure away on every receipt that lands
-    // while the run is still going. iOS holds a `@State` with no key at all.
     var expanded by remember(items.first().id) { mutableStateOf(false) }
     val running = items.any { it.tool?.ok == null }
     val summary = if (running) "正在运行 ${items.size} 个步骤" else "已运行 ${items.size} 个步骤"
-    Column(
-        modifier = Modifier.padding(start = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         RunReceiptPill(
             summary = summary,
             expanded = expanded,
@@ -1618,7 +1647,7 @@ fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = n
             onToggle = { expanded = !expanded },
         )
         if (expanded) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items.forEach { item -> ActivityChip(item.tool, item.threadRef, openThread) }
             }
         }
@@ -1639,43 +1668,21 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
     val scope = rememberCoroutineScope()
     var answering by remember(message.id) { mutableStateOf(false) }
     val skillRequest = card.skillRequest
-    // What this card is, as opposed to what it says: the four outcomes already
-    // existed on the wire, and the phone drew all of them the same way.
     val style = ApprovalCardStyle.of(card, chat)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisGrouped, MinisCardShape)
-            .then(
-                if (style.isPending) {
-                    Modifier.border(
-                        1.5.dp,
-                        if (style.danger) minisDanger else minisAccent,
-                        MinisCardShape,
-                    )
-                } else {
-                    Modifier.border(0.5.dp, minisSeparator, MinisCardShape)
-                },
-            )
-            .padding(16.dp),
+            .musePaperCard(danger = style.isPending && style.danger)
+            .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // The state line: the one thing a person scanning the transcript needs
-        // before the title. It carries a glyph rather than a colour alone, so it
-        // reads in a screenshot and to a colour-blind eye.
         ApprovalStateLine(style)
 
-        // Explicit ink: the row's inherited content colour is not the card's,
-        // and without it the title drew near-black on the dark card.
-        Text(card.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
-        // The detail of what is being approved is the thing worth copying, and
-        // it is also the thing with no length limit: a command, a diff, a tool's
-        // own explanation. Folding it keeps one such card from filling the
-        // screen; the whole text stays one tap away.
+        Text(card.title, fontSize = 16.5.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
         ExpandableText(
             text = card.subtitle,
-            style = TextStyle(fontSize = 14.sp, color = minisSecondary),
+            style = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, color = minisSecondary),
             showMore = "显示完整内容",
         )
 
@@ -1692,20 +1699,21 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                             "审阅完整的 SKILL.md",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
+                            color = minisInk,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
                             "sha256 ${reviewed.take(8)}",
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = secondaryTint,
+                            color = minisSecondary,
                         )
                     }
                     SelectionContainer {
                         Text(
                             "来源：${skill.source ?: "未知"}",
                             fontSize = 12.sp,
-                            color = secondaryTint,
+                            color = minisSecondary,
                         )
                     }
                     SelectionContainer {
@@ -1713,15 +1721,13 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                             skill.preview.orEmpty(),
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
+                            color = minisInk,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 220.dp)
                                 .verticalScroll(rememberScrollState())
-                                .background(
-                                    secondaryTint.copy(alpha = 0.08f),
-                                    RoundedCornerShape(10.dp),
-                                )
-                                .padding(10.dp),
+                                .background(minisSoftCard, RoundedCornerShape(12.dp))
+                                .padding(12.dp),
                         )
                     }
                 }
@@ -1745,23 +1751,20 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
             }
         }
 
-        // The slip: the one fact a person checks before tapping, in the face
-        // that says "this is a machine's name, not prose". Only cards that name
-        // a tool have one; a question card has nothing to put here.
         card.tool?.takeIf { it.isNotBlank() }?.let { tool ->
             val label = friendlyToolLabel(tool)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(secondaryTint.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                    .background(minisSoftCard, RoundedCornerShape(12.dp))
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = label,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontFamily = if (label == tool) FontFamily.Monospace else FontFamily.Default,
-                    color = minisInk.copy(alpha = 0.78f),
+                    color = minisInk.copy(alpha = 0.84f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1769,72 +1772,65 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
         }
 
         if (style.showsActions) {
-            // Minis stacks the decisions: one full-width primary action, the
-            // refusal quieter underneath. Nothing sits side by side where a
-            // thumb has to choose between "allow" and "deny" at speed.
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // The buttons are the card's own options, never a string
-                // invented here. Session maps the choice to allow/deny/answer.
-                card.options.forEach { option ->
-                    val refusal = ApprovalChoices.emphasis(option) == OptionEmphasis.SECONDARY
-                    Button(
-                        onClick = {
-                            haptics.play(TactileAction.CHOOSE_APPROVAL)
-                            answering = true
-                            scope.launch {
-                                ApprovalAnswers.choose(session, chat, card, option)
-                                answering = false
-                            }
-                        },
-                        enabled = !answering && (
-                            skillRequest == null ||
-                                refusal ||
-                                skillRequest.reviewedSha256 != null
-                            ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        // Same `isRefusal` that picks the allow choice picks the
-                        // weight, so the most sensible action on the most
-                        // sensitive screen is not the same shape as the refusal.
-                        //
-                        // The refusal is a tint of the text colour rather than
-                        // the page colour: the card already sits on `grouped`,
-                        // and in dark mode the page colour is near-black, which
-                        // made the button's shape vanish into its own card.
-                        colors = if (refusal) {
-                            ButtonDefaults.filledTonalButtonColors(
-                                containerColor = secondaryTint.copy(alpha = 0.12f),
-                                contentColor = minisInk,
-                            )
-                        } else if (style.danger) {
-                            // The allow action deletes something. The desktop
-                            // has drawn it red since `card.danger` existed; the
-                            // phone drew it ink like any other.
-                            ButtonDefaults.buttonColors(
-                                containerColor = minisDanger,
-                                contentColor = Color.White,
+            MuseCardDivider()
+            val chooseOption: (String) -> Unit = { option ->
+                haptics.play(TactileAction.CHOOSE_APPROVAL)
+                answering = true
+                scope.launch {
+                    ApprovalAnswers.choose(session, chat, card, option)
+                    answering = false
+                }
+            }
+            val isEnabled: (Boolean) -> Boolean = { refusal ->
+                !answering && (skillRequest == null || refusal || skillRequest.reviewedSha256 != null)
+            }
+            val twoChoicePair = card.options.size == 2 &&
+                card.options.count { ApprovalChoices.emphasis(it) == OptionEmphasis.SECONDARY } == 1
+            if (twoChoicePair) {
+                val refusalOption = card.options.first { ApprovalChoices.emphasis(it) == OptionEmphasis.SECONDARY }
+                val primaryOption = card.options.first { ApprovalChoices.emphasis(it) != OptionEmphasis.SECONDARY }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    MuseSecondaryPillButton(
+                        text = refusalOption,
+                        onClick = { chooseOption(refusalOption) },
+                        enabled = isEnabled(true),
+                        modifier = Modifier.weight(1f),
+                    )
+                    MusePrimaryPillButton(
+                        text = primaryOption,
+                        onClick = { chooseOption(primaryOption) },
+                        enabled = isEnabled(false),
+                        danger = style.danger,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    card.options.forEach { option ->
+                        val refusal = ApprovalChoices.emphasis(option) == OptionEmphasis.SECONDARY
+                        if (refusal) {
+                            MuseSecondaryPillButton(
+                                text = option,
+                                onClick = { chooseOption(option) },
+                                enabled = isEnabled(true),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         } else {
-                            ButtonDefaults.buttonColors(
-                                containerColor = minisInk,
-                                contentColor = minisPage,
+                            MusePrimaryPillButton(
+                                text = option,
+                                onClick = { chooseOption(option) },
+                                enabled = isEnabled(false),
+                                danger = style.danger,
+                                modifier = Modifier.fillMaxWidth(),
                             )
-                        },
-                    ) {
-                        Text(option, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
 
-            // The grant key comes from the card. The phone never derives its
-            // own, so it cannot permit something subtly wider than the computer
-            // would have. The same goes for the answer: it is one of the options
-            // the card offered, never a string invented here.
-            //
-            // `showsAlwaysAllow` already requires a bot chat, but the compiler
-            // cannot see through that predicate, so the cast is re-stated here.
             val botChat = chat as? Chat.BotChat
             if (style.showsAlwaysAllow && botChat != null) {
                 val alwaysAllow = ApprovalChoices.alwaysAllowChoice(card)
@@ -1851,71 +1847,69 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                         enabled = !answering,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("始终允许此工具", fontSize = 14.sp, color = minisAccent)
+                        Text("始终允许此工具", fontSize = 13.sp, color = minisSecondary)
                     }
                 }
             }
         }
 
-        // The stamp: one line, after the actions are gone, saying what was
-        // decided. A settled card that said nothing read as still pending.
         if (style.showsStamp) {
             ApprovalStamp(style)
         }
     }
 }
 
-/** The state line above a card's title: glyph, words, and nothing else. */
+/** The state line above a card's title: Muse Plan-H warm-sand disc + calm label. */
 @Composable
 private fun ApprovalStateLine(style: ApprovalCardStyle) {
-    val tint = when (style.state) {
-        ApprovalState.PENDING -> if (style.danger) minisDanger else minisAccent
+    val dotTint = when (style.state) {
+        ApprovalState.PENDING -> if (style.danger) minisDanger else Color(0xFFC4B094)
         ApprovalState.ALLOWED -> minisSuccess
-        // A refusal is not an error; it is the card doing its job.
-        ApprovalState.DENIED -> secondaryTint
-        ApprovalState.EXPIRED -> secondaryTint
-        ApprovalState.SETTLED -> secondaryTint
+        ApprovalState.DENIED, ApprovalState.EXPIRED, ApprovalState.SETTLED -> minisSecondary
+    }
+    val badgeFill = if (style.state == ApprovalState.PENDING && style.danger) {
+        minisDanger.copy(alpha = 0.12f)
+    } else {
+        minisWarmSand
     }
     Row(
-        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        when (style.state) {
-            ApprovalState.PENDING -> if (style.danger) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
+        MuseCardBadge(size = 22.dp, tint = badgeFill) {
+            when (style.state) {
+                ApprovalState.PENDING -> if (style.danger) {
+                    Icon(
+                        imageVector = Icons.Filled.Warning,
+                        contentDescription = null,
+                        tint = minisDanger,
+                        modifier = Modifier.size(12.dp),
+                    )
+                } else {
+                    Box(Modifier.size(7.dp).background(dotTint, CircleShape))
+                }
+                ApprovalState.ALLOWED -> Icon(
+                    imageVector = Icons.Filled.Check,
                     contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(14.dp),
+                    tint = minisSuccess,
+                    modifier = Modifier.size(12.dp),
                 )
-            } else {
-                Icon(
-                    painter = painterResource(R.drawable.ic_shield_line),
+                ApprovalState.EXPIRED -> Icon(
+                    painter = painterResource(R.drawable.ic_schedule),
                     contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(14.dp),
+                    tint = minisSecondary,
+                    modifier = Modifier.size(12.dp),
+                )
+                ApprovalState.DENIED, ApprovalState.SETTLED -> Box(
+                    Modifier.size(6.dp).background(minisTertiary, CircleShape),
                 )
             }
-            ApprovalState.ALLOWED -> Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(14.dp),
-            )
-            ApprovalState.EXPIRED -> Icon(
-                painter = painterResource(R.drawable.ic_schedule),
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(14.dp),
-            )
-            ApprovalState.DENIED, ApprovalState.SETTLED -> Unit
         }
         Text(
             text = style.label,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.2.sp,
-            color = tint,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (style.state == ApprovalState.PENDING && style.danger) minisDanger else minisSecondary,
         )
     }
 }
@@ -1923,8 +1917,8 @@ private fun ApprovalStateLine(style: ApprovalCardStyle) {
 /** What a settled card leaves behind: one line, behind a hairline. */
 @Composable
 private fun ApprovalStamp(style: ApprovalCardStyle) {
-    val tint = if (style.state == ApprovalState.ALLOWED) minisSuccess else secondaryTint
-    HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+    val tint = if (style.state == ApprovalState.ALLOWED) minisSuccess else minisSecondary
+    MuseCardDivider()
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1934,12 +1928,12 @@ private fun ApprovalStamp(style: ApprovalCardStyle) {
                 imageVector = Icons.Filled.Check,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(13.dp),
             )
         }
         Text(
             text = style.stamp.orEmpty(),
-            fontSize = 12.sp,
+            fontSize = 12.5.sp,
             color = tint,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -2065,18 +2059,75 @@ private sealed interface ScreenShotState {
 private fun RemoteCard(
     title: String,
     body: String?,
+    iconRes: Int? = null,
+    statusPill: String? = null,
+    statusDanger: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisGrouped, MinisCardShape)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .musePaperCard(danger = statusDanger)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        body?.takeIf { it.isNotBlank() }?.let {
-            SelectionContainer { Text(it, fontSize = 14.sp, color = minisSecondary) }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            iconRes?.let { res ->
+                MuseCardBadge(
+                    size = 38.dp,
+                    tint = if (statusDanger) minisDanger.copy(alpha = 0.12f) else minisWarmSand,
+                ) {
+                    Icon(
+                        painter = painterResource(res),
+                        contentDescription = null,
+                        tint = if (statusDanger) minisDanger else minisInk,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = minisInk,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    statusPill?.takeIf { it.isNotBlank() }?.let {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (statusDanger) minisDanger.copy(alpha = 0.12f) else minisSoftCard)
+                                .padding(horizontal = 9.dp, vertical = 3.dp),
+                        ) {
+                            Text(
+                                text = it,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (statusDanger) minisDanger else minisSecondary,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+                body?.takeIf { it.isNotBlank() }?.let {
+                    SelectionContainer {
+                        Text(it, fontSize = 13.5.sp, lineHeight = 19.sp, color = minisSecondary)
+                    }
+                }
+            }
         }
         content()
     }
@@ -2099,59 +2150,79 @@ private fun ConnectorRequestCard(message: Message, botId: String?, threadId: Str
         }
     }
 
-    RemoteCard(title = data.label, body = data.description) {
-        Text(
-            text = connectorStatusLabel(data),
-            fontSize = 13.sp,
-            color = if (data.status == "failed") minisWarning else secondaryTint,
-        )
+    val openAuthorize: () -> Unit = {
+        scope.launch {
+            working = true
+            try {
+                val url = session.authorizeConnector(data.slug, data.alias) ?: return@launch
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url.toASCIIString())))
+                } catch (_: ActivityNotFoundException) {
+                    session.actionError = "此手机没有可用的浏览器来打开授权页面。"
+                } catch (_: SecurityException) {
+                    session.actionError = "无法打开授权页面，请检查浏览器限制后重试。"
+                }
+            } finally {
+                working = false
+            }
+        }
+    }
+
+    val badgeText = when {
+        data.dismissed == true -> "已跳过"
+        data.status == "connected" -> "已连接"
+        data.status == "authorizing" -> "授权中"
+        data.status == "failed" -> "失败"
+        else -> "待授权"
+    }
+    RemoteCard(
+        title = "连接 ${data.label}",
+        body = data.description.ifBlank { connectorStatusLabel(data) },
+        iconRes = R.drawable.ic_hub,
+        statusPill = badgeText,
+        statusDanger = data.status == "failed",
+    ) {
         data.error?.takeIf { it.isNotBlank() }?.let {
             Text(it, fontSize = 13.sp, color = minisWarning)
         }
-        if (data.status == "required" || data.status == "failed") {
-            TextButton(
-                enabled = !working,
-                onClick = {
-                    scope.launch {
-                        working = true
-                        try {
-                            val url = session.authorizeConnector(data.slug, data.alias) ?: return@launch
-                            try {
-                                // The browser owns the provider cookies and the
-                                // account choice, exactly as on the app's own
-                                // Connected Apps screen.
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url.toASCIIString())))
-                            } catch (_: ActivityNotFoundException) {
-                                session.actionError = "此手机没有可用的浏览器来打开授权页面。"
-                            } catch (_: SecurityException) {
-                                session.actionError = "无法打开授权页面，请检查浏览器限制后重试。"
-                            }
-                        } finally {
-                            working = false
-                        }
-                    }
-                },
-            ) { Text(if (working) "正在打开…" else "连接 ${data.label}") }
-        }
-        // Once the browser has finished, the card is the only place that can
-        // tell the computer to carry on — and the only place to stop asking.
-        if (data.isPending && botId != null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (data.status == "authorizing") {
-                    TextButton(enabled = !working, onClick = { close(ConnectorCardAction.RESUME) }) {
-                        Text("已完成授权，继续")
-                    }
+        Text(
+            "授权在浏览器中完成，令牌仅保存在电脑端。",
+            fontSize = 12.sp,
+            color = minisTertiary,
+        )
+        val needsConnect = data.status == "required" || data.status == "failed"
+        val canClose = data.isPending && botId != null
+        if (needsConnect || canClose) {
+            MuseCardDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (canClose) {
+                    MuseSecondaryPillButton(
+                        text = "跳过",
+                        onClick = { close(ConnectorCardAction.DISMISS) },
+                        enabled = !working,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-                TextButton(enabled = !working, onClick = { close(ConnectorCardAction.DISMISS) }) {
-                    Text("跳过")
+                if (needsConnect) {
+                    MusePrimaryPillButton(
+                        text = if (working) "正在打开…" else "前往授权",
+                        onClick = openAuthorize,
+                        enabled = !working,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else if (canClose && data.status == "authorizing") {
+                    MusePrimaryPillButton(
+                        text = "已完成，继续",
+                        onClick = { close(ConnectorCardAction.RESUME) },
+                        enabled = !working,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
-        Text(
-            "授权在浏览器中完成；令牌保存在电脑上，不会发送到此手机。",
-            fontSize = 12.sp,
-            color = secondaryTint,
-        )
     }
 }
 
@@ -2172,15 +2243,19 @@ private fun SecretRequestCard(message: Message, botId: String?, threadId: String
         }
     }
 
+    val badgeText = when {
+        data.superseded == true -> "已取代"
+        data.provided == true -> "已保存"
+        data.dismissed == true -> "已跳过"
+        else -> "待填写"
+    }
     RemoteCard(
         title = data.label?.takeIf { it.isNotBlank() } ?: "需要一个凭据",
-        body = data.description,
+        body = data.description ?: secretStatusLabel(data),
+        iconRes = R.drawable.ic_shield_line,
+        statusPill = badgeText,
+        statusDanger = data.error != null,
     ) {
-        Text(
-            text = secretStatusLabel(data),
-            fontSize = 13.sp,
-            color = if (data.error != null) minisWarning else secondaryTint,
-        )
         data.error?.takeIf { it.isNotBlank() }?.let {
             Text(it, fontSize = 13.sp, color = minisWarning)
         }
@@ -2188,25 +2263,33 @@ private fun SecretRequestCard(message: Message, botId: String?, threadId: String
             Text(
                 "手机端暂不支持直接提交凭据，请在电脑上填写后保存。",
                 fontSize = 12.sp,
-                color = secondaryTint,
+                color = minisTertiary,
             )
         }
         data.helpUrl?.takeIf { it.startsWith("https://") }?.let { url ->
             TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) {
-                Text("查看填写说明")
+                Text("查看填写说明", fontSize = 13.sp, color = minisSecondary)
             }
         }
-        // The host stores the value; the phone can still say "saved, carry on"
-        // or "stop asking", which is what these two verbs are.
         if (botId != null && data.isPending) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            MuseCardDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MuseSecondaryPillButton(
+                    text = "跳过",
+                    onClick = { act(SecretCardAction.DISMISS) },
+                    enabled = !working,
+                    modifier = Modifier.weight(1f),
+                )
                 if (data.provided == true) {
-                    TextButton(enabled = !working, onClick = { act(SecretCardAction.RESUME) }) {
-                        Text("已在电脑上保存，继续")
-                    }
-                }
-                TextButton(enabled = !working, onClick = { act(SecretCardAction.DISMISS) }) {
-                    Text("跳过")
+                    MusePrimaryPillButton(
+                        text = "已保存，继续",
+                        onClick = { act(SecretCardAction.RESUME) },
+                        enabled = !working,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -2234,38 +2317,48 @@ private fun SignInRequestCard(
         }
     }
 
+    val badgeText = when {
+        data.done == true || data.savedLogin != null -> "已登录"
+        data.cancelled == true -> "已取消"
+        data.superseded == true -> "已取代"
+        data.stopped == true -> "已停止"
+        else -> "待登录"
+    }
     RemoteCard(
-        title = if (data.site.isBlank()) "需要登录" else "需要登录 ${data.site}",
-        body = data.reason,
+        title = if (data.site.isBlank()) "在电脑端登录" else "在电脑端登录 ${data.site}",
+        body = data.reason ?: if (data.isPending) SignInCardRules.whereText(data.place, botName) else SignInCardRules.statusLabel(data, data.site),
+        iconRes = R.drawable.ic_display_line,
+        statusPill = badgeText,
+        statusDanger = data.error != null,
     ) {
-        Text(
-            text = SignInCardRules.statusLabel(data, data.site),
-            fontSize = 13.sp,
-            color = if (data.error != null) minisWarning else secondaryTint,
-        )
         if (data.isPending) {
             Text(
-                SignInCardRules.whereText(data.place, botName),
-                fontSize = 13.sp,
-                color = minisSecondary,
-            )
-            Text(
-                "密码由你亲自输入到页面中，Luna Bot 始终看不到。",
+                "密码仅在电脑浏览器中输入，Luna Bot 始终看不到。",
                 fontSize = 12.sp,
-                color = secondaryTint,
+                color = minisTertiary,
             )
         }
         data.error?.takeIf { it.isNotBlank() }?.let {
             Text(it, fontSize = 13.sp, color = minisWarning)
         }
         if (botId != null && data.isPending) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(enabled = !working, onClick = { act(SignInCardAction.DONE) }) {
-                    Text("完成")
-                }
-                TextButton(enabled = !working, onClick = { act(SignInCardAction.CANCEL) }) {
-                    Text("取消")
-                }
+            MuseCardDivider()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MuseSecondaryPillButton(
+                    text = "取消",
+                    onClick = { act(SignInCardAction.CANCEL) },
+                    enabled = !working,
+                    modifier = Modifier.weight(1f),
+                )
+                MusePrimaryPillButton(
+                    text = "我已完成",
+                    onClick = { act(SignInCardAction.DONE) },
+                    enabled = !working,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -2275,63 +2368,62 @@ private fun SignInRequestCard(
 private fun RoutineRunCard(message: Message) {
     val data = message.routineRun ?: return
     val isFailed = data.status == "failed"
-    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFEEEEEC)
-    val badgeBg = if (isFailed) {
-        MinisTokens.Danger.copy(alpha = 0.12f)
-    } else if (minisIsDark()) {
-        Color(0xFF2B2823)
-    } else {
-        Color(0xFFE6DED4)
-    }
-    val badgeTint = if (isFailed) MinisTokens.Danger else Color(0xFF6B5A45)
+    val badgeBg = if (isFailed) MinisTokens.Danger.copy(alpha = 0.12f) else minisWarmSand
+    val badgeTint = if (isFailed) MinisTokens.Danger else minisInk
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(cardFill)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .musePaperCard(danger = isFailed)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(badgeBg),
-            contentAlignment = Alignment.Center,
-        ) {
+        MuseCardBadge(size = 40.dp, tint = badgeBg) {
             Icon(
                 painter = painterResource(R.drawable.ic_schedule),
                 contentDescription = null,
                 tint = badgeTint,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(19.dp),
             )
         }
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                text = data.routineName.ifBlank { "预定任务" },
-                fontSize = 15.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = minisInk,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "预定任务 · ${routineStatusLabel(data)}",
-                fontSize = 13.sp,
-                color = if (isFailed) minisWarning else minisSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = data.routineName.ifBlank { "定时巡检" },
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (isFailed) MinisTokens.Danger.copy(alpha = 0.12f) else minisSoftCard)
+                        .padding(horizontal = 9.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = routineStatusLabel(data),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isFailed) MinisTokens.Danger else minisSecondary,
+                        maxLines = 1,
+                    )
+                }
+            }
             if (data.deferredAt != null && data.status == "queued") {
-                Text("目标正忙，这次运行已延后。", fontSize = 12.sp, color = secondaryTint)
+                Text("目标正忙，这次运行已延后。", fontSize = 12.sp, color = minisSecondary)
             }
             data.summary?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 13.5.sp, color = minisInk.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(it, fontSize = 13.5.sp, lineHeight = 19.sp, color = minisSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             data.error?.takeIf { it.isNotBlank() }?.let {
                 Text(it, fontSize = 12.5.sp, color = minisWarning, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -2349,21 +2441,23 @@ private fun RoutineRunCard(message: Message) {
 @Composable
 private fun GoalRunCard(message: Message) {
     val data = message.goalRun ?: return
-
-    RemoteCard(title = "团队目标", body = data.goal) {
-        Text(
-            text = goalStatusLabel(data.status),
-            fontSize = 13.sp,
-            color = if (data.status == "failed") minisWarning else secondaryTint,
-        )
-        val coordinator = data.coordinatorName?.takeIf { it.isNotBlank() }
-        val turns = if (data.maxTurns > 0) "${data.turnCount}/${data.maxTurns} 轮" else "${data.turnCount} 轮"
+    val coordinator = data.coordinatorName?.takeIf { it.isNotBlank() }
+    val turns = if (data.maxTurns > 0) "${data.turnCount}/${data.maxTurns} 轮" else "${data.turnCount} 轮"
+    RemoteCard(
+        title = "团队目标",
+        body = data.goal,
+        iconRes = R.drawable.ic_sparkles,
+        statusPill = goalStatusLabel(data.status),
+        statusDanger = data.status == "failed",
+    ) {
         Text(
             listOfNotNull(coordinator?.let { "协调者：$it" }, turns).joinToString(" · "),
             fontSize = 12.sp,
-            color = secondaryTint,
+            color = minisTertiary,
         )
-        data.detail?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 14.sp) }
+        data.detail?.takeIf { it.isNotBlank() }?.let {
+            Text(it, fontSize = 13.5.sp, lineHeight = 19.sp, color = minisInk)
+        }
     }
 }
 
@@ -2375,28 +2469,48 @@ private fun CallRecordCard(record: LiveCallRecord) {
         "desktop" -> "电脑"
         else -> "其他设备"
     }
+    val reason = callEndLabel(record.endReason)
     RemoteCard(
         title = record.title?.takeIf { it.isNotBlank() } ?: "通话记录",
-        body = null,
-    ) {
-        Text(
-            "${callDurationLabel(record.seconds)} · $client",
-            fontSize = 13.sp,
-            color = secondaryTint,
-        )
-        val reason = callEndLabel(record.endReason)
-        if (reason.isNotBlank()) Text(reason, fontSize = 12.sp, color = secondaryTint)
-    }
+        body = "${callDurationLabel(record.seconds)} · $client",
+        iconRes = R.drawable.ic_call_line,
+        statusPill = reason.ifBlank { null },
+    ) {}
 }
 
 @Composable
 private fun WidgetSummaryCard(message: Message) {
-    RemoteCard(title = "小组件", body = message.text) {
-        val settled = message.widget?.settled
+    val settled = message.widget?.settled
+    RemoteCard(
+        title = "小组件",
+        body = message.text,
+        iconRes = R.drawable.ic_sparkles,
+        statusPill = if (settled != null && settled.label.isNotBlank()) "已选择" else "电脑端操作",
+    ) {
         if (settled != null && settled.label.isNotBlank()) {
-            Text("已选择：${settled.label}", fontSize = 13.sp, color = secondaryTint)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(minisSoftCard, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = minisSuccess,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    text = settled.label,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = minisInk,
+                )
+            }
         } else {
-            Text("这个小组件的按钮需要在电脑上操作。", fontSize = 12.sp, color = secondaryTint)
+            Text("此小组件的交互按钮请在电脑端操作。", fontSize = 12.sp, color = minisTertiary)
         }
     }
 }
@@ -2407,13 +2521,10 @@ private fun AppSummaryCard(message: Message) {
     RemoteCard(
         title = data?.title?.takeIf { it.isNotBlank() } ?: "应用卡片",
         body = message.text,
+        iconRes = R.drawable.ic_hub,
+        statusPill = if (data?.source == "mcp") "MCP 应用" else "智能体页面",
     ) {
-        Text(
-            if (data?.source == "mcp") "MCP 应用" else "智能体页面",
-            fontSize = 12.sp,
-            color = secondaryTint,
-        )
-        Text("完整页面请在电脑上打开。", fontSize = 12.sp, color = secondaryTint)
+        Text("完整页面请在电脑端打开。", fontSize = 12.sp, color = minisTertiary)
     }
 }
 

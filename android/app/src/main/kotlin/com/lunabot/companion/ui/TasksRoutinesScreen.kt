@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -83,6 +84,7 @@ import com.lunabot.companion.core.Chat
 import com.lunabot.companion.core.NotificationTarget
 import com.lunabot.companion.core.Routine
 import com.lunabot.companion.core.RoutineRun
+import com.lunabot.companion.core.Session
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -109,6 +111,7 @@ internal fun TasksRoutinesScreen(
 ) {
     val session = LocalCompanion.current.session
     val state by session.state.collectAsState()
+    val status by session.status.collectAsState()
     val scope = rememberCoroutineScope()
 
     var routines by remember { mutableStateOf<List<Routine>>(emptyList()) }
@@ -147,6 +150,13 @@ internal fun TasksRoutinesScreen(
     }
 
     LaunchedEffect(Unit) { reload() }
+    // If the screen opened while the session was still connecting, re-fetch as
+    // soon as the live stream comes up instead of flashing an empty state.
+    LaunchedEffect(status) {
+        if (status == Session.Status.Live && routines.isEmpty()) {
+            reload(quiet = false)
+        }
+    }
     // Routine frames arrive live; rebuild quietly a moment after the last one
     // so a run finishing in the background does not leave a stale list.
     LaunchedEffect(state.routineRevision) {
@@ -155,16 +165,16 @@ internal fun TasksRoutinesScreen(
         reload(quiet = true)
     }
 
+    val awaitingInitialSync = loading || (routines.isEmpty() && runs.isEmpty() && status == Session.Status.Connecting)
     val receipts = remember(runs) { RoutineRules.receipts(runs) }
     val listState = rememberLazyListState()
-    val dark = minisIsDark()
-    val softCardFill = if (dark) minisGrouped else Color(0xFFF5F5F3)
+    val softCardFill = minisSoftCard
     val canvasColor = minisCanvas
     val topVeilBrush = remember(canvasColor) {
         Brush.verticalGradient(
-            0.0f to canvasColor,
-            0.72f to canvasColor.copy(alpha = 0.94f),
-            1.0f to canvasColor.copy(alpha = 0f),
+            0.00f to canvasColor,
+            0.78f to canvasColor,
+            1.00f to Color.Transparent,
         )
     }
 
@@ -209,7 +219,31 @@ internal fun TasksRoutinesScreen(
                     )
                 }
 
-                if (routines.isEmpty() && !loading) {
+                if (awaitingInitialSync && routines.isEmpty()) {
+                    item(key = "routines-loading") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(softCardFill)
+                                .padding(horizontal = 20.dp, vertical = 22.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = minisSecondary,
+                            )
+                            Text(
+                                text = "正在同步定时巡检…",
+                                fontSize = 14.sp,
+                                color = minisSecondary,
+                            )
+                        }
+                    }
+                } else if (routines.isEmpty()) {
                     item(key = "routines-empty") {
                         Column(
                             modifier = Modifier
@@ -324,7 +358,7 @@ internal fun TasksRoutinesScreen(
                     )
                 }
 
-                if (receipts.isEmpty() && !loading) {
+                if (receipts.isEmpty() && !awaitingInitialSync) {
                     item(key = "receipts-empty") {
                         Row(
                             modifier = Modifier

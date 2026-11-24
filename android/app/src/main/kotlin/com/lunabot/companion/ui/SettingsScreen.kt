@@ -301,12 +301,6 @@ fun SettingsScreen(
 
     val hazeState = rememberHazeState()
     val scrollState = rememberScrollState()
-    val topScrolled by remember { derivedStateOf { scrollState.canScrollBackward } }
-    val topBandAlpha by animateFloatAsState(
-        targetValue = if (topScrolled) 1f else 0f,
-        animationSpec = tween(180),
-        label = "settings-top-haze",
-    )
 
     CompositionLocalProvider(LocalHazeState provides hazeState) {
     Box(
@@ -1238,19 +1232,30 @@ fun SettingsScreen(
         }
 
         val canvasTop = minisCanvas
-        Box(
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(66.dp)
-                .background(
-                    Brush.verticalGradient(
-                        0.00f to canvasTop.copy(alpha = 0.96f * topBandAlpha),
-                        0.62f to canvasTop.copy(alpha = 0.78f * topBandAlpha),
-                        1.00f to Color.Transparent,
+                .fillMaxWidth(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .background(canvasTop),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            0.00f to canvasTop,
+                            0.55f to canvasTop.copy(alpha = 0.55f),
+                            1.00f to Color.Transparent,
+                        ),
                     ),
-                ),
-        )
+            )
+        }
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -1307,19 +1312,17 @@ fun SettingsScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedTextField(
+                MinisSheetField(
                     value = addressText,
                     onValueChange = {
                         addressText = it
                         addressError = null
                     },
-                    placeholder = { Text("https://mac.example 或 192.168.1.42:8810") },
+                    placeholder = "https://mac.example 或 192.168.1.42:8810",
+                    label = "电脑地址",
                     singleLine = true,
                     isError = addressError != null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "电脑地址" },
                 )
                 addressError?.let {
                     Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
@@ -2006,22 +2009,20 @@ private fun PhoneUiPairingSheet(
                     },
                 )
             }
-            OutlinedTextField(
+            MinisSheetField(
                 value = port,
                 onValueChange = { port = it.filter(Char::isDigit).take(5) },
+                placeholder = "配对端口",
                 singleLine = true,
-                label = { Text("配对端口") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            MinisSheetField(
                 value = code,
                 onValueChange = { code = it.filter(Char::isDigit).take(6) },
+                placeholder = "6 位配对码",
                 singleLine = true,
-                label = { Text("6 位配对码") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
             )
             if (status == PhoneUiStatus.Pairing) {
                 SettingsFootnote("正在配对…")
@@ -2067,13 +2068,12 @@ private fun DexSignInSheet(
                     fontSize = 12.sp,
                     color = secondaryTint,
                 )
-                OutlinedTextField(
+                MinisSheetField(
                     value = email,
                     onValueChange = { email = it },
+                    placeholder = "邮箱",
                     singleLine = true,
-                    label = { Text("邮箱") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
                 )
             } else {
                 Text(
@@ -2081,13 +2081,12 @@ private fun DexSignInSheet(
                     fontSize = 12.sp,
                     color = secondaryTint,
                 )
-                OutlinedTextField(
+                MinisSheetField(
                     value = code,
                     onValueChange = { code = it.filter(Char::isDigit).take(8) },
+                    placeholder = "8 位登录码",
                     singleLine = true,
-                    label = { Text("8 位登录码") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    modifier = Modifier.fillMaxWidth(),
                 )
                 TextButton(onClick = { account.sendCode(ui.codeSentTo) }, enabled = !ui.busy) {
                     Text("重新发送", fontSize = 13.sp)
@@ -2104,7 +2103,7 @@ private fun SettingsSection(
     footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val cardFill = minisSoftCard
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         label?.let { SettingsSectionLabel(it) }
         Column(
@@ -2151,18 +2150,10 @@ private fun SettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = MinisSheetShape,
         containerColor = minisCanvas,
-        scrimColor = Color.Black.copy(alpha = 0.20f),
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = 8.dp, bottom = 4.dp)
-                    .size(width = 36.dp, height = 4.dp)
-                    .clip(CircleShape)
-                    .background(minisTertiary),
-            )
-        },
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         GlassBackdrop()
         Column(
@@ -2423,22 +2414,25 @@ private fun AddressRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Box(
-                modifier = Modifier
-                    .heightIn(min = 36.dp)
-                    .wrapContentHeight(Alignment.CenterVertically)
-                    .clip(CircleShape)
-                    .background(minisCard)
-                    .clickable(role = Role.Button, onClick = onCopy)
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center,
+            TouchTarget(
+                onClick = onCopy,
+                contentDescription = if (copied) "已复制地址" else "复制地址",
             ) {
-                Text(
-                    text = if (copied) "已复制" else "复制",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = minisInk,
-                )
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 32.dp)
+                        .clip(CircleShape)
+                        .background(minisCard)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (copied) "已复制" else "复制",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisInk,
+                    )
+                }
             }
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -2520,39 +2514,7 @@ private fun SettingsSwitchRow(
                 )
             }
         }
-        val dark = minisIsDark()
-        val trackColor by animateColorAsState(
-            targetValue = when {
-                !enabled -> if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5E3)
-                checked -> minisInk
-                else -> if (dark) Color(0xFF3A3A3D) else Color(0xFFDDDCD9)
-            },
-            animationSpec = tween(160),
-            label = "muse-switch-track",
-        )
-        val thumbOffset by animateDpAsState(
-            targetValue = if (checked) 18.dp else 0.dp,
-            animationSpec = tween(160),
-            label = "muse-switch-thumb",
-        )
-        Box(
-            modifier = Modifier
-                .size(width = 46.dp, height = 28.dp)
-                .clip(CircleShape)
-                .background(trackColor)
-                .padding(3.dp)
-                .clearAndSetSemantics {},
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Box(
-                modifier = Modifier
-                    .offset(x = thumbOffset)
-                    .size(22.dp)
-                    .shadow(2.dp, CircleShape, ambientColor = Color(0x18000000), spotColor = Color(0x22000000))
-                    .clip(CircleShape)
-                    .background(if (checked && dark) Color(0xFF111111) else Color.White),
-            )
-        }
+        MuseSwitch(checked = checked, enabled = enabled)
     }
 }
 

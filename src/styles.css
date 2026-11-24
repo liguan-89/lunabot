@@ -1913,9 +1913,15 @@ body {
 :root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"]) .glass-scrim {
   background: rgb(0 0 0 / 0.2);
 }
-/* Keep native <dialog> backdrops and heavy dark-tuned shadows airy on light skins. */
+/* Keep native <dialog> backdrops, centered modal scrims/surfaces, and heavy dark-tuned shadows airy on light skins. */
 :root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"]) dialog::backdrop {
   background: rgb(0 0 0 / 0.22);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"]) .fixed.inset-0:is(.bg-black\/45, .bg-black\/50, .bg-black\/55, .bg-black\/60, .bg-black\/65) {
+  background-color: rgb(0 0 0 / 0.22);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"]) :is([role="dialog"], [role="alertdialog"]).bg-panel.rounded-2xl {
+  background-color: var(--color-menu);
 }
 :root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"]) :is(.shadow-black\/40, .shadow-black\/50, .shadow-black\/60) {
   --tw-shadow-color: rgb(15 23 42 / 0.16);

@@ -215,8 +215,9 @@ internal fun RoutineEditorSheet(
         onDismissRequest = { if (!saving) onDismiss() },
         sheetState = sheetState,
         containerColor = minisCanvas,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        scrimColor = Color.Black.copy(alpha = 0.20f),
+        shape = MinisSheetShape,
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         Column(
             modifier = Modifier
@@ -332,7 +333,7 @@ internal fun RoutineEditorSheet(
             ) {
                 RadioRow(
                     label = RoutineRules.locationLabel(RoutineRunLocation.MAUS),
-                    painter = R.drawable.ic_display,
+                    painter = R.drawable.ic_display_line,
                     selected = runOn == RoutineRunLocation.MAUS,
                     enabled = true,
                     onSelect = { runOn = RoutineRunLocation.MAUS },
@@ -516,20 +517,19 @@ internal fun RoutineEditorSheet(
                             )
                         }
                         if (intervalUsesCustom) {
-                            OutlinedTextField(
+                            MinisSheetField(
                                 value = intervalMinutesText,
                                 onValueChange = { value ->
                                     if (value.length <= 4 && value.all(Char::isDigit)) {
                                         intervalMinutesText = value
                                     }
                                 },
-                                label = { Text("自定义间隔") },
-                                suffix = { Text("分钟") },
-                                supportingText = { Text("5 分钟至 24 小时之间") },
+                                placeholder = "自定义间隔（5 分钟至 24 小时）",
+                                label = "自定义间隔",
+                                suffix = "分钟",
                                 isError = intervalMinutes == null,
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -540,7 +540,7 @@ internal fun RoutineEditorSheet(
                 }
             }
 
-            FormSection(
+            MuseSheetSection(
                 header = null,
                 footer = if (advancedExpanded) {
                     "可选。这仅用于停止卡住的运行；不会控制例程启动的频率。"
@@ -727,27 +727,43 @@ internal fun RoutineEditorSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimeoutPicker(value: Int?, onSelect: (Int?) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        OutlinedTextField(
-            value = value?.let { "$it 分钟" } ?: "无限制",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("超过以下时间仍运行时停止") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+    val label = value?.let { "$it 分钟" } ?: "无限制"
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(minisSoftCard)
+                .clickable(role = Role.Button) { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp)
                 .semantics { contentDescription = "例程超时限制" },
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("超时停止", fontSize = 13.5.sp, color = minisSecondary)
+            Text(
+                text = label,
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisInk,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = minisCard,
+        ) {
             DropdownMenuItem(
                 text = { Text("无限制") },
                 onClick = {
@@ -809,7 +825,7 @@ private fun MuseBorderlessField(
     minLines: Int = 1,
     maxLines: Int = 1,
 ) {
-    val fill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val fill = minisSoftCard
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -841,7 +857,7 @@ private fun AgentPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = bots.firstOrNull { it.id == selected }?.name ?: "选择智能体"
-    val fill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val fill = minisSoftCard
     Box(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -903,7 +919,7 @@ private fun RadioRow(
     painter: Int? = null,
     onSelect: () -> Unit,
 ) {
-    val fill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val fill = minisSoftCard
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier

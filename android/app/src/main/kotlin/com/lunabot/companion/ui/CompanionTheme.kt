@@ -195,7 +195,7 @@ private val MinisShapes = androidx.compose.material3.Shapes(
     small = MinisControlShape,
     medium = MinisCardShape,
     large = MinisComposerShape,
-    extraLarge = MinisSheetShape,
+    extraLarge = MinisDialogShape,
 )
 
 /** SwiftUI's `Color.secondary` — the muted foreground everything quiet uses. */

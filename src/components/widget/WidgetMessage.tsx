@@ -16,13 +16,14 @@ import {
 } from "../../../shared/widget";
 import { ASK_QUIET_BUTTON, AskSettledLine, returnFocusToComposer } from "../AskCard";
 import { plainBotBubble } from "../chat-bubble";
+import { ELEVATED_CARD } from "../elevated";
 import { WidgetBody } from "./WidgetBody";
 import { WIDGET_COMPACT_BELOW, widgetActionUrl, widgetThreadTarget, WidgetButton, WidgetFormProvider, WidgetGlyph, type WidgetForm } from "./WidgetControls";
 import { kids } from "./widget-style";
 import { newWidgetSendId, sendWidgetAction, type WidgetSendResult } from "./widget-send";
 
 const WIDTH: Record<string, string> = { sm: "max-w-[360px]", md: "max-w-[440px]", lg: "max-w-[600px]", full: "max-w-[600px]" };
-const SURFACE = "w-full overflow-hidden rounded-2xl bg-composer ring-1 ring-composer-ring transition-opacity";
+const SURFACE = `w-full overflow-hidden rounded-[24px] ${ELEVATED_CARD} transition-opacity`;
 const SENT_MS = 1600;
 
 function labelledFields(node: WidgetNode, into = new Set<string>()): Set<string> {

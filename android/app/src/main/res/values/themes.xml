@@ -3,10 +3,10 @@
     <!--
       The window background is the canvas, not the platform's white: it is what
       the launch screen and the splash window show before Compose draws, and a
-      white frame in front of a #F4F4F5 app is the flash this avoids. The colour
+      white frame in front of a #FFFFFF app is the flash this avoids. The colour
       is `MinisTokens.CanvasLight` written as a resource; keep the pair in step.
     -->
     <style name="Theme.LunaBotMobile" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FFF4F4F5</item>
+        <item name="android:windowBackground">#FFFFFFFF</item>
     </style>
 </resources>

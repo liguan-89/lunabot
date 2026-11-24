@@ -175,20 +175,19 @@ private fun QuickReplyForm(
         title = { Text(if (initial.title.isBlank()) "新建快捷回复" else "编辑快捷回复") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                MinisSheetField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("名称") },
+                    placeholder = "名称",
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                MinisSheetField(
                     value = prompt,
                     onValueChange = { prompt = it },
-                    label = { Text("提示词") },
+                    placeholder = "提示词",
+                    singleLine = false,
                     minLines = 2,
                     maxLines = 5,
-                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text("图标", fontSize = 13.sp, color = secondaryTint)
                 Row(

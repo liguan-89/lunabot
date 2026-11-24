@@ -1220,6 +1220,8 @@ private fun LoadedChat(
                         // sit tighter than the space between turns without the
                         // list having to know which rows are which.
                         val startsRun = TranscriptLayout.startsRowRun(transcript, index)
+                        val prevIsEvent = index > 0 && transcript[index - 1].isEventPill()
+                        val currentIsEvent = message.isEventPill()
                         Column(
                             // New rows fade in and rows that move (a fold
                             // opening, an unread section reordering) glide
@@ -1227,13 +1229,17 @@ private fun LoadedChat(
                             // changes inside a row never animate.
                             modifier = Modifier
                                 .animateItem()
-                                // The list's own top padding already spaces the
-                                // very first item; every later row carries its
-                                // own gap. "Load earlier" counts as the item
-                                // above when it is shown.
+                                // Strictly 3 vertical spacing tiers: RUN_GAP (4dp)
+                                // within a same-speaker text run, EVENT_GAP (8dp)
+                                // around quiet event/receipt pills, and TURN_GAP
+                                // (16dp) between turns or full cards.
                                 .padding(
                                     top = when {
-                                        index > 0 -> if (startsRun) TURN_GAP else RUN_GAP
+                                        index > 0 -> when {
+                                            !startsRun -> RUN_GAP
+                                            currentIsEvent || prevIsEvent -> EVENT_GAP
+                                            else -> TURN_GAP
+                                        }
                                         hasMore -> TURN_GAP
                                         else -> 0.dp
                                     },
@@ -1359,8 +1365,8 @@ private fun LoadedChat(
                     animationSpec = tween(180),
                     label = "chat-top-haze",
                 )
-                // Muse-style crystal-clear pure-white top fade (zero murky blur smear)
-                // so bubbles stay razor-sharp and dissolve cleanly only near the status bar.
+                // Grok Bot-style smooth top fade: messages travel softly under the
+                // floating buttons and dissolve gently into the status bar.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -1679,7 +1685,14 @@ private val CHAT_CONTENT_MAX_WIDTH = 840.dp
  * verticalArrangement and the first row keeps the list's own padding.
  */
 private val TURN_GAP = 16.dp
+private val EVENT_GAP = 8.dp
 private val RUN_GAP = 4.dp
+
+private fun TranscriptRow.isEventPill(): Boolean = when (this) {
+    is TranscriptRow.ActivityRun, is TranscriptRow.AssistantTurn -> true
+    is TranscriptRow.Single ->
+        message.kind == Message.Kind.ACTIVITY || message.kind == Message.Kind.COMPACTION
+}
 
 /**
  * Whether the newest row is fully on screen.
@@ -1835,18 +1848,25 @@ private fun ChatSearchOverlay(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChromeButton(
-                icon = Icons.Filled.Close,
-                contentDescription = "关闭搜索",
-                onClick = onClose,
-                size = 40.dp,
-                glyph = 20.dp,
-                surface = true,
-            )
+            TouchTarget(onClick = onClose, contentDescription = "关闭搜索", size = 44.dp) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .museFloatingPill(CircleShape, elevation = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .chromeCapsule(surface = true)
+                    .museFloatingPill(CircleShape, elevation = 4.dp)
                     .height(48.dp)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2334,8 +2354,8 @@ private fun ScrollToLatestButton(live: Boolean, onClick: () -> Unit) {
     TouchTarget(onClick = onClick, contentDescription = "回到最新消息") {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .chromeCapsule(elevation = 6.dp, surface = true),
+                .size(42.dp)
+                .museFloatingPill(CircleShape, elevation = 5.dp),
             contentAlignment = Alignment.Center,
         ) {
         Icon(
@@ -2364,18 +2384,18 @@ private fun BackPill(unreadElsewhere: Int, onBack: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TouchTarget(onClick = onBack, contentDescription = "返回", size = 40.dp) {
+        TouchTarget(onClick = onBack, contentDescription = "返回", size = 48.dp) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .chromeCapsule(surface = true),
+                    .size(46.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
                     tint = minisInk,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -2386,7 +2406,7 @@ private fun BackPill(unreadElsewhere: Int, onBack: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 color = minisAccent,
                 modifier = Modifier
-                    .chromeCapsule(surface = true)
+                    .museFloatingPill(CircleShape, elevation = 3.dp)
                     .defaultMinSize(minWidth = 22.dp)
                     .padding(horizontal = 8.dp, vertical = 3.dp),
                 textAlign = TextAlign.Center,
