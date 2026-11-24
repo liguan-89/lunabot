@@ -24,7 +24,7 @@ const val PHONE_PAIRING_ACTION = "open_phone_pairing"
 
 val WIDGET_WEEKDAYS = listOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
-private val FIELD_TYPES = setOf(
+val WIDGET_FIELD_TYPES = setOf(
     "Select", "DatePicker", "TimePicker", "DayPicker",
     "Checkbox", "RadioGroup", "Input", "Textarea",
 )
@@ -231,7 +231,7 @@ fun widgetFields(scope: WidgetNode, root: WidgetNode = scope): List<WidgetField>
     val fields = mutableListOf<WidgetField>()
     walk(scope) { node, _ ->
         val name = node.str("name") ?: return@walk
-        if (node.type !in FIELD_TYPES && node.type != "ListView") return@walk
+        if (node.type !in WIDGET_FIELD_TYPES && node.type != "ListView") return@walk
         val own = if (node.type == "ListView") widgetString(node, "title") else widgetString(node, "label")
         fields += WidgetField(name, node.type, labels[name] ?: own ?: name, node)
     }

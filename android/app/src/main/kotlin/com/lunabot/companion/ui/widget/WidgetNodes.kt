@@ -42,6 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lunabot.companion.core.WIDGET_FIELD_TYPES
 import com.lunabot.companion.core.WidgetNode
 import com.lunabot.companion.core.widgetNumber
 import com.lunabot.companion.core.widgetString
@@ -74,6 +78,10 @@ class Ctx(
     val lead: Boolean = false,
     val cell: Boolean = false,
     val listName: String? = null,
+    /** 卡的直属子级（桌面 where.card）：Row 给 min-h 44 / stacked 时上下 10。 */
+    val card: Boolean = false,
+    /** 父 Col stretch：子项应占满行宽（按钮变 block）。 */
+    val fill: Boolean = false,
 )
 
 private val TEXT_SIZES = mapOf("xs" to 12.sp, "sm" to 13.sp, "md" to 14.sp, "lg" to 16.sp, "xl" to 18.sp)
@@ -259,6 +267,8 @@ fun WidgetButtonView(node: WidgetNode, ref: String, label: String, look: String,
             if (sent) "已发送" else label,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             color = when (look) {
                 "primary", "danger" -> Color.White
                 "quiet" -> minisSecondary
@@ -352,7 +362,7 @@ fun WidgetNodeView(node: WidgetNode, form: WidgetFormState, press: (String) -> U
         "Progress" -> WidgetProgress(node)
         "Button" -> {
             val look = widgetString(node, "style") ?: "secondary"
-            WidgetButtonView(node, node.id, widgetString(node, "label") ?: "", look, form, press, node.bool("block"))
+            WidgetButtonView(node, node.id, widgetString(node, "label") ?: "", look, form, press, node.bool("block") || ctx.fill)
         }
         "Chart" -> WidgetChartView(node)
         "Image" -> WidgetRemoteImage(node, form)
@@ -362,79 +372,137 @@ fun WidgetNodeView(node: WidgetNode, form: WidgetFormState, press: (String) -> U
     }
 }
 
+private val WORDS = setOf("Label", "Text", "Caption", "Title")
+private val FLOWS = WIDGET_FIELD_TYPES + setOf("Button", "Badge", "Spacer")
+
+private fun pairsField(node: WidgetNode) =
+    node.children.any { it.type in WIDGET_FIELD_TYPES && it.type != "Checkbox" } &&
+        node.children.any { it.type in WORDS }
+
+private fun flows(children: List<WidgetNode>) = children.size > 1 && children.all { it.type in FLOWS }
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WidgetLayout(node: WidgetNode, form: WidgetFormState, press: (String) -> Unit, ctx: Ctx) {
-    val isRow = node.type == "Row" || node.str("direction") == "row"
-    val gap = (widgetNumber(node, "gap") ?: 12.0).toInt()
-    val align = when (node.str("align")) {
-        "center" -> Alignment.CenterVertically
-        "end" -> Alignment.Bottom
-        "baseline" -> Alignment.CenterVertically
-        else -> Alignment.Top
-    }
-    val justifyH: Arrangement.Horizontal = when (node.str("justify")) {
-        "center" -> Arrangement.spacedBy(gap.dp, Alignment.CenterHorizontally)
-        "end" -> Arrangement.spacedBy(gap.dp, Alignment.End)
-        "between" -> Arrangement.SpaceBetween
-        "around" -> Arrangement.SpaceAround
-        "evenly" -> Arrangement.SpaceEvenly
-        else -> Arrangement.spacedBy(gap.dp)
-    }
-    val justifyV: Arrangement.Vertical = when (node.str("justify")) {
-        "center" -> Arrangement.spacedBy(gap.dp, Alignment.CenterVertically)
-        "end" -> Arrangement.spacedBy(gap.dp, Alignment.Bottom)
-        "between" -> Arrangement.SpaceBetween
-        "around" -> Arrangement.SpaceAround
-        "evenly" -> Arrangement.SpaceEvenly
-        else -> Arrangement.spacedBy(gap.dp)
-    }
-    val mod = layoutModifier(node)
+    val stacked = form.compact && node.type == "Row" && pairsField(node)
+    val isRow = !stacked && (node.type == "Row" || (node.type != "Col" && node.str("direction") == "row"))
+    val gap = if (stacked) 6 else (widgetNumber(node, "gap")?.toInt() ?: (if (isRow) 8 else if (node.type == "Form") 12 else 0))
+    val shown = if (stacked) node.children.filter { it.type != "Spacer" } else node.children
+    val alignName = if (stacked) "stretch" else node.str("align") ?: (if (isRow) "center" else "stretch")
+    var mod = layoutModifier(node).fillMaxWidth()
+    if (ctx.card && node.type == "Row") mod = if (stacked) mod.padding(vertical = 10.dp) else mod.heightIn(min = 44.dp)
     if (isRow) {
-        val hAlign = when (node.str("align")) {
-            "center" -> Alignment.CenterVertically
+        val vAlign = when (alignName) {
+            "center", "baseline" -> Alignment.CenterVertically
             "end" -> Alignment.Bottom
-            "stretch" -> Alignment.Top
             else -> Alignment.Top
         }
-        if (node.bool("wrap")) {
-            FlowRow(mod.fillMaxWidth(), horizontalArrangement = justifyH, verticalArrangement = Arrangement.spacedBy(gap.dp)) {
-                node.children.forEach { child -> WidgetNodeView(child, form, press, Ctx("row", gap)) }
+        if (node.bool("wrap") || flows(shown)) {
+            val justifyH: Arrangement.Horizontal = when (node.str("justify")) {
+                "center" -> Arrangement.spacedBy(gap.dp, Alignment.CenterHorizontally)
+                "end" -> Arrangement.spacedBy(gap.dp, Alignment.End)
+                "between" -> Arrangement.SpaceBetween
+                "around" -> Arrangement.SpaceAround
+                "evenly" -> Arrangement.SpaceEvenly
+                else -> Arrangement.spacedBy(gap.dp)
+            }
+            FlowRow(mod, horizontalArrangement = justifyH, verticalArrangement = Arrangement.spacedBy(gap.dp)) {
+                shown.forEach { child -> WidgetNodeView(child, form, press, Ctx("row", gap)) }
             }
         } else {
-            Row(mod.fillMaxWidth(), horizontalArrangement = justifyH, verticalAlignment = hAlign) {
-                node.children.forEach { child -> WidgetFlex(child, form, press, Ctx("row", gap)) }
+            ShrinkRow(mod, gap.dp, vAlign, alignName == "stretch", node.str("justify"), shown) {
+                shown.forEach { child -> WidgetNodeView(child, form, press, Ctx("row", gap)) }
             }
         }
     } else {
-        Column(mod.fillMaxWidth(), verticalArrangement = justifyV, horizontalAlignment = when (node.str("align")) {
+        val justifyV: Arrangement.Vertical = when (node.str("justify")) {
+            "center" -> Arrangement.spacedBy(gap.dp, Alignment.CenterVertically)
+            "end" -> Arrangement.spacedBy(gap.dp, Alignment.Bottom)
+            "between" -> Arrangement.SpaceBetween
+            "around" -> Arrangement.SpaceAround
+            "evenly" -> Arrangement.SpaceEvenly
+            else -> Arrangement.spacedBy(gap.dp)
+        }
+        val stretch = alignName == "stretch"
+        Column(mod, verticalArrangement = justifyV, horizontalAlignment = when (alignName) {
             "center" -> Alignment.CenterHorizontally
             "end" -> Alignment.End
             else -> Alignment.Start
         }) {
-            node.children.forEach { child -> WidgetFlex(child, form, press, Ctx("col", gap)) }
+            shown.forEach { child ->
+                val flex = widgetNumber(child, "flex")
+                val cctx = Ctx("col", gap, fill = stretch)
+                when {
+                    flex != null && flex > 0 -> Box(Modifier.weight(flex.toFloat()).fillMaxWidth()) { WidgetNodeView(child, form, press, cctx) }
+                    stretch -> Box(Modifier.fillMaxWidth()) { WidgetNodeView(child, form, press, cctx) }
+                    else -> WidgetNodeView(child, form, press, cctx)
+                }
+            }
         }
     }
 }
 
-/** `flex` = 父轴 weight：在 Row/Column 作用域里包一层 Box。 */
+/** 桌面 flex 行的对应物：先按固有宽排，挤不下按 CSS flex-shrink 等比收缩（min-w-0 可到 0），
+ *  `flex` 子项按比例吃剩余空间；富余宽度交给 justify 分布。 */
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.WidgetFlex(child: WidgetNode, form: WidgetFormState, press: (String) -> Unit, ctx: Ctx) {
-    val flex = widgetNumber(child, "flex")
-    if (flex != null && flex > 0) {
-        Box(Modifier.weight(flex.toFloat())) { WidgetNodeView(child, form, press, ctx) }
-    } else {
-        WidgetNodeView(child, form, press, ctx)
-    }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.ColumnScope.WidgetFlex(child: WidgetNode, form: WidgetFormState, press: (String) -> Unit, ctx: Ctx) {
-    val flex = widgetNumber(child, "flex")
-    if (flex != null && flex > 0) {
-        Box(Modifier.weight(flex.toFloat()).fillMaxWidth()) { WidgetNodeView(child, form, press, ctx) }
-    } else {
-        WidgetNodeView(child, form, press, ctx)
+private fun ShrinkRow(
+    modifier: Modifier,
+    gap: Dp,
+    vAlign: Alignment.Vertical,
+    stretch: Boolean,
+    justify: String?,
+    children: List<WidgetNode>,
+    content: @Composable () -> Unit,
+) {
+    val flexes = children.map { widgetNumber(it, "flex")?.toFloat() ?: 0f }
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val n = measurables.size
+        if (n == 0) return@Layout layout(0, 0) {}
+        val gapPx = gap.roundToPx()
+        val avail = (constraints.maxWidth - gapPx * (n - 1)).coerceAtLeast(0)
+        val loose = Constraints(minWidth = 0, maxWidth = avail, maxHeight = constraints.maxHeight)
+        val first = measurables.map { it.measure(loose) }
+        val flexSum = flexes.sumOf { it.coerceAtLeast(0f).toDouble() }.toFloat()
+        val widths = IntArray(n) { first[it].width }
+        when {
+            flexSum > 0f -> {
+                val room = (avail - widths.filterIndexed { i, _ -> flexes[i] <= 0f }.sum()).coerceAtLeast(0)
+                for (i in 0 until n) if (flexes[i] > 0f) widths[i] = (room * flexes[i] / flexSum).toInt()
+            }
+            widths.sum() > avail -> {
+                val total = widths.sum()
+                for (i in 0 until n) widths[i] = (avail.toLong() * widths[i] / total).toInt()
+            }
+        }
+        val laid = measurables.mapIndexed { i, m ->
+            if (widths[i] == first[i].width) first[i]
+            else m.measure(Constraints(minWidth = widths[i], maxWidth = widths[i], maxHeight = constraints.maxHeight))
+        }
+        var height = maxOf(laid.maxOf { it.height }, constraints.minHeight).coerceAtMost(constraints.maxHeight)
+        val placed = if (stretch) {
+            measurables.mapIndexed { i, m -> m.measure(Constraints.fixed(widths[i], height)) }
+        } else laid
+        height = maxOf(placed.maxOf { it.height }, constraints.minHeight).coerceAtMost(constraints.maxHeight)
+        layout(constraints.maxWidth, height) {
+            val free = (avail - widths.sum()).coerceAtLeast(0)
+            var x = 0
+            var between = gapPx
+            when (justify) {
+                "center" -> x = free / 2
+                "end" -> x = free
+                "between" -> if (n > 1) between = gapPx + free / (n - 1)
+                "around" -> { val s = free / n; x = s / 2; between = gapPx + s }
+                "evenly" -> { val s = free / (n + 1); x = s; between = gapPx + s }
+            }
+            placed.forEach { p ->
+                p.place(x, when (vAlign) {
+                    Alignment.CenterVertically -> (height - p.height) / 2
+                    Alignment.Bottom -> height - p.height
+                    else -> 0
+                })
+                x += p.width + between
+            }
+        }
     }
 }
 
@@ -453,7 +521,7 @@ fun WidgetBody(root: WidgetNode, form: WidgetFormState, press: (String) -> Unit,
     val shown = if (limit > 0 && !showAll) rows.take(limit) else rows
     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)) {
         shown.forEach { row ->
-            WidgetNodeView(row, form, press, Ctx("col", listName = listName, lead = false))
+            WidgetNodeView(row, form, press, Ctx("col", listName = listName, card = true))
         }
         if (limit > 0 && !showAll && rows.size > limit) {
             Text(
