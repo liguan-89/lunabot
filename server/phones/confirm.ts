@@ -22,8 +22,11 @@ import {
 import { assessRisk, type RiskGrade } from "../phone-risk.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
 import {
+  EACH_LOOP_NUDGE,
+  EachLoopDetector,
   actionSignature,
   checkAction,
+  guardVerb,
   noteAction as noteGuardAction,
   noteScreen as guardNoteScreen,
   reset as freshGuard,
@@ -366,7 +369,7 @@ function evict<K, V>(map: Map<K, V>, max: number): void {
 export class PhoneConfirms {
   private readonly turns = new Map<string, { generation: string; gate: ConfirmGate; step: number; cards: Set<string>; lastTyped: string | null }>();
   private readonly screens = new Map<string, PhoneScreenRecord>();
-  private readonly guards = new Map<string, { generation: string; state: GuardState }>();
+  private readonly guards = new Map<string, { generation: string; state: GuardState; each: EachLoopDetector }>();
 
   /** How many turns hold a gate; a test reads it to see the bound hold. */
   get size(): number {
@@ -555,17 +558,41 @@ export class PhoneConfirms {
     return state;
   }
 
+  /**
+   * Feed the do_each detector one executed call. Every phone call counts, not
+   * only the screen-answering ones the loop guard reads: upstream feeds each
+   * action's verb and result, so a send or a run between items breaks the motif
+   * exactly as a failure does. The one nudge the detector ever gives comes
+   * back here, for the answer that completed the third repetition.
+   */
+  noteEach(turn: GuardTurn, tool: string, args: Record<string, unknown>, ok: boolean): string | null {
+    return this.guardEntry(turn).each.feed(guardVerb(tool, args), ok) ? EACH_LOOP_NUDGE : null;
+  }
+
+  /** The guard this turn built, or a fresh entry when the turn is not the one the entry was made for. */
+  private guardEntry(turn: GuardTurn): { generation: string; state: GuardState; each: EachLoopDetector } {
+    const key = confirmKey(turn);
+    const held = this.guards.get(key);
+    if (held !== undefined && held.generation === turn.generation) return held;
+    const entry = { generation: turn.generation, state: freshGuard(), each: new EachLoopDetector() };
+    this.guards.delete(key);
+    this.guards.set(key, entry);
+    evict(this.guards, MAX_CONFIRM_TURNS);
+    return entry;
+  }
+
   /** The guard this turn built, or a fresh one when the turn is not the one the entry was made for. */
   private guardState(turn: GuardTurn): GuardState {
-    const held = this.guards.get(confirmKey(turn));
-    return held && held.generation === turn.generation ? held.state : freshGuard();
+    return this.guardEntry(turn).state;
   }
 
   /** Keep the guard where the next call of this turn finds it; the oldest turn's entry is dropped past the cap. */
   private keepGuard(turn: GuardTurn, state: GuardState): void {
     const key = confirmKey(turn);
+    const held = this.guards.get(key);
+    const each = held !== undefined && held.generation === turn.generation ? held.each : new EachLoopDetector();
     this.guards.delete(key);
-    this.guards.set(key, { generation: turn.generation, state });
+    this.guards.set(key, { generation: turn.generation, state, each });
     evict(this.guards, MAX_CONFIRM_TURNS);
   }
 }

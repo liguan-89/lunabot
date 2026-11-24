@@ -1,6 +1,6 @@
 // Guards for a bot that drives a phone: fingerprint each action, notice one that repeats without changing the
 // screen, and return either a warning with concrete ways out or a stop. Adapted from Mika's OperationGuards,
-// GuardRules and Fingerprints (Apache-2.0).
+// GuardRules, Fingerprints and EachLoopDetector (Apache-2.0).
 //
 // Not ported: the off-screen guard and its quotas (browsers, sandboxes), the read-loop guard, the tool-failure
 // ladder, and the separate same-state visit counter. The off-screen, read-loop and failure rules decide whether a
@@ -299,4 +299,99 @@ export function noteScreen(state: GuardState, fingerprint: string): GuardState {
     // A walk that is no longer a loop starts its cycle ladder over.
     cycleWarnedAt: cycleOf(trail) === null ? 0 : state.cycleWarnedAt,
   };
+}
+
+// ---- The do_each detector ----
+// Mika's EachLoopDetector: the recent verb sequence is watched for a motif —
+// open an item, act on it, come back — repeated whole EACH_LOOP_REPEATS times,
+// and the model is told once to finish the rest in one do_each call instead of
+// one item per step. Shape only, never content; a failure or a non-screen verb
+// breaks the run, and the model using do_each itself disarms it for the task.
+
+export const EACH_LOOP_REPEATS = 3;
+const EACH_LOOP_MAX_MOTIF = 5;
+const EACH_LOOP_WINDOW = EACH_LOOP_REPEATS * EACH_LOOP_MAX_MOTIF;
+
+/** The verbs a motif is counted in — upstream's COUNTED primitives our tools can produce. */
+const EACH_COUNTED: ReadonlySet<string> = new Set([
+  "observe", "tap", "type", "scroll", "swipe", "back", "press", "wait",
+]);
+
+/** The nudge the one firing carries, in the same `note` channel the guard's warns use. */
+export const EACH_LOOP_NUDGE =
+  `Your last steps repeat the same cycle — open an item, act on it, go back — ${EACH_LOOP_REPEATS} times in a row. ` +
+  "If items remain, finish them in one PHONE_UI_DO_EACH call instead of one item per step: " +
+  "item says how to recognize one entry (role/text/resourceId), body is the steps for ONE item " +
+  "with \"@item\" as the text — the target for a tap, the content for a type — ending with back.";
+
+const MCP_PREFIX = /^mcp__(?:composio|own_apps|device)__/;
+
+/**
+ * The phone tool as the detector reads it: one of upstream's COUNTED verbs
+ * under our tool names, "do_each" itself, or null for anything else. Upstream
+ * counts only the primitives a per-item loop is built from — observe, list,
+ * tap, type, scroll, swipe, back, key, wait; its query, collect, find, run,
+ * screenshot and every non-screen verb reset the sequence, and so do ours.
+ */
+export function guardVerb(tool: string, args: Readonly<Record<string, unknown>> = {}): string | null {
+  switch (tool.replace(MCP_PREFIX, "")) {
+    case "PHONE_UI_OBSERVE":
+      return "observe";
+    case "PHONE_UI_TAP":
+    case "PHONE_UI_TAP_AT":
+      return "tap";
+    case "PHONE_UI_TYPE":
+      return "type";
+    case "PHONE_UI_SCROLL":
+      return "scroll";
+    case "PHONE_UI_SWIPE":
+      return "swipe";
+    case "PHONE_UI_BACK":
+      return "back";
+    case "PHONE_UI_KEY":
+      return args.key === "back" ? "back" : "press";
+    case "PHONE_UI_WAIT":
+      return "wait";
+    case "PHONE_UI_DO_EACH":
+      return "do_each";
+    default:
+      return null;
+  }
+}
+
+/** One task's detector: the verb window, whether it already spoke, and the do_each disarm. */
+export class EachLoopDetector {
+  private seq: string[] = [];
+  private fired = false;
+  private disarmed = false;
+
+  /** Feed one executed call's verb ([null] or a failure breaks the run); true the one time the motif completes. */
+  feed(verb: string | null, ok: boolean): boolean {
+    if (verb === "do_each") this.disarmed = true;
+    if (verb === null || !ok || !EACH_COUNTED.has(verb)) {
+      this.seq = [];
+      return false;
+    }
+    this.seq.push(verb);
+    if (this.seq.length > EACH_LOOP_WINDOW) this.seq.splice(0, this.seq.length - EACH_LOOP_WINDOW);
+    if (this.fired || this.disarmed || !this.repeating()) return false;
+    this.fired = true;
+    return true;
+  }
+
+  /**
+   * The last REPEATS×l verbs form l identical periods, each holding exactly one
+   * back and at least one tap — the open-an-item, act, return signature. Of
+   * several periods that fit, any one fires.
+   */
+  private repeating(): boolean {
+    for (let l = 2; l <= EACH_LOOP_MAX_MOTIF; l += 1) {
+      if (this.seq.length < EACH_LOOP_REPEATS * l) continue;
+      const window = this.seq.slice(-EACH_LOOP_REPEATS * l);
+      const motif = window.slice(0, l);
+      if (!window.every((verb, i) => verb === motif[i % l])) continue;
+      if (motif.filter((verb) => verb === "back").length === 1 && motif.includes("tap")) return true;
+    }
+    return false;
+  }
 }
