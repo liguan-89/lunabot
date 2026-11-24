@@ -106,6 +106,15 @@ describe("createNoticeTriage", () => {
     expect(judgeCalls).toHaveLength(1);
   });
 
+  it("a busy phone re-checks on a timer rather than stalling for the next notice", async () => {
+    const { triage, timers, advance } = runner({ records: [record()], busy: true, reply: surfaceReply() });
+    triage.poke();
+    // The gathering window passes; the runner is still held by the busy phone.
+    await advance(25_000);
+    expect(timers.size).toBe(1);
+    expect([...timers.values()][0]!.ms).toBe(30_000);
+  });
+
   it("a judged batch marks its keys; a surface verdict is delivered once", async () => {
     const records = [record(), record({ key: "k2", postedAtMs: 900 })];
     const { triage, surfaced, judgeCalls, advance } = runner({ records, reply: surfaceReply(2) });

@@ -64,7 +64,13 @@ export function createNoticeLearn(deps: NoticeLearnDeps, data?: TopicPoolData) {
     rollDay(now);
     if (timer !== null) { deps.unwait(timer); timer = null; }
     if (!on() || deps.judge() === null) return;
-    if (inFlight || deps.busy() || callsToday >= LEARN_CALLS_PER_DAY || now < holdUntilMs) {
+    // A finished job does not poke the runner; look again shortly rather than
+    // stall until the next notification lands.
+    if (deps.busy()) {
+      timer = deps.wait(NOTICE_TUNING.BUSY_RECHECK_MS, evaluate);
+      return;
+    }
+    if (inFlight || callsToday >= LEARN_CALLS_PER_DAY || now < holdUntilMs) {
       if (now < holdUntilMs) timer = deps.wait(holdUntilMs - now, evaluate);
       return;
     }

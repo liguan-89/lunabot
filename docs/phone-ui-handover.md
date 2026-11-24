@@ -1,5 +1,11 @@
 # Phone UI execution: handover
 
+> **Stale snapshot (2026-11-24 note):** this file describes branch
+> `lunabot-install-fix` at `29fa9953c`, before the Mika wiring landed. For the
+> current wiring state — intent gate, route replay, pacing, notice learning,
+> DO_EACH and the audit fixes — see the "Status update" section at the top of
+> `docs/mika-gap-analysis.md`.
+
 Where the phone-UI work stands, what is deliberately left, and what each
 remaining item is waiting on. The gap analysis against Mika is
 `docs/mika-gap-analysis.md`; this file is the state of the branch and the

@@ -223,6 +223,17 @@ describe("PhoneRoutes", () => {
     });
     expect(runRoutes.finish(runTurn, { outcome: "done" })).toBeNull();
     expect(allText(root)).toBe("");
+
+    // An each-loop's body nests the same steps where the sweep does not look, so the whole turn is never learned.
+    const eachTurn = turn({ goal: "逐条回复" });
+    const eachRoutes = new PhoneRoutes({ root, enabled: true });
+    eachRoutes.note(eachTurn, {
+      tool: "PHONE_UI_DO_EACH",
+      args: { item: { text: "row" }, body: [{ op: "type", text: "秘密口令" }, { op: "back" }] },
+      result: { ok: true, changed: true },
+    });
+    expect(eachRoutes.finish(eachTurn, { outcome: "done" })).toBeNull();
+    expect(allText(root)).toBe("");
   });
 
   it("evicts the oldest route once an owner is over the cap", () => {
