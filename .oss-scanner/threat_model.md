@@ -38,8 +38,7 @@ Bots have tools:
   webhooks and app-event triggers;
 - file-based memory, saved website logins and 1Password;
 - a phone companion (`companion/`), reached over the LAN, Tailscale, or a
-  managed Cloudflare tunnel (`cloudflare/control-plane/`,
-  `electron/managed-companion-tunnel.mjs`).
+  managed Cloudflare tunnel (`electron/managed-companion-tunnel.mjs`).
 
 ## Trust boundaries
 
@@ -138,8 +137,8 @@ Bots have tools:
     - Each Cloud customer has its own Fly app, volume and private network.
       Pairing on a home opens only for a request signed with that machine's
       secret (`/api/cloud/pairing`).
-    - The Cloudflare Workers `cloudflare/control-plane/` and
-      `cloudflare/composio-broker/` serve every installation. One
+    - The Cloudflare Worker `cloudflare/composio-broker/` serves every
+      installation. One
       installation's credential must never read or act on another's
       endpoints, tunnels, Composio sessions or trigger events.
 11. **Webhook ingress.**
@@ -308,7 +307,6 @@ pnpm exec vitest run server/browser/egress/
 pnpm exec vitest run companion/
 pnpm exec vitest run server/webhooks.test.ts server/webhook-ingress.test.ts
 pnpm broker:test                                             # composio-broker Worker
-pnpm --filter @openmausbot/control-plane test                # control-plane Worker
 ```
 
 The whole suite runs one file at a time and takes over an hour, so run
