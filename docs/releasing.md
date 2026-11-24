@@ -142,7 +142,7 @@ feed:
 2. Installed apps update from the generic feed. `pnpm publish:feed` uploads
    the assembled asset set plus the channel APK to the Cloud server's
    `/data/downloads/desktop` directory (served under `/desktop/*`), swaps
-   `downloads/dexbot.apk` and rewrites `downloads/update.json`, then deletes
+   `downloads/lunabot.apk` and rewrites `downloads/update.json`, then deletes
    every `LUNABOT-<old-version>-*` file and all `*.bak-*` backups. The server
    therefore keeps only the newest version; `--dry-run` prints the plan
    first. Hosts and paths come from `LUNABOT_PUBLISH_HOST` (default

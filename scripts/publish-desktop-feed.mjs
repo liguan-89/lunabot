@@ -1,6 +1,6 @@
 // Publishes one release to the DEX Cloud file feed and keeps only the newest
 // version there. Desktop assets go to downloads/desktop/ (served under
-// /desktop/*); the Android channel APK replaces downloads/dexbot.apk and its
+// /desktop/*); the Android channel APK replaces downloads/lunabot.apk and its
 // update.json is rewritten from the APK bytes. Old LUNABOT-<version>-* files
 // and every *.bak-* backup are removed, so the server never accumulates
 // history the GitHub release already keeps.
@@ -99,7 +99,7 @@ function remoteList(dir) {
 
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const VERSIONED_RE = /^LUNABOT-\d+\.\d+\.\d+-[A-Za-z0-9._-]+$/;
-const BACKUP_RE = /^(dexbot\.apk|update\.json)\.bak-[A-Za-z0-9._-]+$/;
+const BACKUP_RE = /^((?:dexbot|lunabot)\.apk|update\.json)\.bak-[A-Za-z0-9._-]+$/;
 const uploadNames = new Set(uploads.map((u) => path.basename(u.remote)));
 
 const desktopRemote = remoteList(DESKTOP_DIR);
@@ -117,18 +117,20 @@ if (apkPath) {
   const manifest = `${JSON.stringify({
     versionCode,
     versionName: version,
-    apkUrl: `/download/dexbot.apk?v=${versionCode}`,
+    apkUrl: `/download/lunabot.apk?v=${versionCode}`,
     notes,
     size,
     sha256,
   })}\n`;
   channelPlan.push(
-    { local: apk, remote: `${DOWNLOADS_DIR}/dexbot.apk`, label: "channel APK" },
+    { local: apk, remote: `${DOWNLOADS_DIR}/lunabot.apk`, label: "channel APK" },
     { local: null, remote: `${DOWNLOADS_DIR}/update.json`, content: manifest, label: "update.json" },
   );
   for (const name of remoteList(DOWNLOADS_DIR)) {
     if (BACKUP_RE.test(name)) {
       channelPlan.push({ local: null, remote: `${DOWNLOADS_DIR}/${name}`, delete: true, label: "stale backup" });
+    } else if (name === "dexbot.apk") {
+      channelPlan.push({ local: null, remote: `${DOWNLOADS_DIR}/${name}`, delete: true, label: "legacy APK name" });
     }
   }
 }

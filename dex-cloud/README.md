@@ -210,7 +210,7 @@ second entry (`k2`) to both sides, shipping it, then removing `k1`.
 Everything lives in `data/`:
 
 - `dex-cloud.db` and its WAL files: accounts, sessions, installations, plans;
-- `downloads/dexbot.apk`: the APK `/download/dexbot.apk` serves;
+- `downloads/lunabot.apk`: the APK `/download/lunabot.apk` serves (`/download/dexbot.apk` redirects here);
 - `downloads/update.json`: optional override for the generated manifest;
 - `downloads/landing.html`: optional landing page.
 

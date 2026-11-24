@@ -254,10 +254,13 @@ test("the Cloud serves docs, feedback and the download page instead of a private
     assert.equal((await call(app.base, "GET", "/issues")).status, 200);
     const download = await call(app.base, "GET", "/download");
     assert.equal(download.status, 200);
-    assert.match(String(download.body), /\/download\/dexbot\.apk/);
+    assert.match(String(download.body), /\/download\/lunabot\.apk/);
     assert.match(String(download.body), /com\.lunabot\.companion/);
     assert.doesNotMatch(String(download.body), /com\.dexbot\.companion/);
     assert.doesNotMatch(String(download.body), /github\.com\/liguan-89/);
+    const legacyApk = await fetch(`${app.base}/download/dexbot.apk?v=20108`, { redirect: "manual" });
+    assert.equal(legacyApk.status, 303);
+    assert.equal(legacyApk.headers.get("location"), "/download/lunabot.apk?v=20108");
   } finally {
     app.server.close();
     app.store.close();

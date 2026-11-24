@@ -166,7 +166,7 @@ export function downloadPage(_config, desktopFiles = []) {
   const body = `<h1>下载 Luna Bot</h1>
 <p class="lead">桌面端与手机端使用同一个账号。局域网、Tailscale 和配对码连接都保留。</p>
 <div class="card"><h3>Android</h3><p class="note">与官方应用可同时安装，包名 <code>com.lunabot.companion</code>。</p>
-<p><a href="/download/dexbot.apk">下载 APK</a></p></div>
+<p><a href="/download/lunabot.apk">下载 APK</a></p></div>
 <div class="card"><h3>桌面端</h3><p class="note">macOS 版已在本站提供；Windows 与 Linux 构建完成后也会出现在这里。</p>
 ${desktop}</div>
 <div class="card"><h3>手机配对</h3><p class="note">桌面端 → 手机和设备，扫二维码即可；同一 Wi-Fi 或 Tailscale 下也可直接输入地址。详见 <a href="/docs#phone">手机端文档</a>。</p></div>
