@@ -21,6 +21,18 @@ import kotlinx.serialization.decodeFromString
 internal fun isBonjourName(host: String): Boolean =
     host.trim().trimEnd('.').lowercase().endsWith(".local")
 
+/**
+ * Loopback is this phone talking to itself — a developer's `adb forward` puts the companion there — and no
+ * local-network permission governs it, so it must never cost a prompt or be left out of the walk.
+ */
+internal fun isLoopbackHost(host: String): Boolean {
+    val bare = host.trim().trimEnd('.').lowercase().removeSurrounding("[", "]")
+    val mapped = bare.removePrefix("::ffff:")
+    val v4 = mapped.split('.')
+    return mapped == "localhost" || bare == "::1" || bare == "0:0:0:0:0:0:0:1" ||
+        (v4.size == 4 && v4[0] == "127" && v4.all { part -> part.toIntOrNull() in 0..255 })
+}
+
 @Serializable
 data class Connection(
     val id: String = UUID.randomUUID().toString(),
@@ -55,16 +67,23 @@ data class Connection(
                 as? com.lunabot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
         }
 
-    /** A direct encrypted route (`ws://host:port/v1/e2e`) from the advertised endpoints. */
-    val e2eDirectUrl: String?
-        get() {
-            val candidates = buildList {
-                activeEndpoint?.let(::add)
-                endpoints?.let(::addAll)
-            }
-            val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED } ?: return null
-            return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+    /** A direct encrypted route (`ws://host:port/v1/e2e`) from the advertised endpoints, the first this phone may dial. */
+    fun e2eDirectUrl(access: RouteAccess = RouteAccess.ALL): String? {
+        val candidates = buildList {
+            activeEndpoint?.let(::add)
+            endpoints?.let(::addAll)
         }
+        val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED && access.allows(it) } ?: return null
+        return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+    }
+
+    /** Whether the relay can carry the encrypted connection when none of this computer's own routes may be dialled. */
+    val reachesComputerByRelay: Boolean
+        get() = e2eDescriptor?.let { it.routes != "local" && it.relays.isNotEmpty() } == true
+
+    /** Whether connecting to this computer means opening a socket on this phone's own network. */
+    val usesLocalNetwork: Boolean
+        get() = orderedEndpoints.any { it.isOnLocalNetwork }
 
     val baseUrl: URI?
         get() {
@@ -220,6 +239,10 @@ data class Connection(
 
     val automaticEndpoints: List<CompanionEndpoint>
         get() = CompanionEndpoint.automaticCandidates(orderedEndpoints)
+
+    /** [orderedEndpoints] without the routes this phone may not open right now. */
+    fun dialableEndpoints(access: RouteAccess = RouteAccess.ALL): List<CompanionEndpoint> =
+        orderedEndpoints.filter(access::allows)
 
     /**
      * Apply an authenticated endpoint snapshot, which is a replacement rather than a hint.

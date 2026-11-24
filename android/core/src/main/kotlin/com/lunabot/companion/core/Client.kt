@@ -70,10 +70,11 @@ data class PairingOutcome(
 )
 
 /** No automatically permitted route identified itself and completed the logical pairing. */
-class PairingRouteError(val attemptedRoutes: List<String>) : IOException(
-    "无法通过任何可用路由连接到此电脑 " +
+class PairingRouteError(
+    val attemptedRoutes: List<String>,
+    message: String = "无法通过任何可用路由连接到此电脑 " +
         "(${attemptedRoutes.joinToString()})。请在 Luna Bot 中保持开启“手机访问”后再试。",
-)
+) : IOException(message)
 
 /** Keep the same code and request id after an uncertain redemption or rate-limit refusal. */
 class ServerPairingRetryError(cause: IOException) : IOException(
@@ -149,6 +150,7 @@ class CompanionClient(
     private val token: String?,
     baseClient: OkHttpClient = OkHttpClient(),
     appLabel: String = "mausbot-android",
+    routeAccess: RouteAccess = RouteAccess.ALL,
 ) {
     /**
      * When the pairing carried an e2e descriptor, every request and stream runs
@@ -162,10 +164,14 @@ class CompanionClient(
                     descriptor = descriptor,
                     token = it,
                     app = appLabel,
-                    directUrl = connection.e2eDirectUrl,
+                    directUrl = connection.e2eDirectUrl(routeAccess),
                 )
             }
         }
+
+    /** The route the tunnel tries before the relay; null when only the relay may carry this session. */
+    val e2eDirectUrl: String?
+        get() = e2e?.directUrl
 
     private val transportClient: OkHttpClient = run {
         val tunnel = e2e ?: return@run baseClient
@@ -1754,8 +1760,9 @@ class CompanionClient(
             deviceName: String,
             pairRequestId: String = UUID.randomUUID().toString(),
             client: OkHttpClient = OkHttpClient(),
+            routeAccess: RouteAccess = RouteAccess.ALL,
         ): PairingOutcome {
-            val endpoints = connection.automaticEndpoints
+            val endpoints = CompanionEndpoint.automaticCandidates(connection.dialableEndpoints(routeAccess))
             val attemptedRoutes = endpoints.map(CompanionEndpoint::url)
             val remaining = endpoints.map(connection::dialing).toMutableList()
 
