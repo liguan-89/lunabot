@@ -1,10 +1,11 @@
 // macOS auto-update requires a signed app, so this runs only when packaged. electron-updater is vendored
 // because the packaged app ships no node_modules.
-import { app, clipboard, ipcMain, shell } from "electron";
+import { app, autoUpdater as nativeAutoUpdater, clipboard, ipcMain, shell } from "electron";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { appSignatureKind } from "./app-signing.mjs";
+import { createImageInstall } from "./image-install.mjs";
 import { createImageUpdateCoordinator, feedBaseUrl } from "./image-update.mjs";
 import {
   HAND_OFF_PACKAGE_TYPES,
@@ -184,11 +185,28 @@ async function beginUpdater(signals) {
   autoUpdater.autoInstallOnAppQuit = image ? false : !handOff;
   const elevated = !image && packageType === "deb" && canInstallElevated();
   setState({ installMode: image ? "image" : handOff && !elevated ? "handoff" : "restart" });
+  const imageDir = join(app.getPath("userData"), "pending-image");
+  const imageInstall = createImageInstall({
+    logFile: join(app.getPath("logs"), "updater.log"),
+    log: (line) => autoUpdater.logger?.info?.(line),
+  });
   updaterCoordinator = image
     ? createImageUpdateCoordinator(autoUpdater, setState, {
       baseUrl: feedBaseUrl({ resourcesPath: process.resourcesPath }),
-      downloadDir: join(app.getPath("userData"), "pending-image"),
+      downloadDir: imageDir,
       openPath: (file) => shell.openPath(file),
+      // The detached swap replaces this bundle once the app quits — the running .app sits three levels above
+      // Resources/app.asar. The disk image opens for the person only when staging it fails.
+      swap: (file) => imageInstall.install(file, {
+        stagingDir: join(imageDir, "staged"),
+        targetApp: join(app.getAppPath(), "..", "..", ".."),
+        pid: process.pid,
+      }),
+      quit: () => {
+        // The vendored updater emits this before quitting for an install; the swap needs the same lock release.
+        nativeAutoUpdater.emit("before-quit-for-update");
+        app.quit();
+      },
       log: (line) => autoUpdater.logger?.info?.(line),
     })
     : createUpdaterCoordinator(autoUpdater, setState, {
@@ -197,8 +215,8 @@ async function beginUpdater(signals) {
       relaunch: elevated ? relaunchAfterInstall : null,
       nativeStaging: process.platform === "darwin",
     });
-  // A disk image is opened by the person, never installed while they are away.
-  if (signals && !image && QUIET_PLATFORMS.has(process.platform)) {
+  // A staged image swaps itself in once the app quits, so an adhoc build may install at a quiet moment too.
+  if (signals && QUIET_PLATFORMS.has(process.platform)) {
     launched();
     quiet = createQuietInstall({ updater: updaterCoordinator, signals, record: quietRecord(), version: app.getVersion(),
       log: (line) => autoUpdater.logger?.info?.(line) });
