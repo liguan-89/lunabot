@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -79,6 +80,8 @@ class WidgetFormState(
     private val otherEdits = mutableStateMapOf<String, String>()
     var locked by mutableStateOf(false)
     var imagesAllowed by mutableStateOf(false)
+    /** 桌面 WidgetForm.compact：卡宽 < 400 时窄排（Row 里词类+字段改竖排）。 */
+    var compact by mutableStateOf(false)
     var pendingRef by mutableStateOf<String?>(null)
     var sentRef by mutableStateOf<String?>(null)
     var problemField by mutableStateOf<String?>(null)
@@ -279,9 +282,11 @@ private fun WidgetCard(
     form.locked = isSettled || pending != null || viewOnly
 
     val cardBody: @Composable () -> Unit = {
+        val compactBelow = with(androidx.compose.ui.platform.LocalDensity.current) { 400.dp.roundToPx() }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .onSizeChanged { form.compact = it.width < compactBelow }
                 .musePaperCard()
                 .padding(bottom = 4.dp),
         ) {
