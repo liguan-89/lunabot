@@ -1274,6 +1274,7 @@ private fun LoadedChat(
                                     openLink = ::openLink,
                                     openAttachment = ::openAttachment,
                                     openThread = ::openThread,
+                                    openChat = onOpenChat,
                                     // A screenshot is the door to the same
                                     // computer, live: rooms have no single bot
                                     // to open, so they keep the inert still.

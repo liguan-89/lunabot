@@ -137,6 +137,7 @@ import com.lunabot.companion.core.forTask
 import com.lunabot.companion.core.TranscriptCard
 import com.lunabot.companion.core.TranscriptCards
 import com.lunabot.companion.core.webhookContent
+import com.lunabot.companion.ui.widget.WidgetCardMessage
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -168,6 +169,8 @@ fun MessageRow(
     openAttachment: ((DisplayedMessageAttachment, Message, DownloadedFile?) -> Unit)? = null,
     /** Where an "Opened thread" chip goes; null leaves the chip a receipt. */
     openThread: ((ThreadRef) -> Unit)? = null,
+    /** Widget `open_thread` 到群线程时的导航出口；null 时该 action 不响应。 */
+    openChat: ((Chat) -> Unit)? = null,
     /**
      * Where a tapped screenshot goes: the bot's live computer. Null leaves the
      * still inert, which is what rooms and non-bot transcripts get — a screen
@@ -230,6 +233,7 @@ fun MessageRow(
                 openLink = openLink,
                 openAttachment = openAttachment,
                 openThread = openThread,
+                openChat = openChat,
                 openComputer = openComputer,
             )
 
@@ -572,6 +576,7 @@ private fun MessageContent(
     openLink: ((String, Message) -> Unit)?,
     openAttachment: ((DisplayedMessageAttachment, Message, DownloadedFile?) -> Unit)?,
     openThread: ((ThreadRef) -> Unit)?,
+    openChat: ((Chat) -> Unit)? = null,
     openComputer: (() -> Unit)?,
 ) {
     when (message.kind) {
@@ -646,11 +651,18 @@ private fun MessageContent(
                 TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
             }
         }
-        // A bot-authored widget or app page is a full document on the desktop.
-        // The phone shows its readable fallback and the settled answer, so the
-        // row is a receipt rather than a gap.
+        // A bot-authored widget renders the same tree the desktop mounts; a
+        // press rides the shared widgetAction message route. Only when the row
+        // carries no tree does it stay the readable receipt.
         Message.Kind.WIDGET -> if (message.widget != null || !message.text.isNullOrEmpty()) {
-            WidgetSummaryCard(message)
+            WidgetCardMessage(
+                chat = chat,
+                message = message,
+                openLink = openLink,
+                openThread = openThread,
+                openChat = openChat,
+                fallback = { WidgetSummaryCard(message) },
+            )
         }
         Message.Kind.APP -> if (message.app != null || !message.text.isNullOrEmpty()) {
             AppSummaryCard(message)
