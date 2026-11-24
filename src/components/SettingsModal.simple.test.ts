@@ -17,8 +17,6 @@ const fixture = vi.hoisted(() => ({
   ownerOrAdmin: null as boolean | null,
   updater: null as import("@/lib/updater").UpdaterState | null,
   serverUpdate: null as ReturnType<typeof import("./SidebarProfileMenu").useServerUpdateItem>,
-  rail: null as { available: boolean; hidden: boolean } | null,
-  railHidden: [] as boolean[],
 }));
 
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({ capabilities: {} }) }));
@@ -33,7 +31,6 @@ vi.mock("@/lib/interface-mode", () => ({
 }));
 vi.mock("@/lib/analytics", () => ({ analyticsEnabled: () => false, setAnalyticsEnabled: vi.fn() }));
 vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => fixture.ownerOrAdmin }));
-vi.mock("@/lib/chrome-rail", () => ({ useChromeRail: () => fixture.rail, setChromeRailHidden: (hidden: boolean) => fixture.railHidden.push(hidden) }));
 vi.mock("./SettingsPrimitives", async (importOriginal) => {
   const original = await importOriginal<typeof import("./SettingsPrimitives")>();
   return {
@@ -94,8 +91,6 @@ beforeEach(() => {
   fixture.ownerOrAdmin = null;
   fixture.updater = null;
   fixture.serverUpdate = null;
-  fixture.rail = null;
-  fixture.railHidden = [];
   fixture.api.mockResolvedValue({});
   vi.stubGlobal("window", desktop);
   vi.stubGlobal("document", { documentElement: { dataset: {} } });
@@ -179,35 +174,19 @@ describe("Settings in Simple mode", () => {
     expect(html).toMatch(/aria-expanded="false" aria-controls="[^"]+"[^>]*>Add<\/button>/);
   });
 
-  it("puts the sidebar's colour and picture under Theme in General, the switch for the window's rail beside them, and the skins and builder rows in one folded More looks", () => {
-    fixture.rail = { available: true, hidden: false };
+  it("puts the sidebar's colour under Theme in General, and the skins and builder rows in one folded More looks", () => {
     const html = render();
     const appearance = html.slice(html.indexOf('data-settings-block="appearance"'), html.indexOf(">Notifications<"));
-    const order = ['role="radiogroup" aria-label="Light or dark"', ">Sidebar picture<", 'aria-label="Show your computers"', 'aria-label="Color my messages with the bot&#x27;s color"', ">More looks<"]
+    const order = ['role="radiogroup" aria-label="Light or dark"', 'aria-label="Color my messages with the bot&#x27;s color"', ">More looks<"]
       .map((needle) => appearance.indexOf(needle));
     expect(order.every((at) => at > -1), String(order)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    expect(appearance).toContain("An icon for each place your bots live");
-    const toggle = fixture.switches.find((props) => props["aria-label"] === "Show your computers")!;
-    expect(toggle.checked).toBe(true);
-    toggle.onClick!({} as never);
-    expect(fixture.railHidden).toEqual([true]);
     // Folded until asked for, holding the skins and every builder row.
     expect(placement(html, 'aria-label="Show tool calls in chat"')).toBe("folded");
     const looks = html.slice(html.indexOf('data-settings-block="looks"'));
     for (const label of ["Show tool calls in chat", "Interface font", "Chat width", "Show threads", "Pinned bots as circles", "Universal pins", "Choose tools layout", "Show the run card"]) {
       expect(looks, label).toContain(label);
     }
-  });
-
-  it("shows the rail's switch only where this window has a rail to hide", () => {
-    for (const rail of [null, { available: false, hidden: true }]) {
-      fixture.rail = rail;
-      expect(render()).not.toContain("Show your computers");
-    }
-    fixture.rail = { available: true, hidden: true };
-    render();
-    expect(fixture.switches.find((props) => props["aria-label"] === "Show your computers")?.checked).toBe(false);
   });
 
   it("keeps the everyday rows on General, moves the limits to the Limits and backups page, and keeps the builder controls behind More looks", () => {

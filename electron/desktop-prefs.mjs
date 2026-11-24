@@ -1,6 +1,5 @@
 // What this desktop keeps whatever page its window shows, whichever port its own page is served on: the notices someone
-// closed, its usage-analytics switch, the app's language, its answer to the product-updates email question, whether
-// the person hid the window's rail of places and whether they turned the window's frame off.
+// closed, its usage-analytics switch, the app's language and its answer to the product-updates email question.
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -14,7 +13,7 @@ export { DESKTOP_PORTS } from "./desktop-ports.mjs";
 /** The only notices a page may record, so no page can write anything else into the file. */
 export const DESKTOP_NOTICES = Object.freeze(["whats-new-2026-11", "grok-move-2026-11", "tk1688-offer-2026-11"]);
 const WHATS_NEW = DESKTOP_NOTICES[0];
-/** A locale code such as "de" or "pt-br", or "" for following the system. */
+/** A locale code such as "zh" or "", "" for following the system. */
 const LANGUAGE = /^(?:[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,2})?$/i;
 const isLanguage = value => typeof value === "string" && value.length <= 24 && LANGUAGE.test(value);
 const CHAT_ID = /^[\w-]{1,128}$/;
@@ -54,8 +53,7 @@ function parse(raw) {
     ...(updatesConsent ? { updatesConsent } : {}),
     ...(typeof record.talkShortcut === "boolean" ? { talkShortcut: record.talkShortcut } : {}),
     ...(isTalkKey(record.talkKey) ? { talkKey: record.talkKey } : {}),
-    ...(typeof record.railHidden === "boolean" ? { railHidden: record.railHidden } : {}),
-    ...(typeof record.windowFrame === "boolean" ? { windowFrame: record.windowFrame } : {}),
+
     ...(Object.keys(quickAsks).length ? { quickAsks } : {}) };
 }
 
@@ -129,18 +127,6 @@ export function createDesktopPrefs({ read, write }) {
       const parsed = typeof server === "string" ? parseChat(chat) : null;
       if (parsed) save({ ...current(), quickAsks: { ...current().quickAsks, [server]: parsed } });
     },
-    /** The window's rail of places is hidden by default (opened as a popover from the top capsule switcher) unless the person turns the docked strip on. */
-    railHidden: () => current().railHidden !== false,
-    setRailHidden(hidden) {
-      const railHidden = hidden === true;
-      if ((current().railHidden !== false) !== railHidden || typeof current().railHidden !== "boolean") save({ ...current(), railHidden });
-    },
-    /** The window's own frame is off by default (Grok Bot style), unless explicitly turned on. */
-    windowFrame: () => current().windowFrame === true,
-    setWindowFrame(on) {
-      const windowFrame = on === true;
-      if ((current().windowFrame === true) !== windowFrame) save({ ...current(), windowFrame });
-    },
   };
 }
 
@@ -154,7 +140,7 @@ export function createDesktopPrefs({ read, write }) {
  * `onLanguage(language)`: tells main, which draws its menus, tray and dialogs in it. `onShown(language, sender)`: the
  * language a page of the window shows, which main's words follow while nothing is picked. `prefs`: the record main reads too.
  */
-export function registerDesktopPrefs({ prefs: given, ipcMain, read, write, page, cloudOffered, cloudAccount, localConfig = () => null, languageChanged = () => {}, onLanguage = () => {}, onShown = () => {}, frame = null, now = Date.now, systemName = accountFullName }) {
+export function registerDesktopPrefs({ prefs: given, ipcMain, read, write, page, cloudOffered, cloudAccount, localConfig = () => null, languageChanged = () => {}, onLanguage = () => {}, onShown = () => {}, now = Date.now, systemName = accountFullName }) {
   let prefs = given ?? null;
   const store = () => prefs ??= createDesktopPrefs({ read, write });
   const from = (channel, pages, handler) => (event, ...args) => {
@@ -200,15 +186,6 @@ export function registerDesktopPrefs({ prefs: given, ipcMain, read, write, page,
   ipcMain.on("desktop-language:shown", (event, language) => {
     try { if (page(event) && isLanguage(language) && language) onShown(language, event.sender); } catch {}
   });
-  // Every page of this desktop's window reads and sets the frame; a server's page sets it only from the person's click,
-  // which the preload checks.
-  const frameState = () => ({ on: store().windowFrame(), restart: Boolean(frame?.restarts) && frame.made() !== null && frame.made() !== store().windowFrame() });
-  ipcMain.handle("window-frame:state", from("window-frame:state", ANY, () => frameState()));
-  ipcMain.handle("window-frame:set", from("window-frame:set", ANY, (_, on) => {
-    store().setWindowFrame(on === true);
-    try { frame?.changed(); } catch {}
-    return frameState();
-  }));
   if (!cloudAccount) return null;
   const consent = createUpdatesConsent({ prefs: { installId: () => store().installId(), updatesConsent: () => store().updatesConsent(), setUpdatesConsent: value => store().setUpdatesConsent(value) },
     account: cloudAccount, available: cloudOffered, now });

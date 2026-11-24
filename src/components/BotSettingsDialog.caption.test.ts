@@ -35,7 +35,7 @@ describe("bot settings caption inset", () => {
     expect(classes).not.toContain("pt-[28px]");
   });
 
-  it.each([["darwin", true], ["win32", true], ["linux", false]] as const)(
+  it.each([["darwin", true], ["win32", false], ["linux", false]] as const)(
     "makes the header a window drag region on %s: %s",
     (platform, drags) => {
       vi.stubGlobal("window", { ogb: { platform } });

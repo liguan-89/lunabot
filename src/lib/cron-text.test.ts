@@ -16,22 +16,22 @@ describe("a cron schedule in words", () => {
     for (const expression of EXPRESSIONS) expect(cronText(cron(expression)), expression).toBe(cronScheduleLabel(cron(expression)));
   });
 
-  it("says familiar presets in pt-BR, with Intl's weekday and month names and the ordinal agreeing with the weekday", () => {
-    setLocale("pt-br");
+  it("says familiar presets in zh, with Intl's weekday and month names and the ordinal agreeing with the weekday", () => {
+    setLocale("zh");
     expect(EXPRESSIONS.map((expression) => cronText(cron(expression)))).toEqual([
-      "Todo dia às 09:00 · America/Sao_Paulo",
-      "Todo mês no último dia às 08:30 · America/Sao_Paulo",
-      "Todo mês no dia 15 às 09:00 · America/Sao_Paulo",
-      "Todo ano em 25 de dezembro às 09:00 · America/Sao_Paulo",
-      "De segunda a sexta às 09:00 · America/Sao_Paulo",
-      "Toda sexta-feira às 17:00 · America/Sao_Paulo",
-      "Todo mês na segunda segunda-feira às 09:00 · America/Sao_Paulo",
-      "Todo mês no último domingo às 09:00 · America/Sao_Paulo",
+      "每天 09:00 · America/Sao_Paulo",
+      "每月最后一天 08:30 · America/Sao_Paulo",
+      "每月 15 日 09:00 · America/Sao_Paulo",
+      "每年 十二月 25 日 09:00 · America/Sao_Paulo",
+      "每个工作日 09:00 · America/Sao_Paulo",
+      "每周星期五 17:00 · America/Sao_Paulo",
+      "每月第二个星期一 09:00 · America/Sao_Paulo",
+      "每月最后一个星期日 09:00 · America/Sao_Paulo",
       "Cron */5 * * * * · America/Sao_Paulo",
       "Cron 0 9 1,15 * * · America/Sao_Paulo",
     ]);
     expect(cronPresetText(cron("*/5 * * * *"))).toBeNull();
-    expect(cronText(cron("0 10 * * 6"))).toBe("Todo sábado às 10:00 · America/Sao_Paulo");
+    expect(cronText(cron("0 10 * * 6"))).toBe("每周星期六 10:00 · America/Sao_Paulo");
   });
 
   it("says in English exactly what the server says, whatever the browser's region", () => {
@@ -44,8 +44,8 @@ describe("a cron schedule in words", () => {
 describe("the mini month's weekday header", () => {
   it("starts on Monday, one narrow letter a day in the app language", () => {
     expect(weekdayLabels()).toEqual(["M", "T", "W", "T", "F", "S", "S"]);
-    setLocale("pt-br");
-    expect(weekdayLabels()).toEqual(["S", "T", "Q", "Q", "S", "S", "D"]);
+    setLocale("zh");
+    expect(weekdayLabels()).toEqual(["一", "二", "三", "四", "五", "六", "日"]);
     vi.stubGlobal("navigator", { language: "en-GB" });
     setLocale("en");
     expect(weekdayLabels()).toEqual(["M", "T", "W", "T", "F", "S", "S"]);

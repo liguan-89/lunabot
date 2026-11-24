@@ -237,19 +237,19 @@ describe("what is for sale, as the Admin says", () => {
     const badge = (trialDays: number) => cloudIntroView({ plans: [{ tier: "team", amount: 16900, trialDays }], recommended: "team" })!.badge;
     expect(badge(1)).toBe("Free for 1 day");
     expect(badge(3)).toBe("Free for 3 days");
-    setLocale("de");
-    expect(terms(1)).toBe("1 Tag kostenlos, dann $169/Monat zzgl. Steuern");
-    expect(badge(3)).toBe("3 Tage kostenlos");
+    setLocale("zh");
+    expect(terms(1)).toBe("免费 1 天，之后每月 $169，另加税费");
+    expect(badge(3)).toBe("免费 3 天");
     setLocale("en");
   });
 
   it("speaks the reader's language, numbers included", () => {
-    setLocale("de");
+    setLocale("zh");
     const [card] = planCards({ plans: [{ tier: "max", amount: 9900, trialDays: 3, allowances: { cpus: 8, cpuKind: "shared", memoryMb: 8192, diskGb: 10, maxDiskGb: 100, computers: 15,
       computerHours: 800, voiceCharacters: 90_000, snapshotDays: 14 } }], recommended: "max" });
-    expect(card!.rows.map(row => row.text)).toEqual(["Immer an, rund um die Uhr", "Cloud-Desktops: so viele, wie deine Bots brauchen", "800 Cloud-Desktop-Stunden im Monat",
-      "8 geteilte CPUs · 8 GB Arbeitsspeicher", "10 GB Speicher, wächst bis 100 GB", "Sprachantworten: etwa 1,5 Stunden Sprache im Monat", "Tägliche Backups, 14 Tage aufbewahrt"]);
-    expect([card!.action, card!.terms]).toEqual(["Kostenlos testen", "3 Tage kostenlos, dann $99/Monat zzgl. Steuern"]);
+    expect(card!.rows.map(row => row.text)).toEqual(["始终在线，全天候运行", "云端桌面：机器人需要多少就有多少", "每月 800 小时云端桌面时长",
+      "8 个共享 CPU · 8 GB 内存", "10 GB 存储空间，最多可增至 100 GB", "语音回复：每月约 1.5 小时语音", "每日备份，保留 14 天"]);
+    expect([card!.action, card!.terms]).toEqual(["开始免费试用", "免费 3 天，之后每月 $99，另加税费"]);
   });
 
   it("money-back only while the Admin offers it; due today in cents", () => {

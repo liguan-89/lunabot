@@ -93,9 +93,9 @@ describe("failed turn text", () => {
 describe("a failed turn the server words as a notice", () => {
   const restarted = { name: "error: turn interrupted — Luna Bot restarted", ok: false as const, nameCode: "chat.notice.restartInterrupted" };
   it("previews in the person's language with its code, and in English without one", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     try {
-      expect(activityPreview(restarted, undefined)).toBe("Sessão interrompida: o Luna Bot reiniciou.");
+      expect(activityPreview(restarted, undefined)).toBe("回合被中断 — Luna Bot 重启了");
       expect(activityPreview({ name: restarted.name, ok: false }, undefined)).toBe("turn interrupted — Luna Bot restarted");
     } finally {
       setLocale("en");

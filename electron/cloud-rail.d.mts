@@ -59,11 +59,9 @@ export interface RailPlace {
 /** `account`: Add another account (the rail's own page runs that sign-in). */
 /** `local`: a new workspace of this computer's own. */
 export interface RailAddChoices { cloud: boolean; link: boolean; address: boolean; organization?: boolean; account?: boolean; local?: boolean }
-/** `beside`: a place's page, which never reads the list, learns that the window's rail stands beside it. */
 export interface RailState {
   places: RailPlace[];
   add: RailAddChoices;
-  beside?: true;
   /** The place a click on this rail is opening, until its page has loaded; `waking` while My Cloud is being woken for it. */
   switching?: { id: string; waking?: true };
 }

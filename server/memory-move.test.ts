@@ -49,8 +49,7 @@ describe("moving one memory layer's notes into another", () => {
 
 it.each([
   ["en", "This note moved here from where the bot kept it before, so it can't be reverted here."],
-  ["pt-br", "Esta nota veio de onde o bot a guardava antes, então não é possível reverter a alteração aqui."],
-  ["de", "Diese Notiz wurde von dort hierher verschoben, wo der Bot sie zuvor aufbewahrte. Deshalb kann sie hier nicht zurückgesetzt werden."],
+  ["zh", "这条笔记是从机器人之前存放它的位置移到这里来的，因此无法在这里撤销。"],
 ])("a moved note keeps its explanation in %s", async (language, reason) => {
   const from = `from-${language}`, into = `into-${language}`;
   ensureWorkspace(from);

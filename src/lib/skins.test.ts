@@ -40,13 +40,15 @@ describe("skins", () => {
     }
   });
 
-  it("tints a hovered menu row with ink at 6% in Midnight and Daylight, and with raised at 70% in every other skin", () => {
+  it("tints a hovered menu row with ink at 6% in Midnight, 7% in Daylight, and with raised at 70% in every other skin", () => {
     for (const id of SKIN_IDS) {
       const body = css.match(new RegExp(`\\[data-skin="${id}"\\]\\s*\\{([^}]*)\\}`))?.[1] ?? "";
       const token = (name: string) => body.match(new RegExp(`(?:^|\\s)${name}:\\s*([^;]+);`))?.[1]?.trim();
-      const expected = id === "midnight" || id === "daylight"
+      const expected = id === "midnight"
         ? `${token("--color-ink")}0f`
-        : "color-mix(in srgb, var(--color-raised) 70%, transparent)";
+        : id === "daylight"
+          ? `${token("--color-ink")}12`
+          : "color-mix(in srgb, var(--color-raised) 70%, transparent)";
       expect(token("--color-menu-hover"), id).toBe(expected);
     }
   });

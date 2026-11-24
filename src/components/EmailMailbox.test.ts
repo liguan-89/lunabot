@@ -90,7 +90,7 @@ describe("the email card", () => {
   });
 
   it("speaks the person's language", () => {
-    setLocale("de");
-    expect(mailbox(FAILS)).toContain("Postausgangsserver");
+    setLocale("zh");
+    expect(mailbox(FAILS)).toContain("发件服务器");
   });
 });

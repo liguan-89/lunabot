@@ -64,7 +64,7 @@ test("the terminal warning follows the app's language and keeps Cancel as its de
   const dialogs = createLendingDialogs({ dialog, window: liveWindow, validate: named, t: text.t });
   for (const [language, message, buttons] of [
     ["en", "Let your Clouds run commands on this computer?", ["Let them run commands", "Cancel"]],
-    ["pt-br", "Permitir que seus Clouds executem comandos neste computador?", ["Permitir que executem comandos", "Cancelar"]],
+    ["zh", "让你的 Cloud 在这台电脑上运行命令？", ["让它们运行命令", "取消"]],
   ]) {
     text.set(language);
     assert.equal(await dialogs.lendTerminal(true, () => assert.fail("Cancel never grants access")), false);

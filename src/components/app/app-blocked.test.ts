@@ -20,8 +20,8 @@ describe("why an app cannot run", () => {
   });
 
   it("says it in the app language", () => {
-    setLocale("pt-br");
-    expect(appBlockedLine("server-removed", "Excalidraw")).toBe("Excalidraw não está mais conectado");
+    setLocale("zh");
+    expect(appBlockedLine("server-removed", "Excalidraw")).toBe("Excalidraw 已不再连接");
     expect(appBlockedLine("too-large")).not.toBe(appBlockedText("too-large"));
   });
 
@@ -34,8 +34,9 @@ describe("why an app cannot run", () => {
 describe("an app's size", () => {
   it("writes decimals the app language's way", () => {
     expect(formatAppBytes(1234)).toBe("1.2 KB");
-    setLocale("pt-br");
-    expect(formatAppBytes(1234)).toBe("1,2 KB");
+    // Simplified Chinese writes decimals with a point like English does.
+    setLocale("zh");
+    expect(formatAppBytes(1234)).toBe("1.2 KB");
     expect(formatAppBytes(432_000)).toBe("422 KB");
   });
 });

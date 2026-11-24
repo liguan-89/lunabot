@@ -20,10 +20,10 @@ test("the page for a server that never came up keeps its English, link and all",
 });
 
 test("the page speaks the app's language, with the log's link where the sentence puts it", () => {
-  const text = nativeText.createNativeText({ saved: "pt-br" });
+  const text = nativeText.createNativeText({ saved: "zh" });
   const html = page(buildErrorPage({ allPortsOccupied: true, logDir }, text));
-  assert.ok(html.includes(">Não foi possível iniciar o servidor dos bots</h2>"));
+  assert.ok(html.includes(">无法启动机器人服务器</h2>"));
   assert.equal(html.slice(html.indexOf("<p "), html.indexOf("</p>") + 4),
-    '<p style="color:#fcfcfc99;line-height:1.5">Outro processo respondeu às verificações de integridade em todas as portas do Luna Bot — provavelmente uma segunda cópia do app ou outro programa nas portas 8799–28799. Feche esse programa. Depois, saia do Luna Bot e abra novamente. '
-    + `Se isso continuar acontecendo, confira ${logLink}.</p>`);
+    '<p style="color:#fcfcfc99;line-height:1.5">每个 Luna Bot 端口都响应了来自其他进程的健康检查——可能是应用的另一个副本，或者是占用了 8799–28799 端口的其他程序。请退出该程序，然后退出并重新打开 Luna Bot。 '
+    + `如果反复出现，请检查 ${logLink}。</p>`);
 });

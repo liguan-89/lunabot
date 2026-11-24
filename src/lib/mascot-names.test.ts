@@ -17,17 +17,17 @@ describe("mascot names", () => {
     ...PICKABLE_STATES.map((state) => `mascot.expression.${state}`),
   ];
 
-  it("has an English and a Brazilian Portuguese name for every body, colour and face the pickers show", () => {
+  it("has an English and a Chinese name for every body, colour and face the pickers show", () => {
     for (const key of keys) {
       expect(Object.hasOwn(en, key), key).toBe(true);
-      expect(Object.hasOwn(locales["pt-br"]!, key), key).toBe(true);
+      expect(Object.hasOwn(locales["zh"]!, key), key).toBe(true);
     }
   });
 
   it("reads the names in the app language", () => {
     expect([bodyName("pumpkin"), colorName("red"), expressionName("happy"), silhouetteName("Ghost")]).toEqual(["Pumpkin", "red", "happy", "Ghost"]);
-    setLocale("pt-br");
-    expect([bodyName("pumpkin"), colorName("red"), expressionName("happy"), silhouetteName("Ghost")]).toEqual(["Abóbora", "vermelha", "feliz", "Fantasma"]);
+    setLocale("zh");
+    expect([bodyName("pumpkin"), colorName("red"), expressionName("happy"), silhouetteName("Ghost")]).toEqual(["南瓜", "红色", "开心", "幽灵"]);
   });
 
   it("falls back to the id or name it was given when the catalog has none", () => {

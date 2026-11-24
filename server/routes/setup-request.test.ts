@@ -28,7 +28,7 @@ function setup(refusal: string | null = null, options: { canSetUp?: boolean; sen
     const line = store.appendMessage(threadId, { role: "user", kind: "text", text });
     return { ok: true as const, message: takeSetupRequest(store, { botId, threadId, line, person: true, mounted: true }) ?? line };
   };
-  const route = createSetupRequestRoutes({ store, language: () => "es", sendRefusal: () => refusal, presser: () => presser,
+  const route = createSetupRequestRoutes({ store, language: () => "zh", sendRefusal: () => refusal, presser: () => presser,
     canSetUp: () => options.canSetUp ?? true, send });
   const as = (who: string | undefined, caller: RequestAuth = member) => { presser = who; auth = caller; };
   const call = async (method: string, body: unknown, botId = bot.id, path = `/api/bots/${botId}/setup-request`) => {
@@ -48,7 +48,7 @@ describe("the Set me up route", () => {
   it("answers the press with the bot's line in the app's language and marks the conversation; a second press is a no-op", async () => {
     const s = setup();
     const pressed = await s.call("POST", { threadId: s.bot.threadId });
-    expect(pressed).toMatchObject({ status: 200, body: { ok: true, message: { role: "bot", kind: "text", text: expect.stringMatching(/^Genial\./) } } });
+    expect(pressed).toMatchObject({ status: 200, body: { ok: true, message: { role: "bot", kind: "text", text: expect.stringMatching(/^好的。/) } } });
     expect(s.waiting()).toBeDefined();
     expect(await s.call("POST", { threadId: s.bot.threadId })).toEqual({ status: 200, body: { ok: true, already: true } });
     expect(s.store.messagesFor(s.bot.threadId)).toHaveLength(2);

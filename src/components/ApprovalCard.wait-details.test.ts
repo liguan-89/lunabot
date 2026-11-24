@@ -34,7 +34,7 @@ const waiting = (persistedAuthor: boolean): Message => ({
   },
 });
 
-describe.each(["en", "pt-br"] as const)("%s wait details", (locale) => {
+describe.each(["en", "zh"] as const)("%s wait details", (locale) => {
   it.each([
     ["renamed", false], ["missing", false], ["renamed", true], ["missing", true],
   ] as const)("opens after the bot is %s, with persisted author %s", async (change, persistedAuthor) => {
@@ -47,8 +47,8 @@ describe.each(["en", "pt-br"] as const)("%s wait details", (locale) => {
     expect(details).toBeDefined();
     await act(async () => details!.click());
     const content = host.querySelector("pre")?.textContent;
-    const localizedName = persistedAuthor ? "Pepper" : bot?.name ?? "Alguém";
-    expect(content).toBe(locale === "en" ? message.card!.subtitle : `Depois da espera, ${localizedName} fará o seguinte: Deploy it.`);
+    const localizedName = persistedAuthor ? "Pepper" : bot?.name ?? "有人";
+    expect(content).toBe(locale === "en" ? message.card!.subtitle : `随后 ${localizedName} 将：Deploy it.`);
     expect(message.card!.subtitle).toBe("Then Pepper will: Deploy it.");
   });
 });

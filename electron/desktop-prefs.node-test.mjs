@@ -99,7 +99,7 @@ function desktopMain({ offered = true, page = event => event.page, config = () =
 
 test("every page of this desktop's window reads and records the same notices; nothing else is answered", async () => {
   const main = desktopMain();
-  assert.deepEqual(main.channels, ["desktop-notices:state", "desktop-notices:seen", "desktop-profile:system-name", "desktop-analytics:set", "desktop-language:set", "window-frame:state", "window-frame:set"]);
+  assert.deepEqual(main.channels, ["desktop-notices:state", "desktop-notices:seen", "desktop-profile:system-name", "desktop-analytics:set", "desktop-language:set"]);
   for (const page of ["local", "cloud", "server"]) assert.deepEqual(await main.ask("desktop-notices:state", page), { seen: [], cloud: true });
   await main.ask("desktop-notices:seen", "server", POPUP);
   assert.deepEqual(await main.ask("desktop-notices:state", "local"), { seen: [POPUP], cloud: true });
@@ -188,10 +188,10 @@ test("the app language picked on any page of the window is the one every page re
 test("main's own words read this desktop's record from its userData folder, and follow the system's language until a pick", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "omb-desktop-text-"));
   try {
-    const app = { getPath: name => (name === "userData" ? dir : "/elsewhere"), isReady: () => true, getLocale: () => "pt-BR" };
+    const app = { getPath: name => (name === "userData" ? dir : "/elsewhere"), isReady: () => true, getLocale: () => "zh-TW" };
     const text = createDesktopText(app);
     assert.equal(text.prefs.language(), null);
-    assert.equal(text.language(), "pt-br", "the system's language");
+    assert.equal(text.language(), "zh", "the system's language");
     text.prefs.setLanguage("en");
     assert.deepEqual(JSON.parse(readFileSync(path.join(dir, "desktop-prefs.json"), "utf8")).language, "en");
     assert.equal(createDesktopText(app).language(), "en", "a pick made before this launch");
@@ -316,7 +316,7 @@ test("production wiring: main answers this computer's page, My Cloud's own page 
   localOrigin.setLocalOrigin(LOCAL);
   const sent = [], window = name => ({ isDestroyed: () => name === "closed", webContents: { send: (...message) => sent.push([name, ...message]) } });
   const windows = [window("team"), window("home"), window("closed")];
-  let switched = async id => { calls.push(["switch", id]); }, loads = true, broadcasts = 0;
+  let switched = async id => { calls.push(["switch", id]); }, loads = true;
   const context = vm.createContext({
     registerDesktopPrefs: value => { options = value; }, jsonFile: file => ({ read: () => file, write: () => {} }), ipcMain: {}, updatesConsent: null, cloudAccount: "the client",
     nativeText: { prefs: { kept: true }, set: code => { calls.push(["language", code]); return code === "pt-br"; }, follow: code => { calls.push(["shown", code]); return code === "de"; } }, applyNativeLanguage: () => calls.push("relabel"), talk: { relabel: () => calls.push("talk relabel") },
@@ -328,7 +328,7 @@ test("production wiring: main answers this computer's page, My Cloud's own page 
     rendererOrigin: () => LOCAL, cloudAccountRestored: async () => calls.push("restored"), cloudOffersReady: async () => { calls.push("offers"); return true; },
     cloudPageAsking: event => event.verifiedCloud ? "cloud" : null,
     serverReady: true, LOCAL_ID: "local", switchEnvironment: id => switched(id),
-    process: { platform: "win32" }, windowFrameMade: false, broadcastDesktopCapabilities: async () => { broadcasts++; },
+    process: { platform: "win32" },
     // main's own: a failed switch shows its dialog and resolves.
     workspaceMenuAction: async action => { try { await action(); } catch { calls.push("dialog"); } },
   });
@@ -336,9 +336,6 @@ test("production wiring: main answers this computer's page, My Cloud's own page 
   assert.equal(options.prefs, context.nativeText.prefs, "the record main read before the tray and the startup screen");
   assert.match(main, /const nativeText = createDesktopText\(app\), nativeT = nativeText\.t;/);
   assert.equal(options.localConfig(), "/home/.dexbot/config.json", "This computer's own workspace, whichever server the window shows");
-  assert.deepEqual([options.frame.made(), options.frame.restarts], [false, true], "Windows: the frame its window was made with, until a restart");
-  options.frame.changed();
-  assert.equal(broadcasts, 1, "the pages hear the frame change");
   assert.equal(options.page({ sender: { mainFrame: localFrame }, senderFrame: localFrame }), "local");
   assert.equal(options.page({ sender: contents, senderFrame: serverFrame }), "server");
   assert.equal(options.page({ sender: contents, senderFrame: serverFrame, verifiedCloud: true }), "cloud", "My Cloud's page as main verifies it");
@@ -358,20 +355,6 @@ test("production wiring: main answers this computer's page, My Cloud's own page 
   const load = vm.runInNewContext(`${navigate}; navigateMainWindow`, { homeWindow: { cancel: () => {} }, mainWindow: { isDestroyed: () => false, loadURL: async url => { if (url.endsWith("fail")) throw new Error("ERR_CONNECTION_REFUSED"); } } });
   assert.equal(await load(`${LOCAL}/ok`), true); assert.equal(await load(`${LOCAL}/fail`), false, "a failed load answers false, never throws");
   assert.equal(await vm.runInNewContext(`${navigate}; navigateMainWindow`, { homeWindow: { cancel: () => {} }, mainWindow: null })(`${LOCAL}/`), false, "no window");
-});
-
-test("the window's rail of places is hidden by default until the person turns it on, and the choice survives a restart", () => {
-  let saved = null, writes = 0;
-  const prefs = createDesktopPrefs({ read: () => saved, write: value => { saved = structuredClone(value); writes++; } });
-  assert.equal(prefs.railHidden(), true);
-  prefs.setRailHidden(false);
-  assert.equal(writes, 1);
-  assert.equal(createDesktopPrefs({ read: () => saved, write: () => {} }).railHidden(), false);
-  prefs.setRailHidden(true);
-  assert.equal(createDesktopPrefs({ read: () => saved, write: () => {} }).railHidden(), true);
-  prefs.setRailHidden("no");
-  assert.equal(createDesktopPrefs({ read: () => saved, write: () => {} }).railHidden(), false, "only true hides it");
-  assert.equal(createDesktopPrefs({ read: () => ({ railHidden: "yes" }), write: () => {} }).railHidden(), true);
 });
 
 test("the talk shortcut is on with ⌃⌥Space until changed, and the choice survives a restart", () => {
@@ -411,35 +394,3 @@ test("registerDesktopPrefs works on the store main hands it", async () => {
   assert.equal(prefs.analytics(), false);
 });
 
-test("the window's own frame is off until the person turns it on, and the choice survives a restart", () => {
-  let saved = null, writes = 0;
-  const prefs = createDesktopPrefs({ read: () => saved, write: value => { saved = structuredClone(value); writes++; } });
-  assert.equal(prefs.windowFrame(), false);
-  prefs.setWindowFrame(false);
-  assert.equal(writes, 0, "turning off a frame that is off writes nothing");
-  prefs.setWindowFrame(true);
-  assert.equal(createDesktopPrefs({ read: () => saved, write: () => {} }).windowFrame(), true);
-  prefs.setWindowFrame("on");
-  assert.equal(createDesktopPrefs({ read: () => saved, write: () => {} }).windowFrame(), false, "only true turns it on");
-  assert.equal(createDesktopPrefs({ read: () => ({ windowFrame: "yes" }), write: () => {} }).windowFrame(), false);
-});
-
-test("Settings reads and changes the window's frame on any page of the window; on Windows the change waits for a restart", async () => {
-  const prefs = createDesktopPrefs({ read: () => null, write: () => {} });
-  const handlers = new Map();
-  let made = true, changes = 0, asking = "server";
-  const register = (restarts) => registerDesktopPrefs({ prefs, ipcMain: { handle: (c, h) => handlers.set(c, h), on: () => {} }, read: () => null, write: () => {},
-    page: () => asking, cloudOffered: async () => false, frame: { made: () => made, restarts, changed: () => { changes++; } } });
-  register(false);
-  assert.deepEqual(await handlers.get("window-frame:state")({}), { on: false, restart: false });
-  assert.deepEqual(await handlers.get("window-frame:set")({}, true), { on: true, restart: false }, "macOS: at once");
-  assert.equal(changes, 1, "the pages hear it");
-  register(true);
-  assert.deepEqual(await handlers.get("window-frame:state")({}), { on: true, restart: false }, "Windows: the window was made with its frame");
-  assert.deepEqual(await handlers.get("window-frame:set")({}, false), { on: false, restart: true }, "Windows: turning it off waits for a restart");
-  assert.deepEqual(await handlers.get("window-frame:set")({}, true), { on: true, restart: false }, "back as it was made: nothing to restart");
-  made = null;
-  assert.deepEqual(await handlers.get("window-frame:set")({}, false), { on: false, restart: false }, "no window yet");
-  asking = null;
-  assert.throws(() => handlers.get("window-frame:set")({}, true), /only available in this app's window/);
-});

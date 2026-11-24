@@ -9,19 +9,19 @@ afterEach(() => {
 });
 
 describe("resolveLocale", () => {
-  const available = new Set(["en", "de", "pt-br", "zh", "zh-hant", "zh-tw"]);
+  const available = new Set(["en", "zh"]);
 
   it("keeps a registered exact tag, case-insensitively", () => {
-    expect(resolveLocale("pt-BR", available)).toBe("pt-br");
-    expect(resolveLocale("de", available)).toBe("de");
+    expect(resolveLocale("ZH", available)).toBe("zh");
+    expect(resolveLocale("en", available)).toBe("en");
   });
 
   it("falls back from a regional tag to its base language", () => {
-    expect(resolveLocale("de-AT", available)).toBe("de");
+    expect(resolveLocale("zh-CN", available)).toBe("zh");
   });
 
   it("falls back through script tags before the base language", () => {
-    expect(resolveLocale("zh-Hant-TW", available)).toBe("zh-hant");
+    expect(resolveLocale("zh-Hant-TW", available)).toBe("zh");
   });
 
   it("falls back to English for unknown or missing tags", () => {
@@ -48,18 +48,18 @@ describe("t", () => {
   });
 
   it("keeps new department lifecycle labels available in partial packs, with interpolated names and counts", () => {
-    // Hindi does not translate the department dialogs yet, so they fall back to English with their names and counts.
-    setLocale("hi");
-    expect(t("team.create")).toBe("Create department");
-    expect(t("team.moveTo", { name: "Research" })).toBe("Move bots to Research");
-    expect(t("team.moveMany", { count: 2 })).toBe("Move 2 bots");
-    expect(t("team.deleteTitle", { name: "Research" })).toBe("Delete Research department?");
-    expect(t("team.instructionsTitle", { name: "Research" })).toBe("Research shared instructions");
+    setLocale("zh");
+    const pack = locales["zh"]!;
+    expect(t("team.create")).toBe(pack["team.create"] ?? "Create department");
+    expect(t("team.moveTo", { name: "Research" })).toBe(pack["team.moveTo"]?.replace("{name}", "Research") ?? "Move bots to Research");
+    expect(t("team.moveMany", { count: 2 })).toBe(pack["team.moveMany"]?.replace("{count}", "2") ?? "Move 2 bots");
+    expect(t("team.deleteTitle", { name: "Research" })).toBe(pack["team.deleteTitle"]?.replace("{name}", "Research") ?? "Delete Research department?");
+    expect(t("team.instructionsTitle", { name: "Research" })).toBe(pack["team.instructionsTitle"]?.replace("{name}", "Research") ?? "Research shared instructions");
   });
 
   it("setLocale reports the locale that actually took effect", () => {
-    expect(setLocale("de-AT")).toBe("de");
-    expect(t("engines.local")).toBe("Lokal");
+    expect(setLocale("zh-CN")).toBe("zh");
+    expect(t("engines.local")).toBe("本地");
     expect(setLocale("xx-YY")).toBe("en");
     expect(t("engines.local")).toBe("Local");
   });
@@ -74,16 +74,13 @@ describe("t", () => {
   it("routes common system tags onto the shipped packs", () => {
     const available = new Set(Object.keys(locales));
     expect(resolveLocale("zh-CN", available)).toBe("zh");
-    expect(resolveLocale("zh-TW", available)).toBe("zh-tw");
-    expect(resolveLocale("zh-Hant-TW", available)).toBe("zh-hant");
-    expect(resolveLocale("zh-HK", available)).toBe("zh-hk");
-    expect(resolveLocale("ja-JP", available)).toBe("ja");
-    expect(resolveLocale("pt-BR", available)).toBe("pt-br");
-    expect(resolveLocale("pt-PT", available)).toBe("pt");
-    expect(resolveLocale("hi-IN", available)).toBe("hi");
-    expect(resolveLocale("tr-TR", available)).toBe("tr");
-    expect(resolveLocale("ru-RU", available)).toBe("ru");
-    expect(resolveLocale("ru-RU-x-custom", available)).toBe("ru");
+    expect(resolveLocale("zh-TW", available)).toBe("zh");
+    expect(resolveLocale("zh-Hant-TW", available)).toBe("zh");
+    expect(resolveLocale("zh-HK", available)).toBe("zh");
+    expect(resolveLocale("ja-JP", available)).toBe("en");
+    expect(resolveLocale("pt-BR", available)).toBe("en");
+    expect(resolveLocale("en-GB", available)).toBe("en");
+    expect(resolveLocale("ru-RU-x-custom", available)).toBe("en");
   });
 
   it("every registered pack carries only known keys with non-empty values", () => {
@@ -183,9 +180,9 @@ describe("tFromServer", () => {
   it("fills the params, and keeps the English when one the template needs is missing", () => {
     expect(tFromServer("chat.notice.cutOffByRestart", "Scout was cut off by a restart; resuming", { name: "Scout" }))
       .toBe("Scout was cut off by a restart; resuming");
-    setLocale("pt-br");
+    setLocale("zh");
     try {
-      expect(tFromServer("chat.notice.cutOffByRestart", "English", { name: "Scout" })).toBe("Uma reinicialização interrompeu Scout. Retomando.");
+      expect(tFromServer("chat.notice.cutOffByRestart", "English", { name: "Scout" })).toBe("Scout 被重启打断；正在恢复");
       expect(tFromServer("chat.notice.cutOffByRestart", "English")).toBe("English");
       expect(tFromServer("chat.notice.cutOffByRestart", "English", { other: "x" })).toBe("English");
     } finally {
@@ -210,20 +207,18 @@ describe("loading a language", () => {
     const page = await import("./i18n");
     const packs = await import("@/locales");
     expect(Object.keys(packs.locales)).toEqual(["en"]);
-    expect(page.setLocale("de")).toBe("en");
-    expect(await page.loadLocale("de-AT")).toBe("de");
-    expect(page.t("engines.local")).toBe("Lokal");
-    expect(Object.keys(packs.locales)).toEqual(["en", "de"]);
-    expect(await page.loadLocale("pt")).toBe("pt");
-    expect(packs.locales["pt-br"]).toBe(packs.locales.pt);
-    expect(page.setLocale("de")).toBe("de");
+    expect(page.setLocale("zh")).toBe("en");
+    expect(await page.loadLocale("zh-HK")).toBe("zh");
+    expect(page.t("engines.local")).toBe("本地");
+    expect(Object.keys(packs.locales)).toEqual(["en", "zh"]);
+    expect(page.setLocale("zh")).toBe("zh");
   });
 
   it("shows the language asked for last, whichever pack arrives first", async () => {
     vi.resetModules();
     const page = await import("./i18n");
-    await Promise.all([page.loadLocale("ja"), page.loadLocale("fr"), page.loadLocale("de")]);
-    expect(page.activeLocale()).toBe("de");
+    await Promise.all([page.loadLocale("en"), page.loadLocale("fr"), page.loadLocale("zh")]);
+    expect(page.activeLocale()).toBe("zh");
     const later = page.loadLocale("ko");
     page.setLocale("en");
     await later;
@@ -238,11 +233,11 @@ describe("loading a language", () => {
       return { ...real, loadLocalePack: (tag: string) => offline ? Promise.reject(new Error("offline")) : real.loadLocalePack(tag) };
     });
     const page = await import("./i18n");
-    expect(await page.loadLocale("fr")).toBe("en");
+    expect(await page.loadLocale("zh")).toBe("en");
     expect(page.t("rail.thisComputer")).toBe("This computer");
     offline = false;
-    expect(await page.loadLocale("fr")).toBe("fr");
-    expect(page.t("rail.thisComputer")).toBe("Cet ordinateur");
+    expect(await page.loadLocale("zh")).toBe("zh");
+    expect(page.t("rail.thisComputer")).toBe("这台电脑");
   });
 });
 
@@ -253,33 +248,33 @@ describe("page language", () => {
   });
 
   it("names every picker language with a valid BCP-47 tag", () => {
-    expect(localeChoices.map(({ code }) => documentLanguage(code))).toEqual([
-      "en", "de", "es", "fr", "hi", "ja", "pt-BR", "zh", "zh-TW", "uk", "vi", "tr", "pl", "ru", "it", "ko",
-    ]);
+    expect(localeChoices.map(({ code }) => documentLanguage(code))).toEqual(["en", "zh"]);
     for (const { code } of localeChoices) {
       expect(Intl.getCanonicalLocales(documentLanguage(code))).toEqual([documentLanguage(code)]);
     }
   });
 
-  it("tags an alias with the pack it shows", () => {
-    expect(documentLanguage("pt")).toBe("pt-BR");
-    expect(documentLanguage("zh-hant")).toBe("zh-TW");
-    expect(documentLanguage("zh-hk")).toBe("zh-TW");
+  it("canonicalizes every tag, listed or not", () => {
+    expect(documentLanguage("en")).toBe("en");
+    expect(documentLanguage("zh")).toBe("zh");
+    expect(documentLanguage("zh-hant")).toBe("zh-Hant");
+    expect(documentLanguage("zh-hk")).toBe("zh-HK");
+    expect(documentLanguage("en-us")).toBe("en-US");
   });
 
   it("sets the page language and direction whenever the locale changes", () => {
     const root = { lang: "en", dir: "" };
     vi.stubGlobal("document", { documentElement: root });
-    setLocale("de-AT");
-    expect(root).toEqual({ lang: "de", dir: "ltr" });
-    setLocale("pt-BR");
-    expect(root.lang).toBe("pt-BR");
+    setLocale("zh-CN");
+    expect(root).toEqual({ lang: "zh", dir: "ltr" });
     setLocale("zh-Hant-TW");
-    expect(root.lang).toBe("zh-TW");
-    setLocale("ja");
-    expect(root.lang).toBe("ja");
+    expect(root.lang).toBe("zh");
     setLocale("xx-YY");
     expect(root.lang).toBe("en");
+    setLocale("zh");
+    expect(root).toEqual({ lang: "zh", dir: "ltr" });
+    setLocale("en");
+    expect(root).toEqual({ lang: "en", dir: "ltr" });
   });
 
   it("tags the page once the language's pack has loaded, keeping the one it shows until then", async () => {
@@ -287,19 +282,18 @@ describe("page language", () => {
     vi.stubGlobal("document", { documentElement: root });
     vi.resetModules();
     const page = await import("./i18n");
-    await page.loadLocale("de");
-    const loading = page.loadLocale("ja-JP");
-    expect(root.lang).toBe("de");
-    expect(page.t("engines.local")).toBe("Lokal");
-    expect(await loading).toBe("ja");
-    expect(root).toEqual({ lang: "ja", dir: "ltr" });
-    expect(page.t("engines.local")).toBe(locales.ja!["engines.local"]);
+    const loading = page.loadLocale("zh-Hant-TW");
+    expect(root.lang).toBe("en");
+    expect(page.t("engines.local")).toBe("Local");
+    expect(await loading).toBe("zh");
+    expect(root).toEqual({ lang: "zh", dir: "ltr" });
+    expect(page.t("engines.local")).toBe("本地");
   });
 
   it("still switches language where there is no page (tests, workers)", () => {
     vi.stubGlobal("document", undefined);
-    expect(setLocale("fr")).toBe("fr");
-    expect(t("engines.local")).not.toBe("");
+    expect(setLocale("zh")).toBe("zh");
+    expect(t("engines.local")).toBe("本地");
   });
 });
 
@@ -309,24 +303,21 @@ describe("intlLocale", () => {
   });
 
   it("formats in the app language, not the system's", () => {
-    setLocale("pt-br");
-    expect(intlLocale("en-US")).toBe("pt-BR");
-    setLocale("pt");
-    expect(intlLocale("pt-PT")).toBe("pt-BR");
-    setLocale("zh-hant");
-    expect(intlLocale("en-US")).toBe("zh-TW");
-    setLocale("de");
-    expect(intlLocale("ja-JP")).toBe("de");
+    setLocale("zh");
+    expect(intlLocale("en-US")).toBe("zh");
+    setLocale("zh-Hant-TW");
+    expect(intlLocale("en-US")).toBe("zh");
     setLocale("en");
     expect(intlLocale("pt-BR")).toBe("en");
+    expect(intlLocale("zh-CN")).toBe("en");
     expect(intlLocale(undefined)).toBe("en");
   });
 
   it("keeps the system region when it speaks the app language", () => {
     expect(intlLocale("en-GB")).toBe("en-GB");
     expect(intlLocale("en-gb")).toBe("en-GB");
-    setLocale("de");
-    expect(intlLocale("de-AT")).toBe("de-AT");
+    setLocale("zh");
+    expect(intlLocale("zh-TW")).toBe("zh-TW");
   });
 
   it("falls back to the app language for a missing, empty or malformed system tag", () => {
@@ -337,8 +328,8 @@ describe("intlLocale", () => {
   });
 
   it("gives Intl a tag it formats in the app language", () => {
-    setLocale("pt-br");
-    expect(new Intl.DateTimeFormat(intlLocale("en-US"), { month: "long", timeZone: "UTC" }).format(Date.UTC(2024, 9, 1))).toBe("outubro");
-    expect(new Intl.NumberFormat(intlLocale("en-US")).format(1440.5)).toBe("1.440,5");
+    setLocale("zh");
+    expect(new Intl.DateTimeFormat(intlLocale("en-US"), { month: "long", timeZone: "UTC" }).format(Date.UTC(2024, 9, 1))).toBe("十月");
+    expect(new Intl.NumberFormat(intlLocale("en-US")).format(1440.5)).toBe("1,440.5");
   });
 });

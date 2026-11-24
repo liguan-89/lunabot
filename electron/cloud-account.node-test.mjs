@@ -807,9 +807,9 @@ test("this computer tells the Admin its move is done, and asks for an ended Clou
 test("connecting before My Cloud is ready is refused in the app's language", async t => {
   const english = await fixture(t);
   await assert.rejects(english.client.pairHome(), { message: "My Cloud is not ready to connect yet." });
-  const { t: words } = nativeText.createNativeText({ saved: "pt-br" });
+  const { t: words } = nativeText.createNativeText({ saved: "zh" });
   const translated = await fixture(t, { t: words });
-  await assert.rejects(translated.client.pairHome(), { message: "Ainda não é possível se conectar ao Cloud." });
+  await assert.rejects(translated.client.pairHome(), { message: "My Cloud 尚未准备好连接。" });
 });
 
 test("usage meter: the session's usage reaches the state and the Cloud page's snapshot, checked; Upgrade sends a change only with this app's own preview", async t => {

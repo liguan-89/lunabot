@@ -35,10 +35,7 @@ const __APP_VERSION__: string;
       session: "x11" | "wayland" | "headless" | "unknown";
       packaged: boolean;
     };
-    windowChrome: "mac-inset" | "win-caption" | "native";
-    /** The page draws the window's frame: false once the person turned it off. Absent on an older app, whose window
-     * draws it. */
-    windowFrame?: boolean;
+    windowChrome: "mac-inset" | "native";
     screenPreview: {
       available: boolean;
       interaction: "direct" | "portal-picker" | "none";
@@ -160,7 +157,7 @@ const __APP_VERSION__: string;
         onState(callback: (state: CompanyBackupState) => void): () => void;
       };
       /** The window's own rail of places: its page at /rail (a sheet of its own covers the window while open; the skin of
-       * the page beside it comes from main), and the button on the page beside it that hides and shows it. */
+       * the page beside it comes from main), and the button on the page beside it that opens its places popover. */
       rail?: import("../../electron/chrome-rail.mjs").ChromeRailBridge;
       workspaces?: {
         /** `color`: a saved server's colour name (its owner chose it while setting the Cloud up); `home`: this window's
@@ -381,21 +378,7 @@ const __APP_VERSION__: string;
       openExternal?(url: string): Promise<boolean>;
       /** Recolor the native window chrome for a skin; absent on older builds. */
       applySkin?(skin: string): Promise<boolean>;
-      /** The window's own frame, this desktop's choice (Settings → Appearance). Absent on an older app. */
-      windowFrame?: {
-        state(): Promise<import("../../electron/desktop-prefs.mjs").WindowFrameState>;
-        /** From the person's click on another server's page. */
-        set(on: boolean): Promise<import("../../electron/desktop-prefs.mjs").WindowFrameState>;
-      };
-      /** The renderer-drawn Windows caption buttons; absent outside the
-       * frameless Windows shell (macOS/Linux/browser keep native chrome). */
-      windowControls?: {
-        minimize(): Promise<boolean>;
-        toggleMaximize(): Promise<boolean>;
-        close(): Promise<boolean>;
-        state(): Promise<{ maximized: boolean }>;
-        onMaximizedChanged(cb: (maximized: boolean) => void): () => void;
-      };
+
       /** Receives a GitHub package URL opened through lunabot://install (or an older dexbot://install). */
       onPackageInstall?(cb: (url: string) => void): () => void;
       /** Receives a chat link (lunabot://thread/… or lunabot://bot/…, and the

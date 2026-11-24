@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react";
 
-import { activeLocale } from "./i18n";
 import { isMacPlatform } from "./keyboard-shortcuts";
 
 export const SEND_KEY_KEY = "omb-send-key";
@@ -9,8 +8,8 @@ export const SEND_KEY_KEY = "omb-send-key";
 export const SEND_KEYS = ["enter", "shift-enter", "mod-enter"] as const;
 export type SendKey = (typeof SEND_KEYS)[number];
 
-export function defaultSendKey(locale: string = activeLocale()): SendKey {
-  return locale === "ja" || locale.startsWith("ja-") ? "mod-enter" : "enter";
+export function defaultSendKey(): SendKey {
+  return "enter";
 }
 
 export function parseSendKey(value: string | null | undefined, fallback: SendKey = defaultSendKey()): SendKey {
