@@ -14,14 +14,14 @@ import { availableTools, catalogProfileFromEnv } from "./drivers/agents-catalog.
 import { createBrief } from "./host/brief.ts";
 
 const selection = (): ModelSelection => ({ instanceId: "claude", model: "claude-sonnet-5" });
-const placeMausBots = (store: Store) => store.bots.filter((bot) => bot.defaultBot && !bot.defaultBot.person);
+const placeLunaBots = (store: Store) => store.bots.filter((bot) => bot.defaultBot && !bot.defaultBot.person);
 const intros = (store: Store, bot: BotRecord) => (bot.tasks ?? []).flatMap((task) => store.messagesFor(task.threadId)).filter((message) => message.helperIntro);
 const boot = (store: Store) => ensureDefaultBot(store, { dataDir: DATA_DIR });
 /** Who the daily brief comes from, as the server picks it. */
 const briefChief = (store: Store) => createBrief({ store, dataDir: DATA_DIR, hosted: false, watching: () => true, mainThread: (id) => store.bot(id)?.threadId,
   threadBusy: () => false, notify: () => {}, runs: () => [], needsYou: () => [], engineName: () => "Claude", hostTimeZone: () => "UTC", language: () => undefined, session: () => null,
   address: () => undefined, failRun: () => {}, keep: () => {}, items: () => null }).chief();
-/** A new install from before MausBot was marked: its first bot was MausBot in silver, made its Chief. */
+/** A new install from before LunaBot was marked: its first bot was LunaBot in silver, made its Chief. */
 function seededBefore(store: Store): BotRecord {
   const seeded = store.createBot({ name: "Luna Bot", color: "silver" });
   store.setChiefOfStaff(seeded.id);
@@ -41,7 +41,7 @@ describe("Luna Bot, every person's helper", () => {
     again.seedIfEmpty();
     boot(again);
     expect(again.bots).toHaveLength(1);
-    const maus = placeMausBots(again)[0]!;
+    const maus = placeLunaBots(again)[0]!;
     expect(maus).toMatchObject({ name: "Luna Bot", color: "chrome", chiefOfStaff: true, defaultBot: {} });
     expect(intros(again, maus)).toHaveLength(1);
   });
@@ -70,7 +70,7 @@ describe("Luna Bot, every person's helper", () => {
     expect(intros(store, maus)).toHaveLength(1);
     const restarted = new Store(selection);
     boot(restarted);
-    expect(placeMausBots(restarted).map((bot) => bot.id)).toEqual([maus.id]);
+    expect(placeLunaBots(restarted).map((bot) => bot.id)).toEqual([maus.id]);
     expect(restarted.bots).toHaveLength(3);
     expect(restarted.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([chief.id]);
   });
@@ -183,7 +183,7 @@ describe("Luna Bot, every person's helper", () => {
     store.patchBot(maus.id, { name: "Jarvis", color: "blue" });
     const restarted = new Store(selection);
     boot(restarted);
-    expect(placeMausBots(restarted).map((bot) => [bot.id, bot.name])).toEqual([[maus.id, "Jarvis"]]);
+    expect(placeLunaBots(restarted).map((bot) => [bot.id, bot.name])).toEqual([[maus.id, "Jarvis"]]);
     expect(chiefLevel(restarted.bot(maus.id))).toBe(true);
     expect(restarted.bots).toHaveLength(3);
   });
@@ -228,7 +228,7 @@ describe("Luna Bot, every person's helper", () => {
     store.patchBot(maus.id, { sidebarHidden: true });
     const restarted = new Store(selection);
     boot(restarted);
-    expect(placeMausBots(restarted).map((bot) => [bot.id, bot.sidebarHidden])).toEqual([[maus.id, true]]);
+    expect(placeLunaBots(restarted).map((bot) => [bot.id, bot.sidebarHidden])).toEqual([[maus.id, true]]);
     restarted.patchBot(maus.id, { sidebarHidden: false });
     expect(new Store(selection).bot(maus.id)?.sidebarHidden).toBe(false);
   });
@@ -247,7 +247,7 @@ describe("Luna Bot, every person's helper", () => {
     const second = store.createBot({ name: "Luna Bot 2" });
     store.patchBot(second.id, { defaultBot: {} });
     expect(boot(store)?.id).toBe(first.id);
-    expect(placeMausBots(store).map((bot) => bot.id)).toEqual([first.id]);
+    expect(placeLunaBots(store).map((bot) => bot.id)).toEqual([first.id]);
   });
 
   it("gives each Team Cloud member their own private Luna Bot, and the team no Luna Bot of its own", () => {
@@ -298,10 +298,10 @@ describe("Luna Bot, every person's helper", () => {
       const cloud = new Store(selection);
       cloud.seedIfEmpty();
       boot(cloud);
-      const starter = placeMausBots(cloud)[0]!;
+      const starter = placeLunaBots(cloud)[0]!;
       const arrivingMaus = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000001", seedMessages: false });
       expect(await arrive(cloud, arrivingMaus.id, fields({ defaultBot: {}, sidebarHidden: true, welcomed: true }))).toBe(200);
-      expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([arrivingMaus.id]);
+      expect(placeLunaBots(cloud).map((bot) => bot.id)).toEqual([arrivingMaus.id]);
       expect(cloud.bot(arrivingMaus.id)).toMatchObject({ sidebarHidden: true, welcomed: true });
       expect(cloud.bot(starter.id)).toMatchObject({ chiefOfStaff: true });
       expect(cloud.bot(starter.id)?.hidden).toBeFalsy();
@@ -310,19 +310,19 @@ describe("Luna Bot, every person's helper", () => {
       expect(cloud.bot(starter.id)).toMatchObject({ hidden: true });
       expect(cloud.bot(starter.id)?.defaultBot).toBeUndefined();
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([pixel.id]);
-      expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([arrivingMaus.id]);
+      expect(placeLunaBots(cloud).map((bot) => bot.id)).toEqual([arrivingMaus.id]);
     });
 
     it("still makes one Luna Bot on My Cloud when this computer's arrives renamed and with its own picture", async () => {
       const cloud = new Store(selection);
       cloud.seedIfEmpty();
       boot(cloud);
-      const starter = placeMausBots(cloud)[0]!;
+      const starter = placeLunaBots(cloud)[0]!;
       cloud.patchBot(starter.id, { name: "Starter" });
       const arriving = cloud.createBot({ name: "Jarvis" }, { id: "desk-maus-000003", seedMessages: false });
       cloud.patchBot(arriving.id, { avatarUrl: "/api/attachments/jarvis.png", avatarCrop: "circle" });
       expect(await arrive(cloud, arriving.id, fields({ defaultBot: {}, welcomed: true }))).toBe(200);
-      expect(placeMausBots(cloud).map((bot) => [bot.id, bot.name, bot.avatarUrl])).toEqual([[arriving.id, "Jarvis", "/api/attachments/jarvis.png"]]);
+      expect(placeLunaBots(cloud).map((bot) => [bot.id, bot.name, bot.avatarUrl])).toEqual([[arriving.id, "Jarvis", "/api/attachments/jarvis.png"]]);
       expect(cloud.bot(starter.id)?.defaultBot).toBeUndefined();
     });
 
@@ -333,7 +333,7 @@ describe("Luna Bot, every person's helper", () => {
       cloud.appendMessage(theirs.threadId, { role: "user", kind: "text", text: "Hi" });
       const arriving = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000002", seedMessages: false });
       expect(await arrive(cloud, arriving.id, fields({ defaultBot: {}, sidebarHidden: true }), "Amit's MacBook")).toBe(200);
-      expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
+      expect(placeLunaBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
       expect(cloud.bot(theirs.id)).toMatchObject({ name: "Luna Bot", chiefOfStaff: true });
       expect(cloud.bot(theirs.id)?.hidden).toBeFalsy();
       const moved = cloud.bot(arriving.id)!;
@@ -342,21 +342,21 @@ describe("Luna Bot, every person's helper", () => {
       expect(defaultBotPatchRefusal(moved, { hidden: true })).toBeNull();
       expect(defaultBotPatchRefusal(cloud.bot(theirs.id), { hidden: true })).toContain("can't be deleted or archived");
       expect(boot(cloud)?.id).toBe(theirs.id);
-      // A Mac MausBot that was the Chief there doesn't take the crown from the one kept here.
+      // A Mac LunaBot that was the Chief there doesn't take the crown from the one kept here.
       const chief = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000006", seedMessages: false });
       expect(await arrive(cloud, chief.id, fields({ defaultBot: {}, chiefOfStaff: true }), "Amit's MacBook")).toBe(200);
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([theirs.id]);
-      // Nor on a later pass that sends only its Chief fields: the computer it comes from says it is the MausBot there.
+      // Nor on a later pass that sends only its Chief fields: the computer it comes from says it is the LunaBot there.
       expect(await arrive(cloud, chief.id, { chiefOfStaff: true, managedSections: ["General"] }, "Amit's MacBook", { sourceDefault: true })).toBe(200);
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([theirs.id]);
-      expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
-      // Nor from a Chief here that is not the MausBot.
+      expect(placeLunaBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
+      // Nor from a Chief here that is not the LunaBot.
       const lee = cloud.createBot({ name: "Lee" }, { id: "cloud-lee-000008", seedMessages: false });
       cloud.setChiefOfStaff(lee.id);
       const third = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000009", seedMessages: false });
       expect(await arrive(cloud, third.id, fields({ defaultBot: {}, chiefOfStaff: true, managedSections: ["General"] }), "Amit's MacBook")).toBe(200);
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([lee.id]);
-      // A Chief that is not a MausBot takes the crown.
+      // A Chief that is not a LunaBot takes the crown.
       const ada = cloud.createBot({ name: "Ada" }, { id: "desk-ada-000007", seedMessages: false });
       expect(await arrive(cloud, ada.id, { chiefOfStaff: true }, "Amit's MacBook")).toBe(200);
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([ada.id]);
@@ -373,7 +373,7 @@ describe("Luna Bot, every person's helper", () => {
       const unnamed = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000005", seedMessages: false });
       expect(await arrive(cloud, unnamed.id, fields({ defaultBot: {} }))).toBe(200);
       expect(cloud.bot(unnamed.id)).toMatchObject({ name: "Luna Bot (from another computer)" });
-      expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
+      expect(placeLunaBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
     });
 
     it("comes home to exactly the one Luna Bot My Cloud had, and makes none", () => {
@@ -392,7 +392,7 @@ describe("Luna Bot, every person's helper", () => {
       home.seedIfEmpty();
       boot(home);
       expect(home.bots.map((bot) => bot.id)).toEqual([mausOnCloud.id]);
-      expect(placeMausBots(home)[0]).toMatchObject({ name: "Jarvis", sidebarHidden: true });
+      expect(placeLunaBots(home)[0]).toMatchObject({ name: "Jarvis", sidebarHidden: true });
     });
   });
 });

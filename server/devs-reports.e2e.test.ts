@@ -1,4 +1,4 @@
-// @devs end to end: a fixture server with the synthetic pi CLI and a fake MausBot team endpoint on loopback. A
+// @devs end to end: a fixture server with the synthetic pi CLI and a fake LunaBot team endpoint on loopback. A
 // message that tags @devs sends exactly one report, with the bot's report_bug summary or, when the bot never calls it,
 // with the server's own facts; secrets are masked, the conversation itself never goes, and the person sees the line.
 // Then the loop closes: the server asks the team about its reports (every 1.5 s here), the person's message shows each

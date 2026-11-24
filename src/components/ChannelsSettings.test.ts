@@ -122,3 +122,14 @@ it("the SMS row saves the answering bot and this fork's owner numbers", async ()
   await submit("sms");
   expect(puts()).toEqual([{ sms: { owners: "", botId: "b2" } }]);
 });
+
+it("the WeChat row asks only for the answering bot", async () => {
+  fixture.config = { wechat: { configured: false, botId: "" } };
+  await render();
+  await openForm("wechat");
+  const form = host.querySelector('[data-channel-form="wechat"]')!;
+  expect([...form.querySelectorAll("[data-channel-field]")].map((field) => field.getAttribute("data-channel-field"))).toEqual(["botId"]);
+  await setInput("wechat", "botId", "b2");
+  await submit("wechat");
+  expect(puts()).toEqual([{ wechat: { botId: "b2" } }]);
+});

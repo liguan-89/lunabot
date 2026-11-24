@@ -180,7 +180,7 @@ const __APP_VERSION__: string;
          * address, `code` the pairing code typed apart; without `link`, the clipboard's), or type its address. With `code`
          * (even empty) it resolves with the outcome; without, false when the person cancels Connect. */
         add?: (choice: "cloud" | "link" | "address", link?: string, code?: string) => Promise<import("../../electron/server-probe.mjs").ConnectOutcome | boolean | void>;
-        /** Finds the MausBot server at what the Connect sheet holds, without connecting. Absent on an older app. */
+        /** Finds the LunaBot server at what the Connect sheet holds, without connecting. Absent on an older app. */
         probe?: (address: string, code?: string) => Promise<import("../../electron/server-probe.mjs").ServerProbe>;
         /** The colour of the place this page is (This computer's too), and whether it can be changed here. Absent on an
          * older app. */

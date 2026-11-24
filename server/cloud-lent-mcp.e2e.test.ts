@@ -229,7 +229,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   expect(macRequests.every((request) => request.authorization === "Bearer mac-header-key")).toBe(true);
   expect(connector.activity(env.id).map((entry) => [entry.action, entry.ok])).toEqual(expect.arrayContaining([["mcp_tools", true], ["mcp_call", true]]));
 
-  // Were the Mac's own OpenMausBot server on that port, the Mac refuses the call itself, in words the bot reads, and
+  // Were the Mac's own LunaBot server on that port, the Mac refuses the call itself, in words the bot reads, and
   // nothing reaches the port.
   macServerPorts = [Number(new URL(macUrl).port)];
   const reached = macRequests.length;

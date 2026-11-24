@@ -57,8 +57,8 @@ function profiles(): Record<string, Profile> {
   all["default+legacy-switches"] = {
     env: { ...all.default!.env, LUNABOT_ROOM_TURN: "1", LUNABOT_OWN_THREAD_CREATION: "1", LUNABOT_EXTERNAL_RUNTIME: "1", LUNABOT_ACTIVE_WAITS: "0" },
   };
-  // The person's Luna Bot holds a Chief's powers and adds its notification pair; MAUSBOT_ADDS bounds what that costs.
-  for (const name of ["default", "skills+shared+voice"]) all[`${name}+mausbot`] = { env: { ...all[name]!.env, LUNABOT_MAUSBOT: "1" } };
+  // The person's Luna Bot holds a Chief's powers and adds its notification pair; LUNABOT_ADDS bounds what that costs.
+  for (const name of ["default", "skills+shared+voice"]) all[`${name}+lunabot`] = { env: { ...all[name]!.env, LUNABOT_LUNABOT: "1" } };
   // A chat that can never pick its computer: its Works on is Off, or it works on its team's computer. A room is one too.
   all["default+no-computer-pick"] = { env: { ...all.default!.env, LUNABOT_COMPUTER_SELECTION: "0" } };
   for (const name of ["default", "non-chief"]) all[`${name}+room`] = { env: { ...all[name]!.env, LUNABOT_COMPUTER_SELECTION: "0", LUNABOT_ROOM: "1" } };
@@ -71,9 +71,9 @@ const CHIEF_ONLY_TOOLS = ["create_bot", "list_team_setup", "list_team_library", 
 const CHIEF_TARGET_TOOLS = ["propose_profile", "propose_model"];
 const CHIEF_PROFILE_TARGET = " A Chief of Staff may pass for_bot_id (from list_bots) for a requested change to another bot in its section.";
 const TEAMWORK_TOOLS = ["list_room_targets", "coordinate_bots", "assignment_status", "list_bots", "list_rooms", "list_threads", "close_thread", "start_thread", "post_to_room"];
-const MAUSBOT_TOOLS = ["list_unread_notifications", "mark_notifications_read"];
-/** MausBot's tools may make its list at most this much longer than the same Chief's without them. */
-const MAUSBOT_ADDS = 0.02;
+const LUNABOT_TOOLS = ["list_unread_notifications", "mark_notifications_read"];
+/** LunaBot's tools may make its list at most this much longer than the same Chief's without them. */
+const LUNABOT_ADDS = 0.02;
 const RESEARCH_TOOLS = ["x_search", "research_search", "research_endpoint", "research_call"];
 /** Only on the person's own Cloud: never on the fullest profile, a Team Cloud's. */
 const OWN_CLOUD_TOOLS = ["ask_for_computer"];
@@ -101,8 +101,8 @@ const BUDGET_BASELINE: Record<string, number> = {
   "skills+shared+voice+cloud-home": 76828,
   "skills+shared+voice+non-chief+cloud-home": 67612,
   "default+legacy-switches": 70940,
-  "default+mausbot": 71591,
-  "skills+shared+voice+mausbot": 77713,
+  "default+lunabot": 71591,
+  "skills+shared+voice+lunabot": 77713,
   "skills+shared+voice+x": 80901,
   "skills+shared+voice+x+team": 80901,
   "default+no-computer-pick": 69736,
@@ -116,7 +116,7 @@ const RPC_PREFIX = '{"jsonrpc":"2.0","id":1,"result":';
 
 /** One tools/list `result` from a fresh proxy, sliced out of the raw stdout line, never re-serialized. */
 async function toolsListWire(entry: string, env: Record<string, string>): Promise<string> {
-  // A developer shell or an OpenMausBot turn can carry LUNABOT_* switches; the profile must be the only source.
+  // A developer shell or an LunaBot turn can carry LUNABOT_* switches; the profile must be the only source.
   const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("LUNABOT_")));
   const child = spawn(process.execPath, [entry], {
     env: { ...inherited, LUNABOT_HARNESS_URL: "http://127.0.0.1:9", LUNABOT_BOT_ID: "bot-golden", LUNABOT_THREAD_ID: "thread-golden", LUNABOT_COMMS_TOKEN: "unused", LUNABOT_TURN_DEPTH: "0", ...env },
@@ -212,7 +212,7 @@ describe("agents proxy tools/list golden", () => {
       for (const tool of toolsOf(wires[name]!)) {
         if (profile.env.LUNABOT_CLOUD_HOME === "1" && (tool.name === "select_computer" || OWN_CLOUD_TOOLS.includes(tool.name))) continue;
         if (profile.env.LUNABOT_CHIEF_OF_STAFF === "0" && CHIEF_TARGET_TOOLS.includes(tool.name)) continue;
-        if (profile.env.LUNABOT_MAUSBOT === "1" && MAUSBOT_TOOLS.includes(tool.name)) continue;
+        if (profile.env.LUNABOT_LUNABOT === "1" && LUNABOT_TOOLS.includes(tool.name)) continue;
         expect(JSON.stringify(tool), `${name}: ${tool.name}`).toBe(full.get(tool.name));
       }
     }
@@ -424,12 +424,12 @@ describe("agents proxy tools/list wire size", () => {
     expect(rows.length).toBeGreaterThan(0);
   });
 
-  it.each(Object.keys(PROFILES).filter((name) => name.endsWith("+mausbot")))("%s adds at most 2% to the same Chief's list", (name) => {
-    const without = name.slice(0, -"+mausbot".length);
+  it.each(Object.keys(PROFILES).filter((name) => name.endsWith("+lunabot")))("%s adds at most 2% to the same Chief's list", (name) => {
+    const without = name.slice(0, -"+lunabot".length);
     const tools = toolsOf(wires[name]!).map((tool) => tool.name);
-    expect(tools.slice(-MAUSBOT_TOOLS.length)).toEqual(MAUSBOT_TOOLS);
-    expect(tools.slice(0, -MAUSBOT_TOOLS.length)).toEqual(toolsOf(wires[without]!).map((tool) => tool.name));
-    expect(bytes(wires[name]!)).toBeLessThanOrEqual(Math.floor(bytes(wires[without]!) * (1 + MAUSBOT_ADDS)));
+    expect(tools.slice(-LUNABOT_TOOLS.length)).toEqual(LUNABOT_TOOLS);
+    expect(tools.slice(0, -LUNABOT_TOOLS.length)).toEqual(toolsOf(wires[without]!).map((tool) => tool.name));
+    expect(bytes(wires[name]!)).toBeLessThanOrEqual(Math.floor(bytes(wires[without]!) * (1 + LUNABOT_ADDS)));
   });
 
   it.each(Object.keys(PROFILES))("%s stays within 2% of its budget baseline", (name) => {

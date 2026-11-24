@@ -73,6 +73,8 @@ export function loadConfig(env = process.env) {
     ogPath: trim(env.DEXCLOUD_OG_PATH) || fileURLToPath(new URL("./assets/og.png", import.meta.url)),
     /** Desktop installers and electron-updater feeds (`latest-mac.yml`, …), served under `/desktop/`. */
     desktopDir: trim(env.DEXCLOUD_DESKTOP_DIR) || "/data/downloads/desktop",
+    /** Files behind published bot pages, one directory per page id, served publicly under `/p/`. */
+    pagesDir: trim(env.DEXCLOUD_PAGES_DIR) || "/data/pages",
     dockerSocket: trim(env.DEXCLOUD_DOCKER_SOCKET) || "/var/run/docker.sock",
     cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "lunabot-cloud-home:local",
     cloudNetwork: trim(env.DEXCLOUD_CLOUD_NETWORK) || "dexcloud",

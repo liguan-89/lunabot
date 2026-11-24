@@ -23,7 +23,7 @@ describe("server update check", () => {
     expect(installKind({ desktopManaged: false, managed: false, serverRoot: root, exists: (path) => path === "/run/.containerenv" })).toBe("podman");
     expect(installKind({
       desktopManaged: false, managed: false, exists: none,
-      serverRoot: ["", "usr", "lib", "node_modules", "openmausbot", "dist-server"].join(sep),
+      serverRoot: ["", "usr", "lib", "node_modules", "lunabot", "dist-server"].join(sep),
     })).toBe("npm");
     expect(installKind({ desktopManaged: false, managed: false, serverRoot: root, exists: (path) => path === join(root, "..", ".git") })).toBe("git");
     expect(installKind({ desktopManaged: false, managed: false, serverRoot: root, exists: none })).toBe("unknown");

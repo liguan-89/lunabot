@@ -1,5 +1,5 @@
 // The device kind's MCP entry: tools/list follows the phone's apps and the bot's grant, a call becomes a job that a
-// scripted phone leases and answers, a send goes to the phone with no card of OpenMausBot's own (the person taps Send
+// scripted phone leases and answers, a send goes to the phone with no card of LunaBot's own (the person taps Send
 // there), a screen write holds on the outgoing-action card unless the turn is Full, and only the owner's own turns
 // reach a phone.
 import { mkdtempSync } from "node:fs";

@@ -53,6 +53,13 @@ const DELETE = {
     { ref: "e2", text: "删除", bounds: [0, 300, 400, 360] },
   ],
 };
+const ORDER = {
+  topPackage: APP,
+  elements: [
+    { ref: "e1", text: "合计 ¥39.90", bounds: [0, 800, 400, 840] },
+    { ref: "e2", text: "去结算", bounds: [0, 900, 400, 960] },
+  ],
+};
 
 function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: () => "off" | "log"; intent?: PhoneHostDeps["intent"] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-phone-host-"));
@@ -182,6 +189,28 @@ describe("the irreversible-control gate over a screen write", () => {
     const job = await answerNext(h.jobs, { ok: true, result: { steps: [], stopped: "done" } });
     expect(job).toMatchObject({ tool: "PHONE_UI_RUN", arguments: { commands } });
     expect((await run as PhoneToolResult).isError).toBeUndefined();
+  });
+
+  it("runs an approved 去结算, the grant bound to the total the screen showed", async () => {
+    const h = harness();
+    await see(h, ORDER);
+    const pending = h.handle(call("PHONE_UI_TAP", { ref: "e2" }));
+    const job = await answerNext(h.jobs, { ok: true, result: { tapped: true } });
+    expect(job).toMatchObject({ tool: "PHONE_UI_TAP", arguments: { ref: "e2" } });
+    expect((await pending as PhoneToolResult).isError).toBeUndefined();
+  });
+
+  it("logs the gate's refusal as an auto-denied outbound decision with the step's risk grade", async () => {
+    const h = harness();
+    await see(h, PAY);
+    const refused = await h.handle(call("PHONE_UI_TAP", { ref: "e1" })) as PhoneToolResult;
+    expect(refused).toMatchObject({ isError: true, structuredContent: { code: "denied" } });
+    await flushDecisionLog(h.dir);
+    const rows = readDecisions(h.dir, 10).filter((row) => row.tool === "mcp__device__PHONE_UI_TAP");
+    expect(rows).toEqual([expect.objectContaining({
+      threadId: TURN.threadId, botId: "chief", decision: "auto-denied", source: "outbound", rule: "phone-risk:irreversible",
+    })]);
+    expect(rows[0]!.summary).toContain("tapping 付款");
   });
 
   it("reads an enter key as a send and refuses it on a payment screen", async () => {

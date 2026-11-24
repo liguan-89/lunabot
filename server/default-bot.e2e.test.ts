@@ -1,4 +1,4 @@
-// MausBot on a real server in an isolated fixture: a new install's first bot, never deleted or archived, taken off the
+// LunaBot on a real server in an isolated fixture: a new install's first bot, never deleted or archived, taken off the
 // sidebar by its switch, and still holding a Chief's tools once another bot is the Chief. The fake engine holds its turn
 // open so this test can start the agents server that turn was handed and call create_bot the way the engine would.
 import { spawn } from "node:child_process";
@@ -56,7 +56,7 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
   };
   try {
     const [maus] = await bots();
-    // The fixture renames its starter; it is still the new install's MausBot.
+    // The fixture renames its starter; it is still the new install's LunaBot.
     expect(maus).toMatchObject({ color: "chrome", chiefOfStaff: true, defaultBot: {} });
     expect(maus.messages.map((message: any) => [message.kind, message.helperIntro])).toEqual([["options", true]]);
 
@@ -68,7 +68,7 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
     expect((await bots()).find((bot) => bot.id === maus.id)?.sidebarHidden).toBe(true);
     expect((await api("PATCH", `/api/bots/${maus.id}`, { sidebarHidden: false })).status).toBe(200);
     expect((await bots()).find((bot) => bot.id === maus.id)?.sidebarHidden).toBe(false);
-    // A hidden MausBot comes back when it is renamed or moved to a department, unless the change itself says hidden.
+    // A hidden LunaBot comes back when it is renamed or moved to a department, unless the change itself says hidden.
     const hiddenAfter = async (patch: Record<string, unknown>) => {
       expect((await api("PATCH", `/api/bots/${maus.id}`, { sidebarHidden: true })).status).toBe(200);
       expect((await api("PATCH", `/api/bots/${maus.id}`, patch)).status).toBe(200);
@@ -127,7 +127,7 @@ it("lets Luna Bot read the unread notifications and mark finished work read, not
   try {
     const [maus] = (await api("/api/bots")).bots as any[];
     const agents = await launch(maus.id);
-    expect(agents.env.LUNABOT_MAUSBOT).toBe("1");
+    expect(agents.env.LUNABOT_LUNABOT).toBe("1");
 
     const unread = await callTool(agents, "list_unread_notifications", {});
     expect(unread.result?.isError, text(unread)).toBeFalsy();
@@ -149,7 +149,7 @@ it("lets Luna Bot read the unread notifications and mark finished work read, not
 
     const { bot: clive } = await control(["new-bot", "--name", "Clive"]);
     const other = await launch(clive.id);
-    expect(other.env.LUNABOT_MAUSBOT).toBe("0");
+    expect(other.env.LUNABOT_LUNABOT).toBe("0");
     expect((await callTool(other, "list_unread_notifications", {})).result?.isError ?? true).toBe(true);
     expect((await callTool(other, "mark_notifications_read", { ids: ["no-such-notification"] })).result?.isError ?? true).toBe(true);
     await control(["interrupt", "--bot", maus.id]);

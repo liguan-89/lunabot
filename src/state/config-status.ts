@@ -149,6 +149,8 @@ export interface ConfigStatus {
   botMail?: { configured: boolean; address: string; botId: string };
   /** SMS relay over a paired phone: configured-or-not and the answering bot. Absent from older servers. */
   sms?: { configured: boolean; botId: string };
+  /** WeChat relay over a paired phone's own login: configured-or-not and the answering bot. Absent from older servers. */
+  wechat?: { configured: boolean; botId: string };
   /** Keys kept inside another setting (voice, decisions, pictures, live calls), by their desktop credential name. */
   savedKeys?: Partial<Record<NestedKeyName, SavedKey>>;
   imageGen?: {

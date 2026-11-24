@@ -64,7 +64,7 @@ function profiles(): Record<string, Record<string, string>> {
   all["skills+shared+voice+x+team"] = { ...all["skills+shared+voice+x"]!, LUNABOT_TEAM_PEOPLE: "1" };
   all["skills+shared+voice+x+team+images"] = { ...all["skills+shared+voice+x+team"]!, LUNABOT_IMAGE_GENERATION: "1" };
   all["default+legacy-switches"] = { ...all.default!, LUNABOT_ROOM_TURN: "1", LUNABOT_OWN_THREAD_CREATION: "1", LUNABOT_EXTERNAL_RUNTIME: "1", LUNABOT_ACTIVE_WAITS: "0" };
-  for (const name of ["default", "skills+shared+voice"]) all[`${name}+mausbot`] = { ...all[name]!, LUNABOT_MAUSBOT: "1" };
+  for (const name of ["default", "skills+shared+voice"]) all[`${name}+lunabot`] = { ...all[name]!, LUNABOT_LUNABOT: "1" };
   all["default+no-computer-pick"] = { ...all.default!, LUNABOT_COMPUTER_SELECTION: "0" };
   for (const name of ["default", "non-chief"]) all[`${name}+room`] = { ...all[name]!, LUNABOT_COMPUTER_SELECTION: "0", LUNABOT_ROOM: "1" };
   all["default+images"] = { ...all.default!, LUNABOT_IMAGE_GENERATION: "1" };
@@ -103,8 +103,8 @@ const BUDGET_BASELINE: Record<string, number> = {
   "skills+shared+voice+x": 18765,
   "skills+shared+voice+x+team": 18765,
   "default+legacy-switches": 17856,
-  "default+mausbot": 17908,
-  "skills+shared+voice+mausbot": 18756,
+  "default+lunabot": 17908,
+  "skills+shared+voice+lunabot": 18756,
   "default+no-computer-pick": 16652,
   "default+room": 16615,
   "non-chief+room": 16498,
@@ -117,7 +117,7 @@ type RpcAnswer = { id: number; result?: { tools?: unknown[]; content?: Array<{ t
 /** One freshly spawned proxy's raw answer lines to `requests`, in the order
  * asked, read off its stdout as they arrive. */
 async function proxyLines(entry: string, env: Record<string, string>, requests: Array<{ method: string; params?: unknown }>): Promise<string[]> {
-  // A developer shell (or an OpenMausBot turn running this suite) can carry
+  // A developer shell (or an LunaBot turn running this suite) can carry
   // LUNABOT_* switches of its own; the profile must be the only source.
   const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("LUNABOT_")));
   const child = spawn(process.execPath, [entry], {

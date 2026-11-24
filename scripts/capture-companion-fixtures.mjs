@@ -182,7 +182,7 @@ async function main() {
   // A fixture is a file people copy, so the live token is never written.
   write("pair-response", { ...paired.body, token: "omb_REDACTED" });
 
-  // A fresh harness seeds a protected "MausBot" starter that refuses both
+  // A fresh harness seeds a protected "LunaBot" starter that refuses both
   // delete and archive now. Create the fixture's own bot and leave the starter
   // out of the captured fleets below: the phone fixtures describe a one-bot
   // fleet, and the starter carries chief/default flags that would leak into

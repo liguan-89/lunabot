@@ -161,7 +161,7 @@ function fixture(options: Options = {}) {
   const card = () => chat.at(-1)?.card;
   const respond = (behavior: "allow" | "deny") => cards.respond({ botId: BOT, threadId: THREAD, requestId: card()!.requestId!, behavior }, true);
   const later = (ms: number) => { clock += ms; };
-  /** A fresh request service over the same chat, as after OpenMausBot restarts. */
+  /** A fresh request service over the same chat, as after LunaBot restarts. */
   const restart = () => { cards = service(); };
   return { cfg, config, mcpOAuth, deps, sender, call, post, stored, ref, listedOn, decided, lines, dataDir, setBusy, chat, card, respond, answers, decisions, later, signIns, restart };
 }

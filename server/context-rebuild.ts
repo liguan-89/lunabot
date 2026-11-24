@@ -90,7 +90,7 @@ export function toolReplayLine(tool: NonNullable<Message["tool"]>): string {
   const shown = left > 1 ? `${name}: ${clip(detail!.text, left, detail!.path)}` : clip(name, room);
   // A title and a detail can open a note between them. A replayed line speaks
   // for today's product: a defused legacy one-word header shows as lunabot.
-  const escaped = escapeNotes(shown).replace(/\((?:openmausbot|omb)\b/g, "(lunabot");
+  const escaped = escapeNotes(shown).replace(/\((?:lunabot|omb)\b/g, "(lunabot");
   return `[ran: ${escaped}${tail}`;
 }
 

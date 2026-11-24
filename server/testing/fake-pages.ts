@@ -1,4 +1,4 @@
-// A stand-in for MausBot's pages: the Admin's token route and the pages Worker, as one fetch. Pages, quotas and tokens
+// A stand-in for LunaBot's pages: the Admin's token route and the pages Worker, as one fetch. Pages, quotas and tokens
 // are kept in memory; nothing reaches the network.
 import { pagesHomeSignature } from "../pages/access.ts";
 

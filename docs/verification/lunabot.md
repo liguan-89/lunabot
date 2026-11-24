@@ -10,8 +10,8 @@ its menu's **Hide from sidebar** also turns off.
 
 ```sh
 pnpm exec vitest run server/default-bot.test.ts server/default-bot.e2e.test.ts \
-  server/team-setup-requests.test.ts src/lib/default-bot.test.ts src/components/MausBotWelcome.test.ts \
-  src/lib/mausbot-landing.test.ts
+  server/team-setup-requests.test.ts src/lib/default-bot.test.ts src/components/LunaBotWelcome.test.ts \
+  src/lib/lunabot-landing.test.ts
 ```
 
 - `server/default-bot.test.ts`: a fresh install gets one Luna Bot once; an
@@ -23,7 +23,7 @@ pnpm exec vitest run server/default-bot.test.ts server/default-bot.e2e.test.ts \
 - `server/default-bot.e2e.test.ts`: on a real fixture server, `DELETE
   /api/bots/:id` answers 409, the switch hides and shows it, and a Luna Bot that
   is not the Chief creates a bot with `create_bot`.
-- `server/mausbot-notifications.test.ts`, `server/drivers/agents-mausbot-tools.test.ts`
+- `server/lunabot-notifications.test.ts`, `server/drivers/agents-lunabot-tools.test.ts`
   and the second case of `server/default-bot.e2e.test.ts`: Luna Bot alone gets
   `list_unread_notifications` and `mark_notifications_read`, listed last.
   The list returns the unread feed (bounded, trimmed) with a lean per item;
@@ -39,12 +39,12 @@ pnpm exec vitest run server/default-bot.test.ts server/default-bot.e2e.test.ts \
   each within 2% of the same Chief's list without them.
 - `server/team-setup-requests.test.ts` ("Luna Bot's Chief-level team setup"):
   it adds specialists like a Chief but never changes who the Chief is.
-- `src/components/MausBotWelcome.test.ts` and `src/lib/default-bot.test.ts`:
+- `src/components/LunaBotWelcome.test.ts` and `src/lib/default-bot.test.ts`:
   the first-launch welcome shows once with its panel closed, Add pins it and Not
   now turns the switch off, a name, colour, look or uploaded picture is saved as
   the bot's own edit screen saves it, a renamed Luna Bot is still found by its
   mark, and a new install's intro offers only the setup still to do.
-- `src/lib/mausbot-landing.test.ts`: the rows already in the sidebar glide down
+- `src/lib/lunabot-landing.test.ts`: the rows already in the sidebar glide down
   by the new row's height, the avatar lands in the new slot and leaves nothing
   behind, reduced motion only fades the row in, and a hidden sidebar just adds it.
 - `server/default-bot.test.ts` also: a place with no Chief gets Luna Bot as its

@@ -1,10 +1,10 @@
-// What a person types or pastes to reach a MausBot server: a pairing link, an address, an address and a code typed
-// apart, or a code on its own. One reader for the desktop's Connect sheet, `openmausbot connect` and the MCP bridge.
+// What a person types or pastes to reach a LunaBot server: a pairing link, an address, an address and a code typed
+// apart, or a code on its own. One reader for the desktop's Connect sheet, `lunabot connect` and the MCP bridge.
 
 export const PAIRING_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 export const PAIRING_CODE_LENGTH = 12;
 const PAIRING_CREDENTIAL = /^omb_pair_[A-Za-z0-9_-]{43}$/;
-/** The port `openmausbot serve` listens on, used in examples only. */
+/** The port `lunabot serve` listens on, used in examples only. */
 export const EXAMPLE_ADDRESS = "http://192.168.1.20:8799";
 
 const bareHost = (host) => String(host ?? "").trim().toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
@@ -70,7 +70,7 @@ export function formatPairingCode(code) {
 /**
  * A pairing code as typed: `{ kind: "code", code }` (formatted XXXX-XXXX-XXXX), the high-entropy credential a QR may
  * carry, nothing, or the wrong kind of secret with what it is: an emailed sign-in code (8 digits), a code from an older
- * MausBot (6 digits), a script key (`omb_sess_…`), or not a code at all.
+ * LunaBot (6 digits), a script key (`omb_sess_…`), or not a code at all.
  */
 export function readPairingCode(raw) {
   const value = String(raw ?? "").trim();

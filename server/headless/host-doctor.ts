@@ -130,7 +130,7 @@ function userNamespaceCheck(probe: HostProbe, connector: ConnectorReport | null)
     return fail("userns", "Bot sandbox: this kernel has no user namespaces", "use a stock Ubuntu or Debian kernel (CONFIG_USER_NS)");
   }
   if (sysctl("kernel.apparmor_restrict_unprivileged_userns") === "1") {
-    // A MausBot home runs under its own AppArmor profile (omb-home-narrow), which allows them for that container alone.
+    // A LunaBot home runs under its own AppArmor profile (omb-home-narrow), which allows them for that container alone.
     if (connector?.checks.some((check) => check.id === "box" && check.ok)) {
       return ok("userns", "Unprivileged user namespaces: AppArmor restricts them here, and Luna Bot's home has them through its own AppArmor profile");
     }

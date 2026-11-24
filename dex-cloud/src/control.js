@@ -3,6 +3,7 @@ import {
   cleanInstallationClientId,
   cleanVersion,
   isInstallationId,
+  isVersion,
   newInstallationCredential,
   newUuid,
   randomBytesB64u,
@@ -362,6 +363,11 @@ route("POST", "/v1/installations/self/relay-token", async (ctx) => {
     installationId: credential.installation_id,
     nowSeconds,
   });
+  // The refresh doubles as the desktop's heartbeat: the account page should
+  // show the version that actually rings home, not the one that registered.
+  // cleanVersion papers an absent report over as 0.0.0 — only a real report
+  // may move the stored version.
+  ctx.store.installationSeen(credential.installation_id, isVersion(ctx.body.appVersion) ? appVersion : null);
   ctx.log(`relay token issued for installation ${credential.installation_id.slice(0, 8)} (${appVersion})`);
   json(ctx.res, 200, {
     token: signed.token,

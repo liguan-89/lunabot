@@ -53,7 +53,7 @@ async function until(check: () => boolean, ms = 5_000): Promise<void> {
 async function server(options: { image?: string; seats?: number | null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-customer-run-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
-  const dataDir = join(dir, "opt-openmausbot", "data");
+  const dataDir = join(dir, "opt-lunabot", "data");
   const updateDir = join(dir, "update");
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(updateDir);
@@ -64,7 +64,7 @@ async function server(options: { image?: string; seats?: number | null } = {}) {
   const image = options.image ?? RUNNING;
   for (const [ref, version] of [[image, "v0.1.151"], [NEXT, "v0.1.152"], [OLDER, "v0.1.150"], [UNNAMED, null], ["caddy:2", null]] as const) docker.publish(ref, version);
   for (const ref of [image, "caddy:2"]) await docker.pull(ref);
-  const compose = (service: string) => ({ "com.docker.compose.project": "openmausbot", "com.docker.compose.service": service });
+  const compose = (service: string) => ({ "com.docker.compose.project": "lunabot", "com.docker.compose.service": service });
   const home = { answers: true, seats: options.seats === undefined ? 7 : options.seats, execs: [] as string[][] };
   docker.onExec = (_container, command) => {
     home.execs.push(command);
@@ -72,7 +72,7 @@ async function server(options: { image?: string; seats?: number | null } = {}) {
     return {
       code: 0,
       output: [
-        JSON.stringify({ app: "openmausbot", pid: 41, owner: EMAIL, box: "on" }),
+        JSON.stringify({ app: "lunabot", pid: 41, owner: EMAIL, box: "on" }),
         JSON.stringify({ environmentId: "env-1", label: SERVER_NAME, version: "0.1.151", admin: EMAIL }),
         home.seats === null ? JSON.stringify({ error: "Not found" }) : JSON.stringify({ seats: home.seats, people: [EMAIL] }),
       ].map((answer) => `${answer}\n\u001e\n`).join(""),
@@ -86,10 +86,10 @@ async function server(options: { image?: string; seats?: number | null } = {}) {
     onStep: ({ id, step }) => steps.push(`${id} ${step}`),
   });
   const install = async () => {
-    await docker.createContainer("openmausbot-omb-1", { Image: image, Labels: compose("omb"), HostConfig: { Mounts: [{ Type: "bind", Source: dataDir, Target: "/data" }] } });
-    await docker.createContainer("openmausbot-caddy-1", { Image: "caddy:2", Labels: compose("caddy"), HostConfig: { NetworkMode: "container:omb" } });
-    await docker.startContainer("openmausbot-omb-1");
-    await docker.startContainer("openmausbot-caddy-1");
+    await docker.createContainer("lunabot-omb-1", { Image: image, Labels: compose("omb"), HostConfig: { Mounts: [{ Type: "bind", Source: dataDir, Target: "/data" }] } });
+    await docker.createContainer("lunabot-caddy-1", { Image: "caddy:2", Labels: compose("caddy"), HostConfig: { NetworkMode: "container:omb" } });
+    await docker.startContainer("lunabot-omb-1");
+    await docker.startContainer("lunabot-caddy-1");
     docker.folder(dataDir).files.set("chats.json", WRITTEN);
     docker.calls.length = 0;
   };
@@ -109,15 +109,15 @@ function desk(fixture: Awaited<ReturnType<typeof server>>, options: { mode?: "cu
   return { desk: made, ran, lines };
 }
 
-describe("a customer-run server: the jobs MausBot may run", () => {
-  it("lists seven kinds for MausBot and two more for the server's own root, and for neither the two that move the data", () => {
+describe("a customer-run server: the jobs LunaBot may run", () => {
+  it("lists seven kinds for LunaBot and two more for the server's own root, and for neither the two that move the data", () => {
     expect([...CUSTOMER_RUN_JOBS].sort()).toEqual(["backup", "host-health", "restart", "start", "status", "stop", "update"]);
     expect([...CUSTOMER_RUN_LOCAL_JOBS].sort()).toEqual(["restore", "self-update"]);
     expect(JOB_TYPES.filter((type) => customerRunRefusal(type, "admin") !== null)).toEqual(["restore", "export-disk", "import-disk", "self-update"]);
     expect(JOB_TYPES.filter((type) => customerRunRefusal(type, "local") !== null)).toEqual(["export-disk", "import-disk"]);
   });
 
-  it("refuses MausBot replacing the connector or putting old data back, at each of the three checks, and lets the server's own root do both", async () => {
+  it("refuses LunaBot replacing the connector or putting old data back, at each of the three checks, and lets the server's own root do both", async () => {
     const jobs = [{ id: "c1", type: "self-update", args: { image: CONNECTOR } }, { id: "r1", type: "restore", args: { backupId: "20261028-104512-3fa9" } }] as Job[];
     const fixture = await server();
     await fixture.install();
@@ -154,13 +154,13 @@ describe("a customer-run server: the jobs MausBot may run", () => {
     expect(checkCustomerRunJob({ id: "j2", type: "shell", args: { command: "cat /data" } }, "admin")).toMatchObject({ ok: false, code: "refused_by_mode" });
   });
 
-  it("refuses a start that names an image or settings, and an update to anything but MausBot's server image by digest", () => {
+  it("refuses a start that names an image or settings, and an update to anything but LunaBot's server image by digest", () => {
     const env = { LUNABOT_CLOUD_ROLE: "team", LUNABOT_CLOUD_MACHINE_ID: "m", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test", LUNABOT_PUBLIC_URL: "https://acme.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: "s".repeat(40) };
     expect(checkJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } })).toMatchObject({ ok: true });
     expect(checkCustomerRunJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } }, "admin")).toMatchObject({ ok: false, id: "s1", code: "refused_by_mode" });
     expect(checkCustomerRunJob({ id: "s2", type: "start" }, "admin")).toEqual({ ok: true, job: { id: "s2", type: "start", args: {} } });
     expect(checkCustomerRunJob({ id: "u1", type: "update", args: { image: NEXT } }, "admin")).toEqual({ ok: true, job: { id: "u1", type: "update", args: { image: NEXT } } });
-    for (const image of [CLOUD_HOME, RUNNING, RUNNING_RENAMED, "ghcr.io/someone-else/openmausbot@sha256:" + "a".repeat(64)]) {
+    for (const image of [CLOUD_HOME, RUNNING, RUNNING_RENAMED, "ghcr.io/someone-else/lunabot@sha256:" + "a".repeat(64)]) {
       expect(checkCustomerRunJob({ id: "u2", type: "update", args: { image } }, "admin"), image).toMatchObject({ ok: false, code: "invalid_args" });
     }
     expect(checkCustomerRunJob({ id: "u3", type: "update", args: { image: NEXT, env } }, "admin")).toMatchObject({ ok: false, code: "invalid_args" });
@@ -204,7 +204,7 @@ describe("a customer-run server: the jobs MausBot may run", () => {
 });
 
 describe("a customer-run server: pausing remote management", () => {
-  it("refuses every job from MausBot while paused, logs each, and still runs the admin's own", async () => {
+  it("refuses every job from LunaBot while paused, logs each, and still runs the admin's own", async () => {
     const fixture = await server();
     await fixture.install();
     let paused = true;
@@ -247,12 +247,12 @@ describe("a customer-run server: what leaves it", () => {
     expect(parseHomeReads("not json\n\u001e\n{\"version\":\"<script>\"}\n\u001e\n{\"seats\":\"seven\"}\n\u001e\n")).toEqual({ answers: false, version: null, seats: null, box: null });
     expect(parseHomeReads("")).toEqual({ answers: false, version: null, seats: null, box: null });
     // On or off, nothing else: a server without the field, or with anything else in it, says nothing about its box.
-    expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot", box: "off" })}\n\u001e\n`).box).toBe("off");
-    expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot", box: { checks: "33/33" } })}\n\u001e\n`).box).toBeNull();
+    expect(parseHomeReads(`${JSON.stringify({ app: "lunabot", box: "off" })}\n\u001e\n`).box).toBe("off");
+    expect(parseHomeReads(`${JSON.stringify({ app: "lunabot", box: { checks: "33/33" } })}\n\u001e\n`).box).toBeNull();
     // this fleet's server answers its own generation's app name
     expect(parseHomeReads(`${JSON.stringify({ app: "lunabot" })}\n\u001e\n`).answers).toBe(true);
     expect(parseHomeReads(`${JSON.stringify({ app: "dexbot" })}\n\u001e\n`).answers).toBe(true);
-    expect(parseHomeReads(`${JSON.stringify({ app: "openmausbot" })}\n\u001e\n`).answers).toBe(true);
+    expect(parseHomeReads(`${JSON.stringify({ app: "lunabot" })}\n\u001e\n`).answers).toBe(true);
     expect(parseHomeReads(`${JSON.stringify({ app: "someone-else" })}\n\u001e\n`).answers).toBe(false);
   });
 
@@ -312,7 +312,7 @@ describe("a customer-run server: the home its owner installed", () => {
   it("attaches to the Compose install, and says in plain words why it cannot when there is none or it was built here", async () => {
     const fixture = await server();
     expect(await standaloneServerPresent(fixture.docker)).toBe(false);
-    expect(await findInstall(fixture.docker)).toEqual({ ok: false, why: "MausBot is not installed on this server yet. Install it first with the server's install command, then connect it." });
+    expect(await findInstall(fixture.docker)).toEqual({ ok: false, why: "LunaBot is not installed on this server yet. Install it first with the server's install command, then connect it." });
     await fixture.install();
     expect(await standaloneServerPresent(fixture.docker)).toBe(true);
     expect(await findInstall(fixture.docker)).toMatchObject({ ok: true, install: { dataDir: fixture.dataDir } });
@@ -321,13 +321,13 @@ describe("a customer-run server: the home its owner installed", () => {
     expect(await findInstall(built.docker)).toMatchObject({ ok: false, why: expect.stringContaining("was built here") });
   });
 
-  it("will not be enrolled as a server MausBot runs where its owner's MausBot is already installed: that would start a second one", async () => {
+  it("will not be enrolled as a server LunaBot runs where its owner's LunaBot is already installed: that would start a second one", async () => {
     const fixture = await server();
     expect(await enrolmentRefusal("operated", fixture.docker)).toBeNull();
-    expect(await enrolmentRefusal("customer-run", fixture.docker)).toContain("MausBot is not installed on this server yet.");
+    expect(await enrolmentRefusal("customer-run", fixture.docker)).toContain("LunaBot is not installed on this server yet.");
     await fixture.install();
     expect(await enrolmentRefusal("operated", fixture.docker)).toBe(
-      "MausBot already runs on this server, installed by its owner. Connecting it this way would start a second MausBot beside it. Run the install command again and it connects the one that is here, keeping its data.",
+      "LunaBot already runs on this server, installed by its owner. Connecting it this way would start a second LunaBot beside it. Run the install command again and it connects the one that is here, keeping its data.",
     );
     expect(await enrolmentRefusal("customer-run", fixture.docker)).toBeNull();
   });
@@ -336,15 +336,15 @@ describe("a customer-run server: the home its owner installed", () => {
     const fixture = await server();
     await fixture.install();
     expect(await fixture.adopted.stop()).toEqual({ home: { state: "stopped", image: RUNNING, health: null } });
-    expect(fixture.docker.calls).toEqual(["stop openmausbot-caddy-1", "stop openmausbot-omb-1"]);
+    expect(fixture.docker.calls).toEqual(["stop lunabot-caddy-1", "stop lunabot-omb-1"]);
     fixture.docker.calls.length = 0;
     expect(await fixture.adopted.start()).toMatchObject({ home: { state: "running", health: { ok: true, version: "0.1.151" } } });
-    expect(fixture.docker.calls).toEqual(["start openmausbot-omb-1", "exec openmausbot-omb-1", "start openmausbot-caddy-1"]);
+    expect(fixture.docker.calls).toEqual(["start lunabot-omb-1", "exec lunabot-omb-1", "start lunabot-caddy-1"]);
     fixture.docker.calls.length = 0;
     await fixture.adopted.restart();
     expect(fixture.docker.calls.filter((call) => /^(create|rm|rename|pull|rmi) /.test(call))).toEqual([]);
-    expect(fixture.docker.container("mausbot-home")).toBeNull();
-    expect(fixture.docker.volumes.has("mausbot-data")).toBe(false);
+    expect(fixture.docker.container("lunabot-home")).toBeNull();
+    expect(fixture.docker.volumes.has("lunabot-data")).toBe(false);
   });
 
   it("says the home did not answer when it does not, within the wait", async () => {
@@ -360,19 +360,19 @@ describe("a customer-run server: the home its owner installed", () => {
     const fixture = await server();
     await fixture.install();
     const { backup } = await fixture.adopted.backup("b1", "local");
-    expect(fixture.docker.files(`mausbot-backup-${backup.id}`)).toEqual({ "chats.json": WRITTEN });
-    expect(fixture.docker.container("openmausbot-omb-1")?.status).toBe("running");
+    expect(fixture.docker.files(`lunabot-backup-${backup.id}`)).toEqual({ "chats.json": WRITTEN });
+    expect(fixture.docker.container("lunabot-omb-1")?.status).toBe("running");
     fixture.docker.folder(fixture.dataDir).files.set("chats.json", "changed since");
     fixture.docker.folder(fixture.dataDir).files.set("new.json", "made since");
     expect(await fixture.adopted.restore("r1", backup.id)).toMatchObject({ backupId: backup.id, home: { state: "running" } });
     expect(Object.fromEntries(fixture.docker.folder(fixture.dataDir).files)).toEqual({ "chats.json": WRITTEN });
-    expect(fixture.docker.files("mausbot-snapshot")).toEqual({ "chats.json": "changed since", "new.json": "made since" });
+    expect(fixture.docker.files("lunabot-snapshot")).toEqual({ "chats.json": "changed since", "new.json": "made since" });
     expect(fixture.steps).toEqual(["b1 stop", "b1 copy", "r1 stop", "r1 snapshot", "r1 copy", "r1 start"]);
     expect(fixture.state.home().operation).toBeNull();
     await expect(fixture.adopted.restore("r2", "20200101-000000-aaaa")).rejects.toMatchObject({ code: "not_found" });
   });
 
-  it("keeps three backups for each sender, so MausBot's backups never push out one the owner made", async () => {
+  it("keeps three backups for each sender, so LunaBot's backups never push out one the owner made", async () => {
     const fixture = await server();
     await fixture.install();
     const mine = (await fixture.adopted.backup("mine", "local")).backup.id;
@@ -383,7 +383,7 @@ describe("a customer-run server: the home its owner installed", () => {
     }
     const kept = (await fixture.adopted.copies()).backups.map((copy) => copy.id).sort();
     expect(kept).toEqual([mine, ...theirs.slice(2)].sort());
-    expect(fixture.docker.files(`mausbot-backup-${mine}`)).toEqual({ "chats.json": WRITTEN });
+    expect(fixture.docker.files(`lunabot-backup-${mine}`)).toEqual({ "chats.json": WRITTEN });
   });
 
   it("puts the data back as it was when the connector restarts in the middle of a restore", async () => {
@@ -392,13 +392,13 @@ describe("a customer-run server: the home its owner installed", () => {
     const { backup } = await fixture.adopted.backup("b1", "local");
     const before = { "chats.json": "the newest chats" };
     fixture.docker.folder(fixture.dataDir).files.set("chats.json", before["chats.json"]);
-    await fixture.docker.createVolume("mausbot-snapshot", { "com.mausbot.role": "snapshot" });
-    fixture.docker.volume("mausbot-snapshot").files.set("chats.json", before["chats.json"]);
+    await fixture.docker.createVolume("lunabot-snapshot", { "com.lunabot.role": "snapshot" });
+    fixture.docker.volume("lunabot-snapshot").files.set("chats.json", before["chats.json"]);
     fixture.docker.folder(fixture.dataDir).files.clear();
-    fixture.state.saveHome({ ...fixture.state.home(), operation: { jobId: "r9", type: "restore", phase: "copy", previousImage: RUNNING, nextImage: null, target: `mausbot-backup-${backup.id}`, dataAtRisk: true, wasRunning: true, startedAt: 1 } });
+    fixture.state.saveHome({ ...fixture.state.home(), operation: { jobId: "r9", type: "restore", phase: "copy", previousImage: RUNNING, nextImage: null, target: `lunabot-backup-${backup.id}`, dataAtRisk: true, wasRunning: true, startedAt: 1 } });
     expect(await fixture.adopted.recover()).toEqual({ id: "r9", ok: false, error: { code: "interrupted", message: "The connector restarted during this restore; the data was put back as it was before, and the home was started again." } });
     expect(Object.fromEntries(fixture.docker.folder(fixture.dataDir).files)).toEqual(before);
-    expect(fixture.docker.container("openmausbot-omb-1")?.status).toBe("running");
+    expect(fixture.docker.container("lunabot-omb-1")?.status).toBe("running");
   });
 });
 
@@ -418,7 +418,7 @@ describe("a customer-run server: replacing the connector", () => {
 });
 
 describe("a customer-run server: updates go to the server's own updater", () => {
-  /** Stands in for mausbot-update-runner.sh: reads the request the connector left and answers with update.sh's exit code. */
+  /** Stands in for lunabot-update-runner.sh: reads the request the connector left and answers with update.sh's exit code. */
   const updater = (fixture: Awaited<ReturnType<typeof server>>, code: number, seen: string[] = []) => {
     writeFileSync(join(fixture.updateDir, UPDATE_FILES.runner), "1\n");
     const sleep = (fixture.adopted as unknown as { sleep: (ms: number) => Promise<void> }).sleep;
@@ -468,7 +468,7 @@ describe("a customer-run server: updates go to the server's own updater", () => 
     expect(fixture.docker.calls.filter((call) => !call.startsWith("pull "))).toEqual([]);
   });
 
-  it("maps each way the updater ends to a code, and refuses when the server has no updater or the image is not MausBot's", async () => {
+  it("maps each way the updater ends to a code, and refuses when the server has no updater or the image is not LunaBot's", async () => {
     for (const [code, expected] of [[1, "update_rolled_back"], [2, "rollback_failed"], [3, "busy"], [4, "update_not_started"], [5, "older_version"], [127, "update_unavailable"], [9, "docker"]] as const) {
       const fixture = await server();
       await fixture.install();
@@ -494,7 +494,7 @@ describe("a customer-run server: updates go to the server's own updater", () => 
   });
 });
 
-describe("a customer-run server: MausBot's requests", () => {
+describe("a customer-run server: LunaBot's requests", () => {
   async function connected(options: { paused?: () => boolean } = {}) {
     const admin = new FakeAdmin();
     await admin.listen();
@@ -525,7 +525,7 @@ describe("a customer-run server: MausBot's requests", () => {
   }
   const bodyOf = (answer: { body: string }) => JSON.parse(answer.body) as unknown;
 
-  it("tells MausBot its mode when it enrols and in every heartbeat, and an operated server's enrolment is unchanged", async () => {
+  it("tells LunaBot its mode when it enrols and in every heartbeat, and an operated server's enrolment is unchanged", async () => {
     const { admin, record } = await connected();
     expect(admin.boxes.get(record.boxId)!.enroll.mode).toBe("customer-run");
     expect(record.mode).toBe("customer-run");
@@ -582,7 +582,7 @@ describe("a customer-run server: MausBot's requests", () => {
 
   it("refuses a pairing, the team summary, the home's own routes and anything with a body, and logs each refusal", async () => {
     const { admin, audits } = await connected();
-    const pairing = JSON.stringify({ label: "MausBot dashboard", member: { email: EMAIL, role: "admin" } });
+    const pairing = JSON.stringify({ label: "LunaBot dashboard", member: { email: EMAIL, role: "admin" } });
     const refused: [string, string, string?][] = [
       ["POST", "/api/cloud/pairing", pairing], ["GET", "/api/cloud/team/admin"], ["GET", "/api/cloud/health"], ["GET", "/api/health"], ["GET", "/api/seats"],
       ["GET", "/api/bots"], ["GET", "/v1/seats?who=1"], ["POST", "/v1/seats", "{}"], ["GET", "/v1/seats", "{}"], ["DELETE", "/v1/health"], ["GET", "/"],
@@ -609,7 +609,7 @@ describe("a customer-run server: MausBot's requests", () => {
     const { admin, record, refusals, handled } = await connected();
     admin.send({ job: admin.signJob(record.boxId, { id: "x1", type: "export-disk", args: {} }) });
     expect(await admin.replyTo("x1", 5_000)).toEqual({
-      id: "x1", ok: false, error: { code: "refused_by_mode", message: "This server is run by its owner, and this is not a job MausBot may run on it. The server's admin can read the reason with: mausbot-connector audit" },
+      id: "x1", ok: false, error: { code: "refused_by_mode", message: "This server is run by its owner, and this is not a job LunaBot may run on it. The server's admin can read the reason with: mausbot-connector audit" },
     });
     admin.send({ job: admin.signJob(record.boxId, { id: "x2", type: "import-disk", args: { url: "https://storage.example.test/d.tar.gz" } }) });
     expect(await admin.replyTo("x2", 5_000)).toMatchObject({ ok: false, error: { code: "refused_by_mode" } });
@@ -629,7 +629,7 @@ describe("a customer-run server: MausBot's requests", () => {
     expect(handled.map((job) => job.type)).toEqual(["stop"]);
   });
 
-  it("leaves a server MausBot runs as it was: export-disk reaches the desk, and replies and heartbeats pass as made", async () => {
+  it("leaves a server LunaBot runs as it was: export-disk reaches the desk, and replies and heartbeats pass as made", async () => {
     const admin = new FakeAdmin();
     await admin.listen();
     cleanups.push(() => admin.close());
@@ -643,7 +643,7 @@ describe("a customer-run server: MausBot's requests", () => {
       identity: () => record, log: () => {}, heartbeatMs: 100, random: () => 0, nextCount: () => ++count, heartbeat: async () => beat,
       handle: async (job) => {
         handled.push(job);
-        return { id: job.id, ok: false, error: { code: "transfer_failed", message: `The data could not be sent to MausBot (${WRITTEN}).` } };
+        return { id: job.id, ok: false, error: { code: "transfer_failed", message: `The data could not be sent to LunaBot (${WRITTEN}).` } };
       },
       refused: (refusal) => refusals.push(refusal),
     });
@@ -651,7 +651,7 @@ describe("a customer-run server: MausBot's requests", () => {
     agent.start();
     await until(() => agent.connected);
     admin.send({ job: admin.signJob(record.boxId, { id: "x1", type: "export-disk", args: {} }) });
-    expect(await admin.replyTo("x1", 5_000)).toEqual({ id: "x1", ok: false, error: { code: "transfer_failed", message: `The data could not be sent to MausBot (${WRITTEN}).` } });
+    expect(await admin.replyTo("x1", 5_000)).toEqual({ id: "x1", ok: false, error: { code: "transfer_failed", message: `The data could not be sent to LunaBot (${WRITTEN}).` } });
     expect(handled.map((job) => job.type)).toEqual(["export-disk"]);
     expect(refusals).toEqual([]);
     await until(() => admin.heartbeats.length >= 1);

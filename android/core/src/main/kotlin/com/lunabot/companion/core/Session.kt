@@ -363,7 +363,7 @@ class Session(
                     descriptor = e2eDescriptor,
                     credential = credential,
                     deviceName = deviceName,
-                    app = "mausbot-android",
+                    app = "lunabot-android",
                     directWsUrl = invited.e2eDirectUrl(routeAccess),
                     pairRequestId = requestId,
                 )

@@ -128,13 +128,13 @@ describe("environment identity", () => {
     expect(environmentDescriptor({ environmentId: "abc", desktopManaged: false }).capabilities.selfUpdate).toBe("operator");
     expect(environmentDescriptor({ environmentId: "abc", desktopManaged: true }).capabilities, "the desktop updates its own server").not.toHaveProperty("install");
     const none = () => false;
-    expect(serverInstall({}, "/home/me/.npm/_npx/1a2b/node_modules/openmausbot/dist-server/index.js", none)).toBe("npx");
+    expect(serverInstall({}, "/home/me/.npm/_npx/1a2b/node_modules/lunabot/dist-server/index.js", none)).toBe("npx");
     expect(serverInstall({}, "/home/me/.npm/_npx/1a2b/node_modules/dexbot/dist-server/index.js", none)).toBe("npx");
     expect(serverInstall({}, "/home/me/.npm/_npx/1a2b/node_modules/lunabot/dist-server/index.js", none)).toBe("npx");
-    expect(serverInstall({ LUNABOT_CLI_PREFIX: "docker compose exec omb openmausbot" }, "/app/dist-server/index.js", none)).toBe("docker");
+    expect(serverInstall({ LUNABOT_CLI_PREFIX: "docker compose exec omb lunabot" }, "/app/dist-server/index.js", none)).toBe("docker");
     expect(serverInstall({}, "/app/dist-server/index.js", () => true)).toBe("docker");
     expect(serverInstall({}, "/repo/server/index.ts", none)).toBe("source");
-    expect(serverInstall({}, "/usr/lib/node_modules/openmausbot/dist-server/index.js", none)).toBe("global");
+    expect(serverInstall({}, "/usr/lib/node_modules/lunabot/dist-server/index.js", none)).toBe("global");
     expect(environmentDescriptor({ environmentId: "abc", desktopManaged: true, sharedComputers: false }).capabilities)
       .not.toHaveProperty("sharedComputers");
     expect(environmentDescriptor({ environmentId: "abc", desktopManaged: true, sharedComputers: true }).capabilities)

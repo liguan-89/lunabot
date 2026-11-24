@@ -40,7 +40,7 @@ class E2eHttpClientTest {
                 relays = listOf("cloud.dexai.vip"),
             ),
             token = "omb_pair_" + "A".repeat(43),
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
     }
 

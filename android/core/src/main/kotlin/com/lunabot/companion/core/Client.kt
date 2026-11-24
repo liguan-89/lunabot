@@ -152,7 +152,7 @@ class CompanionClient(
     val connection: Connection,
     private val token: String?,
     baseClient: OkHttpClient = OkHttpClient(),
-    appLabel: String = "mausbot-android",
+    appLabel: String = "lunabot-android",
     routeAccess: RouteAccess = RouteAccess.ALL,
 ) {
     /**

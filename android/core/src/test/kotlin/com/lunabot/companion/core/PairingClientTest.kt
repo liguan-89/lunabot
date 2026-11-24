@@ -41,7 +41,7 @@ class PairingClientTest {
             name = "Mac",
             host = "mac.tail1234.ts.net",
             port = 8810,
-            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42", "openmausbot-aa.local"),
+            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42", "lunabot-aa.local"),
         )
 
         val error = assertFailsWith<PairingRouteError> {
@@ -332,7 +332,7 @@ class PairingClientTest {
         val local = endpoint("http://192.168.1.42:8810", CompanionEndpointKind.LAN, 0)
         val hosted = endpoint("https://mac.companion.example", CompanionEndpointKind.HOSTED, 100)
         val unchosenBonjour = endpoint(
-            "http://openmausbot-aa.local:8810",
+            "http://lunabot-aa.local:8810",
             CompanionEndpointKind.BONJOUR,
             200,
         )
@@ -448,7 +448,7 @@ class PairingClientTest {
 
     private companion object {
         const val CREDENTIAL = "omb_pair_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        const val HEALTH = """{"app":"openmausbot","pid":42,"static":true}"""
+        const val HEALTH = """{"app":"lunabot","pid":42,"static":true}"""
         const val PAIRED =
             """{"token":"omb_device","device":{"id":"d","name":"Pixel","createdAt":1,"lastSeenAt":1},"serverName":"Mac","hosts":["192.168.1.42"]}"""
     }

@@ -178,8 +178,8 @@ test("a Documents/DEX BOT folder from before the rename moves to Documents/Luna 
   assert.equal(service.state().outputs.dir, join(documents, "Luna Bot"));
 });
 
-test("a Documents/DexBot or Documents/MausBot folder moves to Documents/Luna Bot the same way", async (t) => {
-  for (const old of ["DexBot", "MausBot"]) {
+test("a Documents/DexBot or Documents/LunaBot folder moves to Documents/Luna Bot the same way", async (t) => {
+  for (const old of ["DexBot", "LunaBot"]) {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-rename-")));
     const home = join(dir, "home");
     const documents = join(home, "Documents");

@@ -52,7 +52,7 @@ beforeEach(() => {
   fetchMock.mockImplementation(async (input, init) => {
     const url = String(input);
     const local = `http://127.0.0.1:${options.port}`;
-    if (url === `${local}/api/health`) return Response.json({ app: "openmausbot", pid: 12345 });
+    if (url === `${local}/api/health`) return Response.json({ app: "lunabot", pid: 12345 });
     if (url === `${local}/api/auth/pairing`) {
       if (init?.method === "POST") return Response.json({ code, expiresAt: Date.now() + 300_000, url: `${advertisedOrigin}/pair#code=${code}` });
       return Response.json({ pairings: [], publicUrl });
@@ -121,7 +121,7 @@ describe("lunabot pair", () => {
     publicUrl = null;
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/api/health")) return Response.json({ app: "openmausbot", pid: 12345 });
+      if (url.endsWith("/api/health")) return Response.json({ app: "lunabot", pid: 12345 });
       if (url.endsWith("/api/auth/pairing")) return init?.method === "POST" ? Response.json({ code, expiresAt: Date.now() + 600_000, url: null }) : Response.json({ pairings: [], publicUrl: null });
       throw new Error(`Unexpected fixture request: ${url}`);
     });
@@ -144,7 +144,7 @@ describe("the phone-app link `lunabot pair --phone android` scans", () => {
   const pairingResponse = (fields: Record<string, unknown>) => {
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url === `http://127.0.0.1:${options.port}/api/health`) return Response.json({ app: "openmausbot", pid: 12345 });
+      if (url === `http://127.0.0.1:${options.port}/api/health`) return Response.json({ app: "lunabot", pid: 12345 });
       if (url === `http://127.0.0.1:${options.port}/api/auth/pairing`) {
         return init?.method === "POST" ? Response.json({ code, expiresAt: Date.now() + 300_000, credential, serverName, ...fields }) : Response.json({ pairings: [], publicUrl: null });
       }
@@ -172,7 +172,7 @@ describe("pair --ttl", () => {
     const day = Date.now() + 86_400_000;
     fetchMock.mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url.endsWith("/api/health")) return Response.json({ app: "openmausbot", pid: 12345 });
+      if (url.endsWith("/api/health")) return Response.json({ app: "lunabot", pid: 12345 });
       if (url.endsWith("/api/auth/pairing")) return init?.method === "POST" ? Response.json({ code, expiresAt: day, url: null }) : Response.json({ pairings: [], publicUrl: null });
       throw new Error(`Unexpected fixture request: ${url}`);
     });

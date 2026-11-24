@@ -270,4 +270,44 @@ describe("untrusted phone content", () => {
     expect((element.text as string).split("</untrusted>")).toHaveLength(2);
     expect(element.description).toBe(element.text);
   });
+
+  it("marks a calendar entry's own words, keeping its id and times raw", () => {
+    const { text } = shown({
+      count: 1,
+      events: [{ id: "7", title: "Dentist", start: "2026-11-24T09:00:00+08:00", end: "2026-11-24T10:00:00+08:00", allDay: false, calendar: "Home", location: "Clinic" }],
+      event: { id: "7", title: "Dentist", notes: "bring the card", calendar: "Work" },
+    });
+    expect(text.events).toEqual([{
+      id: "7", title: "<untrusted>\nDentist\n</untrusted>", start: "2026-11-24T09:00:00+08:00", end: "2026-11-24T10:00:00+08:00",
+      allDay: false, calendar: "<untrusted>\nHome\n</untrusted>", location: "<untrusted>\nClinic\n</untrusted>",
+    }]);
+    expect(text.event).toEqual({ id: "7", title: "<untrusted>\nDentist\n</untrusted>", notes: "<untrusted>\nbring the card\n</untrusted>", calendar: "<untrusted>\nWork\n</untrusted>" });
+  });
+
+  it("marks a contact's names, notes, numbers and addresses, on the list row and the detail record", () => {
+    const { text } = shown({
+      contacts: [{ id: "1", name: "Alice", hasPhone: true }],
+      contact: { id: "1", displayName: "Alice", givenName: "Alice", familyName: "Smith", organization: "Acme", notes: "met at conf", phones: ["+15550100", "+15550101"], emails: ["a@b.c"] },
+    });
+    expect(text.contacts).toEqual([{ id: "1", name: "<untrusted>\nAlice\n</untrusted>", hasPhone: true }]);
+    expect(text.contact).toEqual({
+      id: "1", displayName: "<untrusted>\nAlice\n</untrusted>", givenName: "<untrusted>\nAlice\n</untrusted>",
+      familyName: "<untrusted>\nSmith\n</untrusted>", organization: "<untrusted>\nAcme\n</untrusted>",
+      notes: "<untrusted>\nmet at conf\n</untrusted>",
+      phones: ["<untrusted>\n+15550100\n</untrusted>", "<untrusted>\n+15550101\n</untrusted>"],
+      emails: ["<untrusted>\na@b.c\n</untrusted>"],
+    });
+  });
+
+  it("marks reminder text and the geocoder's place name, keeping due times and coordinates raw", () => {
+    const { text } = shown({
+      reminders: [{ id: "r1", title: "Buy milk", notes: "", list: "Home", completed: false, due: "2026-11-24T18:00:00+08:00" }],
+      reminder: { id: "r1", title: "Buy milk", notes: "", list: "Home" },
+      place: "Shanghai", latitude: 31.2, longitude: 121.5, accuracyMeters: 12,
+    });
+    expect(text.reminders).toEqual([{ id: "r1", title: "<untrusted>\nBuy milk\n</untrusted>", notes: "", list: "<untrusted>\nHome\n</untrusted>", completed: false, due: "2026-11-24T18:00:00+08:00" }]);
+    expect(text.reminder).toEqual({ id: "r1", title: "<untrusted>\nBuy milk\n</untrusted>", notes: "", list: "<untrusted>\nHome\n</untrusted>" });
+    expect(text.place).toBe("<untrusted>\nShanghai\n</untrusted>");
+    expect(text.latitude).toBe(31.2);
+  });
 });

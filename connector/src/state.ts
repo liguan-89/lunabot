@@ -23,7 +23,7 @@ export interface AgentRecord {
   mode?: ServerMode;
 }
 
-/** The server's admin paused remote management (`mausbot-connector pause`): every job and request from MausBot is refused. */
+/** The server's admin paused remote management (`mausbot-connector pause`): every job and request from LunaBot is refused. */
 export interface PauseRecord {
   paused: boolean;
   at: number;
@@ -79,7 +79,7 @@ export interface SelfUpdateRecord {
   /** The id of the container that started the update; the new one removes it once it has connected. */
   previousContainer: string;
   candidateContainer: string;
-  /** The new connector's MAUSBOT_INSTANCE: how each side knows which one it is. */
+  /** The new connector's LUNABOT_INSTANCE: how each side knows which one it is. */
   candidateInstance: string;
   deadline: number;
 }

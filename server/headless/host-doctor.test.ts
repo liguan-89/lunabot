@@ -42,7 +42,7 @@ function probe(overrides: { files?: Record<string, string | null>; lists?: Recor
   };
 }
 
-const OPTIONS = { dataDir: "/srv/mausbot", port: 8799 };
+const OPTIONS = { dataDir: "/srv/lunabot", port: 8799 };
 const byId = (checks: HostCheck[], id: string) => checks.find((check) => check.id === id);
 
 describe("doctor --host", () => {
@@ -56,8 +56,8 @@ describe("doctor --host", () => {
       "ok    Unprivileged user namespaces are allowed",
       "ok    seccomp is available",
       "ok    cgroup v2",
-      "ok    412 GB free for /srv/mausbot",
-      "ok    /srv/mausbot is on an encrypted disk",
+      "ok    412 GB free for /srv/lunabot",
+      "ok    /srv/lunabot is on an encrypted disk",
       "ok    8 CPUs, 32 GB memory (a team of 20 needs 8 CPUs and 16 GB)",
       "ok    Port 8799 is free for the server",
       "ok    Ports 80 and 443 are free",
@@ -163,9 +163,9 @@ describe("doctor --host", () => {
     const watching = probe({ freeBytes: (path) => { seen.push(path); return 412 * GB; } });
     const ctx = (flags: Record<string, string | boolean>, env: NodeJS.ProcessEnv = {}) => ({ flags, env }) as unknown as VerbContext;
     await hostDoctor(ctx({ host: true }, { LUNABOT_DATA_DIR: "/srv/from-env" }), watching);
-    const flagged = await hostDoctor(ctx({ host: true, "data-dir": "/srv/mausbot", port: "9000", domain: "Maus.Example.com" }), probe({
+    const flagged = await hostDoctor(ctx({ host: true, "data-dir": "/srv/lunabot", port: "9000", domain: "Maus.Example.com" }), probe({
       freeBytes: (path) => { seen.push(path); return 412 * GB; }, files: { "/proc/net/tcp": tcp(443, 9000) } }));
-    expect(seen).toEqual(["/srv/from-env", "/srv/mausbot"]);
+    expect(seen).toEqual(["/srv/from-env", "/srv/lunabot"]);
     expect((flagged.result as { checks: HostCheck[] }).checks.filter((check) => check.status === "FAIL").map((check) => check.message))
       .toEqual(["Port 9000 is taken by another program", "Port 443 is taken, and --domain maus.example.com needs 80 and 443"]);
     await expect(hostDoctor(ctx({ host: true, port: "99999" }), probe())).rejects.toMatchObject({ exitCode: 2 });

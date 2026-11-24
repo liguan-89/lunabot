@@ -320,8 +320,8 @@ export async function openDashboard(port: number, env = process.env): Promise<bo
   });
 }
 
-/** Something already answers there as a MausBot server (before this one has started). */
-const answersAsMausBot = async (origin: string) => typeof (await fetch(`${origin}/.well-known/dexbot/environment`, { signal: AbortSignal.timeout(3_000) }).then((r) => r.json() as Promise<{ environmentId?: unknown }>).catch(() => null))?.environmentId === "string";
+/** Something already answers there as a LunaBot server (before this one has started). */
+const answersAsLunaBot = async (origin: string) => typeof (await fetch(`${origin}/.well-known/dexbot/environment`, { signal: AbortSignal.timeout(3_000) }).then((r) => r.json() as Promise<{ environmentId?: unknown }>).catch(() => null))?.environmentId === "string";
 
 /** Its public descriptor must identify this exact server; never sends a pairing code or credential. */
 export async function verifyPhoneEndpoint(port: number, origin: string): Promise<boolean> {
@@ -732,7 +732,7 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
       log("\nStarting your workspace…");
     }
     if (tailscale) {
-      const served = await tailscaleServe(tailscale, options.port, { dataDir: options.dataDir, otherServer: answersAsMausBot });
+      const served = await tailscaleServe(tailscale, options.port, { dataDir: options.dataDir, otherServer: answersAsLunaBot });
       if (!("failure" in served)) tailscaleShare = served;
       if (startupCancelled) throw new SetupCancelled();
       if ("failure" in served) throw new Error(`--tailscale: ${explainTailscaleFailure(served.failure)}`);

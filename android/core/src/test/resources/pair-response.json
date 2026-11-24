@@ -9,10 +9,10 @@
     "routes": "any"
   },
   "token": "omb_REDACTED",
-  "serverName": "OpenMausBot",
+  "serverName": "LunaBot",
   "hosts": [
     "192.168.31.175",
-    "openmausbot-90e339db.local"
+    "lunabot-90e339db.local"
   ],
   "endpoints": [
     {
@@ -21,7 +21,7 @@
       "priority": 200
     },
     {
-      "url": "http://openmausbot-90e339db.local:22012",
+      "url": "http://lunabot-90e339db.local:22012",
       "kind": "bonjour",
       "priority": 300
     }

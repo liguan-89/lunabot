@@ -4,14 +4,14 @@
 import { layerId, memberAudience } from "../audience.ts";
 import { defaultBotPerson, type DefaultBotFields } from "../../shared/default-bot.ts";
 
-export interface MausBotOwnChatDeps {
+export interface LunaBotOwnChatDeps {
   bots(): ReadonlyArray<{ id: string; threadId: string } & DefaultBotFields>;
   starters: { get(threadId: string): string | undefined; set(threadId: string, person: string): void };
   personKey(email: string): string;
   moveNotes(from: string, to: string, person: string): Promise<unknown>;
 }
 
-export function createMausBotOwnChat(deps: MausBotOwnChatDeps) {
+export function createLunaBotOwnChat(deps: LunaBotOwnChatDeps) {
   /** Marks the main chat as its person's at once; the notes follow, before anything else writes there. */
   const claim = (bot: { id: string; threadId: string } & DefaultBotFields): Promise<unknown> | null => {
     const email = defaultBotPerson(bot);
@@ -22,7 +22,7 @@ export function createMausBotOwnChat(deps: MausBotOwnChatDeps) {
   };
   return {
     claim,
-    /** At start, for the MausBots made before their main chat was their person's. */
+    /** At start, for the LunaBots made before their main chat was their person's. */
     claimAll(): Promise<number> {
       const moving = deps.bots().map(claim).filter((move): move is Promise<unknown> => move !== null);
       return Promise.all(moving).then(() => moving.length);

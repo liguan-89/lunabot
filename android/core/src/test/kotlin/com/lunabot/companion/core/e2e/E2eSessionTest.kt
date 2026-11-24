@@ -49,7 +49,7 @@ class E2eSessionTest {
             target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
             transportKey = transportKey.publicKey,
             psk = psk,
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
         session.connect()
         assertTrue(computer.handshakeDone, "the computer completed the handshake")
@@ -97,7 +97,7 @@ class E2eSessionTest {
             target = E2eTarget.Relay("wss://relay1.openmausbot.com/v1/phone", hostId, admission),
             transportKey = transportKey.publicKey,
             psk = psk,
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
         session.connect()
         assertTrue(computer.handshakeDone)
@@ -127,7 +127,7 @@ class E2eSessionTest {
             target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
             transportKey = transportKey.publicKey,
             psk = psk,
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
         session.connect()
 

@@ -7,35 +7,35 @@ export const DEFAULT_BOT_NAME = "Luna Bot";
 export const DEFAULT_BOT_COLOR: MausColor = "chrome";
 
 export interface DefaultBotMark {
-  /** Team Cloud only: the lowercased email of the member this MausBot belongs to. Absent: the place's own. */
+  /** Team Cloud only: the lowercased email of the member this LunaBot belongs to. Absent: the place's own. */
   person?: string;
 }
 
 export interface DefaultBotFields {
-  /** This bot is its place's (or, on a Team Cloud, its member's) MausBot. Never deleted or archived. */
+  /** This bot is its place's (or, on a Team Cloud, its member's) LunaBot. Never deleted or archived. */
   defaultBot?: DefaultBotMark;
   /** Settings → General "Show Luna Bot in the sidebar" is off: the bot keeps working, only its sidebar row is gone. */
   sidebarHidden?: boolean;
-  /** Its person has seen MausBot's first-launch welcome here and chose Add or Not now. */
+  /** Its person has seen LunaBot's first-launch welcome here and chose Add or Not now. */
   welcomed?: boolean;
 }
 
 export interface HelperIntroField extends HelperFollowupField {
-  /** MausBot's introduction. Clients that know it say it in the viewer's language with example asks; `text` is the
+  /** LunaBot's introduction. Clients that know it say it in the viewer's language with example asks; `text` is the
    * English fallback the model and older clients read. */
   helperIntro?: true;
 }
 
 export const defaultBotPerson = (bot: DefaultBotFields): string => bot.defaultBot?.person?.trim().toLowerCase() ?? "";
 
-/** The MausBot a viewer sees as theirs: their own on a Team Cloud (by email), else the place's. */
+/** The LunaBot a viewer sees as theirs: their own on a Team Cloud (by email), else the place's. */
 export function viewersDefaultBot<T extends DefaultBotFields>(bots: readonly T[], email?: string | null): T | undefined {
   const person = email?.trim().toLowerCase() ?? "";
   return (person ? bots.find((bot) => bot.defaultBot && defaultBotPerson(bot) === person) : undefined)
     ?? bots.find((bot) => bot.defaultBot && !defaultBotPerson(bot));
 }
 
-/** A MausBot hidden from the sidebar comes back when it is renamed or moved to another department, unless the same
+/** A LunaBot hidden from the sidebar comes back when it is renamed or moved to another department, unless the same
  * change says whether to show it. Returns the patch to save. */
 export function reshowWhenMoved<P extends { name?: string; section?: string; sidebarHidden?: boolean }>(
   bot: DefaultBotFields & { name: string; section?: string },
