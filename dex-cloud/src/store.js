@@ -19,6 +19,9 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS team_members (team_id TEXT NOT NULL, account_id TEXT NOT NULL, role TEXT NOT NULL, joined_at INTEGER NOT NULL, PRIMARY KEY (team_id, account_id))",
   "CREATE TABLE IF NOT EXISTS checkouts (id TEXT PRIMARY KEY, account_id TEXT, plan TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, completed_at INTEGER)",
   "CREATE TABLE IF NOT EXISTS consents (account_id TEXT PRIMARY KEY, status TEXT NOT NULL, text_version TEXT NOT NULL, updated_at INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS pages (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', bytes INTEGER NOT NULL DEFAULT 0, files INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS page_uploads (token_hash TEXT PRIMARY KEY, account_id TEXT NOT NULL, page_id TEXT NOT NULL, action TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS pages_access (token_hash TEXT PRIMARY KEY, account_id TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS bug_reports (id TEXT PRIMARY KEY, install_id TEXT NOT NULL, source TEXT NOT NULL, description TEXT NOT NULL, app_version TEXT, platform TEXT, diagnostics TEXT, contact_email TEXT, status TEXT NOT NULL DEFAULT 'received', fixed_in TEXT, created_at INTEGER NOT NULL)",
   "CREATE INDEX IF NOT EXISTS bug_reports_install ON bug_reports(install_id, created_at)",
   "CREATE INDEX IF NOT EXISTS sessions_token ON sessions(token_hash)",
@@ -28,6 +31,8 @@ const TABLES = [
   "CREATE INDEX IF NOT EXISTS email_attempts_email ON email_attempts(email, created_at)",
   "CREATE INDEX IF NOT EXISTS clouds_account ON clouds(account_id)",
   "CREATE INDEX IF NOT EXISTS pair_requests_installation ON pair_requests(installation_id, created_at)",
+  "CREATE INDEX IF NOT EXISTS pages_account ON pages(account_id)",
+  "CREATE INDEX IF NOT EXISTS page_uploads_account ON page_uploads(account_id, created_at)",
 ];
 
 const SESSION_BY_TOKEN = [
@@ -415,6 +420,67 @@ export class Store {
 
   cloudByHostname(hostname) {
     return this.db.prepare("SELECT * FROM clouds WHERE hostname = ?").get(String(hostname).toLowerCase()) ?? null;
+  }
+
+  cloudByMachineId(machineId) {
+    return this.db.prepare("SELECT * FROM clouds WHERE machine_id = ?").get(machineId) ?? null;
+  }
+
+  page(id) {
+    return this.db.prepare("SELECT * FROM pages WHERE id = ?").get(id) ?? null;
+  }
+
+  pageCount(accountId) {
+    return Number(this.db.prepare("SELECT COUNT(*) AS n FROM pages WHERE account_id = ?").get(accountId)?.n ?? 0);
+  }
+
+  insertPage({ id, accountId }) {
+    this.db.prepare("INSERT INTO pages (id, account_id, created_at, updated_at) VALUES (?, ?, ?, ?)").run(id, accountId, now(), now());
+  }
+
+  updatePage(id, { title, bytes, files }) {
+    this.db.prepare("UPDATE pages SET title = ?, bytes = ?, files = ?, updated_at = ? WHERE id = ?")
+      .run(String(title ?? "").slice(0, 200), bytes, files, now(), id);
+  }
+
+  deletePage(id) {
+    this.db.prepare("DELETE FROM pages WHERE id = ?").run(id);
+    this.db.prepare("DELETE FROM page_uploads WHERE page_id = ?").run(id);
+  }
+
+  insertPageUpload({ tokenHash, accountId, pageId, action, expiresAt }) {
+    this.db.prepare("INSERT INTO page_uploads (token_hash, account_id, page_id, action, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(tokenHash, accountId, pageId, action, now(), expiresAt);
+  }
+
+  pageUploadByTokenHash(tokenHash) {
+    return this.db.prepare("SELECT * FROM page_uploads WHERE token_hash = ?").get(tokenHash) ?? null;
+  }
+
+  pageUploadCount(accountId, since) {
+    return Number(this.db.prepare("SELECT COUNT(*) AS n FROM page_uploads WHERE account_id = ? AND created_at > ?").get(accountId, since)?.n ?? 0);
+  }
+
+  purgePageUploads(before) {
+    this.db.prepare("DELETE FROM page_uploads WHERE expires_at < ?").run(before);
+  }
+
+  pagesAccessByTokenHash(tokenHash) {
+    return this.db.prepare("SELECT * FROM pages_access WHERE token_hash = ?").get(tokenHash) ?? null;
+  }
+
+  insertPagesAccess({ accountId, tokenHash, expiresAt }) {
+    this.db.prepare("INSERT INTO pages_access (account_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)")
+      .run(accountId, tokenHash, now(), expiresAt);
+  }
+
+  purgePagesAccess(before) {
+    this.db.prepare("DELETE FROM pages_access WHERE expires_at < ?").run(before);
+  }
+
+  /** Minted but never uploaded pages (files=0) older than `before`: the token lapsed before any files arrived. */
+  purgeEmptyPages(before) {
+    this.db.prepare("DELETE FROM pages WHERE files = 0 AND created_at < ?").run(before);
   }
 
   liveClouds() {
