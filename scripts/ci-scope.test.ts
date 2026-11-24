@@ -371,29 +371,29 @@ describe("CI outputs", () => {
 describe("the Linux work in the static job, on a Boat VM", () => {
   const linuxShards = vitestMatrix(LINUX).include;
 
-  it("runs a server change's Linux shards, behavior evals and packaged server there, and no Linux job", () => {
+  it("runs a server change's Linux shards, behavior evals, packaged server and edition check there, and no Linux job", () => {
     const out = moveLinuxIntoStatic(ciOutputs(selectCiScope(["server/index.ts"]), LINUX));
-    expect(out.jobs).toEqual(SERVER_JOBS.filter((job) => !["vitest", "behavior-evals", "packaged-server"].includes(job)));
-    expect(out.linux_lanes).toEqual({ vitest: linuxShards, evals: true, packaged_server: true });
+    expect(out.jobs).toEqual(SERVER_JOBS.filter((job) => !["vitest", "behavior-evals", "packaged-server", "foss"].includes(job)));
+    expect(out.linux_lanes).toEqual({ vitest: linuxShards, evals: true, packaged_server: true, foss: true });
     expect(out.vitest_matrix).toEqual(vitestMatrix(LINUX));
     expect(out.vitest_os).toEqual(LINUX);
   });
 
   it("keeps the Windows shards and packaged server as jobs", () => {
     const out = moveLinuxIntoStatic(ciOutputs(FULL_SCOPE, PR));
-    expect(out.jobs).toEqual(SELECTABLE_JOBS.filter((job) => job !== "behavior-evals"));
+    expect(out.jobs).toEqual(SELECTABLE_JOBS.filter((job) => !["behavior-evals", "foss"].includes(job)));
     expect(out.vitest_matrix).toEqual(vitestMatrix(["windows-latest"]));
     expect(out.packaged_server_os).toEqual(["windows-latest"]);
-    expect(out.linux_lanes).toEqual({ vitest: linuxShards, evals: true, packaged_server: true });
-    expect(moveLinuxIntoStatic(ciOutputs(MAIN_SCOPE, MAIN)).jobs).toEqual(MAIN_JOBS.filter((job) => job !== "behavior-evals"));
+    expect(out.linux_lanes).toEqual({ vitest: linuxShards, evals: true, packaged_server: true, foss: true });
+    expect(moveLinuxIntoStatic(ciOutputs(MAIN_SCOPE, MAIN)).jobs).toEqual(MAIN_JOBS.filter((job) => !["behavior-evals", "foss"].includes(job)));
   });
 
   it("runs a docs or translation change's subset there, and nothing when nothing is selected", () => {
     const docs = moveLinuxIntoStatic(ciOutputs({ checks: ["docs-tests"] }, LINUX));
     expect(docs.jobs).toEqual([]);
-    expect(docs.linux_lanes).toEqual({ vitest: ciOutputs({ checks: ["docs-tests"] }, LINUX).vitest_matrix.include, evals: false, packaged_server: false });
+    expect(docs.linux_lanes).toEqual({ vitest: ciOutputs({ checks: ["docs-tests"] }, LINUX).vitest_matrix.include, evals: false, packaged_server: false, foss: false });
     expect(moveLinuxIntoStatic(ciOutputs({ checks: [] }, LINUX))).toEqual({
-      ...staticOnly(LINUX, false), linux_lanes: { vitest: [], evals: false, packaged_server: false },
+      ...staticOnly(LINUX, false), linux_lanes: { vitest: [], evals: false, packaged_server: false, foss: false },
     });
   });
 

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { EVALS_LANE, lanesFor, PACKAGED_SERVER_LANE, runLanes, vitestLane } from "./ci-linux-lanes.mjs";
+import { EVALS_LANE, FOSS_LANE, lanesFor, PACKAGED_SERVER_LANE, runLanes, vitestLane } from "./ci-linux-lanes.mjs";
 import { vitestMatrix } from "./ci-scope.mjs";
 
 const temporaryDirectories: string[] = [];
@@ -17,11 +17,11 @@ function scratch() {
 }
 
 describe("Linux lanes", () => {
-  it("gives every Linux shard its own lane, the node tests only on the first, then evals and the packaged server", () => {
+  it("gives every Linux shard its own lane, the node tests only on the first, then evals, the packaged server and foss", () => {
     const shards = vitestMatrix(["ubuntu-latest"]).include;
-    const lanes = lanesFor({ vitest: shards, evals: true, packaged_server: true }, "/t/retries.jsonl");
+    const lanes = lanesFor({ vitest: shards, evals: true, packaged_server: true, foss: true }, "/t/retries.jsonl");
     expect(lanes.map((lane) => lane.name)).toEqual([
-      ...shards.map((entry) => `vitest (ubuntu-latest, ${entry.part})`), EVALS_LANE.name, PACKAGED_SERVER_LANE.name,
+      ...shards.map((entry) => `vitest (ubuntu-latest, ${entry.part})`), EVALS_LANE.name, PACKAGED_SERVER_LANE.name, FOSS_LANE.name,
     ]);
     expect(lanes[0]).toEqual({
       name: "vitest (ubuntu-latest, shard 1/8)",
@@ -33,9 +33,9 @@ describe("Linux lanes", () => {
 
   it("runs a subset's files and leaves out what the plan leaves out", () => {
     const entry = { os: "ubuntu-latest", part: "docs tests", shard: 1, shards: 1, files: "a.test.ts b.test.ts", e2e: "all", node_tests: false, workers: 4 };
-    expect(lanesFor({ vitest: [entry], evals: false, packaged_server: false }, "/r")).toEqual([vitestLane(entry, "/r")]);
+    expect(lanesFor({ vitest: [entry], evals: false, packaged_server: false, foss: false }, "/r")).toEqual([vitestLane(entry, "/r")]);
     expect(vitestLane(entry, "/r").commands).toEqual(["pnpm exec vitest run a.test.ts b.test.ts --shard=1/1 --reporter=default --reporter=github-actions"]);
-    expect(lanesFor({ vitest: [], evals: true, packaged_server: false }, "/r")).toEqual([EVALS_LANE]);
+    expect(lanesFor({ vitest: [], evals: true, packaged_server: false, foss: false }, "/r")).toEqual([EVALS_LANE]);
   });
 
   // The lanes run on one Linux VM: a lane is a process group, stopped with kill(-pid), which Windows has no form of.

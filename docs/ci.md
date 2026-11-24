@@ -54,7 +54,7 @@ sets (`laneOf` in `scripts/ci-scope.mjs`):
 | Event | Lane | What runs |
 | --- | --- | --- |
 | `pull_request` | its areas | the table above, with Linux shards, and Windows jobs only for a change that can break Windows (Windows below) |
-| `push` to main, `merge_group` | main | static (lint and the CI checks), the build, the eight Linux and eight Windows shards with the Electron node tests, the macOS smokes job, behavior evals, the Linux and Windows packaged server smokes, the open-source edition, the control plane, the renderer smoke and Linux and Windows browser identity |
+| `push` to main, `merge_group` | main | static (lint and the CI checks), the build, the eight Linux and eight Windows shards with the Electron node tests, the macOS smokes job, behavior evals, the Linux and Windows packaged server smokes, the open-source edition, the renderer smoke and Linux and Windows browser identity |
 | `schedule` (nightly, 21:17 UTC), `workflow_dispatch` (manual runs, the release branch's CI that `prepare-release.yml` starts, and the release lane) | full | every job on every platform: also the Windows and macOS shards, the Windows packaged server and Windows CUA smokes, Windows and macOS browser identity, the browser driver on all three, the Linux package and the Linux ARM64 installer |
 
 The main lane runs Linux, Windows and one macOS job. The macOS shards, the
@@ -388,15 +388,17 @@ instead (Settings → Secrets and variables → Actions → Variables; anything 
   as well, label it `windows` (Windows above).
 - **What changes.** `static` runs on `boat-xlarge` (16 vCPU, 32 GB) and is
   named "preflight + Linux tests (Boat)". After its usual checks it
-  runs the Linux vitest shards, behavior evals and the Linux packaged server
-  smoke side by side as lanes of that VM (`scripts/ci-linux-lanes.mjs`, the
-  same commands as their GitHub jobs), and prints each lane's log in a group
+  runs the Linux vitest shards, behavior evals, the Linux packaged server
+  smoke and the open-source edition check side by side as lanes of that VM
+  (`scripts/ci-linux-lanes.mjs`, the same commands as their GitHub jobs — the
+  edition lane deletes `enterprise/` in a worktree of its own, since the
+  vitest lanes still import it), and prints each lane's log in a group
   when it ends. GitHub keeps only 10 error annotations per step, so when many
   tests fail, the lane groups in the log are the full record. `ci-scope.mjs` leaves those jobs out of the selection, so the
   `CI` gate reads them as skipped by design and `static`'s result covers
-  them. The Windows jobs, the macOS smokes, the advisory Linux jobs (open-source
-  edition, control plane, renderer smoke, browser identity and driver, Linux
-  package, ARM installer) and the `CI` gate stay on GitHub's runners.
+  them. The Windows jobs, the macOS smokes, the advisory Linux jobs (renderer
+  smoke, browser identity and driver, Linux package, ARM installer) and the
+  `CI` gate stay on GitHub's runners.
 - **The VM made like a GitHub runner.** Boat's runner gives its processes
   `cap_dac_read_search`, and its image has a desktop (`DISPLAY`), the
   coding agents (Claude, Codex, Hermes, …) and a working `bwrap`. The lanes run

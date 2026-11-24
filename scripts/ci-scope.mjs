@@ -377,8 +377,8 @@ export function ciOutputs({ checks }, oses) {
 }
 
 /** The outputs for a static job that does the Linux work itself (on a Boat VM, `LUNABOT_CI_LINUX_IN_STATIC`): the Linux
- * vitest entries, behavior evals and the Linux packaged server smoke become `linux_lanes`
- * (scripts/ci-linux-lanes.mjs), and the jobs left with nothing to run drop out of the selection. */
+ * vitest entries, behavior evals, the Linux packaged server smoke and the open-source edition check become
+ * `linux_lanes` (scripts/ci-linux-lanes.mjs), and the jobs left with nothing to run drop out of the selection. */
 export function moveLinuxIntoStatic(outputs) {
   const vitest = outputs.jobs.includes("vitest") ? outputs.vitest_matrix.include : [];
   const others = vitest.filter((entry) => entry.os !== "ubuntu-latest");
@@ -386,8 +386,8 @@ export function moveLinuxIntoStatic(outputs) {
   const packaged = outputs.jobs.includes("packaged-server");
   return {
     ...outputs,
-    jobs: outputs.jobs.filter((job) => job !== "behavior-evals" && !(job === "vitest" && others.length === 0)
-      && !(job === "packaged-server" && packagedOs.length === 0)),
+    jobs: outputs.jobs.filter((job) => !["behavior-evals", "foss"].includes(job)
+      && !(job === "vitest" && others.length === 0) && !(job === "packaged-server" && packagedOs.length === 0)),
     // A job that drops out keeps its old matrix: GitHub refuses an empty one, even for a skipped job.
     vitest_matrix: others.length > 0 ? { include: others } : outputs.vitest_matrix,
     packaged_server_os: packaged && packagedOs.length > 0 ? packagedOs : outputs.packaged_server_os,
@@ -395,6 +395,7 @@ export function moveLinuxIntoStatic(outputs) {
       vitest: vitest.filter((entry) => entry.os === "ubuntu-latest"),
       evals: outputs.jobs.includes("behavior-evals"),
       packaged_server: packaged && outputs.packaged_server_os.includes("ubuntu-latest"),
+      foss: outputs.jobs.includes("foss"),
     },
   };
 }
@@ -516,8 +517,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const outputs = linuxInStatic ? moveLinuxIntoStatic(ciOutputs(scope, vitestOs)) : ciOutputs(scope, vitestOs);
   console.log(`CI scope: ${scope.areas.join(", ")} -> ${outputs.jobs.join(", ") || "static checks only"}`);
   if (linuxInStatic) {
-    const { vitest, evals, packaged_server: packaged } = outputs.linux_lanes;
-    console.log(`CI scope: this job runs ${vitest.length} Linux vitest lane(s)${evals ? ", behavior evals" : ""}${packaged ? ", the packaged server smoke" : ""}`);
+    const { vitest, evals, packaged_server: packaged, foss } = outputs.linux_lanes;
+    console.log(`CI scope: this job runs ${vitest.length} Linux vitest lane(s)${evals ? ", behavior evals" : ""}${packaged ? ", the packaged server smoke" : ""}${foss ? ", the open-source edition check" : ""}`);
   }
   appendFileSync(
     process.env.GITHUB_OUTPUT,

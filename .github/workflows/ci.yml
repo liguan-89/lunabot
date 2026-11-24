@@ -1,7 +1,8 @@
 # Boat (https://docs.boat.dev/ci): while the repository variable BOAT_CI is "on", a run from this repository's own
 # branches (a push to main, a pull request, a merge group) that the repository owner both authored and started does its
 # Linux work on one 16 vCPU Boat VM, one Boat start per run: the static job runs on boat-xlarge and, after its checks,
-# runs the Linux vitest shards, behavior evals and the Linux packaged server smoke side by side
+# runs the Linux vitest shards, behavior evals, the Linux packaged server smoke and the open-source edition
+# check side by side
 # (scripts/ci-linux-lanes.mjs) instead of as GitHub-hosted jobs. Boat runs a public repository's job only for the users
 # on its allow-list (`boat ci public`) and fails any other at once, so every other run, a fork's, the nightly and manual
 # runs (the release lane among them), and every run while BOAT_CI is anything else run on GitHub's runners exactly as
@@ -117,7 +118,7 @@ jobs:
       - name: Prepare Electron test runtime
         if: steps.scope.outputs.linux_lanes
         run: node --input-type=commonjs -e "require('electron')"
-      - name: Linux tests (vitest shards, behavior evals, packaged server), side by side
+      - name: Linux tests (vitest shards, behavior evals, packaged server, foss), side by side
         if: steps.scope.outputs.linux_lanes
         env:
           LUNABOT_CI_LINUX_LANES: ${{ steps.scope.outputs.linux_lanes }}
