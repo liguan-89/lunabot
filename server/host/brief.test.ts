@@ -156,45 +156,45 @@ describe("the brief", () => {
   });
 
   it("speaks the language set in Settings, dates included", async () => {
-    const s = setup({ language: "pt-BR", needsYou: [{ kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] }] });
+    const s = setup({ language: "zh", needsYou: [{ kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] }] });
     await s.brief.active("desktop", "UTC");
     s.notified.length = 0;
     s.items.set("chk-1", { mail: [ada], prep: [] });
     await s.brief.consume(s.watchRun("chk-1", '{"important": [{"id": "m1", "why": "Ada precisa dos números.", "needsReply": true}], "prep": []}'), "turn-1");
-    const root = s.rows().findLast((message) => message.serverCard && message.widget?.root.title === "Seu resumo")!.widget!.root as WidgetRoot;
+    const root = s.rows().findLast((message) => message.serverCard && message.widget?.root.title === "你的简报")!.widget!.root as WidgetRoot;
     const shown = JSON.stringify(root);
-    expect(shown).toContain("quinta-feira, 22 de outubro");
-    expect(shown).toContain("Precisa da sua atenção");
-    expect(shown).toContain("Aguardando sua resposta · Ada precisa dos números.");
-    expect(shown).toContain("Sessão encerrada em Claude");
+    expect(shown).toContain("10月22日星期四");
+    expect(shown).toContain("需要你处理");
+    expect(shown).toContain("等待你回复 · Ada precisa dos números.");
+    expect(shown).toContain("Claude 已退出登录");
     expect(shown).not.toMatch(/Needs you|Waiting on your reply|Thursday/);
-    expect(widgetActions(root).map((entry) => entry.label)).toEqual(expect.arrayContaining(["Criar rascunho de resposta para Ada", "Abrir no Gmail", "Dispensar o e-mail de Ada"]));
-    expect(s.notified).toEqual(["Seu resumo: 2 precisam de você"]);
+    expect(widgetActions(root).map((entry) => entry.label)).toEqual(expect.arrayContaining(["为 Ada 起草回复", "在 Gmail 中打开", "忽略 Ada 的邮件"]));
+    expect(s.notified).toEqual(["你的简报: 2 项需要你处理"]);
   });
 
   it("follows the language the person's app shows over the server's, and switches today's card in place", async () => {
-    const s = setup({ language: "pt-br", needsYou: [{ kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] }] });
-    await s.brief.active("desktop", "UTC", "es");
+    const s = setup({ language: "en", needsYou: [{ kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] }] });
+    await s.brief.active("desktop", "UTC", "zh");
     const title = () => s.rows().findLast((message) => message.serverCard)!.widget!.root.title;
     const first = s.rows().findLast((message) => message.serverCard)!.id;
-    expect(title()).toBe("Tu resumen");
+    expect(title()).toBe("你的简报");
     s.advance(2 * MINUTE);
-    expect(await s.brief.active("desktop", "UTC", "de")).toEqual({ returned: false });
-    expect(title()).toBe("Dein Überblick");
+    expect(await s.brief.active("desktop", "UTC", "en")).toEqual({ returned: false });
+    expect(title()).toBe("Your brief");
     expect(s.rows().filter((message) => message.serverCard).map((message) => message.id)).toEqual([first]);
     s.restart();
     await s.brief.refresh();
-    expect(title()).toBe("Dein Überblick");
+    expect(title()).toBe("Your brief");
   });
 
   it("does not tell the person again about the same rows when only the language changed", async () => {
-    const options = { language: "es", needsYou: [{ kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] }] as NeedsYouItem[] };
+    const options = { language: "zh", needsYou: [{ kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] }] as NeedsYouItem[] };
     const s = setup(options);
     await s.brief.active("desktop", "UTC");
-    expect(s.notified).toEqual(["Tu resumen: 1 te necesita"]);
-    options.language = "de";
+    expect(s.notified).toEqual(["你的简报: 1 项需要你处理"]);
+    options.language = "en";
     await s.brief.refresh();
-    expect(s.rows().findLast((message) => message.serverCard)!.widget!.root.title).toBe("Dein Überblick");
+    expect(s.rows().findLast((message) => message.serverCard)!.widget!.root.title).toBe("Your brief");
     expect(s.notified).toHaveLength(1);
   });
 

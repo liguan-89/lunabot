@@ -10,9 +10,9 @@ describe("formatPlanSpend", () => {
   });
 
   it("writes money the way the app's language does, whatever the computer's", async () => {
-    await loadLocale("de");
+    await loadLocale("zh");
     try {
-      expect(formatPlanSpend({ usedMinor: 4_631, limitMinor: 50_000, currency: "EUR", exponent: 2 })).toContain("46,31");
+      expect(formatPlanSpend({ usedMinor: 4_631, limitMinor: 50_000, currency: "EUR", exponent: 2 })).toBe("已花费 €46.31，上限 €500.00");
     } finally {
       setLocale("en");
     }

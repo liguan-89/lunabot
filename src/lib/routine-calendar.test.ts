@@ -417,10 +417,10 @@ describe("calendarRangeLabel", () => {
     expect(label(new Date(2026, 4, 3), 7)).toBe("May 3 – 9, 2026");
     expect(label(new Date(2026, 11, 29), 7)).toBe("Dec 29, 2026 – Jan 4, 2027");
     try {
-      setLocale("pt-br");
-      expect(label(new Date(2026, 4, 3), 1)).toBe("3 de maio de 2026");
-      expect(label(new Date(2026, 4, 3), 7)).toBe("3 – 9 de maio de 2026");
-      expect(label(new Date(2026, 11, 29), 7)).toBe("29 de dez. de 2026 – 4 de jan. de 2027");
+      setLocale("zh");
+      expect(label(new Date(2026, 4, 3), 1)).toBe("2026年5月3日");
+      expect(label(new Date(2026, 4, 3), 7)).toBe("2026/5/3 – 2026/5/9");
+      expect(label(new Date(2026, 11, 29), 7)).toBe("2026/12/29 – 2027/1/4");
     } finally {
       setLocale("en");
     }

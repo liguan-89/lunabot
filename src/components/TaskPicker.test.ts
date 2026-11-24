@@ -78,8 +78,6 @@ describe("filterTasks", () => {
   it.each([
     ["zh", "New thread", "未命名对话"],
     ["zh", "Shared chat", "共享聊天"],
-    ["zh-tw", "New thread", "未命名對話"],
-    ["zh-tw", "Shared chat", "共享聊天"],
   ])("matches %s display title for %s while preserving raw search and prefix ranking", async (locale, raw, displayed) => {
     expect(await loadLocale(locale)).toBe(locale);
     const candidates = [

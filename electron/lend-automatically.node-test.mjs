@@ -558,12 +558,12 @@ test("See activity shows this computer's own record in the app's language: every
     { at: Date.UTC(2026, 9, 28, 14, 2), server: "Client <A>", origin: OTHER, action: "read_file", detail: "Notes/<img src=x onerror=alert(1)>.md", ok: true },
     { at: Date.UTC(2026, 9, 28, 14, 3), server: "My Cloud", origin: HOME, action: "run_command", detail: "rm -rf ~", ok: false, error: "Terminal access is not enabled for this server" },
   ];
-  const page = activityPage(entries, "de");
+  const page = activityPage(entries, "zh");
   assert.doesNotMatch(page, /<script|<img/i);
   assert.match(page, /Notes\/&lt;img src=x onerror=alert\(1\)&gt;\.md/);
   assert.match(page, /Client &lt;A&gt;/);
   assert.match(page, /default-src 'none'/);
-  assert.match(page, new RegExp(WORDS.de["lending.action.readFile"]));
+  assert.match(page, new RegExp(WORDS.zh["lending.action.readFile"]));
   assert.match(page, /class="refused"/);
   assert.match(activityPage([], "en"), new RegExp(WORDS.en["lending.activity.empty"].replace(/[.]/g, "\\.")));
   const windows = [];

@@ -36,16 +36,16 @@ afterEach(() => setLocale("en"));
 
 describe("a turn the trial's Claude credit refused", () => {
   it("is said in the reader's language, never the server's English, with connect your own AI as the next step", () => {
-    setLocale("de");
+    setLocale("zh");
     const usedUp = show(stored("used_up"));
-    expect(usedUp.html).toContain("Dein Claude-Guthaben der Testphase ist aufgebraucht.");
+    expect(usedUp.html).toContain("你的试用 Claude 额度已用完。请登录你自己的 Claude 或 ChatGPT 账户，或添加 API 密钥，让机器人继续工作。");
     expect(usedUp.html).not.toContain("Your trial Claude credit is used up");
-    expect(usedUp.buttons).toEqual(["Eigene KI verbinden"]);
-    expect(show(stored("ended")).html).toContain("Das Claude-Guthaben der Testphase ist in der Cloud nicht mehr verfügbar.");
-    expect(show(stored("too_low")).html).toContain("reicht für diesen Chat nicht aus");
+    expect(usedUp.buttons).toEqual(["连接你自己的 AI"]);
+    expect(show(stored("ended")).html).toContain("Cloud 上已无法再使用试用 Claude 额度。请登录你自己的 Claude 或 ChatGPT 账户，或添加 API 密钥。");
+    expect(show(stored("too_low")).html).toContain("剩余不足以进行这段对话");
     const paused = show(stored("paused"), vi.fn());
-    expect(paused.html).toContain("Das Claude-Guthaben der Testphase ist vorübergehend pausiert.");
-    expect(paused.buttons.some(label => label.includes("Eigene KI"))).toBe(false);
+    expect(paused.html).toContain("试用 Claude 额度目前已暂停。请稍后再试，或登录你自己的 Claude 或 ChatGPT 账户，或添加 API 密钥。");
+    expect(paused.buttons.some(label => label.includes("你自己的 AI"))).toBe(false);
   });
 
   it("used up or gone, is a quiet note with the one way on, never an error; paused and too low stay errors", () => {

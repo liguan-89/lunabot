@@ -5,7 +5,7 @@ const LOCALES_DIR = path.join(__dirname, "..", "src", "locales");
 const LOCALE_FILE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*\.json$/;
 const SOURCE_HASHES = "source-hashes.json";
 const ENGLISH = "en";
-const LOCALE_ALIASES = Object.freeze({ pt: "pt-br", "zh-hant": "zh-tw", "zh-hk": "zh-tw", "zh-mo": "zh-tw" });
+const LOCALE_ALIASES = Object.freeze({});
 const SHARED_KEYS = new Set(["place.local", "rail.thisComputer", "rail.thisMac", "rail.thisPc", "rail.remove", "cloudHome.tryAgain", "computer.windows.start", "mcp.turnOn", "cloudSetup.myCloud", "computer.badge.local", "room.aBot"]);
 const kept = (key) => key.startsWith("native.") || key.startsWith("teamMove.") || SHARED_KEYS.has(key);
 

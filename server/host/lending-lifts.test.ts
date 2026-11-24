@@ -107,8 +107,7 @@ describe("the card that lifts a lock on the lent computer (server/host/lending-l
   });
   it.each([
     [undefined, "Choose Allow or Not now.", "Only you can allow this, from one of your own devices."],
-    ["pt-br", "Escolha Permitir ou Agora não.", "Só você pode permitir isso, em um dos seus dispositivos."],
-    ["de", "Wähle Erlauben oder Nicht jetzt.", "Nur du kannst dies erlauben, von einem deiner eigenen Geräte aus."],
+    ["zh", "请选择「允许」或「暂不」。", "只有你可以允许，且需来自你自己的设备之一。"],
   ])("writes answer refusals in the conversation language %s", (language, choose, ownerOnly) => {
     const { lines, deps, lifts, answer, state } = world();
     deps.language = () => language;

@@ -7,8 +7,7 @@ describe("the line after Set me up", () => {
     expect(setupRequestLine("en")).toBe(
       "Great. Tell me what you'd like help with, in your own words, and I'll set myself up for it. For example: \"sort my inbox every morning\" or \"research our competitors every week\".",
     );
-    expect(setupRequestLine("es-MX")).toMatch(/^Genial\. Cuéntame/);
-    expect(setupRequestLine("pt-BR")).toMatch(/^Ótimo\. Me conte/);
+    expect(setupRequestLine("es-MX")).toBe(setupRequestLine("en"));
     expect(setupRequestLine("zh")).toBe("好的。用你自己的话告诉我你想让我帮什么忙，我会照此设置好自己。例如：“每天早上整理我的收件箱”或“每周研究我们的竞争对手”。");
     expect(setupRequestLine("zh-CN")).toBe(setupRequestLine("zh"));
     expect(setupRequestLine("fr")).toBe(setupRequestLine("en"));
@@ -23,10 +22,9 @@ describe("the line after Set me up", () => {
 describe("a new bot's greeting", () => {
   it("names the person by their first name, in the app's language", () => {
     expect(initialGreeting("Scout", "en", "Milind Soni")).toBe("Hi Milind, I'm Scout. What would you like me to do?");
-    expect(initialGreeting("Scout", "es-MX", "  Ana  María ")).toBe("Hola Ana, soy Scout. ¿Qué te gustaría que hiciera?");
-    expect(initialGreeting("Scout", "pt-BR", "João")).toBe("Oi João, eu sou Scout. O que você gostaria que eu fizesse?");
-    expect(initialGreeting("Scout", "zh-TW", "王小明")).toBe("嗨 王小明，我是 Scout。你想要我幫你做什麼？");
-    expect(initialGreeting("Scout", "zh-Hant")).toBe("嗨，我是 Scout。你想要我幫你做什麼？");
+    expect(initialGreeting("Scout", "es-MX", "  Ana  María ")).toBe("Hi Ana, I'm Scout. What would you like me to do?");
+    expect(initialGreeting("Scout", "zh-TW", "王小明")).toBe("嗨 王小明，我是 Scout。你想让我做什么？");
+    expect(initialGreeting("Scout", "zh-Hant")).toBe("嗨，我是 Scout。你想让我做什么？");
     expect(initialGreeting("Scout", "zh", "王小明")).toBe("嗨 王小明，我是 Scout。你想让我做什么？");
     expect(initialGreeting("Scout", "zh-CN", "王小明")).toBe(initialGreeting("Scout", "zh", "王小明"));
   });
@@ -50,9 +48,9 @@ describe("Simplified Chinese", () => {
     expect(initialGreetingMessage("Sunny", () => "zh", true)).toMatchObject({ text: "嗨，我是 Sunny。你想让我做什么？", setupOffer: true });
   });
 
-  it("leaves Traditional Chinese as it was", () => {
+  it("reads Traditional Chinese tags as Simplified, its parent language", () => {
     for (const language of ["zh-TW", "zh-HK", "zh-Hant-TW"]) {
-      expect(initialGreeting("Sunny", language)).toBe("嗨，我是 Sunny。你想要我幫你做什麼？");
+      expect(initialGreeting("Sunny", language)).toBe("嗨，我是 Sunny。你想让我做什么？");
     }
   });
 });

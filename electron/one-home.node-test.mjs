@@ -547,6 +547,6 @@ test("turning the switch back while the bots are on their way home is refused in
   const journal = { v: 1, phase: "keeping", offThere: true, cloud: { origin: "https://omb-u-1.fly.dev", account: "acct-1" } };
   const home = (t) => createOneHome({ journal: { read: () => journal, write: () => {} }, cloud: () => null, send: {}, local: {}, session: async () => ({}), keep: { read: () => null, write: () => {} }, ...(t ? { t } : {}) });
   assert.throws(() => home().keep(false), { message: "This computer's bots are on their way back. Try again once they're here." });
-  const { t } = nativeText.createNativeText({ saved: "pt-br" });
-  assert.throws(() => home(t).keep(false), { message: "Os bots deste computador estão voltando. Tente novamente quando eles chegarem." });
+  const { t } = nativeText.createNativeText({ saved: "zh" });
+  assert.throws(() => home(t).keep(false), { message: "这台电脑的机器人正在返回途中。等它们到达后再试。" });
 });

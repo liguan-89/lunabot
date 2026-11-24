@@ -159,12 +159,12 @@ describe("SecretRequestCard Greenference copy", () => {
     expect(english).toContain("Runs Greenference models with your own key.");
     expect(english).toContain('placeholder="Paste your Greenference API key"');
     expect(english).toContain(escapedText(message.secret!.description));
-    setLocale("pt-br");
-    const portuguese = render();
-    expect(portuguese).toContain('aria-label="Chave de API do Greenference"');
-    expect(portuguese).toContain("Roda modelos do Greenference com sua própria chave. Para preparar o resumo solicitado. Scout pode usar o valor, mas nunca consegue lê-lo.");
-    expect(portuguese).toContain('placeholder="Cole sua chave de API do Greenference"');
-    expect(portuguese).toContain(CREDENTIAL_TARGETS.greenferenceApiKey.helpUrl);
+    setLocale("zh");
+    const chinese = render();
+    expect(chinese).toContain('aria-label="Greenference API 密钥"');
+    expect(chinese).toContain("用你自己的密钥运行 Greenference 模型。 Para preparar o resumo solicitado. Scout 可以使用它，但永远无法读取它。");
+    expect(chinese).toContain('placeholder="粘贴你的 Greenference API 密钥"');
+    expect(chinese).toContain(CREDENTIAL_TARGETS.greenferenceApiKey.helpUrl);
     expect(message.secret).toMatchObject({ target: "greenferenceApiKey", description: `${CREDENTIAL_TARGETS.greenferenceApiKey.description} Para preparar o resumo solicitado. Scout can use it but never read it back.` });
     setLocale("en");
     expect(render()).toBe(english);
@@ -175,10 +175,10 @@ describe("SecretRequestCard Greenference copy", () => {
     { superseded: true },
     { provided: true, resumed: true },
   ])("localizes the Greenference label in settled states %j", (state) => {
-    setLocale("pt-br");
+    setLocale("zh");
     const html = view({ target: "greenferenceApiKey", ...CREDENTIAL_TARGETS.greenferenceApiKey, ...state });
     expect(html).toContain('data-ask-card="settled"');
-    expect(html).toContain('aria-label="Chave de API do Greenference"');
+    expect(html).toContain('aria-label="Greenference API 密钥"');
     expect(html).not.toContain('aria-label="Greenference API key"');
     expect(html).not.toContain("<input");
   });
@@ -193,12 +193,12 @@ describe("SecretRequestCard Gemini copy", () => {
     expect(english).toContain(CREDENTIAL_TARGETS.geminiTtsKey.description);
     expect(english).toContain('placeholder="Paste your Google AI Studio API key"');
     expect(english).toContain(escapedText(message.secret!.description));
-    setLocale("pt-br");
-    const portuguese = render();
-    expect(portuguese).toContain('aria-label="Chave de API de voz do Gemini"');
-    expect(portuguese).toContain("Gera respostas faladas, mensagens de voz e a fala das chamadas com o Gemini. Para preparar o resumo solicitado. Scout pode usar o valor, mas nunca consegue lê-lo.");
-    expect(portuguese).toContain('placeholder="Cole sua chave de API do Google AI Studio"');
-    expect(portuguese).toContain(CREDENTIAL_TARGETS.geminiTtsKey.helpUrl);
+    setLocale("zh");
+    const chinese = render();
+    expect(chinese).toContain('aria-label="Gemini 语音合成 API 密钥"');
+    expect(chinese).toContain("用 Gemini 生成朗读回复、语音备忘录和通话语音。 Para preparar o resumo solicitado. Scout 可以使用它，但永远无法读取它。");
+    expect(chinese).toContain('placeholder="粘贴你的 Google AI Studio API 密钥"');
+    expect(chinese).toContain(CREDENTIAL_TARGETS.geminiTtsKey.helpUrl);
     expect(message.secret).toMatchObject({ target: "geminiTtsKey", description: `${CREDENTIAL_TARGETS.geminiTtsKey.description} Para preparar o resumo solicitado. Scout can use it but never read it back.` });
     setLocale("en");
     expect(render()).toBe(english);
@@ -209,10 +209,10 @@ describe("SecretRequestCard Gemini copy", () => {
     { superseded: true },
     { provided: true, resumed: true },
   ])("localizes the Gemini label in settled states %j", (state) => {
-    setLocale("pt-br");
+    setLocale("zh");
     const html = view({ target: "geminiTtsKey", ...CREDENTIAL_TARGETS.geminiTtsKey, ...state });
     expect(html).toContain('data-ask-card="settled"');
-    expect(html).toContain('aria-label="Chave de API de voz do Gemini"');
+    expect(html).toContain('aria-label="Gemini 语音合成 API 密钥"');
     expect(html).not.toContain('aria-label="Gemini speech API key"');
     expect(html).not.toContain("<input");
   });
@@ -375,10 +375,10 @@ describe("SecretRequestCard custom secrets", () => {
     const message: Message = { ...secretCard({ target: "customSecret", reason: "To create test charges.", description: "Original saved description.", helpUrl: "", delivery, stopped: true }), from: { botId: "bot-1", name: "Scout", color: "green" } };
     const render = () => renderToStaticMarkup(createElement(SecretRequestCard, { botId: "bot-1", threadId: "thread-1", message }));
     expect(render()).toContain('title="Original saved description."');
-    setLocale("pt-br");
+    setLocale("zh");
     const html = render();
     expect(html).toContain("To create test charges.");
-    expect(html).toContain(delivery === "file" ? "Os comandos de Scout podem ler" : "Scout recebe uma referência de uso único");
+    expect(html).toContain(delivery === "file" ? "Scout 的命令可以在 24 小时内从一个私密文件读取它" : "Scout 会得到一个一次性的引用");
     expect(html).not.toContain("Original saved description.");
     setLocale("en");
     expect(render()).toContain('title="Original saved description."');
@@ -388,13 +388,13 @@ describe("SecretRequestCard custom secrets", () => {
     const message = secretCard({ target: "customSecret", stopped: true, description: "Saved direct chat description.", delivery });
     const render = () => renderToStaticMarkup(createElement(SecretRequestCard, { botId: "bot-1", botName: "Scout", threadId: "thread-1", message }));
     expect(render()).toContain('title="Saved direct chat description."');
-    setLocale("pt-br");
-    expect(render()).toContain(delivery === "file" ? "Os comandos de Scout podem ler" : "Scout recebe uma referência de uso único");
+    setLocale("zh");
+    expect(render()).toContain(delivery === "file" ? "Scout 的命令可以在 24 小时内从一个私密文件读取它" : "Scout 会得到一个一次性的引用");
     expect(render()).not.toContain("Saved direct chat description.");
   });
 
   it("keeps an older card's description when no recorded author is available", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     expect(view({ target: "customSecret", stopped: true, description: "Saved legacy description", delivery: "file" })).toContain('title="Saved legacy description"');
   });
 

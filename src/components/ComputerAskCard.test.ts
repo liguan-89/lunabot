@@ -39,24 +39,24 @@ describe("a bot's ask to turn on what it needs from the person's computer", () =
     const words = () => computerAskWords(message.card, "Scout")!;
     expect(words().line).toBe(`Scout wants to use your ${device}'s apps and screen`);
     expect(words().reason).toBe(`Using your ${device} is paused.`);
-    setLocale("pt-br");
-    const localized = device === "computer" ? "computador" : device;
-    expect(words().line).toBe(`Scout quer usar os apps e a tela do seu ${localized}`);
-    expect(words().reason).toBe(`O uso do seu ${localized} está pausado.`);
+    setLocale("zh");
+    const localized = device === "computer" ? "电脑" : device;
+    expect(words().line).toBe(`Scout 想使用你的 ${localized} 上的应用和屏幕`);
+    expect(words().reason).toBe(`使用你的 ${localized} 已暂停。`);
     expect(message.card!.computerAsk!.device).toBe(device);
     const markup = panel(message);
-    expect(markup).toContain(`Scout quer usar os apps e a tela do seu ${localized}`);
-    expect(markup).toContain(`O uso do seu ${localized} está pausado.`);
-    expect(spokenApprovalPrompt(pendingApprovals([message])[0]!, "Scout")).toBe(`Scout quer usar os apps e a tela do seu ${localized}. O uso do seu ${localized} está pausado.`);
+    expect(markup).toContain(`Scout 想使用你的 ${localized} 上的应用和屏幕`);
+    expect(markup).toContain(`使用你的 ${localized} 已暂停。`);
+    expect(spokenApprovalPrompt(pendingApprovals([message])[0]!, "Scout")).toBe(`Scout 想使用你的 ${localized} 上的应用和屏幕. 使用你的 ${localized} 已暂停。`);
     setLocale("en");
     expect(words().line).toBe(`Scout wants to use your ${device}'s apps and screen`);
   });
 
   it.each([
-    ["folders", "Scout quer usar os arquivos do seu computador"],
-    ["terminal", "Scout quer executar comandos no seu computador"],
+    ["folders", "Scout 想使用你的 电脑 上的文件"],
+    ["terminal", "Scout 想在你的 电脑 上运行命令"],
   ] as const)("uses the localized computer noun for %s", (need, line) => {
-    setLocale("pt-br");
+    setLocale("zh");
     expect(computerAskWords(ask({ need, device: "computer" }).card, "Scout")!.line).toBe(line);
   });
 
