@@ -297,7 +297,7 @@ class Session(
                     if (error is kotlinx.coroutines.CancellationException) throw error
                     val routeFailure = error is PairingRouteError || error is ServerPairingRetryError
                     if (qr && !routeFailure) burnQrCredential(credential)
-                    _actionError.value = if (qr && !routeFailure) qrFailureMessage(error) else error.message
+                    _actionError.value = if (qr && !routeFailure) qrFailureMessage(error) else pairingFailureText(error)
                     throw error
                 }
                 if (qr) burnQrCredential(credential)
@@ -323,7 +323,7 @@ class Session(
                     )
                 } catch (error: Throwable) {
                     if (error is kotlinx.coroutines.CancellationException) throw error
-                    _actionError.value = if (qr) qrFailureMessage(error) else error.message
+                    _actionError.value = if (qr) qrFailureMessage(error) else pairingFailureText(error)
                     throw error
                 }
 
@@ -536,10 +536,8 @@ class Session(
         }
     }
 
-    private fun qrFailureMessage(error: Throwable): String {
-        val base = error.message?.takeIf { it.isNotBlank() } ?: "配对失败。"
-        return "$base 请在电脑上重新发起配对，并重新扫描新的二维码。"
-    }
+    private fun qrFailureMessage(error: Throwable): String =
+        "${pairingFailureText(error)} 请在电脑上重新发起配对，并重新扫描新的二维码。"
 
     fun signOut() {
         attachmentSendIds.clear()
