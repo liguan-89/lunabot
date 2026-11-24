@@ -101,12 +101,13 @@ describe("UpdateBanner", () => {
     expect(html).not.toContain("Restart to update");
   });
 
-  it("offers the disk image where an adhoc-signed Mac app installs from one", () => {
+  it("offers restart where an adhoc-signed Mac app swaps its update in, and the image on hand-off", () => {
     const ready = render({ status: "downloaded", version: "0.2.0", installMode: "image" });
-    expect(ready).toContain("Open the installer and drag Luna Bot into Applications");
-    expect(ready).toContain("Open installer");
-    expect(ready).not.toContain("Restart to update");
+    expect(ready).toContain("Restart to update");
+    expect(ready).toContain("Restart to finish updating.");
+    expect(ready).not.toContain("Open installer");
     expect(ready).not.toContain("terminal");
+    // A swap that could not start hands the disk image to the person instead.
     const opened = render({ status: "handed-off", version: "0.2.0", installMode: "image" });
     expect(opened).toContain("The installer is open. Drag Luna Bot into Applications");
     expect(opened).not.toContain("terminal");

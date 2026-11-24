@@ -129,11 +129,11 @@ describe("updateLabel", () => {
       .toBe("Install Luna Bot 0.2.0");
     expect(updateLabel("installing", state({ status: "installing", installMode: "handoff" })))
       .toBe("Opening a terminal…");
-    // An adhoc-signed Mac app updates from the release's disk image.
+    // An adhoc-signed Mac app swaps its update in on quit; the image only opens when staging fails.
     expect(updateLabel("downloaded", state({ status: "downloaded", version: "0.2.0", installMode: "image" })))
       .toBe("Update ready: Luna Bot 0.2.0");
     expect(updateLabel("installing", state({ status: "installing", installMode: "image" })))
-      .toBe("Opening the installer…");
+      .toBe("Installing the update…");
   });
 
   it("carries the updater's own message when something failed", () => {
@@ -464,6 +464,7 @@ describe("Simple mode's account menu", () => {
   it("raises a downloaded or failed app update and a newer server, and nothing else", () => {
     expect(simpleUpdateTop({ source: "desktop", phase: "downloaded" })).toEqual({ label: "Update ready", action: "Restart" });
     expect(simpleUpdateTop({ source: "desktop", phase: "downloaded", installMode: "handoff" })).toEqual({ label: "Update ready", action: "Install" });
+    expect(simpleUpdateTop({ source: "desktop", phase: "downloaded", installMode: "image" })).toEqual({ label: "Update ready", action: "Restart" });
     expect(simpleUpdateTop({ source: "desktop", phase: "error" })).toEqual({ label: "Update failed", action: "Retry" });
     expect(simpleUpdateTop({ source: "server", phase: "available" })).toEqual({ label: "Update ready", action: "Install" });
     expect(simpleUpdateTop({ source: "server", phase: "reload" })).toEqual({ label: "Update ready", action: "Restart" });

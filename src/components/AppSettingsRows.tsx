@@ -71,11 +71,9 @@ export function UpdatesRow({ title = t("settings.updates.title") }: { title?: st
         {s.retryable === false
           ? t("settings.updates.quitReopen")
           : s.status === "downloaded"
-            ? s.installMode === "image"
-              ? t("update.image.open")
-              : s.installMode === "handoff"
-                ? t("settings.updates.install")
-                : t("settings.updates.restart")
+            ? s.installMode === "handoff"
+              ? t("settings.updates.install")
+              : t("settings.updates.restart")
             : s.status === "preparing"
               ? t("settings.updates.preparingShort")
               : s.status === "installing"
