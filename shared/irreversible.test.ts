@@ -4,6 +4,7 @@ import {
   ConfirmGate,
   IRREVERSIBLE_ACTIONS,
   MAX_STEPS,
+  approvalAmount,
   classifyControl,
   type ConfirmationRequest,
   type ControlElement,
@@ -262,5 +263,41 @@ describe("ConfirmGate", () => {
     const gate = granted();
     gate.reset();
     expect(gate.permits({ action: "delete", matched: "删除" }, screen([{ text: "旧照片" }]), 2)).toEqual({ result: "no-grant" });
+  });
+});
+
+describe("approvalAmount", () => {
+  it("names the total an order approval binds, the same one amountShown will demand", () => {
+    const view = screen([{ text: "商品" }, { text: "合计 ¥39.90" }, { text: "去结算", bounds: [0, 900, 400, 960] }]);
+    expect(approvalAmount(view, "order", "去结算")).toBe("39.9");
+  });
+
+  it("reads the largest amount on screen when no total label stands", () => {
+    const view = screen([{ text: "¥10.00" }, { text: "¥39.90" }, { text: "去结算" }]);
+    expect(approvalAmount(view, "order", "去结算")).toBe("39.9");
+  });
+
+  it("takes the total nearest the control when every total sits inside a scrolling area", () => {
+    const view = screen([
+      { text: "列表", scrollable: true, bounds: [0, 0, 400, 800] },
+      { text: "合计 ¥39.90", bounds: [10, 700, 390, 760] },
+      { text: "去结算", bounds: [0, 850, 400, 910] },
+    ]);
+    expect(approvalAmount(view, "order", "去结算")).toBe("39.9");
+  });
+
+  it("declares null rather than guess when totals disagree or none shows", () => {
+    const disagreeing = screen([{ text: "合计 ¥10.00" }, { text: "实付 ¥39.90" }, { text: "去结算" }]);
+    expect(approvalAmount(disagreeing, "order", "去结算")).toBeNull();
+    expect(approvalAmount(screen([{ text: "去结算" }]), "order", "去结算")).toBeNull();
+    // A total label whose amount cannot be read is no amount at all.
+    expect(approvalAmount(screen([{ text: "合计 待定" }, { text: "去结算" }]), "order", "去结算")).toBeNull();
+  });
+
+  it("carries no amount for a send, and one for a delete only on a payment screen", () => {
+    const payable = screen([{ text: "合计 ¥39.90" }, { text: "删除" }]);
+    expect(approvalAmount(payable, "send", "发送")).toBeNull();
+    expect(approvalAmount(screen([{ text: "旧照片" }, { text: "删除" }]), "delete", "删除")).toBeNull();
+    expect(approvalAmount(payable, "delete", "删除")).toBe("39.9");
   });
 });

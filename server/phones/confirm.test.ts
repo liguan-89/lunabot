@@ -20,6 +20,10 @@ const deleteScreen = observed([
   { ref: "e1", text: "旧照片", bounds: [0, 100, 400, 200] },
   { ref: "e2", text: "删除", bounds: [0, 300, 400, 360] },
 ]);
+const orderScreen = observed([
+  { ref: "e1", text: "合计 ¥39.90", bounds: [0, 800, 400, 840] },
+  { ref: "e2", text: "去结算", bounds: [0, 900, 400, 960] },
+]);
 const sendScreen = observed([
   { ref: "e1", text: "张三", bounds: [0, 40, 400, 100] },
   { ref: "e2", text: "晚上好", editable: true, bounds: [0, 300, 400, 360] },
@@ -267,6 +271,31 @@ describe("the approved card as the person's approval", () => {
     expect(card.result).toBe("refused");
     expect(card.result === "refused" && card.reason).toContain("make the payment themselves");
     expect(confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e1" }).result).toBe("refused");
+  });
+
+  it("binds an approved order card to the total the screen showed, so the tap is allowed", () => {
+    const confirms = confirmsWith(orderScreen);
+    expect(confirms.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e2" })).toEqual({ result: "approved" });
+    expect(confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e2" })).toMatchObject({ result: "allowed", hit: { action: "order" } });
+  });
+
+  it("still refuses an order whose screen shows no total the approval could name", () => {
+    const confirms = confirmsWith(observed([{ ref: "e1", text: "去结算", bounds: [0, 900, 400, 960] }]));
+    // The card is approved and the grant made, but with no amount to bind the permit fails closed.
+    expect(confirms.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e1" })).toEqual({ result: "approved" });
+    const check = confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e1" });
+    expect(check.result).toBe("refused");
+    expect(check.result === "refused" && check.reason).toContain("the approved amount");
+  });
+
+  it("grades every refused step for the decision log: a payment irreversible, a send external", () => {
+    const confirms = confirmsWith(payScreen);
+    const pay = confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e1" });
+    expect(pay).toMatchObject({ result: "refused", risk: { level: "irreversible" } });
+    const card = confirms.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e1" });
+    expect(card).toMatchObject({ result: "refused", risk: { level: "irreversible" } });
+    const send = confirms.check(TURN, PHONE, "PHONE_UI_KEY", { key: "enter" });
+    expect(send).toMatchObject({ result: "refused", risk: { level: "external" } });
   });
 
   it("refuses a card for a screen whose foreground app is unknown, so no permit is ever granted", () => {

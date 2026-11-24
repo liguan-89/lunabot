@@ -166,10 +166,12 @@ json_top() {
 # GET $1 into BODY. Returns 0 with the body, 1 when there is no such file (HTTP 404, or a file:// path that is not
 # there), 2 when it could not be asked (no network, a timeout, any other answer).
 fetch() {
-  local url=$1 got code rc headers
+  local url=$1 got code rc headers auth=""
+  # Unauthenticated api.github.com calls share a 60/hour limit per address; authenticate when a token is around.
+  [ -n "${GITHUB_TOKEN:-}" ] && auth="Authorization: Bearer $GITHUB_TOKEN"
   BODY=""
   if command -v curl >/dev/null 2>&1; then
-    got=$(curl -sSL --max-time 20 -w '\n%{http_code}' "$url" 2>/dev/null)
+    got=$(curl -sSL --max-time 20 ${auth:+-H "$auth"} -w '\n%{http_code}' "$url" 2>/dev/null)
     rc=$?
     code=${got##*$'\n'}
     BODY=${got%$'\n'*}
@@ -180,7 +182,7 @@ fetch() {
     esac
   fi
   headers=$(mktemp) || return 2
-  BODY=$(wget -S -T 20 -qO- "$url" 2>"$headers")
+  BODY=$(wget ${auth:+--header="$auth"} -S -T 20 -qO- "$url" 2>"$headers")
   rc=$?
   if [ "$rc" = 0 ]; then rm -f "$headers"; return 0; fi
   BODY=""

@@ -77,6 +77,10 @@ data class CompanionEndpoint private constructor(
     val protectsCredentials: Boolean
         get() = securityClass == CompanionEndpointSecurityClass.PROTECTED
 
+    /** A route to a computer on this phone's own network: the sockets Android 17 blocks without its local-network permission. */
+    val isOnLocalNetwork: Boolean
+        get() = securityClass == CompanionEndpointSecurityClass.EXPLICIT_LOCAL && !isLoopbackHost(host)
+
     /** Full HTTPS authority for hosted routes; familiar direct form for local routes. */
     val displayAddress: String
         get() = if (kind == CompanionEndpointKind.HOSTED || isSecure) {

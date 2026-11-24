@@ -21,8 +21,8 @@ class E2eTransport(
     private val token: String,
     private val app: String,
     private val connector: E2eSocketConnector = OkHttpE2eConnector(),
-    /** A direct route to try when the relay is unavailable: `ws://host:port/v1/e2e`. */
-    private val directUrl: String? = null,
+    /** A direct route to try before the relay: `ws://host:port/v1/e2e`. Null leaves the relay to carry the session. */
+    val directUrl: String? = null,
 ) {
     private val lock = Any()
     private var session: E2eSession? = null

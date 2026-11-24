@@ -7,6 +7,7 @@ import android.os.Handler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.RECEIVER_CONNECT_BUDGET_MS
 import com.lunabot.companion.core.Session
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,7 +47,7 @@ class ApprovalActionReceiver : BroadcastReceiver() {
                 app.session.connect()
                 // A cold start has to finish pairing and open the stream; past
                 // this the tap is old news and the notification still opens.
-                val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
+                val live = withTimeoutOrNull(RECEIVER_CONNECT_BUDGET_MS) {
                     app.session.status.first { it is Session.Status.Live }
                 }
                 val decided = live != null &&
@@ -96,7 +97,6 @@ class ApprovalActionReceiver : BroadcastReceiver() {
     }
 
     private companion object {
-        const val CONNECT_TIMEOUT_MS = 10_000L
         const val NEEDS_APP_TITLE = "需要打开 App"
         const val NEEDS_APP_MESSAGE = "这条审批需要在 App 中查看。"
     }

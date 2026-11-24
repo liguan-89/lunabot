@@ -49,7 +49,7 @@ class PairingInviteE2eTest {
         val invite = PairingInvite.parse("openmausbot://pair?address=192.168.1.20&token=omb_pair_${"C".repeat(43)}")
         assertNotNull(invite)
         assertNull(invite.connection.e2e)
-        assertTrue(invite.connection.e2eDirectUrl == null)
+        assertTrue(invite.connection.e2eDirectUrl() == null)
     }
 
     @Test
@@ -60,7 +60,7 @@ class PairingInviteE2eTest {
             ),
         )
         assertNotNull(invite)
-        assertEquals("ws://192.168.1.20:8810/v1/e2e", invite.connection.e2eDirectUrl)
+        assertEquals("ws://192.168.1.20:8810/v1/e2e", invite.connection.e2eDirectUrl())
     }
 
     @Test
