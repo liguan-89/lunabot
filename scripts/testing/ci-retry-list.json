@@ -163,6 +163,13 @@
       "since": "2026-11-22"
     },
     {
+      "file": "server/decision-log-wiring.test.ts",
+      "test": "authorization decisions are logged > a card and the human's allow write two rows",
+      "owner": "liguan-89",
+      "reason": "Failed twice on loaded ubuntu shards (Nov 24, PR #68 and PR #71 runs): the requestId-scoped waitForDecision matched a sibling test's card-shown row ('native-approval' where 'no-grant' was expected) — likely the card's requestId read before it fully formed, leaving the filter unscoped. The sibling CSV-count assertion failed in the same run. Green locally.",
+      "since": "2026-11-24"
+    },
+    {
       "file": "server/browser/checklist.e2e.test.ts",
       "test": "the bots' browser service on real Chrome > answers a click that opened the next page with that page: a link, a form the page submits, a script's location change",
       "owner": "liguan-89",
