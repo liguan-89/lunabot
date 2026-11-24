@@ -11,9 +11,11 @@ describe("presence client", () => {
   });
 
   it("names the pack the app shows: the device's pick, else the server's language", () => {
-    expect(shownLanguage("pt-BR")).toBe("pt-br");
+    expect(shownLanguage("zh-Hant")).toBe("zh");
+    setLanguageChoice("zh");
+    expect(shownLanguage("en")).toBe("zh");
     setLanguageChoice("es");
-    expect(shownLanguage("pt-br")).toBe("es");
+    expect(shownLanguage("zh")).toBe("en");
   });
 
   it("pings once a minute at most, and at once the first time", () => {

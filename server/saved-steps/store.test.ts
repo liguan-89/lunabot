@@ -219,7 +219,7 @@ describe("RecipeStore", () => {
     writeFileSync(file(), JSON.stringify({
       version: 1,
       recipes: [
-        withStep("send", { tool: "click", args: {}, app, window: { title: "New Message" }, element: { role: "AXButton", label: "Senden", path: [] } }),
+        withStep("send", { tool: "click", args: {}, app, window: { title: "New Message" }, element: { role: "AXButton", label: "发送", path: [] } }),
         withStep("in checkout", { tool: "click", args: {}, app, window: { title: "Checkout" }, element: { role: "AXButton", label: "Next", path: [] } }),
         withStep("password", { tool: "click", args: {}, app, window: { title: "Sign in" }, element: { role: "AXSecureTextField", label: "Password", path: [] } }),
         withStep("delete key", { tool: "press_key", args: { key: "delete" }, app, window: { title: "Inbox" } }),

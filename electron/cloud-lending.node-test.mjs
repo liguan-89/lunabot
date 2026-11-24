@@ -16,7 +16,7 @@ const env = { id: "my-cloud", name: "My Cloud", origin: ORIGIN };
 test("an empty Cloud grant follows the current native language without changing its English", async t => {
   const text = nativeText.createNativeText({ saved: "en" });
   const { sharing } = await lendingFixture(t, { t: text.t });
-  for (const language of ["en", "pt-br"]) {
+  for (const language of ["en", "zh"]) {
     text.set(language);
     await assert.rejects(sharing.saveCloud(env, { folders: [], screen: false }), { message: text.t("native.lend.chooseCapability") });
   }

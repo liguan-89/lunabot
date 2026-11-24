@@ -97,8 +97,8 @@ it("in This Mac's own place, the line says it is separate from My Cloud, where t
   expect(homeLineText({ kind: "profile" }, "darwin")).toBe("This Mac starts fresh, separate from My Cloud. The bots you had here are on My Cloud; to bring in an older copy, import its backup in Settings → Backups.");
   expect(homeLineText({ kind: "profile" }, "win32")).toMatch(/^This PC starts fresh/);
   expect(host.querySelector("[data-home-line-ai]")?.textContent, "a fresh place offers connecting an AI while none is ready").toBe("Connect an AI");
-  setLocale("pt-br");
-  expect(homeLineText({ kind: "profile" }, "darwin")).toMatch(/^Este Mac começa do zero/);
+  setLocale("zh");
+  expect(homeLineText({ kind: "profile" }, "darwin")).toMatch(/^这台 Mac 是一个全新的、与 My Cloud 分开的空间/);
 });
 
 it("in a workspace added from ＋, the line names it and says it is separate, with its own bots, chats and files", () => {

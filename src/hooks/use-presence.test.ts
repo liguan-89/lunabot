@@ -72,11 +72,11 @@ describe("usePresence", () => {
     fixture.choice = "en";
     render(loaded, dispatch);
     await flush();
-    fixture.choice = "pt-br";
+    fixture.choice = "zh";
     render(loaded, dispatch);
     await flush();
     const languages = fixture.api.mock.calls.map(([, init]) => JSON.parse((init as { body: string }).body).language);
-    expect(languages).toEqual(["en", "pt-br"]);
+    expect(languages).toEqual(["en", "zh"]);
     render(loaded, dispatch);
     await flush();
     expect(fixture.api).toHaveBeenCalledTimes(2);

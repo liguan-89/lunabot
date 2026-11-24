@@ -190,7 +190,7 @@ describe("coded voice refusals", () => {
 
   it.each([
     ["en", "voice utterances are limited to 500 characters"],
-    ["pt-br", "Cada trecho de fala pode ter no máximo 500 caracteres"],
+    ["zh", "语音内容限制在 500 个字符以内"],
   ])("shows an oversized prepared utterance refusal in %s", async (locale, expected) => {
     setLocale(locale);
     const text = "Tudo bem. ".repeat(80);
@@ -205,17 +205,17 @@ describe("coded voice refusals", () => {
   });
 
   it.each(["prepare", "speak"])("consumes string error params from /%s", async (phase) => {
-    setLocale("pt-br");
+    setLocale("zh");
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => String(input).endsWith("/prepare") && phase === "speak"
       ? json({ ready: true, utterances: ["Hello there."] })
       : Response.json(userError("serverError.owner.choose", { team: "Aurora" }), { status: 400 })));
     const speaker = new Speaker();
     await speaker.speak("Hello there.");
-    expect(speaker.state.error).toBe("Escolha alguém de Aurora.");
+    expect(speaker.state.error).toBe("请在 Aurora 中选择一个人。");
   });
 
   it.each([undefined, "activity.tool.team.decide", "serverError.future.voice"])("keeps the raw diagnostic for unsupported error key %s", async (errorKey) => {
-    setLocale("pt-br");
+    setLocale("zh");
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => String(input).endsWith("/prepare")
       ? json({ ready: true, utterances: ["Hello there."] })
       : Response.json({ error: "upstream technical diagnostic", errorKey }, { status: 502 })));

@@ -83,14 +83,14 @@ describe("times in plain words", () => {
     expect(nextWhen(at(1, 9), NOW)).toBe("tomorrow 9:00 AM");
     expect(nextWhen(at(2, 9), NOW)).toBe("Monday 9:00 AM");
   });
-  describe("in pt-BR", () => {
+  describe("in zh", () => {
     afterEach(() => { setLocale("en"); });
-    it("writes a 24-hour clock with two-digit hours and the minutes, and “às” before a weekday's time", () => {
-      setLocale("pt-br");
-      expect(lastWhen(at(0, 8, 30), NOW)).toBe("hoje às 08:30");
-      expect(nextWhen(at(2, 9), NOW)).toBe("segunda-feira às 09:00");
-      expect(plainWhen({ type: "daily", time: "14:00", weekdays: [0, 1, 2, 3, 4, 5, 6] })).toBe("Todo dia às 14:00");
-      expect(plainWhen({ type: "cron", expression: "30 8 * * 1", timeZone: "UTC" })).toBe("Toda segunda-feira às 08:30 · UTC");
+    it("writes a 24-hour clock with two-digit hours and the minutes", () => {
+      setLocale("zh");
+      expect(lastWhen(at(0, 8, 30), NOW)).toBe("今天 08:30");
+      expect(nextWhen(at(2, 9), NOW)).toBe("星期一 09:00");
+      expect(plainWhen({ type: "daily", time: "14:00", weekdays: [0, 1, 2, 3, 4, 5, 6] })).toBe("每天 14:00");
+      expect(plainWhen({ type: "cron", expression: "30 8 * * 1", timeZone: "UTC" })).toBe("每周星期一 08:30 · UTC");
     });
   });
 });
@@ -220,10 +220,10 @@ describe("order and the grey line", () => {
     expect(automationStatus(automation([], { ...watch, checkTrouble: several }), NOW)).toMatchObject({ fix: "reconnect" });
     const failed = automation([], { ...watch, checkTrouble: "The checks could not run; they try again at the next check.", checkTroubleCode: "routines.server.checksFailed" });
     expect(automationStatus(failed, NOW)).toMatchObject({ reason: "The checks could not run; they try again at the next check." });
-    setLocale("pt-br");
-    expect(automationStatus(failed, NOW).reason).toBe("Não foi possível fazer as verificações. O app tenta novamente na próxima verificação.");
+    setLocale("zh");
+    expect(automationStatus(failed, NOW).reason).toBe("检查未能运行；会在下次检查时重试。");
     expect(runLine(run("failed", at(-1, 9), { error: "Waiting to start: busy", errorCode: "routines.server.waitingToStart", errorParams: { failure: "busy" } }), NOW).text)
-      .toBe("Esperando para começar. Motivo: busy");
+      .toBe("等待开始：busy");
     setLocale("en");
   });
 

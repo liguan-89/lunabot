@@ -135,30 +135,30 @@ test("the native confirm and IPC refusals follow the app's current language", as
     await move(OWN, "atlas-bot-1");
     assert.equal(asked[0].message, "Move Atlas to Acme?");
     assert.deepEqual(labels, ["Move to a team"]);
-    text.set("pt-br");
+    text.set("zh");
     await move(OWN, "atlas-bot-1");
     assert.deepEqual(asked[1], {
-      message: "Mover Atlas para Acme?",
+      message: "要把 Atlas 移到 Acme 吗？",
       detail: [
-        "Todos em Acme podem usar Atlas. Só os administradores de Acme podem alterá-lo.",
-        "Vão com Atlas: instruções, habilidades, arquivos, rotinas e suas conversas com Atlas",
-        "Suas conversas continuam privadas lá: só você pode vê-las.",
-        "Ficam no My Cloud: o que Atlas lembra, suas conexões e o Luna Bot",
-        "As tabelas que Atlas carregou em Dados não são transferidas: ficam no My Cloud, onde Atlas não consegue abri-las depois que entra em Acme.",
-        "Não é possível desfazer: você não pode mover o bot de volta para o My Cloud.",
+        "Acme 里的每个人都能使用 Atlas。只有 Acme 的管理员能修改它。",
+        "随 Atlas 一起移过去：指令、技能、文件、例行任务，以及你和 Atlas 的对话",
+        "你的对话在那里依然保密：只有你能看到。",
+        "留在 My Cloud：Atlas 记得的内容、你的连接和 Luna Bot",
+        "Atlas 装进「数据」的表不会跟着搬：它们留在 My Cloud，进了 Acme 之后 Atlas 就打不开了。",
+        "无法撤销：你不能把它移回 My Cloud。",
       ].join("\n\n"),
-      buttons: ["Mover para Acme", "Cancelar"],
+      buttons: ["移到 Acme", "取消"],
     });
-    await assert.rejects(move({}, "atlas-bot-1"), { message: "Abra a equipe para a qual você quer mover o bot." });
-    await assert.rejects(move(OWN, "maus-bot-1"), { message: "Escolha um dos seus bots para mover." });
+    await assert.rejects(move({}, "atlas-bot-1"), { message: "打开你要把机器人迁入的团队。" });
+    await assert.rejects(move(OWN, "maus-bot-1"), { message: "请选择你自己的一个机器人来移动。" });
   } finally { done(); }
 });
 
 test("the new My Cloud read uses the app's language for its session and failure", async () => {
-  const text = nativeText.createNativeText({ saved: "pt-br" });
+  const text = nativeText.createNativeText({ saved: "zh" });
   const { handlers, labels, done } = fixture({ t: text.t, listedStatus: 503 });
   try {
-    await assert.rejects(handlers.get("cloud-send:team-bring-move")(OWN, "atlas-bot-1"), { message: "O Cloud não respondeu." });
-    assert.deepEqual(labels, ["Mover para uma equipe"]);
+    await assert.rejects(handlers.get("cloud-send:team-bring-move")(OWN, "atlas-bot-1"), { message: "My Cloud 没有响应。" });
+    assert.deepEqual(labels, ["迁移到团队"]);
   } finally { done(); }
 });

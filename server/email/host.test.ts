@@ -183,8 +183,7 @@ describe("a turn's Email tools", () => {
 
 it.each([
   ["en", "Sent from me@shop.example to 1 recipient(s)"],
-  ["pt-br", "Enviado de me@shop.example. Destinatários: 1"],
-  ["de", "Von me@shop.example an 1 Empfänger gesendet"],
+  ["zh", "已从 me@shop.example 发送给 1 位收件人"],
 ])("the send activity uses the conversation's language %s", async (language, summary) => {
   setConversationLanguage(() => language);
   try {

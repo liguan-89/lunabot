@@ -149,25 +149,25 @@ describe("buildSpendNotification", () => {
 describe("a notification's title", () => {
   afterEach(() => setConversationLanguage(() => undefined));
 
-  it("uses Brazilian Portuguese once on the server and leaves other conversations in English", () => {
-    setConversationLanguage((threadId) => threadId === "thread-1" ? "pt-BR" : undefined);
+  it("uses the conversation's language on the server and leaves other conversations in English", () => {
+    setConversationLanguage((threadId) => threadId === "thread-1" ? "zh" : undefined);
     expect(buildNotification("question", bot, "thread-1", "Which file?", { group: { id: "g1", name: "Launch" } })?.title)
-      .toBe("Scout em Launch tem uma pergunta");
-    expect(buildNotification("routine-failed", bot, "thread-1", "Signed out.")?.title).toBe("A rotina de Scout falhou");
-    expect(buildNotification("sign-in", bot, "thread-1", "", { site: "github.com" })?.title).toBe("Scout precisa que você faça login em github.com");
-    expect(buildNotification("done", bot, "thread-1", "Done.")?.title).toBe("Scout terminou");
+      .toBe("Launch 中的 Scout 有一个问题");
+    expect(buildNotification("routine-failed", bot, "thread-1", "Signed out.")?.title).toBe("Scout 的例行任务失败了");
+    expect(buildNotification("sign-in", bot, "thread-1", "", { site: "github.com" })?.title).toBe("Scout 需要你登录 github.com");
+    expect(buildNotification("done", bot, "thread-1", "Done.")?.title).toBe("Scout 已完成");
     expect(buildNotification("question", bot, "other", "Which file?")?.title).toBe("Scout has a question");
   });
 
   it("is in the language of the conversation's person", () => {
-    setConversationLanguage((threadId) => (threadId === "beaver-main" ? "de" : undefined));
+    setConversationLanguage((threadId) => (threadId === "beaver-main" ? "zh" : undefined));
     const bot = { id: "beaver", name: "Biber", threadId: "beaver-main" };
-    expect(conversationLanguage("beaver-main")).toBe("de");
-    expect(buildNotification("routine-failed", bot, "beaver-main", "Nightly report: signed out")?.title).toBe("Routine von Biber ist fehlgeschlagen");
-    expect(buildNotification("question", bot, "beaver-main", "Send it?", { group: { id: "launch", name: "Launch" } })?.title).toBe("Biber in Launch hat eine Frage");
-    expect(buildNotification("sign-in", bot, "beaver-main", "", { site: "github.com" })?.title).toBe("Biber braucht deine Anmeldung bei github.com");
-    expect(buildNotification("sign-in", bot, "beaver-main", "")?.title).toBe("Biber braucht deine Anmeldung bei einer Website");
-    expect(buildNotification("done", bot, "beaver-main", "Done.")?.title).toBe("Biber ist fertig");
+    expect(conversationLanguage("beaver-main")).toBe("zh");
+    expect(buildNotification("routine-failed", bot, "beaver-main", "Nightly report: signed out")?.title).toBe("Biber 的例行任务失败了");
+    expect(buildNotification("question", bot, "beaver-main", "Send it?", { group: { id: "launch", name: "Launch" } })?.title).toBe("Launch 中的 Biber 有一个问题");
+    expect(buildNotification("sign-in", bot, "beaver-main", "", { site: "github.com" })?.title).toBe("Biber 需要你登录 github.com");
+    expect(buildNotification("sign-in", bot, "beaver-main", "")?.title).toBe("Biber 需要你登录一个网站");
+    expect(buildNotification("done", bot, "beaver-main", "Done.")?.title).toBe("Biber 已完成");
     expect(buildNotification("routine-failed", bot, "other", "x")?.title).toBe("Biber's routine failed");
   });
 });

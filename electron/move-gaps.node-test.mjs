@@ -66,13 +66,13 @@ test("the stayed results use the current language and keep gap identity unchange
   const input = report();
   const key = gapKey(input);
   assert.equal(stayedBehind(input, text.t)[1].error, "2 of its memory notes didn't reach My Cloud.");
-  text.set("pt-br");
+  text.set("zh");
   assert.deepEqual(stayedBehind(input, text.t).slice(0, 3), [
-    { label: "Archie", error: "Não chegou ao Cloud." },
-    { label: "Scout", error: "2 notas de memória não chegaram ao Cloud." },
-    { label: "Scout", error: "Um dos arquivos não chegou ao Cloud." },
+    { label: "Archie", error: "它没有到达 My Cloud。" },
+    { label: "Scout", error: "它的 2 条记忆没有到达 My Cloud。" },
+    { label: "Scout", error: "它的一个文件没有到达 My Cloud。" },
   ]);
   assert.deepEqual(stayedBehind({ gaps: { items: Array.from({ length: 20 }, (_, n) => ({ label: `Bot ${n}` })) } }, text.t).at(-1),
-    { label: "Mais 13", error: "Não chegaram ao Cloud." });
+    { label: "还有 13 项", error: "它们没有到达 My Cloud。" });
   assert.equal(gapKey(input), key);
 });

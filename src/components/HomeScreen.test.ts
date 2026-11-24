@@ -40,9 +40,9 @@ it("while the Admin sets My Cloud up, the screen says so plainly, with its step,
 });
 
 it("says why My Cloud can't be reached in the app's language, and keeps the Admin's English when no cause comes", () => {
-  setLocale("pt-br");
-  expect(homeScreenText({ screen: "offline", reason: "The server My Cloud runs on is being restarted.", cause: "host" }).reason).toMatch(/^Nosso provedor de hospedagem/);
-  expect(homeScreenText({ screen: "offline", reason: "My Cloud hasn't answered.", cause: "no_answer" }).reason).toMatch(/^O Cloud não responde/);
+  setLocale("zh");
+  expect(homeScreenText({ screen: "offline", reason: "The server My Cloud runs on is being restarted.", cause: "host" }).reason).toMatch(/^我们的托管服务商正在重启 Cloud 所在的机器/);
+  expect(homeScreenText({ screen: "offline", reason: "My Cloud hasn't answered.", cause: "no_answer" }).reason).toMatch(/^Cloud 已有几分钟没有响应/);
   expect(homeScreenText({ screen: "offline", reason: "An older desktop's words." }).reason).toBe("An older desktop's words.");
 });
 

@@ -39,8 +39,8 @@ describe("composer slash commands", () => {
     beforeEach(() => { previousLocale = activeLocale(); });
     afterEach(() => { setLocale(previousLocale); });
 
-    it.each([["zh", "让这"], ["zh-tw", "讓這"]])("finds the translated goal description for %s without translating the command", async (locale, query) => {
-      expect(await loadLocale(locale)).toBe(locale);
+    it.each([["zh", "zh", "让这"], ["zh-tw", "zh", "让这"]])("finds the translated goal description for %s without translating the command", async (locale, shown, query) => {
+      expect(await loadLocale(locale)).toBe(shown);
       const text = `/${query}`;
       const trigger = composerSlashTrigger(text, text.length);
       expect(trigger).toEqual({ query, start: 0, end: text.length });

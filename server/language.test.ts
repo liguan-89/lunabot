@@ -2,19 +2,19 @@ import { expect, it } from "vitest";
 
 import { byLanguage, intlLocale } from "./language.ts";
 
-it("picks the pack the app would: exact, alias, parent, else English", () => {
-  const table = { en: "en", fr: "fr", "pt-br": "pt-br", "zh-tw": "zh-tw" };
-  expect([" PT-BR ", "pt", "pt-PT", "zh-HK", "zh-Hant-TW", "fr-CA", "xx", undefined, ""].map((language) => byLanguage(table, language)))
-    .toEqual(["pt-br", "pt-br", "pt-br", "zh-tw", "zh-tw", "fr", "en", "en", "en"]);
+it("picks the pack the app would: exact, parent, else English", () => {
+  const table = { en: "en", zh: "zh" };
+  expect([" ZH ", "zh-CN", "zh-Hans", "zh-Hant-TW", "zh-HK", "en-GB", "xx", undefined, ""].map((language) => byLanguage(table, language)))
+    .toEqual(["zh", "zh", "zh", "zh", "zh", "en", "en", "en", "en"]);
 });
 
 it("formats in the language set, and in US English when none or a bad one is set", () => {
-  expect([intlLocale("pt-br"), intlLocale(undefined), intlLocale("not a locale!")]).toEqual(["pt-BR", "en-US", "en-US"]);
+  expect([intlLocale("zh"), intlLocale(undefined), intlLocale("not a locale!")]).toEqual(["zh", "en-US", "en-US"]);
 });
 
 
 it("returns a present-but-falsy value instead of falling back to English", () => {
-  expect(byLanguage({ en: true, fr: false }, "fr")).toBe(false);
-  expect(byLanguage({ en: "E", fr: "" }, "fr")).toBe("");
-  expect(byLanguage({ en: 1, fr: 0 }, "FR")).toBe(0);
+  expect(byLanguage({ en: true, zh: false }, "zh")).toBe(false);
+  expect(byLanguage({ en: "E", zh: "" }, "zh")).toBe("");
+  expect(byLanguage({ en: 1, zh: 0 }, "ZH")).toBe(0);
 });

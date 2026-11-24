@@ -49,8 +49,8 @@ describe("usage formatting", () => {
     expect(formatUsd(0.004)).toBe("$0.004");
     expect(formatUsd(0.31)).toBe("$0.31");
     expect(formatUsd(1234.5)).toBe("$1234.50");
-    setLocale("pt-br");
-    expect([formatUsd(0.02), formatUsd(0.004), formatUsd(0)]).toEqual(["US$\u00a00,02", "US$\u00a00,004", "US$\u00a00"]);
+    setLocale("zh");
+    expect([formatUsd(0.02), formatUsd(0.004), formatUsd(0)]).toEqual(["US$0.02", "US$0.004", "US$0"]);
     setLocale("en");
   });
 
@@ -62,8 +62,8 @@ describe("usage formatting", () => {
       vi.stubGlobal("navigator", { language: "en-GB" });
       setLocale("en");
       expect(english()).toEqual(["$0.01", "$0.005", "$1234.50", "$0.001", "$0", "$-0.500"]);
-      setLocale("pt-br");
-      expect(formatUsd(1234.5)).toBe("US$\u00a01234,50");
+      setLocale("zh");
+      expect(formatUsd(1234.5)).toBe("US$1234.50");
     });
   });
 

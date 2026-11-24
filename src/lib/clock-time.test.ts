@@ -18,7 +18,7 @@ describe("a time of day", () => {
     vi.stubGlobal("navigator", { language: "en-US" });
     const english = new Date(at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     expect(formatTime(at)).toBe(english);
-    setLocale("pt-br");
+    setLocale("zh");
     expect(formatTime(at)).toBe("09:05");
     setLocale("en");
     expect(formatTime(at)).toBe(english);
@@ -26,8 +26,8 @@ describe("a time of day", () => {
 
   it("localizes invalid dates without changing the English fallback", () => {
     expect(formatTime(NaN)).toBe("Invalid Date");
-    setLocale("pt-br");
-    expect(formatTime(NaN)).toBe("Data inválida");
+    setLocale("zh");
+    expect(formatTime(NaN)).toBe("无效日期");
   });
 
   it("keeps an English app's clock exactly as before, whatever the browser's region", () => {
@@ -41,9 +41,9 @@ describe("a time of day", () => {
     }
   });
 
-  it("writes a 24-hour clock with two-digit hours and the minutes in pt-BR", () => {
-    setLocale("pt-br");
+  it("writes a 24-hour clock with two-digit hours and the minutes in zh", () => {
+    setLocale("zh");
     expect([formatTime(at), niceTime(at)]).toEqual(["09:05", "09:05"]);
-    expect(clockOptions("pt-BR", true)).toEqual({ hour: "2-digit", minute: "2-digit" });
+    expect(clockOptions("zh", true)).toEqual({ hour: "2-digit", minute: "2-digit" });
   });
 });
