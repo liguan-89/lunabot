@@ -853,6 +853,22 @@ class CompanionClient(
         ))
     }
 
+    /** A widget press rides the same message POST as text: `widgetAction` names the
+     * message, the pressed ref and the rev it was made on, plus the collected form
+     * values. [sendId] makes a retried press land once. */
+    suspend fun sendWidgetAction(botId: String, widgetAction: JsonObject, threadId: String, sendId: String): SendReceipt {
+        if (!isSafeRouteId(botId) || !isSafeRouteId(threadId) || !isSafeSendId(sendId)) throw APIError.BadUrl
+        return sendForReceipt(makeRequest(
+            "POST",
+            "/api/bots/${safeRouteId(botId)}/messages",
+            body = buildJsonObject {
+                put("widgetAction", widgetAction)
+                put("threadId", threadId)
+                put("sendId", sendId)
+            },
+        ))
+    }
+
     suspend fun respond(
         threadId: String,
         requestId: String,

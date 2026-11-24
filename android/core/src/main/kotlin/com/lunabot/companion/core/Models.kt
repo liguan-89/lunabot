@@ -263,24 +263,30 @@ data class LiveCallRecord(
 )
 
 /**
- * The part of a bot-authored widget (`kind == "widget"`) the phone needs.
- *
- * The tree itself is a ChatKit document the desktop renders with buttons and
- * fields; the phone shows its readable `text` fallback plus the settled answer,
- * so a widget row is a readable receipt rather than a gap. The full tree is
- * deliberately not interpreted here: a press would have to go through the
- * desktop's widget route, which the phone allowlist does not carry.
+ * A bot-authored widget (`kind == "widget"`). `root` is the canonical
+ * ChatKit-style tree the phone renders and presses like the desktop: a press
+ * rides the normal message POST as `widgetAction` and the server re-validates
+ * it, so the tree is kept untyped (`JsonObject`) and read through
+ * `WidgetTree.kt`. `rev` counts replacements of the tree (a press names the
+ * revision it was made on); `settled`/`withdrawn` are terminal states.
  */
 @Serializable
 data class WidgetCardData(
     val v: Int = 0,
+    val root: JsonObject? = null,
+    val rev: Int = 0,
     val settled: WidgetSettledRef? = null,
+    val withdrawn: JsonObject? = null,
 )
 
 @Serializable
 data class WidgetSettledRef(
     val label: String = "",
     val tone: String = "",
+    /** The field values that went with the press, for the read-only Details view. */
+    val values: JsonObject? = null,
+    /** The person's own words for a choice they answered with Other. */
+    val other: JsonObject? = null,
 )
 
 /**
@@ -343,8 +349,10 @@ data class Message(
     val signIn: SignInCardData? = null,
     /** `kind == CALL`: the receipt of a finished Live call. */
     val call: LiveCallRecord? = null,
-    /** `kind == WIDGET`: a bot-authored card's settled state, if any. */
+    /** `kind == WIDGET`: a bot-authored card's tree and settled state, if any. */
     val widget: WidgetCardData? = null,
+    /** `kind == WIDGET`: the server built this card — its `i18n` keys localise. */
+    val serverCard: Boolean? = null,
     /** `kind == APP`: a bot page or MCP app. */
     val app: AppCardData? = null,
 ) {
