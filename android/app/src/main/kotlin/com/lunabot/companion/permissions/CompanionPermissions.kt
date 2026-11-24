@@ -51,6 +51,15 @@ class CompanionPermissions(
      */
     fun discoveryPermissions(): Array<String> = refresh().missingDiscovery.toTypedArray()
 
+    /** The names these permissions go by where the person meets them: the system's prompt and its Settings page. */
+    fun described(permissions: List<String>): List<String> = permissions.map { permission ->
+        when (permission) {
+            Manifest.permission.NEARBY_WIFI_DEVICES -> "附近设备"
+            PERMISSION_ACCESS_LOCAL_NETWORK -> "本地网络"
+            else -> permission
+        }
+    }
+
     /** Whether this phone may open a socket on its own network: what every route to a computer on its Wi-Fi needs on API 37. */
     fun localNetworkGranted(): Boolean = sdkInt < LOCAL_NETWORK_SDK || granted(PERMISSION_ACCESS_LOCAL_NETWORK)
 

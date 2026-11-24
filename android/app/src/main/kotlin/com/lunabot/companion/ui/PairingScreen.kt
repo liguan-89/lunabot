@@ -53,6 +53,7 @@ import com.lunabot.companion.core.ServerPairingRetryError
 import com.lunabot.companion.discovery.DiscoveredService
 import com.lunabot.companion.discovery.DiscoveryState
 import com.lunabot.companion.discovery.toConnection
+import com.lunabot.companion.permissions.CompanionPermissions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -484,9 +485,15 @@ fun PairingScreen(onCancel: () -> Unit) {
                 // Next to the list it makes empty, and only once the search it
                 // describes is the thing on screen.
                 if (permissionSnapshot.discoveryNeedsRequest) {
+                    val missing = permissionSnapshot.missingDiscovery
+                    val pairingAsks = if (CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK in missing) {
+                        "扫码配对一台同一 Wi-Fi 上的电脑时，系统也会询问是否允许访问本地网络。"
+                    } else {
+                        ""
+                    }
                     Text(
-                        text = "搜索当前网络需要开启 ${permissionSnapshot.missingDiscovery.joinToString()} 权限（当前尚未开启）。" +
-                            "扫码配对一台同一 Wi-Fi 上的电脑时，系统会另行询问是否允许访问本地网络。",
+                        text = "搜索当前网络需要开启 ${environment.permissions.described(missing).joinToString("、")}" +
+                            " 权限（当前尚未开启）。$pairingAsks",
                         fontSize = 13.sp,
                         color = secondaryTint,
                     )

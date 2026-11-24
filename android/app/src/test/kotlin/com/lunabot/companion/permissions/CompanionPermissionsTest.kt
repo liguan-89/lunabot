@@ -82,6 +82,16 @@ class CompanionPermissionsTest {
     }
 
     @Test
+    fun theHintNamesPermissionsAsTheSystemDoes() {
+        val permissions = CompanionPermissions(sdkInt = 37, granted = { false })
+        assertEquals(
+            listOf("附近设备", "本地网络"),
+            permissions.described(permissions.discoveryPermissions().toList()),
+        )
+        assertEquals(listOf("附近设备", "android.permission.RECORD_AUDIO"), permissions.described(listOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.RECORD_AUDIO)))
+    }
+
+    @Test
     fun theLocalNetworkAnswerMovesOncePerSystemAnswer() {
         val granted = mutableSetOf<String>()
         val permissions = CompanionPermissions(sdkInt = 37, granted = { it in granted })
