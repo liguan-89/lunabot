@@ -6,9 +6,9 @@ import { createProvisioner } from "../src/provisioner.js";
 import { openStore } from "../src/store.js";
 
 const config = () => loadConfig({
-  DEXCLOUD_DB: ":memory:",
-  DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
-  DEXCLOUD_DEV_CODES: "1",
+  LUNABOT_CLOUD_DB: ":memory:",
+  LUNABOT_CLOUD_ORIGIN: "https://cloud.dexai.vip",
+  LUNABOT_CLOUD_DEV_CODES: "1",
 });
 
 /** A docker double that records every call; an `overrides` entry replaces one

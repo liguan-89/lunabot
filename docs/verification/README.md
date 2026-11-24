@@ -9,7 +9,7 @@
 > dev` / the desktop smoke checks cover the hand-driven paths. See
 > [pi-only-handoff.md](pi-only-handoff.md) for the handoff state.
 
-Luna Bot has one development control surface: `pnpm control:omb`. It runs
+Luna Bot has one development control surface: `pnpm control:lunabot`. It runs
 the published `lunabot` verbs (docs/headless-cli.md), which call the MCP
 tools in `scripts/mcp-server.ts`, so verification uses the same URL
 validation, task pinning, bounded transcripts, wait states, and redaction as
@@ -20,7 +20,7 @@ external MCP clients and scripts.
 Start a fixture in one terminal:
 
 ```sh
-node --experimental-strip-types scripts/control-omb.ts launch
+node --experimental-strip-types scripts/control-lunabot.ts launch
 ```
 
 Run the foreground launcher directly rather than through `pnpm`; this ensures
@@ -45,7 +45,7 @@ reach the fake.
 Pass the printed URL explicitly from a second terminal:
 
 ```sh
-pnpm control:omb doctor --url http://127.0.0.1:PORT
+pnpm control:lunabot doctor --url http://127.0.0.1:PORT
 ```
 
 Mutating commands refuse silent port discovery. This prevents a verification
@@ -111,7 +111,7 @@ Use only mapped, tested commands:
 - [Spend cap and sell prices](spend-cap.md)
 - [Enterprise layer loading and license expiry](enterprise-license.md)
 
-`control-omb ui` ([Chat UI, driven headlessly](chat-ui.md)) drives the real
+`control-lunabot ui` ([Chat UI, driven headlessly](chat-ui.md)) drives the real
 renderer in a headless Chrome by accessible name, so composer sends, transcript
 rows, tool chips and server feature flags are provable from the command line.
 Other renderer-only behavior—Settings, sidebar drag-and-drop, the VM modal, the
@@ -244,7 +244,7 @@ in a disposable workspace with synthetic data.
 
 The [people invitation fixture](people.md) checks hosted workspace sign-in,
 roles and device revocation through the real HTTP API with a stubbed email
-service. It does not drive the People settings UI through `control-omb`.
+service. It does not drive the People settings UI through `control-lunabot`.
 
 The [sidebar fixture](sidebar.md) checks archive and delete confirmations, their
 default focus, keyboard wrapping and focus return against two disposable bots;
@@ -272,7 +272,7 @@ interrupting a newer request.
 
 The [Live calls fixture](live-calls.md) checks the call id on spoken requests,
 the one "call" row a finished call leaves, its generated title and the desktop's
-record row, against the fake GPT-Live in a disposable workspace. `control-omb`
+record row, against the fake GPT-Live in a disposable workspace. `control-lunabot`
 cannot start a call, so the recipe also calls the harness's own routes. It
 proves no real audio, OpenAI key or phone.
 

@@ -22,11 +22,11 @@ const envOf = (container: FakeContainer) => Object.fromEntries((container.spec.E
 function installed(instance: string): ContainerSpec {
   return {
     Image: OLD,
-    Env: [`LUNABOT_INSTANCE=${instance}`, `LUNABOT_CONNECTOR_IMAGE=${OLD}`, "LUNABOT_UPDATE_WAIT_S=60", "PATH=/usr/local/bin:/usr/bin:/bin"],
+    Env: [`MAUSBOT_INSTANCE=${instance}`, `MAUSBOT_CONNECTOR_IMAGE=${OLD}`, "MAUSBOT_UPDATE_WAIT_S=60", "PATH=/usr/local/bin:/usr/bin:/bin"],
     Cmd: ["run"],
-    Labels: { "com.lunabot.role": "connector", "com.lunabot.instance": instance },
+    Labels: { "com.mausbot.role": "connector", "com.mausbot.instance": instance },
     HostConfig: {
-      Binds: ["/var/run/docker.sock:/var/run/docker.sock", "mausbot-connector:/state", "/etc/lunabot:/etc/lunabot:ro"],
+      Binds: ["/var/run/docker.sock:/var/run/docker.sock", "mausbot-connector:/state", "/etc/mausbot:/etc/mausbot:ro"],
       NetworkMode: "host", RestartPolicy: { Name: "unless-stopped" }, SecurityOpt: ["no-new-privileges=true"], CapDrop: ["ALL"], ReadonlyRootfs: true, Tmpfs: { "/tmp": "" },
       LogConfig: { Type: "json-file", Config: { "max-size": "10m", "max-file": "3" } },
     },
@@ -41,8 +41,8 @@ async function fixture() {
   docker.publish(OLD, null);
   docker.publish(NEW, null);
   await docker.pull(OLD);
-  await docker.createContainer("mausbot-connector", installed("instance-old"));
-  await docker.startContainer("mausbot-connector");
+  await docker.createContainer("lunabot-connector", installed("instance-old"));
+  await docker.startContainer("lunabot-connector");
   let clock = 1_800_000_000_000;
   const lines: string[] = [];
   const updater = (instance: string) => new SelfUpdater({
@@ -65,7 +65,7 @@ describe("the connector replacing itself", () => {
       checkImage: async (image, context) => { if (image === NEW && context.kind === "connector" && context.current === OLD) throw new Error("it is older than this one"); },
     });
     expect(await updater.run(f.job, f.agent)).toEqual({ id: "self-1", ok: false, error: { code: "image_refused", message: `${NEW} was refused (it is older than this one). The connector was not changed.` } });
-    expect([...f.docker.containers.keys()]).toEqual(["mausbot-connector"]);
+    expect([...f.docker.containers.keys()]).toEqual(["lunabot-connector"]);
     expect(f.agent).toMatchObject({ paused: 0, resumed: 0 });
   });
 
@@ -73,34 +73,34 @@ describe("the connector replacing itself", () => {
     const f = await fixture();
     let candidateReply: JobReply | null = null;
     f.docker.onConnectorStart = async (container) => {
-      const started = await f.updater(envOf(container).LUNABOT_INSTANCE).atStart(async () => true);
+      const started = await f.updater(envOf(container).MAUSBOT_INSTANCE).atStart(async () => true);
       if (started.role === "candidate") candidateReply = started.reply;
     };
     const reply = await f.updater("instance-old").run(f.job, f.agent);
     expect(reply).toBeNull();
     expect(candidateReply).toEqual({ id: "self-1", ok: true, result: { connector: { version: "1.0.0", protocol: 2, image: NEW } } });
-    expect([...f.docker.containers.keys()]).toEqual(["mausbot-connector"]);
-    const now = f.docker.container("mausbot-connector")!;
+    expect([...f.docker.containers.keys()]).toEqual(["lunabot-connector"]);
+    const now = f.docker.container("lunabot-connector")!;
     expect(now.spec.Image).toBe(NEW);
-    const instance = envOf(now).LUNABOT_INSTANCE;
+    const instance = envOf(now).MAUSBOT_INSTANCE;
     expect(instance).not.toBe("instance-old");
-    expect(envOf(now)).toEqual({ LUNABOT_UPDATE_WAIT_S: "60", LUNABOT_INSTANCE: instance, LUNABOT_CONNECTOR_IMAGE: NEW });
-    expect(now.spec.Labels).toMatchObject({ "com.lunabot.role": "connector", "com.lunabot.instance": instance });
+    expect(envOf(now)).toEqual({ MAUSBOT_UPDATE_WAIT_S: "60", MAUSBOT_INSTANCE: instance, MAUSBOT_CONNECTOR_IMAGE: NEW });
+    expect(now.spec.Labels).toMatchObject({ "com.mausbot.role": "connector", "com.mausbot.instance": instance });
     expect(now.spec.HostConfig).toEqual(installed("x").HostConfig);
     expect(now.spec.Cmd).toEqual(["run"]);
     expect(f.agent).toMatchObject({ paused: 1, resumed: 0 });
     expect(readdirSync(f.state.dir).filter((name) => name.startsWith("self-update"))).toEqual(["self-update.confirmed.json"]);
     // Started again later, the new connector finds nothing left to do; the next update clears the record.
     expect((await f.updater(instance).atStart(async () => true)).role).toBe("none");
-    expect([...f.docker.containers.keys()]).toEqual(["mausbot-connector"]);
+    expect([...f.docker.containers.keys()]).toEqual(["lunabot-connector"]);
   });
 
   it("keeps the running connector when the new one never connects, and removes the new one", async () => {
     const f = await fixture();
     const reply = await f.updater("instance-old").run(f.job, f.agent);
     expect(reply).toEqual({ id: "self-1", ok: false, error: { code: "self_update_failed", message: "The new connector did not connect to LunaBot within 3 minutes; kept this one." } });
-    expect([...f.docker.containers.keys()]).toEqual(["mausbot-connector"]);
-    expect(f.docker.container("mausbot-connector")!.spec.Image).toBe(OLD);
+    expect([...f.docker.containers.keys()]).toEqual(["lunabot-connector"]);
+    expect(f.docker.container("lunabot-connector")!.spec.Image).toBe(OLD);
     expect(f.agent).toMatchObject({ paused: 1, resumed: 1 });
     expect(readdirSync(f.state.dir).filter((name) => name.startsWith("self-update"))).toEqual([]);
   });
@@ -109,27 +109,27 @@ describe("the connector replacing itself", () => {
     const f = await fixture();
     let role = "";
     f.docker.onConnectorStart = async (container) => {
-      role = (await f.updater(envOf(container).LUNABOT_INSTANCE).atStart(async () => false)).role;
+      role = (await f.updater(envOf(container).MAUSBOT_INSTANCE).atStart(async () => false)).role;
     };
     const reply = await f.updater("instance-old").run(f.job, f.agent);
     expect(role).toBe("superseded");
     expect(reply).toMatchObject({ ok: false, error: { code: "self_update_failed" } });
-    expect(f.docker.container("mausbot-connector")!.spec.Image).toBe(OLD);
-    expect(f.docker.container("mausbot-connector-next")).toBeNull();
+    expect(f.docker.container("lunabot-connector")!.spec.Image).toBe(OLD);
+    expect(f.docker.container("lunabot-connector-next")).toBeNull();
   });
 
   it("an old connector started again mid-update waits for the outcome, and stands down only while the new one runs", async () => {
     const f = await fixture();
-    const candidate = successorSpec((await f.docker.containerInspect("mausbot-connector"))!, NEW, "instance-new");
+    const candidate = successorSpec((await f.docker.containerInspect("lunabot-connector"))!, NEW, "instance-new");
     await f.docker.pull(NEW);
-    await f.docker.createContainer("mausbot-connector-next", candidate);
-    await f.docker.startContainer("mausbot-connector-next");
-    const record = { jobId: "self-1", from: OLD, to: NEW, previousContainer: f.docker.container("mausbot-connector")!.id, candidateContainer: "mausbot-connector-next", candidateInstance: "instance-new", deadline: 1_800_000_060_000 };
+    await f.docker.createContainer("lunabot-connector-next", candidate);
+    await f.docker.startContainer("lunabot-connector-next");
+    const record = { jobId: "self-1", from: OLD, to: NEW, previousContainer: f.docker.container("lunabot-connector")!.id, candidateContainer: "lunabot-connector-next", candidateInstance: "instance-new", deadline: 1_800_000_060_000 };
     f.state.saveSelfUpdate(record);
     f.state.settleSelfUpdate("confirmed");
     expect((await f.updater("instance-old").atStart(async () => true)).role).toBe("superseded");
     // The record outlived the connector that won: it means nothing on its own.
-    await f.docker.removeContainer("mausbot-connector-next");
+    await f.docker.removeContainer("lunabot-connector-next");
     expect((await f.updater("instance-old").atStart(async () => true)).role).toBe("none");
     expect(existsSync(f.state.path("self-update.confirmed.json"))).toBe(false);
   });
@@ -140,7 +140,7 @@ describe("the connector replacing itself", () => {
     expect(await f.updater("instance-old").run({ ...f.job, args: { image: missing } }, f.agent)).toMatchObject({ ok: false, error: { code: "self_update_failed" } });
     expect(await f.updater("instance-old").run({ ...f.job, args: { image: OLD } }, f.agent)).toEqual({ id: "self-1", ok: true, result: { connector: { version: "1.0.0", protocol: 2, image: OLD } } });
     expect(f.agent).toMatchObject({ paused: 0, resumed: 0 });
-    expect([...f.docker.containers.keys()]).toEqual(["mausbot-connector"]);
+    expect([...f.docker.containers.keys()]).toEqual(["lunabot-connector"]);
     expect(await f.updater("instance-unknown").run(f.job, f.agent)).toMatchObject({ ok: false, error: { code: "self_update_failed", message: expect.stringContaining("cannot find its own container") } });
   });
 });

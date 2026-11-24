@@ -2,7 +2,7 @@ import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
@@ -13,7 +13,7 @@ it("runs every thread of a bot in a folder of its own, and moves its threads to 
   const dumpPath = piDumpPath(fixture.info.dataDir);
   const project = realpathSync(mkdtempSync(join(tmpdir(), "omb-thread-settings-project-")));
   const chosen = realpathSync(mkdtempSync(join(tmpdir(), "omb-thread-settings-chosen-")));
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(`${fixture.info.url}${path}`, {
       method, headers: { "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),

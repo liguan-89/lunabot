@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const prefixName = "omb-linux-smoke-runtime-";
+const prefixName = "lunabot-linux-smoke-runtime-";
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function cleanupRuntime(directory) {

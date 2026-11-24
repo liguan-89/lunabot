@@ -122,7 +122,7 @@ describe("sizing the page of a launched browser", () => {
 
 describe("asking a running browser", () => {
   function engine(running: string[][], answer: unknown = { success: true, data: { cdpUrl: "ws://127.0.0.1:9/devtools/browser/x" } }) {
-    const home = mkdtempSync(join(tmpdir(), "omb-browser-running-"));
+    const home = mkdtempSync(join(tmpdir(), "lunabot-browser-running-"));
     scratch.push(home);
     vi.mocked(spawn).mockImplementation((_binary, args) => {
       const child = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), kill: () => true });
@@ -158,7 +158,7 @@ describe("asking a running browser", () => {
 
 describe("deleting one browser session's saved logins", () => {
   function fixture(closeCode = 0) {
-    const home = mkdtempSync(join(tmpdir(), "omb-browser-cleanup-"));
+    const home = mkdtempSync(join(tmpdir(), "lunabot-browser-cleanup-"));
     scratch.push(home);
     const directory = join(home, ".agent-browser", "sessions");
     mkdirSync(join(directory, ".tmp"), { recursive: true });
@@ -364,7 +364,7 @@ describe("a browser daemon that will not close (#2603)", () => {
     setInterval(() => {}, 1000);`;
   async function engine(options: { close: (pids: { daemon: number; browser: number; helper: number }) => number | Promise<number>; via?: "symlink" | "resolved" | "unreaped"; daemon?: string }) {
     const actual = await vi.importActual<typeof import("node:child_process")>("node:child_process");
-    const home = mkdtempSync(join(tmpdir(), "omb-browser-hung-"));
+    const home = mkdtempSync(join(tmpdir(), "lunabot-browser-hung-"));
     scratch.push(home);
     const binaryPath = join(home, "agent-browser");
     symlinkSync(process.execPath, binaryPath);
@@ -518,7 +518,7 @@ describe("a browser daemon that will not close (#2603)", () => {
 
 describe("restoring exactly one browser profile", () => {
   function fixture() {
-    const home = mkdtempSync(join(tmpdir(), "omb-browser-restore-"));
+    const home = mkdtempSync(join(tmpdir(), "lunabot-browser-restore-"));
     scratch.push(home);
     const directory = join(home, ".agent-browser", "sessions");
     mkdirSync(directory, { recursive: true });
@@ -708,7 +708,7 @@ describe("finding the browser engine", () => {
   });
 
   it("mounts the bundled browser with no download and keeps explicit Chrome overrides", async () => {
-    const resources = mkdtempSync(join(tmpdir(), "omb-browser-resources-"));
+    const resources = mkdtempSync(join(tmpdir(), "lunabot-browser-resources-"));
     scratch.push(resources);
     const host = { platform: "linux" as const, arch: "x64" };
     const env = { LUNABOT_RESOURCES_PATH: resources, PATH: "" };
@@ -759,7 +759,7 @@ describe("finding the browser engine", () => {
   });
 
   it("hands agent-browser the Chrome OMB prepared instead of the bundled shell, never when it attaches to the person's Chrome", () => {
-    const resources = mkdtempSync(join(tmpdir(), "omb-browser-resources-"));
+    const resources = mkdtempSync(join(tmpdir(), "lunabot-browser-resources-"));
     scratch.push(resources);
     const host = { platform: "darwin" as const, arch: "arm64" };
     const env = { LUNABOT_RESOURCES_PATH: resources, PATH: "" };

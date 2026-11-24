@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 
 const STALLED = "error: no activity for 20 minutes — the turn was stopped";
@@ -23,7 +23,7 @@ afterEach(async () => {
 it("stops a silent turn but spares one whose tool is still running", async () => {
   fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_STALL_CLOCK: "1" });
   const { url, dataDir } = fixture.info;
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
   const release = join(dataDir, "tool.release");
   const engineFile = join(dataDir, "engine.json");
   const wrapper = join(dataDir, "pi-stall.mjs");

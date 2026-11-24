@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { REPLY_HABITS_PROMPT } from "./reply-habits.ts";
 import { REMEMBER_AND_FORGET } from "./workspace.ts";
 
@@ -25,7 +25,7 @@ it("remembers at once, forgets everywhere, and words a routine plainly", async (
     expect(response.status, `${method} ${path}`).toBe(status);
     return response.json() as Promise<T>;
   };
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const turn = async (bot: { id: string; activeTaskId: string }, text: string, steps: Step[], reply: string) => {
     const before = evidence().length;
     writeFileSync(planPath, JSON.stringify({ [bot.id]: { steps, reply } }));

@@ -19,7 +19,7 @@ if (config.relaySeed) {
   relayKey = relaySigningKey(loadRelaySeed(config));
   log(`relay key ready (${config.relayKid}), node ${config.relayNodes.join(", ")}`);
 } else {
-  log("DEXCLOUD_RELAY_TOKEN_SEED is not set: relay tokens will be refused");
+  log("LUNABOT_CLOUD_RELAY_TOKEN_SEED is not set: relay tokens will be refused");
 }
 
 const emailer = createEmailer(config, log);

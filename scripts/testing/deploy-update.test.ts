@@ -391,7 +391,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     const oldCompose = `# Written by LunaBot's installer (deploy/install.sh), and written again each time it runs.
 name: lunabot
 services:
-  omb:
+  lunabot:
     image: \${LUNABOT_IMAGE:?run the installer again}
   caddy:
     image: caddy:2

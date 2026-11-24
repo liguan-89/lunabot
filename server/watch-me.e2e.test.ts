@@ -3,7 +3,7 @@
 import { writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
 
-import { runControlOmb } from "../scripts/control-omb.ts";
+import { runControlLunabot } from "../scripts/control-lunabot.ts";
 import { browserFixture } from "./testing/fake-browser-fixture.ts";
 
 const ORDER = `
@@ -48,7 +48,7 @@ it.skipIf(process.platform === "win32")("watch_me records the person's demo and 
     ] } }));
 
     const messages = async () => (await api("GET", `/api/threads/${bot.threadId}/messages`)).body.messages as any[];
-    await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "Show me how you order tea.", "--url", browser.base]);
+    await runControlLunabot(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "Show me how you order tea.", "--url", browser.base]);
     await expect.poll(async () => (await messages()).some((message) => message.card?.tool === "watch_me" && !message.card.answered), { timeout: 20_000 }).toBe(true);
     const card = (await messages()).find((message) => message.card?.tool === "watch_me")!;
     expect(card.card.title).toContain("Watch");
@@ -73,7 +73,7 @@ it.skipIf(process.platform === "win32")("watch_me records the person's demo and 
       viewer.close();
     }
 
-    expect(await runControlOmb(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", browser.base])).toMatchObject({ status: "settled" });
+    expect(await runControlLunabot(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", browser.base])).toMatchObject({ status: "settled" });
     const [watched] = answered(0, "watch_me");
     expect(watched.isError).toBeFalsy();
     const text = watched.content[0].text;

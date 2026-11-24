@@ -9,12 +9,12 @@ import { dirname } from "node:path";
 import type { Job, JobError, JobErrorCode, JobType, ServerMode } from "./protocol.ts";
 import { redact } from "./log.ts";
 
-/** Who asked: the Admin over the connector's connection, or root on this server through `mausbot-connector job`. */
+/** Who asked: the Admin over the connector's connection, or root on this server through `lunabot-connector job`. */
 export type AuditSource = "admin" | "local";
 
 export type AuditEvent =
   | { event: "connector"; what: "started" | "enrolled"; version: string; image: string | null; boxId?: string; mode?: ServerMode }
-  /** The server's admin paused or resumed remote management (`mausbot-connector pause`, `resume`). */
+  /** The server's admin paused or resumed remote management (`lunabot-connector pause`, `resume`). */
   | { event: "management"; what: "paused" | "resumed"; by: "local" }
   | { event: "refused"; by: "admin"; code: JobErrorCode; why: string; id?: string; type?: string }
   | { event: "job"; by: AuditSource; id: string; type: JobType; args: Record<string, unknown> }

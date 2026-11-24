@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { fixtureApi } from "../scripts/testing/preview-fixture.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
@@ -11,7 +11,7 @@ it("hands the rewound history to a pi turn once, through the real server route",
     fixture = await launchVerificationServer();
     const api = fixtureApi(fixture.info.url);
     const cli = async (...args: string[]) => {
-      const result = await runControlOmb([...args, "--url", fixture!.info.url]) as any;
+      const result = await runControlLunabot([...args, "--url", fixture!.info.url]) as any;
       evidence.push({ command: args, result });
       return result;
     };

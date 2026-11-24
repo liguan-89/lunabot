@@ -19,7 +19,7 @@ import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { request } from "../scripts/mcp-server.ts";
 import { ENVELOPE_MARK } from "./runtime/envelope.ts";
 import { waitForExit } from "./testing/cleanup.ts";
@@ -81,7 +81,7 @@ function threadLastPid(dataDir: string, threadId: string): number | undefined {
 async function fixture(test: (f: any) => Promise<void>, options: { env?: NodeJS.ProcessEnv } = {}) {
   const parentEnv = { ...process.env, ...options.env };
   const session = await launchVerificationServer(parentEnv, undefined, undefined, undefined, undefined, { scripted: true });
-  const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: session.info.url } }) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot(args, { env: { LUNABOT_URL: session.info.url } }) as Promise<any>;
   const api = (path: string, body?: unknown, method = "POST") =>
     request(path, body === undefined ? {} : { method, body: JSON.stringify(body) }, session.info.url) as Promise<any>;
   let restarted: ChildProcess | undefined;

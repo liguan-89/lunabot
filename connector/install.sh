@@ -17,24 +17,24 @@ set -eu
 ADMIN_URL="${LUNABOT_ADMIN_URL:-@LUNABOT_ADMIN_URL@}"
 CONNECTOR_IMAGE="${LUNABOT_CONNECTOR_IMAGE:-@LUNABOT_CONNECTOR_IMAGE@}"
 
-ETC_DIR="${LUNABOT_ETC_DIR:-/etc/lunabot}"
-AUDIT_DIR="${LUNABOT_AUDIT_DIR:-/var/log/lunabot}"
+ETC_DIR="${LUNABOT_ETC_DIR:-/etc/mausbot}"
+AUDIT_DIR="${LUNABOT_AUDIT_DIR:-/var/log/mausbot}"
 APPARMOR_DIR="${LUNABOT_APPARMOR_DIR:-/etc/apparmor.d}"
 PROFILE=omb-home-narrow
 SECCOMP=seccomp-omb-home.json
-CONNECTOR=mausbot-connector
-CONNECTOR_NEXT=mausbot-connector-next
-HOME_CONTAINER=lunabot-home
-DATA_VOLUME=lunabot-data
+CONNECTOR=lunabot-connector
+CONNECTOR_NEXT=lunabot-connector-next
+HOME_CONTAINER=mausbot-home
+DATA_VOLUME=mausbot-data
 STATE_VOLUME=mausbot-connector
-SNAPSHOT_VOLUME=lunabot-snapshot
-ROLE_LABEL=com.lunabot.role
+SNAPSHOT_VOLUME=mausbot-snapshot
+ROLE_LABEL=com.mausbot.role
 INSTALL_DIR="${LUNABOT_INSTALL_DIR:-/opt/lunabot}"
-UPDATE_DIR="${LUNABOT_UPDATE_DIR:-/var/lib/lunabot/update}"
+UPDATE_DIR="${LUNABOT_UPDATE_DIR:-/var/lib/mausbot/update}"
 SBIN_DIR="${LUNABOT_SBIN_DIR:-/usr/local/sbin}"
 SYSTEMD_DIR="${LUNABOT_SYSTEMD_DIR:-/etc/systemd/system}"
-UPDATE_RUNNER=lunabot-update-runner
-UPDATE_UNIT=lunabot-update
+UPDATE_RUNNER=mausbot-update-runner
+UPDATE_UNIT=mausbot-update
 MODE=operated
 MIN_DOCKER=24
 MIN_CPUS=2
@@ -304,26 +304,26 @@ start_connector() {
   say "Starting the LunaBot connector..."
   docker volume create "$STATE_VOLUME" >/dev/null
   install -d -m 0755 "$ETC_DIR"
-  # The audit log: every job LunaBot runs here, root's, for you to read (mausbot-connector audit).
+  # The audit log: every job LunaBot runs here, root's, for you to read (lunabot-connector audit).
   install -d -m 0750 "$AUDIT_DIR"
   docker rm -f "$CONNECTOR" "$CONNECTOR_NEXT" >/dev/null 2>&1 || true
   instance=$(cat /proc/sys/kernel/random/uuid)
-  set -- --label "$ROLE_LABEL=connector" --label "com.lunabot.instance=$instance" \
-    -e "LUNABOT_INSTANCE=$instance" -e "LUNABOT_CONNECTOR_IMAGE=$CONNECTOR_IMAGE"
+  set -- --label "$ROLE_LABEL=connector" --label "com.mausbot.instance=$instance" \
+    -e "MAUSBOT_INSTANCE=$instance" -e "MAUSBOT_CONNECTOR_IMAGE=$CONNECTOR_IMAGE"
   case "${LUNABOT_UPDATE_WAIT_S:-}" in
     '' | *[!0-9]*) ;;
-    *) set -- "$@" -e "LUNABOT_UPDATE_WAIT_S=$LUNABOT_UPDATE_WAIT_S" ;;
+    *) set -- "$@" -e "MAUSBOT_UPDATE_WAIT_S=$LUNABOT_UPDATE_WAIT_S" ;;
   esac
   if [ "$MODE" = customer-run ]; then
-    set -- "$@" -e LUNABOT_MODE=customer-run -v "$UPDATE_DIR:/var/lib/lunabot/update"
+    set -- "$@" -e MAUSBOT_MODE=customer-run -v "$UPDATE_DIR:/var/lib/mausbot/update"
   fi
   docker run -d --name "$CONNECTOR" --restart unless-stopped --network host \
     --security-opt no-new-privileges=true --cap-drop ALL --read-only --tmpfs /tmp \
-    -v /var/run/docker.sock:/var/run/docker.sock -v "$STATE_VOLUME:/state" -v "$ETC_DIR:/etc/lunabot:ro" -v "$AUDIT_DIR:/var/log/lunabot" \
+    -v /var/run/docker.sock:/var/run/docker.sock -v "$STATE_VOLUME:/state" -v "$ETC_DIR:/etc/mausbot:ro" -v "$AUDIT_DIR:/var/log/mausbot" \
     --log-opt max-size=10m --log-opt max-file=3 \
     "$@" "$CONNECTOR_IMAGE" run >/dev/null || fail "The LunaBot connector could not be started (Docker's message is above). Run this command again."
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if docker exec "$CONNECTOR" mausbot-connector version >/dev/null 2>&1; then return; fi
+    if docker exec "$CONNECTOR" lunabot-connector version >/dev/null 2>&1; then return; fi
     sleep 1
   done
   fail "The LunaBot connector did not start. Its log: $(docker logs --tail 5 "$CONNECTOR" 2>&1 | tr '\n' ' ')"
@@ -331,7 +331,7 @@ start_connector() {
 
 check_box() {
   say "Checking that the bots' safety box works here..."
-  probe=$(docker exec "$CONNECTOR" mausbot-connector probe 2>&1 || true)
+  probe=$(docker exec "$CONNECTOR" lunabot-connector probe 2>&1 || true)
   problems=$(printf '%s\n' "$probe" | sed -n 's/^fail [a-z]* //p')
   warnings=$(printf '%s\n' "$probe" | sed -n 's/^warn [a-z]* //p')
   if [ -n "$warnings" ]; then printf '%s\n' "$warnings" | sed 's/^/  note: /'; fi
@@ -344,15 +344,15 @@ connect() {
   if [ -n "$code" ]; then
     say "Connecting to LunaBot..."
     # The code works once: its refusal is read from this one attempt.
-    if ! refusal=$(printf '%s\n' "$code" | docker exec -i -e "LUNABOT_ADMIN_URL=$ADMIN_URL" "$CONNECTOR" mausbot-connector enroll 2>&1 >/dev/null); then
+    if ! refusal=$(printf '%s\n' "$code" | docker exec -i -e "MAUSBOT_ADMIN_URL=$ADMIN_URL" "$CONNECTOR" lunabot-connector enroll 2>&1 >/dev/null); then
       fail "$(printf '%s\n' "$refusal" | tail -n 1)"
     fi
-  elif ! docker exec "$CONNECTOR" mausbot-connector status | grep -q '"enrolled":true'; then
+  elif ! docker exec "$CONNECTOR" lunabot-connector status | grep -q '"enrolled":true'; then
     fail "Add the one-time code LunaBot shows next to the install command, like this: $(command_line '<code>')"
   fi
   waited=0
   while [ "$waited" -lt 60 ]; do
-    if docker exec "$CONNECTOR" mausbot-connector status 2>/dev/null | grep -q '"connected":true'; then return; fi
+    if docker exec "$CONNECTOR" lunabot-connector status 2>/dev/null | grep -q '"connected":true'; then return; fi
     sleep 1
     waited=$((waited + 1))
   done
@@ -395,9 +395,9 @@ install_connector() {
     say ""
     say "Connected. Your server shows up in LunaBot in a minute, for your team's Owner to accept."
     say "You run this server: LunaBot can start, stop, update and back it up, and sees its versions, health and seat count."
-    say "  What it was asked to do:  sudo docker exec $CONNECTOR mausbot-connector audit"
-    say "  Pause remote management:  sudo docker exec $CONNECTOR mausbot-connector pause"
-    say "Only you can replace the connector or restore a backup: sudo docker exec $CONNECTOR mausbot-connector job <self-update|restore>"
+    say "  What it was asked to do:  sudo docker exec $CONNECTOR lunabot-connector audit"
+    say "  Pause remote management:  sudo docker exec $CONNECTOR lunabot-connector pause"
+    say "Only you can replace the connector or restore a backup: sudo docker exec $CONNECTOR lunabot-connector job <self-update|restore>"
     return
   fi
   check_apparmor

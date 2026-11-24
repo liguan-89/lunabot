@@ -68,7 +68,9 @@ function compose(rest) {
     const serving = image(omb?.image);
     if (omb?.status !== "running" || !serving) fail("service omb is not running");
     // `doctor: false`: a hardened version, where doctor without a session is refused whatever its engines.
-    if (more.includes("lunabot") || more.includes("lunabot")) return serving.engine && serving.doctor !== false ? out("ready") : fail("no engine is available", 5);
+    // The doctor call is `exec -T <service> <binary> doctor`: match its last argument, not any "lunabot" — the
+    // service name itself can be lunabot on installs written since the rename.
+    if (more.at(-1) === "doctor") return serving.engine && serving.doctor !== false ? out("ready") : fail("no engine is available", 5);
     if (serving.behaviour === "silent") fail("", 7);
     // A version with the count (`counts`) answers how many engines can start a bot; an older one has no such route.
     if (line.includes("/api/health/engines")) return serving.counts ? out(JSON.stringify({ app: "lunabot", engines: serving.engine ? 1 : 0 })) : fail("", 22);

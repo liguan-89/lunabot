@@ -96,13 +96,13 @@ case "$*" in
   "info --format {{.DockerRootDir}}") echo /nonexistent/docker ;;
   "compose version") exit "$FAKE_COMPOSE" ;;
   "ps -q --filter label=com.docker.compose.project=lunabot --filter publish="*) printf '%s' "\${FAKE_OURS:-}" ;;
-  "ps -aq --filter name=mausbot-connector") printf '%s' "\${FAKE_CONNECTOR:-}" ;;
+  "ps -aq --filter name=lunabot-connector") printf '%s' "\${FAKE_CONNECTOR:-}" ;;
   "run --rm --network none --entrypoint id "*" -u") /usr/bin/id -u ;;
   "run --rm --network none --entrypoint id "*" -g") /usr/bin/id -g ;;
-  compose*" ps -q omb") echo c1 ;;
+  compose*" ps -q lunabot") echo c1 ;;
   "image inspect -f {{json .Config.Env}} "*) echo "$FAKE_IMAGE_ENV" ;;
   "image inspect -f {{index .Config.Labels "*) echo "\${FAKE_IMAGE_VERSION-v0.1.151}" ;;
-  "compose exec -T omb node dist-server/bot-box/box-check.js --public=none") echo "$FAKE_BOX_CHECK"; case "$FAKE_BOX_CHECK" in *'"failed":[]'*) ;; *) exit 1 ;; esac ;;
+  "compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none") echo "$FAKE_BOX_CHECK"; case "$FAKE_BOX_CHECK" in *'"failed":[]'*) ;; *) exit 1 ;; esac ;;
   "inspect --format {{.State.Health.Status}} c1") echo "$FAKE_HEALTH" ;;
 esac`,
 };
@@ -308,7 +308,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(statSync(join(result.install, ".env")).mode & 0o777).toBe(0o600);
     expect(statSync(join(result.install, "data")).mode & 0o777).toBe(0o700);
     for (const file of ["compose.yaml", "Caddyfile", "caddy/data", "caddy/config"]) expect(existsSync(join(result.install, file)), file).toBe(true);
-    const changes = result.docker.filter((call) => !READS.test(call) && !call.includes(" ps -q omb") && !call.startsWith("docker inspect"));
+    const changes = result.docker.filter((call) => !READS.test(call) && !call.includes(" ps -q lunabot") && !call.startsWith("docker inspect"));
     expect(changes).toEqual([
       "docker compose pull -q",
       'docker image inspect -f {{index .Config.Labels "org.opencontainers.image.version"}} ghcr.io/liguan-89/lunabot:v0.1.151',
@@ -317,9 +317,9 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
       "docker run --rm --network none --entrypoint id ghcr.io/liguan-89/lunabot:v0.1.151 -u",
       "docker run --rm --network none --entrypoint id ghcr.io/liguan-89/lunabot:v0.1.151 -g",
       "docker compose up -d --remove-orphans",
-      "docker compose exec -T omb node dist-server/bot-box/box-check.js --public=none",
+      "docker compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none",
     ]);
-    expect(result.stdout).toContain(`  cd ${result.install} && sudo docker compose exec omb lunabot pair --label "First admin"`);
+    expect(result.stdout).toContain(`  cd ${result.install} && sudo docker compose exec lunabot lunabot pair --label "First admin"`);
     // Not a terminal, as here: the admin's sign-in link is not made, so no log holds it, and the output says why.
     expect(result.stdout).toContain("(The link is not made here because this output is not a terminal");
     expect(result.docker.some((call) => call.includes("lunabot pair"))).toBe(false);
@@ -362,7 +362,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
   it("keeps the registry's token and the one-time code out of its output, and the token off every command line", () => {
     const connector = mkdtempSync(join(tmpdir(), "omb-server-install-connector-"));
     dirs.push(connector);
-    writeFileSync(join(connector, "install.sh"), `# stands in for mausbot-connector's installer\necho "$LUNABOT_ADMIN_URL $LUNABOT_INSTALL_DIR $# $2" > "${connector}/ran"\nprintf '%s' "$1" > "${connector}/code"\n`);
+    writeFileSync(join(connector, "install.sh"), `# stands in for lunabot-connector's installer\necho "$LUNABOT_ADMIN_URL $LUNABOT_INSTALL_DIR $# $2" > "${connector}/ran"\nprintf '%s' "$1" > "${connector}/code"\n`);
     const result = run(["--domain", "maus.example.com", CODE], { env: { LUNABOT_CONNECTOR_INSTALLER: join(connector, "install.sh") } });
     expect(result.status).toBe(0);
     expect(result.all).not.toContain(TOKEN);
@@ -379,7 +379,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     const blocked = run(["--check", "--domain", "maus.example.com", CODE], { env: { FAKE_BLOCKED: "admin.example.test" } });
     expect(blocked.fixes).toEqual(["This server can't reach admin.example.test over HTTPS (port 443). Allow outbound HTTPS to them in your firewall, then run this again."]);
     const connectorScript = readFileSync(join(ROOT, "connector", "install.sh"), "utf8");
-    expect(connectorScript).toContain("CONNECTOR=mausbot-connector");
+    expect(connectorScript).toContain("CONNECTOR=lunabot-connector");
     expect(connectorScript).toContain("--install-docker) LUNABOT_INSTALL_DOCKER=1 ;;");
     expect(connectorScript).toContain('ADMIN_URL="${LUNABOT_ADMIN_URL:-@LUNABOT_ADMIN_URL@}"');
     expect(script).toContain('curl -fsSL --max-time 60 "$ADMIN_URL/install.sh"');
@@ -430,7 +430,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(result.status).toBe(0);
     expect(result.docker).toEqual([
       "docker compose down --remove-orphans",
-      "docker ps -aq --filter name=mausbot-connector",
+      "docker ps -aq --filter name=lunabot-connector",
     ]);
     expect(result.stdout).toContain(`Your data is kept in ${result.install}/data, your settings in ${result.install}/.env and the HTTPS certificates in ${result.install}/caddy.`);
     expect(result.stdout).toContain("This command never deletes your data.");

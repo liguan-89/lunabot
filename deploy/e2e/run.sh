@@ -23,17 +23,23 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then SETTINGS+=("GITHUB_TOKEN=$GITHUB_TOKEN"); fi
 PLAIN_INSTALL=(sudo env "${SETTINGS[@]}" sh "$ROOT/deploy/install.sh")
 if [ -n "${LUNABOT_INSTALL_IMAGE:-}" ]; then SETTINGS+=("LUNABOT_INSTALL_IMAGE=$LUNABOT_INSTALL_IMAGE"); fi
 INSTALL=(sudo env "${SETTINGS[@]}" sh "$ROOT/deploy/install.sh")
-box_check() { (cd "$DIR" && sudo docker compose exec -T omb node dist-server/bot-box/box-check.js --public=none "$@"); }
+box_check() { (cd "$DIR" && sudo docker compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none "$@"); }
 
 as_root() { sudo "$@"; }
 step() { printf '\n== %s\n' "$*"; }
+# The app's service in $DIR's compose file: `lunabot` in what the installer writes now, `omb` in the old-layout fixture.
+svc() {
+  (cd "$DIR" && sudo sh -c 'for f in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do [ -f "$f" ] && break; done
+    [ -f "$f" ] || exit 0
+    sed -n "/^services:/,/^[a-z]/p" "$f" | grep -oE "^  [a-z0-9_-]+:" | tr -d " :" | grep -xE "lunabot|omb" | head -n 1')
+}
 fail() {
   printf 'FAILED: %s\n' "$*" >&2
   as_root docker compose --project-directory "$DIR" logs --tail 80 >"$OUT/compose.log" 2>&1 || true
   if [ -f "$DIR/compose.box.yaml" ]; then
     echo "the sandbox self-check, as it is now:"
-    (cd "$DIR" && sudo docker compose exec -T omb node dist-server/bot-box/box-check.js --public=none 2>&1 | tee "$OUT/box-check-failed.txt" | head -c 6000) || true
-    (cd "$DIR" && sudo docker compose logs omb 2>&1 | grep -E "bot box|server profile|local requests" | tail -n 10) || true
+    (cd "$DIR" && sudo docker compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none 2>&1 | tee "$OUT/box-check-failed.txt" | head -c 6000) || true
+    (cd "$DIR" && sudo docker compose logs "$(svc)" 2>&1 | grep -E "bot box|server profile|local requests" | tail -n 10) || true
   fi
   exit 1
 }
@@ -55,7 +61,7 @@ through_caddy() { # what happened
 healthy_again() {
   local _
   for _ in $(seq 1 60); do
-    [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$(cd "$DIR" && sudo docker compose ps -q omb)" 2>/dev/null)" = healthy ] && return 0
+    [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$(cd "$DIR" && sudo docker compose ps -q "$(svc)")" 2>/dev/null)" = healthy ] && return 0
     sleep 3
   done
   fail "the server did not become healthy again"
@@ -74,8 +80,8 @@ install_until_https() { # evidence-file [the install command, when not the usual
   cat "$1"
   [ "$status" = 1 ] || fail "the install exited $status, not 1"
   contains "$1" "LunaBot is running, but https://$DOMAIN did not answer within 20 seconds" "the install did not end at the certificate"
-  [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$(cd "$DIR" && sudo docker compose ps -q omb)")" = healthy ] || fail "the server is not healthy"
-  (cd "$DIR" && sudo docker compose exec -T omb curl -sf http://127.0.0.1:8799/api/health) | grep -qE 'lunabot|dexbot|openmausbot' || fail "the server does not answer inside its container"
+  [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$(cd "$DIR" && sudo docker compose ps -q "$(svc)")")" = healthy ] || fail "the server is not healthy"
+  (cd "$DIR" && sudo docker compose exec -T lunabot curl -sf http://127.0.0.1:8799/api/health) | grep -qE 'lunabot|dexbot|openmausbot' || fail "the server does not answer inside its container"
   curl -sS -o /dev/null -w '%{http_code}' --max-time 10 -H "Host: $DOMAIN" http://127.0.0.1/ | grep -qx 308 || fail "Caddy does not redirect port 80 to HTTPS"
   through_caddy "the install"
 }
@@ -115,12 +121,12 @@ step "the bots' sandbox: on and holding where the image has it, left out with a 
 if sudo grep -qx "COMPOSE_FILE=compose.yaml:compose.box.yaml" "$DIR/.env"; then
   contains "$OUT/install.txt" "The bots' sandbox is on: a bot cannot read the server's settings, keys or other bots' files." "the install did not say the sandbox is on"
   sudo cmp "$ROOT/deploy/box/compose.box.yaml" "$DIR/compose.box.yaml" || fail "the sandbox's Compose settings are not the repository's"
-  sudo cmp "$ROOT/connector/profiles/seccomp-omb-home.json" /etc/lunabot/seccomp-omb-home.json || fail "the seccomp profile on the host is not the repository's"
+  sudo cmp "$ROOT/connector/profiles/seccomp-omb-home.json" /etc/mausbot/seccomp-omb-home.json || fail "the seccomp profile on the host is not the repository's"
   sudo grep -q '^omb-home-narrow ' /sys/kernel/security/apparmor/profiles || fail "the AppArmor profile is not loaded"
-  container=$(cd "$DIR" && sudo docker compose ps -q omb)
+  container=$(cd "$DIR" && sudo docker compose ps -q "$(svc)")
   [ "$(sudo docker inspect -f '{{.AppArmorProfile}}' "$container")" = omb-home-narrow ] || fail "the server does not run under the sandbox's AppArmor profile"
   [ "$(sudo docker inspect -f '{{.HostConfig.Privileged}} {{json .HostConfig.CapAdd}}' "$container")" = "false null" ] || fail "the server was given privileges"
-  (cd "$DIR" && sudo docker compose logs omb 2>&1) | grep -F "bot box: on (bubblewrap" || fail "the server did not start its bot box"
+  (cd "$DIR" && sudo docker compose logs "$(svc)" 2>&1) | grep -F "bot box: on (bubblewrap" || fail "the server did not start its bot box"
   # The installer has already judged every result (it stops on all but a few named ones); here, the ones this is about.
   checks=$(box_check || true)
   printf '%s\n' "$checks" >"$OUT/box-check.json"
@@ -146,14 +152,14 @@ fi
 step "HTTPS comes back by itself whenever the server restarts without Caddy"
 # Caddy used to share the server's network, and stayed in the old, dead one after each of these, with 443 refused.
 (cd "$DIR" && sudo docker compose restart >/dev/null 2>&1) && healthy_again && through_caddy "docker compose restart"
-before=$(sudo docker inspect -f '{{.RestartCount}}' "$(cd "$DIR" && sudo docker compose ps -q omb)")
-launcher=$(sudo docker top "$(cd "$DIR" && sudo docker compose ps -q omb)" -eo pid,args | awk '/server-launcher/ { print $1; exit }')
+before=$(sudo docker inspect -f '{{.RestartCount}}' "$(cd "$DIR" && sudo docker compose ps -q "$(svc)")")
+launcher=$(sudo docker top "$(cd "$DIR" && sudo docker compose ps -q "$(svc)")" -eo pid,args | awk '/server-launcher/ { print $1; exit }')
 [ -n "$launcher" ] || fail "no server process to kill"
 sudo kill -9 "$launcher"
 sleep 5
 healthy_again && through_caddy "kill -9 of the server process"
-[ "$(sudo docker inspect -f '{{.RestartCount}}' "$(cd "$DIR" && sudo docker compose ps -q omb)")" -gt "$before" ] || fail "Docker did not restart the killed server"
-(cd "$DIR" && sudo docker compose stop omb >/dev/null 2>&1 && sudo docker compose start omb >/dev/null 2>&1) && healthy_again && through_caddy "stop omb, then start omb"
+[ "$(sudo docker inspect -f '{{.RestartCount}}' "$(cd "$DIR" && sudo docker compose ps -q "$(svc)")")" -gt "$before" ] || fail "Docker did not restart the killed server"
+(cd "$DIR" && sudo docker compose stop "$(svc)" >/dev/null 2>&1 && sudo docker compose start "$(svc)" >/dev/null 2>&1) && healthy_again && through_caddy "docker compose stop, then start"
 
 step "the documented backup and restore, each with the whole project stopped and started"
 echo before-backup | sudo tee "$DIR/data/e2e-backup" >/dev/null
@@ -173,7 +179,7 @@ sudo rm -rf "$DIR/data.before-restore" "$DIR/$archive"
 healthy_again && through_caddy "the restore"
 
 step "the first admin's sign-in link, made the way the installer says"
-(cd "$DIR" && sudo docker compose exec -T omb lunabot pair --label "First admin") >"$OUT/pair.txt" 2>&1 || fail "pair failed: $(cat "$OUT/pair.txt")"
+(cd "$DIR" && sudo docker compose exec -T lunabot lunabot pair --label "First admin") >"$OUT/pair.txt" 2>&1 || fail "pair failed: $(cat "$OUT/pair.txt")"
 grep -q "https://$DOMAIN/pair#code=" "$OUT/pair.txt" || fail "pair printed no link for $DOMAIN"
 rm -f "$OUT/pair.txt"
 

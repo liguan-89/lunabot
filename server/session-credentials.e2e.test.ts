@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath, piTurns, type PiTurn } from "./testing/pi-dump.ts";
 
@@ -69,7 +69,7 @@ async function fixture(test: (f: any) => Promise<void>, { thisComputer = false }
     const mountedOf = (threadId: string) => Object.keys(lastOf(threadId)?.mcpConfig?.mcpServers ?? {});
     const tokenOf = (threadId: string) => lastOf(threadId)?.mcpConfig?.mcpServers?.agents?.env?.LUNABOT_COMMS_TOKEN as string | undefined;
     const controlOf = (threadId: string) => lastOf(threadId)?.mcpConfig?.mcpServers?.computer?.env?.LUNABOT_CONTROL_TOKEN as string | undefined;
-    const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+    const cli = (...args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
     const api = async (method: string, path: string, body?: unknown, token?: string) => {
       const response = await fetch(url + path, {
         method,

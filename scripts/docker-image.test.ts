@@ -326,13 +326,13 @@ describe("container images", () => {
   // shared memory Luna Bot's desktop containers give it.
   it("runs every compose service of the server image with an init and Chrome's shared memory", () => {
     for (const file of ["../compose.yaml", "../deploy/docker-compose.yml", "../deploy/podman/compose.yaml"]) {
-      const service = parse(readFileSync(new URL(file, import.meta.url), "utf8")).services.omb;
+      const service = parse(readFileSync(new URL(file, import.meta.url), "utf8")).services.lunabot;
       expect(service.init, file).toBe(true);
       expect(service.shm_size, file).toBe("512m");
     }
   });
 
-  // Caddy in the server's network (network_mode: service:omb) stayed in the old, dead one whenever the server's
+  // Caddy in the server's network (network_mode: service:lunabot) stayed in the old, dead one whenever the server's
   // container restarted alone, and HTTPS was refused while both looked healthy. It reaches the server over sockets in
   // a volume both mount instead, and the Caddyfile names the paths the server listens on.
   it("runs Caddy in its own container, reaching the server's sockets, never in the server's network", () => {
@@ -340,14 +340,14 @@ describe("container images", () => {
       const { services, volumes } = parse(readFileSync(new URL(file, import.meta.url), "utf8"));
       expect(services.caddy.network_mode, file).toBeUndefined();
       // `LUNABOT_PHONE_RELAY=1` in .env reaches the server, never Caddy.
-      expect(Object.keys(services.omb.environment), file).toContain("LUNABOT_PHONE_RELAY");
+      expect(Object.keys(services.lunabot.environment), file).toContain("LUNABOT_PHONE_RELAY");
       expect(Object.keys(services.caddy.environment ?? {}), file).not.toContain("LUNABOT_PHONE_RELAY");
-      expect(services.omb.ports, file).toBeUndefined();
+      expect(services.lunabot.ports, file).toBeUndefined();
       expect(services.caddy.ports.length, file).toBeGreaterThan(0);
-      expect(services.omb.volumes, file).toContain("edge:/run/lunabot");
+      expect(services.lunabot.volumes, file).toContain("edge:/run/lunabot");
       expect(services.caddy.volumes, file).toContain("edge:/run/lunabot");
       expect(volumes.edge.driver_opts.type, file).toBe("tmpfs");
-      const { LUNABOT_TUNNEL_SOCKET: api, LUNABOT_WEBHOOK_SOCKET: hooks } = services.omb.environment;
+      const { LUNABOT_TUNNEL_SOCKET: api, LUNABOT_WEBHOOK_SOCKET: hooks } = services.lunabot.environment;
       expect([api, hooks], file).toEqual(["/run/lunabot/http.sock", "/run/lunabot/hooks.sock"]);
       const proxied = [...readFileSync(new URL(caddyfile, import.meta.url), "utf8").matchAll(/reverse_proxy (\S+)/g)].map((m) => m[1]);
       expect(proxied, caddyfile).toEqual([`unix/${hooks}`, `unix/${api}`]);

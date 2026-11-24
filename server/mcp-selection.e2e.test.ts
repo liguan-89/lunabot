@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const FAKE_MCP = fileURLToPath(new URL("./testing/fake-mcp-server.ts", import.meta.url));
@@ -40,7 +40,7 @@ async function withFixture(engine: Record<string, string>, run: (helpers: {
         return result;
       },
       control: async (args) => {
-        const result = await runControlOmb([...args, "--url", fixture.info.url]);
+        const result = await runControlLunabot([...args, "--url", fixture.info.url]);
         evidence.push({ command: args, result });
         return result;
       },

@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { widgetActions, type WidgetRoot } from "../shared/widget.ts";
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 import { startFakeConnectedApps, type FakeConnectedApps } from "./testing/fake-connected-apps.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { piTurns } from "./testing/pi-dump.ts";
 
 /** The fake pi mounts the turn's MCP config at boot only on request: a turn under a tool selection is enforced through
@@ -30,7 +30,7 @@ async function withFixture(mode: "happy" | "hang", run: (helpers: {
         const response = await fetch(`${fixture.info.url}${path}`, { method, headers: { "content-type": "application/json", ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
         return { status: response.status, body: await response.json() };
       },
-      control: (args) => runControlOmb([...args, "--url", fixture.info.url]),
+      control: (args) => runControlLunabot([...args, "--url", fixture.info.url]),
       dump: async (text?: string) => {
         let found = -1;
         await expect.poll(() => {
@@ -100,7 +100,7 @@ it.each(["direct", "preview", "room", "goal"] as const)("keeps a corrupt persist
   let restarted: ReturnType<typeof spawn> | undefined;
   const log = openSync(fixture.info.logPath, "a", 0o600);
   try {
-    const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
+    const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]);
     const { bot } = await control(["new-bot", "--name", "Corrupt scope fixture"]) as any;
     const { channel } = await control(["new-channel", "--name", "Corrupt scope room", "--members", bot.id]) as any;
     // The pi launch log is the fixture's, not one turn's: the check below is that no turn is added after the restart.

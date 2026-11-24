@@ -13,13 +13,13 @@ import { SPOTLIGHTS } from "../../src/lib/first-conversation.ts";
 import { TOUR_STEPS } from "../../src/lib/guided-tour.ts";
 import { NOTICES } from "../../src/lib/notices.ts";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "./cloud-send-fixture.ts";
-import { agentBrowser, ensureUiBrowser, sessionEnv } from "./control-omb-ui.ts";
+import { agentBrowser, ensureUiBrowser, sessionEnv } from "./control-lunabot-ui.ts";
 import { mountPreview, REPO_ROOT } from "./preview-fixture.ts";
 
 const enabled = process.env.LUNABOT_UI_E2E === "1";
 if (!enabled) console.info("skipping the Just me / Team UI e2e: set LUNABOT_UI_E2E=1");
 
-const SHOTS = process.env.LUNABOT_TEAM_SWITCH_SHOTS || join(REPO_ROOT, ".omb-scratch", "team-side-switch");
+const SHOTS = process.env.LUNABOT_TEAM_SWITCH_SHOTS || join(REPO_ROOT, ".lunabot-scratch", "team-side-switch");
 const PRIVATE = "Kumquat salary plan for March";
 const SHARED = "Team lunch is on Friday";
 const DESKTOP = ["1280", "800"] as const, PHONE = ["390", "844"] as const;

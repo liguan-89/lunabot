@@ -17,7 +17,7 @@
 //   during start-up. That second engine no longer exists: the backup is a second pi model.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piModelsSet, piTurns, piTurnText } from "./testing/pi-dump.ts";
 
 const MARKER = "DO_NOT_REPLAY_THIS_9S";
@@ -53,7 +53,7 @@ async function withRecoveryFixture(
     return result;
   };
   const control = async (...args: string[]) => {
-    const result = await runControlOmb([...args, "--url", url]) as any;
+    const result = await runControlLunabot([...args, "--url", url]) as any;
     evidence.push({ command: args, result });
     return result;
   };

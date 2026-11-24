@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, expect, it } from "vitest";
 
-import { runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
@@ -91,7 +91,7 @@ registerHooks({
     expect(response.status, `${method} ${path}: ${JSON.stringify(value)}\n${log.slice(-2_000)}`).toBeLessThan(300);
     return value;
   };
-  const bot = (await runControlOmb(["new-bot", "--name", "Inbox bot", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Inbox bot", "--url", url]) as any).bot;
   await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "ask" });
   const { routine } = await api("POST", "/api/routines", {
     name: "Inbox brief", prompt: "Search my inbox and summarise it.", botId: bot.id, timeoutMinutes: 5,

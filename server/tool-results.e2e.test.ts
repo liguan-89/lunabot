@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
@@ -13,7 +13,7 @@ it("bounds a real roster, retrieves its tail, isolates owners and expires stoppe
   const proxies: ChildProcess[] = [];
   const evidence: unknown[] = [];
   const cli = async (...args: string[]) => {
-    const result = await runControlOmb(args, { env: { LUNABOT_URL: fixture.info.url } }) as any;
+    const result = await runControlLunabot(args, { env: { LUNABOT_URL: fixture.info.url } }) as any;
     evidence.push({ args: args.map(arg => arg.length > 200 ? `${arg.slice(0, 200)}…` : arg), result });
     return result;
   };

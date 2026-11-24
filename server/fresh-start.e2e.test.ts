@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { request } from "../scripts/mcp-server.ts";
 import { piDumpPath, piTurnText, piTurns } from "./testing/pi-dump.ts";
 import type { WireMessage } from "../shared/wire.ts";
@@ -32,7 +32,7 @@ function sessionPerTurn(path: string): Array<"new" | "resume" | null> {
 
 async function setup(extraEnv: NodeJS.ProcessEnv) {
   const fixture = await launchVerificationServer({ ...process.env, ...extraEnv }, undefined, undefined, undefined, undefined, undefined);
-  const control = async (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = async (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const bot = (await control("new-bot", "--name", "Fresh probe")).bot;
   const thread: string = bot.activeTaskId;
   const api = (path: string, options: RequestInit = {}) => request(path, options, fixture.info.url);

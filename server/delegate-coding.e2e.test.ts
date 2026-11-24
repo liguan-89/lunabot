@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 
-import { runControlOmb } from "../scripts/control-omb.ts";
+import { runControlLunabot } from "../scripts/control-lunabot.ts";
 import { launchRestartableServer } from "./testing/restartable-server.ts";
 
 const dirs: string[] = [];
@@ -21,7 +21,7 @@ it("delegates coding into an isolated worktree thread", async () => {
 
   const server = await launchRestartableServer({ engine: "pi", scripted: true });
   try {
-    const { bot } = await runControlOmb(["new-bot", "--name", "Coder", "--url", server.url]) as { bot: { id: string } };
+    const { bot } = await runControlLunabot(["new-bot", "--name", "Coder", "--url", server.url]) as { bot: { id: string } };
     writeFileSync(join(server.dataDir, "room-plan.json"), JSON.stringify({
       [bot.id]: { turns: [
         { steps: [{ tool: "delegate_coding", arguments: { repo, instruction: "Rename README to README.md", title: "PR: readme" } }], reply: "Delegated the job." },
@@ -29,8 +29,8 @@ it("delegates coding into an isolated worktree thread", async () => {
         { reply: "The job finished." },
       ] },
     }));
-    await runControlOmb(["send", "--bot", bot.id, "--text", "Delegate the rename.", "--url", server.url]);
-    const waited = await runControlOmb(["wait", "--bot", bot.id, "--timeout", "30", "--url", server.url]) as { state?: string };
+    await runControlLunabot(["send", "--bot", bot.id, "--text", "Delegate the rename.", "--url", server.url]);
+    const waited = await runControlLunabot(["wait", "--bot", bot.id, "--timeout", "30", "--url", server.url]) as { state?: string };
     expect(waited.state).toBe("completed");
 
     const jobsFile = join(server.dataDir, "coding-jobs.json");

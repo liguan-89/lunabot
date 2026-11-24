@@ -1,6 +1,6 @@
 // Real server and the fake pi CLI: a held turn, a stopped one, and a queued message that keeps running.
 import { expect, it } from "vitest";
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 import { PERSON_STOPPED_TURN_NAME } from "../shared/client-cancel.ts";
 import { failedTurnCause } from "../shared/failed-turn.ts";
 import { openSse } from "./testing/sse.ts";

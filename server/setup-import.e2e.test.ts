@@ -3,7 +3,7 @@ import { lstatSync, mkdirSync, readlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 // The fixture server's HOME is its own disposable data folder, so the files planted here are the only ones it can find.
@@ -46,8 +46,8 @@ describe("bringing in another AI tool's setup through the desktop app's own serv
   /** One turn of `bot` on the fixture pi: the instructions in effect on it, its own words, and its task folder. */
   const turn = async (bot: { id: string; threadId: string }, text: string) => {
     const url = fixture.info.url;
-    await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", text, "--url", url]);
-    await runControlOmb(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "60", "--url", url]);
+    await runControlLunabot(["send", "--bot", bot.id, "--task", bot.threadId, "--text", text, "--url", url]);
+    await runControlLunabot(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "60", "--url", url]);
     const turns = piTurns(piDumpPath(fixture.info.dataDir));
     const index = turns.length - 1;
     const launch = turns[index]?.launch;

@@ -226,10 +226,10 @@ COPY --from=build --chown=lunabot:lunabot /src/dist-native/duckdb/target ./duckd
 COPY --from=build --chown=lunabot:lunabot /src/dist-server ./dist-server
 COPY --from=build --chown=lunabot:lunabot /src/dist ./dist
 COPY --from=build --chown=lunabot:lunabot /src/skills ./skills
-# `docker compose exec omb lunabot pair`: the commands the CLI prints start the same way.
+# `docker compose exec lunabot lunabot pair`: the commands the CLI prints start the same way.
 RUN printf '#!/bin/sh\nexec node /app/dist-server/lunabot.js "$@"\n' > /usr/local/bin/lunabot && chmod 0755 /usr/local/bin/lunabot
 ENV HOME=/data \
-    LUNABOT_CLI_PREFIX="docker compose exec omb lunabot"
+    LUNABOT_CLI_PREFIX="docker compose exec lunabot lunabot"
 VOLUME ["/data"]
 USER lunabot
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

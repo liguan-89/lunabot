@@ -266,7 +266,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const plan = new ChromeLauncher({ dataDir: DATA_DIR }).plan();
   const chrome = values.chrome ?? (plan.kind === "chrome" ? plan.chrome.path : null);
   if (!chrome) throw new Error(`OMB would not start its own Chrome here (${plan.kind === "legacy" ? plan.reason : "Chrome for Testing is not downloaded yet"}); pass --chrome.`);
-  const out = resolve(values.out ?? mkdtempSync(join(tmpdir(), "omb-browser-identity-")));
+  const out = resolve(values.out ?? mkdtempSync(join(tmpdir(), "lunabot-browser-identity-")));
   const { readout, public: verdicts } = await verifyBrowserIdentity({ engine, chrome, out, publicPages: values.public, sessionPrefix: values["session-prefix"], log: (line) => console.log(line) });
   printReadout(readout, verdicts);
   console.log(`\nresults: ${out}`);

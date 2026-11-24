@@ -98,7 +98,7 @@ export interface ConnectorReport {
   checks: { id: string; ok: boolean; warning?: boolean; fix?: string }[];
 }
 
-const CONNECTOR = "mausbot-connector";
+const CONNECTOR = "lunabot-connector";
 
 /** Asks the connector's container, as root may; null where none runs or it cannot be asked. */
 export async function connectorReport(probe: HostProbe): Promise<ConnectorReport | null> {

@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 it("dispatches setup and canonical standing instructions through the real isolated app", async () => {
@@ -17,10 +17,10 @@ it("dispatches setup and canonical standing instructions through the real isolat
     return result;
   };
   try {
-    const { bot } = await runControlOmb(["new-bot", "--name", "Setup fixture"], { env }) as any;
+    const { bot } = await runControlLunabot(["new-bot", "--name", "Setup fixture"], { env }) as any;
     const turn = async (text: string) => {
-      await runControlOmb(["send", "--bot", bot.id, "--text", text], { env });
-      await runControlOmb(["wait", "--bot", bot.id, "--timeout", "30"], { env });
+      await runControlLunabot(["send", "--bot", bot.id, "--text", text], { env });
+      await runControlLunabot(["wait", "--bot", bot.id, "--timeout", "30"], { env });
       const turns = piTurns(piDumpPath(fixture.info.dataDir));
       return { systemPrompt: piInstructionsFor(turns, turns.length - 1), prompt: turns.at(-1)?.prompt ?? "" };
     };
@@ -41,7 +41,7 @@ it("dispatches setup and canonical standing instructions through the real isolat
     expect((await api("GET", `/api/bots/${bot.id}/history`)).rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ field: "soul" }),
     ]));
-    const messages = await runControlOmb(["messages", "--bot", bot.id, "--limit", "10"], { env });
+    const messages = await runControlLunabot(["messages", "--bot", bot.id, "--limit", "10"], { env });
     expect(JSON.stringify(messages)).toContain("Hello from pi");
   } finally {
     await fixture.close();

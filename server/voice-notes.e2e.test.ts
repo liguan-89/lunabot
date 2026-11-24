@@ -5,7 +5,7 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { request } from "../scripts/mcp-server.ts";
 import { lastNonReceipt } from "../src/lib/receipts.ts";
 import { piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
@@ -27,7 +27,7 @@ async function withVoiceFixture(test: (f: any) => Promise<void>, options?: { fai
     undefined,
     { scripted: true },
   );
-  const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: session.info.url } }) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot(args, { env: { LUNABOT_URL: session.info.url } }) as Promise<any>;
   const api = (path: string, body?: unknown, method = "POST") =>
     request(path, body === undefined ? {} : { method, body: JSON.stringify(body) }, session.info.url) as Promise<any>;
   let ttsServer: Server | undefined;

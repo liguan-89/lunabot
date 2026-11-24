@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
@@ -23,7 +23,7 @@ afterEach(async () => {
 /** A home with the stub engine. A running daemon is a file in `running/`
  * plus the pid file agent-browser writes; `close` removes both. */
 function engineHome(config: Record<string, unknown> = {}) {
-  const home = mkdtempSync(join(tmpdir(), "omb-browser-shutdown-"));
+  const home = mkdtempSync(join(tmpdir(), "lunabot-browser-shutdown-"));
   homes.push(home);
   mkdirSync(join(home, "tmp"), { recursive: true });
   mkdirSync(join(home, "running"), { recursive: true });

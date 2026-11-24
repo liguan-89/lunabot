@@ -12,12 +12,12 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
-import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
+import { UI_TOOLS_DIR } from "./control-lunabot-ui.ts";
 import { fixtureApi } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const CLI = join(ROOT, "scripts", "control-omb.ts");
+const CLI = join(ROOT, "scripts", "control-lunabot.ts");
 const forced = process.env.LUNABOT_UI_E2E === "1";
 const binary = resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env });
 const enabled = forced || Boolean(binary);
@@ -85,7 +85,7 @@ function launch(args: string[]): Promise<Launched> {
 }
 
 const ui = (verb: string, handle: string, ...args: string[]) =>
-  runControlOmb(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
+  runControlLunabot(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
 
 /** "42s" / "1m 05s" → seconds, so the readout can be compared to the stamp. */
 function elapsedSeconds(text: string): number {

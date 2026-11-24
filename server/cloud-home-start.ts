@@ -166,7 +166,7 @@ export function edgeConfigFiles(env: NodeJS.ProcessEnv): { config: string; route
 
 /** Where the edge keeps its certificate and ACME account: on the volume, never /tmp, so a new container reuses them. */
 export function edgeCertificateStorage(home: string): string {
-  return posix.join(home, ".omb-edge", "caddy");
+  return posix.join(home, ".lunabot-edge", "caddy");
 }
 
 export function tunnelRestartDelay(previousMs: number, ranForMs: number): number {
@@ -251,8 +251,8 @@ export function cloudHomeChildEnvironments(config: CloudHomeConfig, env: NodeJS.
     [CLOUD_SECRETS_FD_ENV]: String(SECRETS_FD),
   };
   const edge: NodeJS.ProcessEnv = {
-    PATH: env.PATH ?? "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp/omb-edge",
-    XDG_DATA_HOME: "/tmp/omb-edge/data", XDG_CONFIG_HOME: "/tmp/omb-edge/config",
+    PATH: env.PATH ?? "/usr/local/bin:/usr/bin:/bin", HOME: "/tmp/lunabot-edge",
+    XDG_DATA_HOME: "/tmp/lunabot-edge/data", XDG_CONFIG_HOME: "/tmp/lunabot-edge/config",
     LUNABOT_CLOUD_PUBLIC_HOST: cloudHomeHost(config),
     // A plan whose home sleeps: requests wait this long for the server while it starts (deploy/fly/Caddyfile). Unset: 0s.
     LUNABOT_CLOUD_EDGE_HOLD: edgeHold(env.LUNABOT_CLOUD_EDGE_HOLD),

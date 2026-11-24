@@ -642,7 +642,7 @@ write_compose() {
 # back in a new one, and left Caddy refusing HTTPS in the old one.
 name: lunabot
 services:
-  omb:
+  lunabot:
     image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
@@ -663,7 +663,7 @@ services:
       LUNABOT_SIGNIN_MEMBER_EMAILS:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through LunaBot Relay. Sign in once: docker compose exec omb lunabot login --relay
+      # "1": phones pair by QR through LunaBot Relay. Sign in once: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
@@ -680,7 +680,7 @@ services:
     # Started with the server, not after it is healthy: Caddy reaches it over the socket
     # whenever it answers, so `up` never waits on the server's health.
     depends_on:
-      omb:
+      lunabot:
         condition: service_started
     environment:
       DOMAIN: ${DOMAIN}
@@ -861,8 +861,8 @@ sandbox_field() { # result name: that field of one result of the self-check
 check_sandbox_runs() {
   [ "$SANDBOX" = on ] || return 0
   say "Checking that the bots' sandbox holds..."
-  see="See it with: cd $INSTALL_DIR && sudo docker compose exec omb node dist-server/bot-box/box-check.js --public=none  and send us what it prints."
-  report=$(compose exec -T omb node dist-server/bot-box/box-check.js --public=none 2>/dev/null | tr -d '\n' || true)
+  see="See it with: cd $INSTALL_DIR && sudo docker compose exec lunabot node dist-server/bot-box/box-check.js --public=none  and send us what it prints."
+  report=$(compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none 2>/dev/null | tr -d '\n' || true)
   case "$report" in
     *'"box":"bwrap"'*'"results":[{'*) ;;
     *) fail "LunaBot is running, but its bots' sandbox gave no answer to its self-check, so bots may not be separated from the server. $see" ;;
@@ -919,7 +919,7 @@ prepare_data() {
 wait_healthy() {
   waited=0
   while [ "$waited" -lt "$HEALTH_WAIT_S" ]; do
-    container=$(compose ps -q omb 2>/dev/null | head -n 1 || true)
+    container=$(compose ps -q lunabot 2>/dev/null | head -n 1 || true)
     if [ -n "$container" ] && [ "$(docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || true)" = healthy ]; then return 0; fi
     sleep 5
     waited=$((waited + 5))
@@ -955,7 +955,7 @@ install_server() {
   prepare_data
   say "Starting LunaBot..."
   compose_quietly up -d --remove-orphans || fail "LunaBot could not be started (Docker's message is above). Fix that, then run this again."
-  wait_healthy || fail "LunaBot started but did not report healthy within $HEALTH_WAIT_S seconds. Its log: cd $INSTALL_DIR && sudo docker compose logs omb --tail 50"
+  wait_healthy || fail "LunaBot started but did not report healthy within $HEALTH_WAIT_S seconds. Its log: cd $INSTALL_DIR && sudo docker compose logs lunabot --tail 50"
   check_sandbox_runs
   say "Waiting for the HTTPS certificate of $DOMAIN..."
   wait_https || fail "LunaBot is running, but https://$DOMAIN did not answer within $HTTPS_WAIT_S seconds, usually because the certificate could not be issued. Check that $DOMAIN points at this server and that ports 80 and 443 are open in your provider's firewall, then run this again. Caddy's reason: cd $INSTALL_DIR && sudo docker compose logs caddy --tail 30"
@@ -976,7 +976,7 @@ connect_server() {
       fail "LunaBot is installed and running here, but the connector's installer could not be downloaded from $ADMIN_URL. Nothing needs reinstalling: run this again with your code once that address answers."
     fi
   fi
-  if ! grep -q 'mausbot-connector' "$connector_script" 2>/dev/null; then
+  if ! grep -q 'lunabot-connector' "$connector_script" 2>/dev/null; then
     [ -z "$fetched" ] || rm -f "$fetched"
     fail "LunaBot is installed and running here, but what $ADMIN_URL sent is not the connector's installer. Nothing needs reinstalling: copy the install command from LunaBot again."
   fi
@@ -996,7 +996,7 @@ connect_server() {
 # The first admin's one-time sign-in link, as `lunabot pair` prints it: its code line (until when it works) and the
 # link. Nothing when the server would not make one.
 first_admin_link() {
-  made=$(compose exec -T omb lunabot pair --label "First admin" 2>/dev/null) || return 1
+  made=$(compose exec -T lunabot lunabot pair --label "First admin" 2>/dev/null) || return 1
   lines=$(printf '%s\n' "$made" | grep -E '^(Pairing code|Link) ' || true)
   case "$lines" in *"Link "*"https://$DOMAIN/pair#code="*) printf '%s\n' "$lines" | sed 's/^/  /' ;; *) return 1 ;; esac
 }
@@ -1005,7 +1005,7 @@ finish() {
   say ""
   say "LunaBot is running at https://$DOMAIN"
   say ""
-  pair_command="cd $INSTALL_DIR && sudo docker compose exec omb lunabot pair --label \"First admin\""
+  pair_command="cd $INSTALL_DIR && sudo docker compose exec lunabot lunabot pair --label \"First admin\""
   # Only to a terminal: in a log, the link would let whoever reads it sign in as the admin until it is used or expires.
   if [ -t 1 ] && link=$(first_admin_link); then
     say "To sign in as the first admin, open this one-time link in your browser. Anyone who has it can use it, once:"
@@ -1070,7 +1070,7 @@ run_uninstall() {
   if [ -f "$SYSROOT/etc/lunabot/$SECCOMP" ]; then
     say "The sandbox's two profiles stay on this server: /etc/lunabot/$SECCOMP and /etc/apparmor.d/$APPARMOR_PROFILE."
   fi
-  if [ -n "$(docker ps -aq --filter name=mausbot-connector 2>/dev/null || true)" ]; then
+  if [ -n "$(docker ps -aq --filter name=lunabot-connector 2>/dev/null || true)" ]; then
     say "This server is still connected to LunaBot. To disconnect it, run the uninstall command LunaBot shows for the connector."
   fi
 }

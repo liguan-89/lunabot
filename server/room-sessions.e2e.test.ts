@@ -10,7 +10,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireBot, WireGroup } from "../shared/wire.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { piDumpPath, piTurnText, piTurns, piTurnsForThread, type PiTurn } from "./testing/pi-dump.ts";
@@ -35,7 +35,7 @@ async function fixture(test: (f: Awaited<ReturnType<typeof build>>) => Promise<v
 
 async function build(session: Awaited<ReturnType<typeof launchVerificationServer>>) {
   const { url, dataDir } = session.info;
-  const control = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(url + path, { method, headers: { "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     return { status: response.status, body: await response.json().catch(() => null) as any };

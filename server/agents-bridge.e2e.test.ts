@@ -6,7 +6,7 @@
 // bridges a pi turn and there is no bridged mount to talk to.
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireMessage } from "../shared/wire.ts";
 import { type BridgeTool } from "./drivers/agents-bridge.ts";
 import { AGENTS_TOOL_BRIDGE_PROMPT } from "./system-prompt.ts";
@@ -59,7 +59,7 @@ async function withFixture(run: (helpers: {
         const response = await fetch(`${fixture.info.url}${path}`, { method, headers: { "content-type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
         return { status: response.status, body: await response.json() };
       },
-      control: (args) => runControlOmb([...args, "--url", fixture.info.url]),
+      control: (args) => runControlLunabot([...args, "--url", fixture.info.url]),
       launched: async (threadId) => {
         let index = -1;
         await expect.poll(() => {

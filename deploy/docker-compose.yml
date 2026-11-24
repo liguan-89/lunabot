@@ -5,16 +5,16 @@
 # those. A request on a socket is never a local one: it needs a session, and
 # X-Forwarded-For names the client, exactly as when Caddy shared the server's
 # network. Caddy no longer shares that network because a server restarted on
-# its own (a crash, `docker compose restart`, `stop omb`) came back in a new
+# its own (a crash, `docker compose restart`, `stop lunabot`) came back in a new
 # one, leaving Caddy in the old one with HTTPS refused while both looked
 # healthy; a socket path is the same file again as soon as the server is back.
 #
 #   cp .env.example .env   # set DOMAIN
-#   docker compose pull omb && docker compose up -d     # prebuilt image
+#   docker compose pull lunabot && docker compose up -d     # prebuilt image
 #   docker compose up -d --build                        # or build from source
 #   ./update.sh                                         # later: the stable version, with a way back
 services:
-  omb:
+  lunabot:
     build:
       context: ..
       args:
@@ -52,7 +52,7 @@ services:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
       # "1": phones pair by QR through LunaBot Relay (docs/phone-relay-server.md). Sign the
-      # container in once first: docker compose exec omb lunabot login --relay
+      # container in once first: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
@@ -70,7 +70,7 @@ services:
     # whenever it answers, so `up` never waits on the server's health, and HTTPS is back
     # as soon as a restarted server is.
     depends_on:
-      omb:
+      lunabot:
         condition: service_started
     environment:
       DOMAIN: ${DOMAIN}

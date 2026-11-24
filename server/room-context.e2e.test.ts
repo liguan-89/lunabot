@@ -8,7 +8,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireBot, WireGroup } from "../shared/wire.ts";
 import { piDumpPath, piTurnText, piTurnsForThread, type PiTurn } from "./testing/pi-dump.ts";
 
@@ -17,7 +17,7 @@ const botOf = (turn: PiTurn): string | undefined => turn.launch?.mcpConfig?.mcpS
 it("carries the room's transcript into each warm pi turn, and reports no member context to measure", async () => {
   const fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });
   const { url, dataDir } = fixture.info;
-  const control = (...args: string[]) => runControlOmb([...args, "--url", url]);
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", url]);
   const post = (path: string, body: unknown = {}) =>
     fetch(url + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   try {
@@ -58,7 +58,7 @@ it("carries the room's transcript into each warm pi turn, and reports no member 
 it("replaces a member's warm pi process when another member takes a room turn", async () => {
   const fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });
   const { url, dataDir } = fixture.info;
-  const control = (...args: string[]) => runControlOmb([...args, "--url", url]);
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", url]);
   try {
     const first = (await control("new-bot", "--name", "Editor") as { bot: Pick<WireBot, "id"> }).bot;
     const second = (await control("new-bot", "--name", "Cutter") as { bot: Pick<WireBot, "id"> }).bot;

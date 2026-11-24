@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 function dailyLogs(root: string): Array<{ path: string; text: string }> {
@@ -45,12 +45,12 @@ it("carries a bot's recent 1:1 work into a room turn, tells the room, logs the t
   };
   try {
     // SAFETY: control-omb returns the created bot record under `bot`
-    const { bot: lead } = await runControlOmb(["new-bot", "--name", "Lead"], { env }) as { bot: { id: string; threadId: string } };
+    const { bot: lead } = await runControlLunabot(["new-bot", "--name", "Lead"], { env }) as { bot: { id: string; threadId: string } };
     // SAFETY: same shape as above
-    const { bot: helper } = await runControlOmb(["new-bot", "--name", "Helper"], { env }) as { bot: { id: string } };
+    const { bot: helper } = await runControlLunabot(["new-bot", "--name", "Helper"], { env }) as { bot: { id: string } };
 
-    await runControlOmb(["send", "--bot", lead.id, "--text", "Please reconcile the September invoices."], { env });
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["send", "--bot", lead.id, "--text", "Please reconcile the September invoices."], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
     const first = given();
     expect(first).not.toContain("Your recent work");
 
@@ -65,7 +65,7 @@ it("carries a bot's recent 1:1 work into a room turn, tells the room, logs the t
     }) as { group: { id: string; threadId: string } };
     await api("POST", `/api/groups/${group.id}/messages`, { text: "Lead, what did you do today?" });
     await expect.poll(() => piTurns(dumpPath).some((turn) => turn.prompt.includes("what did you do today")), { timeout: 30_000 }).toBe(true);
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
     const room = given();
     expect(room).toContain("Your recent work");
     expect(room).toMatch(/- today \d{2}:\d{2} · 1:1 with User · (?:"[^"]*" · )?you said: "/);
@@ -74,8 +74,8 @@ it("carries a bot's recent 1:1 work into a room turn, tells the room, logs the t
     expect(chips).toHaveLength(1);
     expect(chips[0]!.tool!.name).toBe("Lead's recent-work brief covers 1 private chat with you");
 
-    await runControlOmb(["send", "--bot", lead.id, "--text", "And now?"], { env });
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["send", "--bot", lead.id, "--text", "And now?"], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
     const second = given();
     expect(second).toContain("Your recent work");
     expect(second).toContain('room "Standup" · you said: "');

@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { WELCOME_VERSION } from "../electron/onboarding-record.mjs";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 
 const { LUNABOT_UI_CHROMIUM: chromiumPath, LUNABOT_UI_PLAYWRIGHT_CORE: playwrightPath, LUNABOT_UI_DIST: dist } = process.env;
@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 it.skipIf(!ready)("sets one up from chat and from + New, shows its sentence and events, pauses, resumes, asks to reconnect and deletes", async () => {
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => (await fetch(`${fixture.info.url}${path}`, {
     method, headers: { "content-type": "application/json", origin: fixture.info.url }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })).json() as Promise<any>;

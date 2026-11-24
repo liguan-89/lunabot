@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
-import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
+import { UI_TOOLS_DIR } from "./control-lunabot-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const binary = resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env });
@@ -21,7 +21,7 @@ type Bot = { id: string; name: string; threadId: string; chiefOfStaff?: boolean;
   try {
     let stdout = "", stderr = "";
     let info: { ui: string; url: string };
-    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-omb.ts"), "ui", "launch"], {
+    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-lunabot.ts"), "ui", "launch"], {
       cwd: ROOT, env: process.env, stdio: ["ignore", "pipe", "pipe"],
     });
     child.stdout!.on("data", chunk => { stdout += String(chunk); });
@@ -30,7 +30,7 @@ type Bot = { id: string; name: string; threadId: string; chiefOfStaff?: boolean;
       if (child!.exitCode !== null) throw new Error(stderr);
       try { info = JSON.parse(stdout); return Boolean(info.ui); } catch { return false; }
     }, { timeout: binary ? 180_000 : 600_000, interval: 250 }).toBe(true);
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
     const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
     const call = async (method: string, path: string, body?: unknown) => {
       const response = await fetch(`${info.url}${path}`, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) });

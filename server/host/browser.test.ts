@@ -122,7 +122,7 @@ describe("the bots' browser host with browserEngine.engine set to chrome", () =>
   it("gives a bot's turn the browser MCP server over its own profile on the new engine", async () => {
     const { host, minted } = setup("chrome");
     const browser = await host.browserIntegration("scout", undefined, turn);
-    expect(browser?.spec).toEqual({ command: "omb-cdp", args: ["bot:scout"], env: {} });
+    expect(browser?.spec).toEqual({ command: "lunabot-cdp", args: ["bot:scout"], env: {} });
     expect(browser?.integration).toMatchObject({ command: process.execPath, env: { LUNABOT_HARNESS_URL: "http://127.0.0.1:4100" } });
     expect(minted).toEqual([expect.objectContaining({ botId: "scout", browserSession: browser?.session, kind: "browser", ...turn })]);
     expect(host.usedBrowserSessions.get(browser!.session)).toEqual(browser?.spec);
@@ -694,7 +694,7 @@ describe("a Team Cloud's boxed browsers and the files a turn uploads", () => {
       writeFileSync(file, "report");
       const { host } = setup("chrome");
       vi.stubGlobal("process", { ...process, platform: "win32" });
-      const [staged] = await host.uploadPaths([{ file, name }], "bot-scout", { command: "omb-cdp", args: ["bot:scout"], env: {} });
+      const [staged] = await host.uploadPaths([{ file, name }], "bot-scout", { command: "lunabot-cdp", args: ["bot:scout"], env: {} });
       vi.unstubAllGlobals();
       expect(staged!.startsWith(join(DATA_DIR, "browser-uploads"))).toBe(true);
       expect(readFileSync(staged!, "utf8")).toBe("report");
@@ -717,7 +717,7 @@ describe("a Team Cloud's boxed browsers and the files a turn uploads", () => {
       if ("error" in checked) throw new Error(checked.error);
       const box = { bwrap: "/usr/bin/bwrap", options: ["--unshare-pid"], seccomp: null };
       const { host } = setup("chrome", { cloudHome: true, ...(boxed ? { browserBox: () => box } : {}) });
-      const paths = await host.uploadPaths(checked.files.map((file) => ({ file, name: null })), "bot-scout", { command: "omb-cdp", args: ["bot:scout"], env: {} });
+      const paths = await host.uploadPaths(checked.files.map((file) => ({ file, name: null })), "bot-scout", { command: "lunabot-cdp", args: ["bot:scout"], env: {} });
       const choosers = new FileChoosers();
       let opened!: (params: Params) => void;
       const uploaded: Array<{ method: string; files: unknown; bytes: string[] }> = [];

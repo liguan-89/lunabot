@@ -6,7 +6,7 @@ import { closeSync, existsSync, openSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import type { GroupTask, WireBot, WireGroup, WireMessage } from "../shared/wire.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 

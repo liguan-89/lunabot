@@ -233,7 +233,7 @@ ${section("permissions", "权限与审批级别", `<p>每个机器人有自己�
 ${section("self-hosting", "自建服务器与自定义域名", `<p>Luna Bot 的服务器可以跑在你自己控制的机器上：</p>
 <ol>
 <li>准备一台能运行 Docker 的 Linux 服务器，以及一个指向它的域名。</li>
-<li>按 <code>dex-cloud/README.md</code> 用 compose 启动服务，配置 <code>DEXCLOUD_ORIGIN</code>、邮件和中继密钥。</li>
+<li>按 <code>dex-cloud/README.md</code> 用 compose 启动服务，配置 <code>LUNABOT_CLOUD_ORIGIN</code>、邮件和中继密钥。</li>
 <li>在反向代理（Caddy / Nginx）上终止 TLS，把 <code>https://你的域名</code> 转发到服务的 HTTP 端口。</li>
 <li>在桌面端 <strong>设置 → 服务器 → 自定义域名</strong> 填入这个地址；应用会校验证书和健康检查后再保存。</li>
 </ol>

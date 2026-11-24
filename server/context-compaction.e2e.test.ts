@@ -13,7 +13,7 @@ import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from "no
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { request } from "../scripts/mcp-server.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath } from "./testing/pi-dump.ts";
@@ -54,7 +54,7 @@ async function setup() {
       return result;
     };
     const cli = async (...args: string[]) => {
-      const result = await runControlOmb(args, { env: { LUNABOT_URL: session.info.url } }) as any;
+      const result = await runControlLunabot(args, { env: { LUNABOT_URL: session.info.url } }) as any;
       evidence.push({ command: args, result });
       return result;
     };

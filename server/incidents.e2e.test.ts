@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { piInstructionsAt, piTurns } from "./testing/pi-dump.ts";
 import { openSse } from "./testing/sse.ts";
@@ -23,7 +23,7 @@ async function launch(boat?: string, enterprise?: { dir: string; licenseKey: str
     expect(response.status, `${method} ${path}: ${JSON.stringify(value)}`).toBe(expectedStatus);
     return value;
   };
-  const control = (args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
   const file = (threadId: string, extension: string) => join(dataDir, `${threadId}.${extension}`);
   // Each thread's wrapper logs only its own child's launches and prompts, so a prompt is never attributed to another
   // bot's launch in the fixture-wide dump while several pi children append at once.

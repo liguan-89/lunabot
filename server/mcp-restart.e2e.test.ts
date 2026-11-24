@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 import { piAgentsToken, piDumpPath, piTurnHolding, type PiTurn } from "./testing/pi-dump.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 

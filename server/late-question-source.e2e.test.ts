@@ -2,7 +2,7 @@
 // speaker has the room. pi is the only engine this build runs, so the question comes from the fake pi's native
 // extension-UI ask (server/testing/fake-pi-cli.ts FAKE_PI_QUESTION_ON) instead of the retired Claude broker socket.
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 
 it("does not retarget a deleted room asker's late answer to the current speaker", async () => {
   const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_QUESTION_ON: "Ask a question", FAKE_PI_MODE: "hang" });
@@ -14,7 +14,7 @@ it("does not retarget a deleted room asker's late answer to the current speaker"
     });
     return { status: response.status, body: await response.json() };
   };
-  const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: fixture.info.url } }) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot(args, { env: { LUNABOT_URL: fixture.info.url } }) as Promise<any>;
   console.log(`late-question source fixture: ${fixture.info.logPath}`);
   try {
     const original = (await cli("new-bot", "--name", "Original asker")).bot;

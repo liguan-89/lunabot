@@ -41,7 +41,7 @@ export function chromeForTests(): string | null {
 }
 
 export const CHROME = chromeForTests();
-if (!CHROME) console.log("skipping omb-cdp real-Chrome suites: set LUNABOT_CDP_CHROME to a Chrome executable, or LUNABOT_CDP_E2E=1 to use the installed Google Chrome");
+if (!CHROME) console.log("skipping lunabot-cdp real-Chrome suites: set LUNABOT_CDP_CHROME to a Chrome executable, or LUNABOT_CDP_E2E=1 to use the installed Google Chrome");
 
 export const FIRST_LAUNCH_MS = FIRST_START_MS;
 
@@ -108,7 +108,7 @@ export interface StartOptions {
 
 export async function startChrome(label: string, { launch = {}, browser: browserOptions = {}, takeFirstNavigation = process.platform === "win32" }: StartOptions = {}): Promise<RunningChrome> {
   if (!CHROME) throw new Error("No Chrome to test with.");
-  const dir = mkdtempSync(join(testRoot(), "omb-cdp-"));
+  const dir = mkdtempSync(join(testRoot(), "lunabot-cdp-"));
   const chrome = await launchChrome({
     executablePath: CHROME,
     userDataDir: join(dir, "profile"),
@@ -156,7 +156,7 @@ async function firstNavigation(browser: CdpBrowser): Promise<void> {
  */
 export async function bareChromeStart(url: string): Promise<number> {
   if (!CHROME) throw new Error("No Chrome to test with.");
-  const dir = mkdtempSync(join(testRoot(), "omb-cdp-bare-"));
+  const dir = mkdtempSync(join(testRoot(), "lunabot-cdp-bare-"));
   const args = ["--remote-debugging-pipe", `--user-data-dir=${join(dir, "profile")}`, "--headless=new", "--no-first-run", "--no-default-browser-check", ...credentialStoreFlags(), ...(sandbox ? [] : ["--no-sandbox"]), "about:blank"];
   const started = performance.now();
   const child = spawn(CHROME, args, { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"], env: chromeEnv(process.env, { host: HOST }), windowsHide: true });

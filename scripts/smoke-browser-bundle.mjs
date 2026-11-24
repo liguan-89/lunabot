@@ -86,7 +86,7 @@ if (process.platform === "linux") {
   assert(!/docker|kubepods|lxc/.test(cgroup), "Sandbox verification requires a non-container Linux host; upstream agent-browser disables Chromium's sandbox for this cgroup");
 }
 
-const fixture = await mkdtemp(join(tmpdir(), "omb-browser-smoke-"));
+const fixture = await mkdtemp(join(tmpdir(), "lunabot-browser-smoke-"));
 const fixtureHome = join(fixture, "home");
 const env = {
   PATH: process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32") : "/usr/bin:/bin",

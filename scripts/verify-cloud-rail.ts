@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { launchVerificationServer, runControlOmb } from "./control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
 import { openHeadlessChrome } from "./testing/headless-chrome.ts";
 import { mountPreview, parkUntilSignal, type MountedPreview } from "./testing/preview-fixture.ts";
 
@@ -79,7 +79,7 @@ async function openChrome(profile: string) {
 const fixture = await launchVerificationServer();
 let ui: MountedPreview | undefined;
 try {
-  for (const name of ["Chief of Staff", "Research", "Inbox"]) await runControlOmb(["new-bot", "--name", name, "--url", fixture.info.url]);
+  for (const name of ["Chief of Staff", "Research", "Inbox"]) await runControlLunabot(["new-bot", "--name", name, "--url", fixture.info.url]);
   ui = await mountPreview(fixture, { entry: "/scripts/testing/rail-preview.tsx", route: "/__cloud-rail.html", title: "Isolated rail of Clouds", logLevel: "warn" });
   if (!shots) {
     console.log(JSON.stringify({ ...fixture.info, previewUrl: ui.previewUrl }, null, 2));

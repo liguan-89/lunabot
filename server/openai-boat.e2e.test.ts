@@ -9,7 +9,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
 
@@ -91,7 +91,7 @@ it("keeps the selected model for direct, group and scheduled Boat turns, runs th
     expect(response.ok, JSON.stringify(result)).toBe(true);
     return result;
   };
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const messages = async (threadId: string) => ((await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[]);
   try {
     await api("PATCH", "/api/config", { openaiCompat: { key: "synthetic-model-key", url: origin + "/v1", model: MODEL } });

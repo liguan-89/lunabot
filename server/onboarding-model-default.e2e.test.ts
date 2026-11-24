@@ -7,7 +7,7 @@ import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from "no
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath, piModelsSet, piTurns } from "./testing/pi-dump.ts";
 
@@ -72,7 +72,7 @@ async function withUnselectedStarter(check: (fixture: Fixture) => Promise<void>)
   const dumpPath = piDumpPath(dataDir);
   try {
     await check({ api, request, saved, restart,
-      control: (...args) => runControlOmb([...args, "--url", url]) as Promise<any>,
+      control: (...args) => runControlLunabot([...args, "--url", url]) as Promise<any>,
       connect: async () => { await api("PATCH", "/api/instances/pi", { cli: FAKE_PI }); },
       makeCliAvailable: (holdProbe = false) => {
         const gate = join(dataDir, "probe-release");
@@ -262,8 +262,8 @@ it("a genuine first install stays unset until its provider CLI can run", async (
       await api("PATCH", "/api/instances/pi", { cli: FAKE_PI });
       expect((await api("GET", "/api/bots")).bots[0].modelSelection).toEqual(DEFAULT);
       const target = ["--bot", starter.id, "--task", starter.threadId, "--url", url];
-      await runControlOmb(["send", ...target, "--text", "FIRST_INSTALL_PROVIDER_READY_1R"]);
-      expect((await runControlOmb(["wait", ...target, "--timeout", "30"]) as any).status).toBe("settled");
+      await runControlLunabot(["send", ...target, "--text", "FIRST_INSTALL_PROVIDER_READY_1R"]);
+      expect((await runControlLunabot(["wait", ...target, "--timeout", "30"]) as any).status).toBe("settled");
       expect((await api("GET", `/api/threads/${starter.threadId}/messages?limit=20`)).messages
         .findLast((message: any) => message.role === "bot" && message.kind === "text")).toMatchObject({ turnSucceeded: true });
     } finally {

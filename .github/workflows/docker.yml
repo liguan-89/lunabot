@@ -40,50 +40,50 @@ jobs:
       - name: Boot the container and prove the server + UI answer
         run: |
           set -euo pipefail
-          docker run -d --name omb lunabot:ci
+          docker run -d --name lunabot lunabot:ci
           for i in $(seq 1 40); do
-            if docker exec omb curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
+            if docker exec lunabot curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
             sleep 2
-            if [ "$i" = "40" ]; then docker logs omb; echo "server never became healthy"; exit 1; fi
+            if [ "$i" = "40" ]; then docker logs lunabot; echo "server never became healthy"; exit 1; fi
           done
           # the renderer is served by the server itself (LUNABOT_STATIC_DIR)
-          docker exec omb curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs omb; echo "UI not served"; exit 1; }
-          docker logs omb | tail -5
+          docker exec lunabot curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs lunabot; echo "UI not served"; exit 1; }
+          docker logs lunabot | tail -5
       - name: Prove the image degrades cleanly without an enterprise layer
         # This fork ships no enterprise layer, so a bogus LUNABOT_LICENSE_KEY must
         # leave the server up on the oss edition, not crash it or claim a
         # license.
         run: |
           set -euo pipefail
-          docker run -d --name omb-ent -e LUNABOT_LICENSE_KEY=omb1.not.real lunabot:ci
+          docker run -d --name lunabot-ent -e LUNABOT_LICENSE_KEY=omb1.not.real lunabot:ci
           for i in $(seq 1 40); do
-            if docker exec omb-ent curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
+            if docker exec lunabot-ent curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
             sleep 2
-            if [ "$i" = "40" ]; then docker logs omb-ent; echo "server never became healthy"; exit 1; fi
+            if [ "$i" = "40" ]; then docker logs lunabot-ent; echo "server never became healthy"; exit 1; fi
           done
-          edition=$(docker exec omb-ent curl -sf http://127.0.0.1:8799/api/edition)
+          edition=$(docker exec lunabot-ent curl -sf http://127.0.0.1:8799/api/edition)
           echo "$edition"
           grep -q '"edition":"oss"' <<<"$edition"
           grep -q 'no enterprise layer exists' <<<"$edition"
-          docker rm -f omb-ent >/dev/null
+          docker rm -f lunabot-ent >/dev/null
       - name: Prove the non-root user can browse with the baked-in Chrome
         run: |
           set -euo pipefail
-          test "$(docker exec omb id -un)" = lunabot
-          timeout 45 docker exec omb agent-browser --session ci-browser open 'data:text/html,<title>Luna Bot browser smoke</title><h1>Browser ready</h1>'
-          timeout 15 docker exec omb agent-browser --session ci-browser get title | grep -Fx 'Luna Bot browser smoke'
+          test "$(docker exec lunabot id -un)" = lunabot
+          timeout 45 docker exec lunabot agent-browser --session ci-browser open 'data:text/html,<title>Luna Bot browser smoke</title><h1>Browser ready</h1>'
+          timeout 15 docker exec lunabot agent-browser --session ci-browser get title | grep -Fx 'Luna Bot browser smoke'
           # Chrome for Testing's page is 1280x577 until sized; the harness sizes
           # it to 1280x720 so pictures, boxes and clicks agree.
-          timeout 15 docker exec omb agent-browser --session ci-browser set viewport 1280 720
-          test "$(timeout 15 docker exec omb agent-browser --session ci-browser eval "innerWidth+'x'+innerHeight")" = '"1280x720"'
+          timeout 15 docker exec lunabot agent-browser --session ci-browser set viewport 1280 720
+          test "$(timeout 15 docker exec lunabot agent-browser --session ci-browser eval "innerWidth+'x'+innerHeight")" = '"1280x720"'
           # The harness reads and pictures a bot's browser over the engine's
           # loopback relay (server/browser-relay.ts); the daemon writes the file.
-          port=$(timeout 15 docker exec omb agent-browser --session ci-browser stream status --json | jq -r .data.port)
-          answer=$(docker exec omb curl -sf -X POST -H 'content-type: application/json' -H "origin: http://127.0.0.1:$port" \
+          port=$(timeout 15 docker exec lunabot agent-browser --session ci-browser stream status --json | jq -r .data.port)
+          answer=$(docker exec lunabot curl -sf -X POST -H 'content-type: application/json' -H "origin: http://127.0.0.1:$port" \
             --data '{"action":"screenshot","path":"/tmp/relay.jpg","format":"jpeg","quality":70}' "http://127.0.0.1:$port/api/command")
           grep -q '"success":true' <<<"$answer"
-          docker exec omb test -s /tmp/relay.jpg
-          timeout 15 docker exec omb agent-browser --session ci-browser close
+          docker exec lunabot test -s /tmp/relay.jpg
+          timeout 15 docker exec lunabot agent-browser --session ci-browser close
       - name: Prove the server never binds a public interface
         # The loopback-trust model is the auth model, so the image must keep
         # the server unreachable from the container's own network. Probe from a
@@ -98,7 +98,7 @@ jobs:
           test -n "$leaky_ip"
           probe "$leaky_ip" 8799 || { echo "probe cannot see a 0.0.0.0 listener; the check would be vacuous"; exit 1; }
           docker rm -f leaky >/dev/null
-          ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' omb)
+          ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' lunabot)
           test -n "$ip"
           if probe "$ip" 8799 || probe "$ip" 8800; then
             echo "server answered on $ip — it must only bind 127.0.0.1"; exit 1
@@ -112,7 +112,7 @@ jobs:
         # unbuffered, and that hooks stay reachable without a session.
         run: |
           set -euo pipefail
-          docker rm -f omb >/dev/null
+          docker rm -f lunabot >/dev/null
           docker tag lunabot:ci ghcr.io/liguan-89/lunabot:latest
           printf 'DOMAIN=localhost\nENGINES=\n' > deploy/.env
           docker compose -f deploy/docker-compose.yml up -d --no-build
@@ -132,7 +132,7 @@ jobs:
           grep -q 'pair this device' <<<"$(body $H/api/bots)"
           grep -qi '<html' <<<"$(body $H/pair)"                                    # the UI shell is served so /pair can load
           test "$(code http://localhost/)" = 308                                   # HTTP redirects to HTTPS
-          pairing=$(docker compose -f deploy/docker-compose.yml exec -T omb node dist-server/pair-cli.js --label ci)
+          pairing=$(docker compose -f deploy/docker-compose.yml exec -T lunabot node dist-server/pair-cli.js --label ci)
           echo "$pairing"
           pcode=$(grep -o 'code=[A-Z2-9-]*' <<<"$pairing" | head -1 | cut -d= -f2)
           test -n "$pcode"
@@ -166,11 +166,11 @@ jobs:
             $C ps; $C logs --tail 30; echo "HTTPS did not come back after: $1"; return 1
           }
           $C restart && back "docker compose restart"
-          launcher=$(docker top "$($C ps -q omb)" -eo pid,args | awk '/server-launcher/ { print $1; exit }')
+          launcher=$(docker top "$($C ps -q lunabot)" -eo pid,args | awk '/server-launcher/ { print $1; exit }')
           test -n "$launcher"
           sudo kill -9 "$launcher" && sleep 5 && back "kill -9 of the server process, restarted by Docker"
-          test "$(docker inspect -f '{{.RestartCount}}' "$($C ps -q omb)")" -ge 1
-          $C stop omb && $C start omb && back "docker compose stop omb, then start omb"
+          test "$(docker inspect -f '{{.RestartCount}}' "$($C ps -q lunabot)")" -ge 1
+          $C stop lunabot && $C start lunabot && back "docker compose stop lunabot, then start lunabot"
           $C stop && $C start && back "docker compose stop, then start (the documented backup)"
           grep -q error <<<"$(body -X POST $H/hooks/wh_nope)"                      # hooks reach the receiver's socket again
           docker compose -f deploy/docker-compose.yml down -v
@@ -380,7 +380,7 @@ jobs:
             docker logs "$1" 2>&1 | tail -20; echo "$1 never served 443"; return 1
           }
           first=$(served tls)
-          docker run --rm -v omb-tls-ci:/data:ro --entrypoint sh lunabot-cloud-home:ci -c 'ls /data/.omb-edge/caddy/certificates/*/home.own-server.internal/home.own-server.internal.crt'
+          docker run --rm -v omb-tls-ci:/data:ro --entrypoint sh lunabot-cloud-home:ci -c 'ls /data/.lunabot-edge/caddy/certificates/*/home.own-server.internal/home.own-server.internal.crt'
           docker restart tls >/dev/null
           healthy tls 18084
           test "$(served tls)" = "$first"
@@ -505,18 +505,18 @@ jobs:
         run: |
           set -euo pipefail
           test "$(docker image inspect -f '{{.Architecture}}' lunabot:arm64)" = arm64
-          docker run -d --init --shm-size=512m --name omb lunabot:arm64
+          docker run -d --init --shm-size=512m --name lunabot lunabot:arm64
           for i in $(seq 1 40); do
-            if docker exec omb curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
+            if docker exec lunabot curl -sf http://127.0.0.1:8799/api/health | grep -q lunabot; then break; fi
             sleep 2
-            if [ "$i" = "40" ]; then docker logs omb; echo "server never became healthy"; exit 1; fi
+            if [ "$i" = "40" ]; then docker logs lunabot; echo "server never became healthy"; exit 1; fi
           done
-          docker exec omb curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs omb; echo "UI not served"; exit 1; }
-          docker exec -w /app/duckdb omb node --input-type=module -e "const { DuckDBInstance } = await import('@duckdb/node-api'); const c = await (await DuckDBInstance.create()).connect(); const r = await c.runAndReadAll('select 42 as x'); if (Number(r.getRows()[0][0]) !== 42) process.exit(1)"
-          test "$(docker exec omb id -un)" = lunabot
-          timeout 90 docker exec omb agent-browser --session ci-browser open 'data:text/html,<title>Luna Bot browser smoke</title><h1>Browser ready</h1>'
-          timeout 15 docker exec omb agent-browser --session ci-browser get title | grep -Fx 'Luna Bot browser smoke'
-          timeout 15 docker exec omb agent-browser --session ci-browser close
+          docker exec lunabot curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs lunabot; echo "UI not served"; exit 1; }
+          docker exec -w /app/duckdb lunabot node --input-type=module -e "const { DuckDBInstance } = await import('@duckdb/node-api'); const c = await (await DuckDBInstance.create()).connect(); const r = await c.runAndReadAll('select 42 as x'); if (Number(r.getRows()[0][0]) !== 42) process.exit(1)"
+          test "$(docker exec lunabot id -un)" = lunabot
+          timeout 90 docker exec lunabot agent-browser --session ci-browser open 'data:text/html,<title>Luna Bot browser smoke</title><h1>Browser ready</h1>'
+          timeout 15 docker exec lunabot agent-browser --session ci-browser get title | grep -Fx 'Luna Bot browser smoke'
+          timeout 15 docker exec lunabot agent-browser --session ci-browser close
 
   publish:
     name: publish to GHCR

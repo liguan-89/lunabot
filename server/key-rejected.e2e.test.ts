@@ -8,7 +8,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { fixtureApi } from "../scripts/testing/preview-fixture.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { piDumpPath, piModelsSet } from "./testing/pi-dump.ts";
@@ -48,7 +48,7 @@ it("a key the provider rejects is reported until it changes or works again", asy
   const fixture = await launchVerificationServer({ FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate });
   const api = fixtureApi(fixture.info.url);
   const sse = await openSse(`${fixture.info.url}/api/events`);
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const config = async () => (await api("GET", "/api/config")).openaiCompat;
   const keyTest = () => api("POST", "/api/keys/test", { provider: "openaiCompat" });
   const turn = async (fails: boolean) => {

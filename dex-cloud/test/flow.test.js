@@ -44,12 +44,12 @@ async function call(base, method, path, body, token, headers = {}) {
 }
 
 const config = () => loadConfig({
-  DEXCLOUD_DB: ":memory:",
-  DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
-  DEXCLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
-  DEXCLOUD_DEV_CODES: "1",
-  DEXCLOUD_SIGNUP_OPEN: "1",
-  DEXCLOUD_PLAN_MODE: "pro",
+  LUNABOT_CLOUD_DB: ":memory:",
+  LUNABOT_CLOUD_ORIGIN: "https://cloud.dexai.vip",
+  LUNABOT_CLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
+  LUNABOT_CLOUD_DEV_CODES: "1",
+  LUNABOT_CLOUD_SIGNUP_OPEN: "1",
+  LUNABOT_CLOUD_PLAN_MODE: "pro",
 });
 
 test("device approval issues a session and the session carries a licence", async () => {
@@ -299,12 +299,12 @@ test("a bug report is stored, answered with 201, and its status is scoped to the
 
 test("an admin reads reports and marks one fixed, which the sender then sees", async () => {
   const app = await start(loadConfig({
-    DEXCLOUD_DB: ":memory:",
-    DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
-    DEXCLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
-    DEXCLOUD_DEV_CODES: "1",
-    DEXCLOUD_PLAN_MODE: "pro",
-    DEXCLOUD_ADMIN_EMAILS: "admin@example.com",
+    LUNABOT_CLOUD_DB: ":memory:",
+    LUNABOT_CLOUD_ORIGIN: "https://cloud.dexai.vip",
+    LUNABOT_CLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
+    LUNABOT_CLOUD_DEV_CODES: "1",
+    LUNABOT_CLOUD_PLAN_MODE: "pro",
+    LUNABOT_CLOUD_ADMIN_EMAILS: "admin@example.com",
   }));
   try {
     const authorize = await call(app.base, "POST", "/api/cloud/desktop/authorize", { deviceName: "Admin Mac", platform: "darwin", appVersion: "2.0.0" });
@@ -336,10 +336,10 @@ test("the defaults name Luna Bot's own image and update manifest", async () => {
   const defaults = config();
   assert.equal(defaults.cloudImage, "lunabot-cloud-home:local");
   const overridden = loadConfig({
-    DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
-    DEXCLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
-    DEXCLOUD_CLOUD_IMAGE: "example.invalid/cloud-home:test",
-    DEXCLOUD_LATEST_VERSION: "9.8.7",
+    LUNABOT_CLOUD_ORIGIN: "https://cloud.dexai.vip",
+    LUNABOT_CLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
+    LUNABOT_CLOUD_CLOUD_IMAGE: "example.invalid/cloud-home:test",
+    LUNABOT_CLOUD_LATEST_VERSION: "9.8.7",
   });
   assert.equal(overridden.cloudImage, "example.invalid/cloud-home:test");
   // The default node is one this deployment actually serves the relay on. A bare `relayN.dexai.vip` needs its own

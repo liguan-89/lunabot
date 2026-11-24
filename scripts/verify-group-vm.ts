@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { launchVerificationServer, runControlOmb } from "./control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const podman = process.env.LUNABOT_VERIFY_PODMAN;
@@ -61,7 +61,7 @@ try {
     // A stale dump must never count as proof of this dispatch.
     rmSync(fixture.fixtureDumpPath, { force: true });
     await api(`/api/groups/${group.id}/messages`, { mode: "goal", text: "Reply once for isolated GUI routing verification." });
-    const wait = await runControlOmb(["wait", "--channel", group.id, "--timeout", "60", "--url", fixture.info.url]) as { status: string };
+    const wait = await runControlLunabot(["wait", "--channel", group.id, "--timeout", "60", "--url", fixture.info.url]) as { status: string };
     controller.signal.throwIfAborted();
     assert.equal(wait.status, "settled", "Goal turn must settle");
     return { wait, dump: JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) };
@@ -100,7 +100,7 @@ try {
   process.removeListener("SIGTERM", cancel);
 }
 if (errors.length) throw new AggregateError(errors, "Fixture verification or cleanup failed; inspect the exact fixture IDs above");
-const evidenceDir = join(ROOT, ".omb-scratch/verification-logs");
+const evidenceDir = join(ROOT, ".lunabot-scratch/verification-logs");
 mkdirSync(evidenceDir, { recursive: true });
 writeFileSync(join(evidenceDir, "group-vm-routing.json"), JSON.stringify(receipt, null, 2));
 console.log(JSON.stringify(receipt));

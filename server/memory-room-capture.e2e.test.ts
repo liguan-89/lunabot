@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireBot } from "../shared/wire.ts";
 import { NO_TEXT_ENGINE } from "./memory-upkeep.ts";
 
@@ -44,7 +44,7 @@ it("queues a member bot's room turn for capture only once Learn from group chats
       setup: { bulletin: "", defaultResponder: { kind: "member", botId: lead.id } },
     });
     await api(`/api/groups/${group.id}/messages`, "POST", { text: "Lead, the garden launch moved to Friday." });
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
 
     // The room's turn is queued for capture and reaches the call; with no background call it stops there and says why.
     await expect.poll(async () => (await upkeep(lead.id)).lastCapture?.note ?? null, { timeout: 30_000 }).toBe(NO_TEXT_ENGINE);
@@ -86,7 +86,7 @@ it("leaves a room turn out of memory upkeep entirely while Learn from group chat
       setup: { bulletin: "", defaultResponder: { kind: "member", botId: lead.id } },
     });
     await api(`/api/groups/${group.id}/messages`, "POST", { text: "Lead, the garden launch moved to Friday." });
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
 
     // Nothing is queued at all: not even a call to refuse, so the status keeps no capture report.
     await new Promise((resolve) => setTimeout(resolve, 3_000));

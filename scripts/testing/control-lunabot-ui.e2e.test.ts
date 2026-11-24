@@ -1,4 +1,4 @@
-// Drives the real <App/> through `control-omb ui` and reads outcomes from the
+// Drives the real <App/> through `control-lunabot ui` and reads outcomes from the
 // accessibility tree. Needs the pinned agent-browser binary: runs when one
 // resolves (tools directory, LUNABOT_AGENT_BROWSER_PATH or PATH) or LUNABOT_UI_E2E=1
 // asks for the verified download; otherwise skipped.
@@ -11,17 +11,17 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
-import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
+import { UI_TOOLS_DIR } from "./control-lunabot-ui.ts";
 import { fixtureApi } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const CLI = join(ROOT, "scripts", "control-omb.ts");
+const CLI = join(ROOT, "scripts", "control-lunabot.ts");
 const forced = process.env.LUNABOT_UI_E2E === "1";
 const binary = resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env });
 const enabled = forced || Boolean(binary);
 if (!enabled) {
-  console.log(`skipping control-omb ui e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, LUNABOT_AGENT_BROWSER_PATH and PATH); set LUNABOT_UI_E2E=1 to install the pinned release`);
+  console.log(`skipping control-lunabot ui e2e: no agent-browser binary resolves (looked in ${UI_TOOLS_DIR}, LUNABOT_AGENT_BROWSER_PATH and PATH); set LUNABOT_UI_E2E=1 to install the pinned release`);
 }
 const run = enabled ? it : it.skip;
 // A forced run may still have Chrome for Testing to download even when
@@ -30,9 +30,9 @@ const LAUNCH_TIMEOUT_MS = forced ? 600_000 : 180_000;
 
 // Synthetic provider outcomes exercise the UI, not the commands themselves.
 const TOOL_CALLS = JSON.stringify([
-  { name: "Bash", input: { command: "pnpm control:omb doctor" }, ok: true },
-  { name: "Bash", input: { command: "pnpm control:omb ui click --name Missing" }, ok: false },
-  { name: "Bash", input: { command: "pnpm control:omb ui flag --set features.showToolCalls=true --dry-run" }, ok: true },
+  { name: "Bash", input: { command: "pnpm control:lunabot doctor" }, ok: true },
+  { name: "Bash", input: { command: "pnpm control:lunabot ui click --name Missing" }, ok: false },
+  { name: "Bash", input: { command: "pnpm control:lunabot ui flag --set features.showToolCalls=true --dry-run" }, ok: true },
 ]);
 const REPLY = "Hello from pi"; // the fake pi's default reply text
 // A launch with --tool-calls runs the fake pi in its retired-Claude compatibility mode, whose default reply is this one.
@@ -95,7 +95,7 @@ function launch(args: string[]): Promise<Launched> {
 }
 
 const ui = (verb: string, handle: string, ...args: string[]) =>
-  runControlOmb(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
+  runControlLunabot(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
 
 /** Interactive refs by accessible name, from a snapshot's `refs` table. */
 const refsNamed = (snapshot: Record<string, any>, name: string, role?: string) =>
@@ -103,7 +103,7 @@ const refsNamed = (snapshot: Record<string, any>, name: string, role?: string) =
     .filter(([, element]) => element.name === name && (!role || element.role === role))
     .map(([id]) => `@${id}`);
 
-describe("control-omb ui drives the real renderer", () => {
+describe("control-lunabot ui drives the real renderer", () => {
   let launched: Launched | undefined;
 
   afterAll(async () => {
@@ -277,7 +277,7 @@ describe("control-omb ui drives the real renderer", () => {
     const savedBot = async () => (await fetch(`${info.url}/api/bots`).then((response) => response.json())).bots.find((bot: any) => bot.id === info.botId);
     const originalBot = await savedBot();
     const originalModel = originalBot.modelSelection.model;
-    const models = await runControlOmb(["models", "--url", info.url]) as any;
+    const models = await runControlLunabot(["models", "--url", info.url]) as any;
     const options = models.instances.find((instance: any) => instance.instanceId === originalBot.modelSelection.instanceId).models.options;
     const originalOption = options.find((option: any) => option.id === originalModel);
     const nextModel = options.find((option: any) => option.id !== originalModel);
@@ -338,7 +338,7 @@ describe("control-omb ui drives the real renderer", () => {
     expect(transcript).toContain("Did 3 tool calls");
     expect(tree).not.toContain("Not logged in");
     expect(tree).not.toContain("Execution timeline");
-    expect(await runControlOmb(["doctor", "--url", info.url])).toMatchObject({ ok: true });
+    expect(await runControlLunabot(["doctor", "--url", info.url])).toMatchObject({ ok: true });
     await expect(ui("click", info.ui, "--name", "Deliberately missing QA control")).rejects.toThrow("no element is named");
 
     // Planted with the same delay the real control has: a --name lookup that
@@ -375,8 +375,8 @@ describe("control-omb ui drives the real renderer", () => {
     }, { timeout: 20_000, interval: 250 });
     const runLog = (inspected.snapshot as string).slice((inspected.snapshot as string).indexOf('complementary "Inspector"'));
     expect(runLog).toContain('tab "Run Log" [selected');
-    expect(runLog).toContain("pnpm control:omb doctor");
-    expect(runLog).toContain("pnpm control:omb ui click --name Missing");
+    expect(runLog).toContain("pnpm control:lunabot doctor");
+    expect(runLog).toContain("pnpm control:lunabot ui click --name Missing");
     expect(runLog).toContain('StaticText "Failed"');
     expect(runLog).toContain("Copy redacted run log");
     await ui("screenshot", info.ui, "--out", join(evidenceDir, "run-log.png"));

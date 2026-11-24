@@ -6,7 +6,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 
 /** A provider's usage-limit refusal, as pi reports it from the model call that failed. */
 const LIMIT_TEXT = "429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"You have reached your 5-hour usage limit. Try again at 7:22 PM.\"}} retry-after-ms=18000000";
@@ -52,7 +52,7 @@ it("a refusal by the only engine's usage limit fails the turn, names its words, 
     expect(response.status, `${method} ${path}: ${JSON.stringify(value)}`).toBe(status);
     return value;
   };
-  const control = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
   const messages = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages?limit=200`)).messages as any[];
   const evidence: unknown[] = [{ fixture: fixture.info }];
   try {

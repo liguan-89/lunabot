@@ -15,7 +15,7 @@ import {
 export const CUSTOMER_RUN_JOBS = ["start", "stop", "restart", "update", "status", "host-health", "backup"] as const satisfies readonly JobType[];
 
 /**
- * Kinds only root on the server may run (`mausbot-connector job <kind>`), never the Admin:
+ * Kinds only root on the server may run (`lunabot-connector job <kind>`), never the Admin:
  * - `self-update` replaces the connector, and with it every rule in this file. An older connector does not know this
  *   mode at all, so the Admin asking for one would undo the mode. The owner replaces the connector, or nobody does.
  * - `restore` puts older data back over what is there.
@@ -42,7 +42,7 @@ const allowed = (type: unknown, by: JobSource): boolean =>
 /** Why this server refuses a job of `type` sent by `by`, or null when the kind is on that sender's list. */
 export function customerRunRefusal(type: string, by: JobSource): string | null {
   if (allowed(type, by)) return null;
-  if (allowed(type, "local")) return `This server is run by its owner, and only they may run ${type} here: sudo docker exec mausbot-connector mausbot-connector job ${type}`;
+  if (allowed(type, "local")) return `This server is run by its owner, and only they may run ${type} here: sudo docker exec lunabot-connector lunabot-connector job ${type}`;
   return `This server is run by its owner, and ${JSON.stringify(type.slice(0, 32))} is not a job that may run on it.`;
 }
 
@@ -182,7 +182,7 @@ export function parseHomeReads(output: string): HomeFacts {
 // field that is not copied below is not sent. No name, no address, no file name, no log line.
 
 const VERSION = /^v?\d{1,5}\.\d{1,5}\.\d{1,5}(?:-[0-9A-Za-z.]{1,32})?$/;
-const IMAGE = /^ghcr\.io\/(?:liguan-89\/(?:lunabot|mausbot-connector)|milind-soni\/(?:openmausbot|mausbot-connector))(?:@sha256:[0-9a-f]{64}|:[0-9A-Za-z][0-9A-Za-z._-]{0,63})$/;
+const IMAGE = /^ghcr\.io\/(?:liguan-89\/(?:lunabot|lunabot-connector)|milind-soni\/(?:openmausbot|mausbot-connector))(?:@sha256:[0-9a-f]{64}|:[0-9A-Za-z][0-9A-Za-z._-]{0,63})$/;
 /** An operating system, kernel or Docker version as the machine names itself: letters, digits and version punctuation. */
 const MACHINE = /^[0-9A-Za-z][0-9A-Za-z ._:+~()/#-]{0,79}$/;
 const COPY_ID = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -275,7 +275,7 @@ const FAILURES: Record<JobErrorCode, string> = {
   expired_job: "The job's signature was too old.",
   pending_box: "The team's Owner has not accepted this server in LunaBot yet.",
 };
-const AUDIT_HINT = " The server's admin can read the reason with: mausbot-connector audit";
+const AUDIT_HINT = " The server's admin can read the reason with: lunabot-connector audit";
 
 function reducedError(error: JobError): JobError {
   const code: JobErrorCode = Object.hasOwn(FAILURES, error.code) ? error.code : "docker";

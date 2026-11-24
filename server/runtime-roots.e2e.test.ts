@@ -8,7 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, verificationServerArgs, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerArgs, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { createControlClient } from "./control-client.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
@@ -146,7 +146,7 @@ async function scenario(test: (f: any) => Promise<void>, options: { env?: Record
       try { parsed = JSON.parse(raw); } catch {}
       return { status: response.status, body: parsed };
     };
-    const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+    const cli = (...args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
     const bot = async (name: string, section: string) => (await cli("new-bot", "--name", name, "--section", section)).bot;
     const clive = await bot("Clive", "Leadership");
     const planPath = join(dataDir, "room-plan.json");
@@ -402,7 +402,7 @@ it.skip("T6 continues a person's step-capped turn in place on the same root", as
 const itHost = process.platform === "linux" ? it.skip : it;
 itHost("T7 queues a root on the computer seat at the wait ceiling and continues it when the seat frees", async () => {
   const CEILING_MS = 1_500;
-  const home = mkdtempSync(join(tmpdir(), "omb-runtime-roots-seat-"));
+  const home = mkdtempSync(join(tmpdir(), "lunabot-runtime-roots-seat-"));
   const data = join(home, "data");
   const ui = join(home, "static");
   const stateFile = join(home, "vm.json");
@@ -710,7 +710,7 @@ it("T10 parks a teammate's turn on its credential card, tells the Chief at once,
 }), hostTimeout(90_000));
 
 it("T11 does not rerun a cut turn that already pushed: the root ends with what it did, said once", async () => {
-  const home = mkdtempSync(join(tmpdir(), "omb-runtime-roots-outward-"));
+  const home = mkdtempSync(join(tmpdir(), "lunabot-runtime-roots-outward-"));
   try {
     await scenario(async (f) => {
       const job = f.clive.activeTaskId;

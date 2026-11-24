@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireBot } from "../shared/wire.ts";
 import { NO_TEXT_ENGINE } from "./memory-upkeep.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
@@ -17,7 +17,7 @@ it("recalls, previews and tidies a bot's memory, and says why the model steps ne
   // FAKE_PI_CLAUDE_COMPAT routes the fake's turns through the scripted-calls bridge, which is how a turn runs the calls
   // a recipe writes into FAKE_PI_TOOL_CALLS_FILE; FAKE_PI_MOUNT_TOOLS mounts the turn's own agents proxy so one reaches it.
   const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS_FILE: calls });
-  const control = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]);
   const api = async <T = any>(path: string, method = "GET", body?: unknown, status = 200): Promise<T> => {
     const response = await fetch(fixture.info.url + path, {
       method,

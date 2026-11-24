@@ -6,7 +6,7 @@ import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 

@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { launchVerificationServer } from "../../scripts/control-omb.ts";
+import { launchVerificationServer } from "../../scripts/control-lunabot.ts";
 import { removeTempDir } from "./cleanup.ts";
 import { FakeLoginPage, LOGIN_FORM } from "./fake-login-page.ts";
 import { freePortBlock } from "./ports.ts";

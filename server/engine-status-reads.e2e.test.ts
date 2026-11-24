@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, expect, it } from "vitest";
-import { runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { runControlLunabot, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
@@ -78,7 +78,7 @@ async function boot(home: string, knobs: Record<string, string> = {}) {
     return response.json() as Promise<any>;
   };
   const stop = () => waitForExit(child, { signal: "SIGTERM" });
-  return { call, control: (...args: string[]) => runControlOmb([...args, "--url", base]) as Promise<any>, stop };
+  return { call, control: (...args: string[]) => runControlLunabot([...args, "--url", base]) as Promise<any>, stop };
 }
 
 const probeCount = (log: string) =>

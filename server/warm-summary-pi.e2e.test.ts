@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { request } from "../scripts/mcp-server.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
@@ -25,7 +25,7 @@ async function setup(extra: NodeJS.ProcessEnv = {}) {
   const session = await launchVerificationServer(env);
   try {
     const url = session.info.url;
-    const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: url } }) as Promise<any>;
+    const cli = (...args: string[]) => runControlLunabot(args, { env: { LUNABOT_URL: url } }) as Promise<any>;
     const bot = (await cli("new-bot", "--name", "pi warm summary probe")).bot;
     const thread = bot.activeTaskId as string;
     const task = () => JSON.parse(readFileSync(join(session.info.dataDir, "bots.json"), "utf8"))

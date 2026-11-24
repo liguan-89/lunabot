@@ -4,7 +4,7 @@ import { createInterface } from "node:readline";
 import { expect, it } from "vitest";
 import { z } from "zod";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
@@ -22,7 +22,7 @@ it("creates and manages an own-section room through the mounted Chief MCP proxy"
   const evidence: unknown[] = [{ fixture: fixture.info }];
   const proxies: ChildProcess[] = [];
   const control = async (args: string[]) => {
-    const result = await runControlOmb([...args, "--url", fixture.info.url]);
+    const result = await runControlLunabot([...args, "--url", fixture.info.url]);
     evidence.push({ command: args, result });
     return result;
   };

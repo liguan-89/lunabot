@@ -28,7 +28,7 @@ function run(args: string[], options: { uid?: number; env?: Record<string, strin
   tool("docker", `echo "docker $*" >> "${log}"
 case "$*" in
   "ps -aq --filter label=${LABELS.role}=helper") echo helper-1 ;;
-  "volume ls -q --filter label=${LABELS.role}=backup") echo lunabot-backup-20261028-000000-ab12; echo lunabot-backup-20261029-000000-cd34 ;;
+  "volume ls -q --filter label=${LABELS.role}=backup") echo mausbot-backup-20261028-000000-ab12; echo mausbot-backup-20261029-000000-cd34 ;;
 esac`);
   tool("id", `echo ${options.uid ?? 0}`);
   tool("apparmor_parser", `echo "apparmor_parser $*" >> "${log}"`);
@@ -49,7 +49,7 @@ esac`);
   if (options.ownServer) {
     writeFileSync(join(install, "compose.yaml"), "name: lunabot\n");
     writeFileSync(join(install, "data", "chats.json"), "theirs");
-    for (const file of [join(update, "runner"), join(sbin, "lunabot-update-runner"), join(systemd, "lunabot-update.path"), join(systemd, "lunabot-update.service")]) writeFileSync(file, "1\n");
+    for (const file of [join(update, "runner"), join(sbin, "mausbot-update-runner"), join(systemd, "mausbot-update.path"), join(systemd, "mausbot-update.service")]) writeFileSync(file, "1\n");
   }
   const result = spawnSync("sh", [SCRIPT, ...args], {
     encoding: "utf8",
@@ -88,11 +88,11 @@ describe("install.sh", () => {
     expect(script).toContain('ADMIN_URL="${LUNABOT_ADMIN_URL:-@LUNABOT_ADMIN_URL@}"');
     expect(script).toContain('CONNECTOR_IMAGE="${LUNABOT_CONNECTOR_IMAGE:-@LUNABOT_CONNECTOR_IMAGE@}"');
     expect(script).toContain(`say "Connected. Your server shows up in LunaBot in a minute, for your team's Owner to accept."`);
-    expect(script).toContain(`com.lunabot.instance=$instance`);
+    expect(script).toContain(`com.mausbot.instance=$instance`);
     expect(script).toContain("--restart unless-stopped --network host");
-    expect(script).toContain("-v /var/run/docker.sock:/var/run/docker.sock -v \"$STATE_VOLUME:/state\" -v \"$ETC_DIR:/etc/lunabot:ro\" -v \"$AUDIT_DIR:/var/log/lunabot\"");
-    expect(script).toContain('AUDIT_DIR="${LUNABOT_AUDIT_DIR:-/var/log/lunabot}"');
-    expect(PATHS.audit).toBe("/var/log/lunabot");
+    expect(script).toContain("-v /var/run/docker.sock:/var/run/docker.sock -v \"$STATE_VOLUME:/state\" -v \"$ETC_DIR:/etc/mausbot:ro\" -v \"$AUDIT_DIR:/var/log/mausbot\"");
+    expect(script).toContain('AUDIT_DIR="${LUNABOT_AUDIT_DIR:-/var/log/mausbot}"');
+    expect(PATHS.audit).toBe("/var/log/mausbot");
     expect(script).toContain('apparmor_parser -r -W "$APPARMOR_DIR/$PROFILE"');
   });
 
@@ -103,7 +103,7 @@ describe("install.sh", () => {
       `docker rm -f ${NAMES.connector} ${NAMES.connectorNext}`, `docker stop -t 30 ${NAMES.home}`, `docker rm -f ${NAMES.home}`, "docker rm -f helper-1",
       `docker volume rm ${NAMES.stateVolume}`,
     ]));
-    expect(result.calls.filter((call) => /volume rm (lunabot-data|lunabot-snapshot|lunabot-backup-)/.test(call))).toEqual([]);
+    expect(result.calls.filter((call) => /volume rm (mausbot-data|mausbot-snapshot|mausbot-backup-)/.test(call))).toEqual([]);
     expect(result.calls.some((call) => call.startsWith("apparmor_parser -R "))).toBe(true);
     expect(existsSync(join(result.apparmor, APPARMOR_PROFILE))).toBe(false);
     expect(existsSync(result.etc)).toBe(false);
@@ -117,7 +117,7 @@ describe("install.sh", () => {
     expect(deleted.status, deleted.stderr).toBe(0);
     expect(deleted.calls).toEqual(expect.arrayContaining([
       `docker volume rm ${NAMES.dataVolume}`, `docker volume rm ${NAMES.snapshotVolume}`,
-      "docker volume rm lunabot-backup-20261028-000000-ab12", "docker volume rm lunabot-backup-20261029-000000-cd34",
+      "docker volume rm mausbot-backup-20261028-000000-ab12", "docker volume rm mausbot-backup-20261029-000000-cd34",
     ]));
     expect(deleted.stdout).toContain("LunaBot is removed from this server, and so is its data.");
     expect(existsSync(deleted.audit)).toBe(false);
@@ -142,8 +142,8 @@ describe("install.sh", () => {
   });
 
   it("starts a customer-run connector with its mode and the updater's folder, and only where LunaBot is already installed", () => {
-    expect(script).toContain('set -- "$@" -e LUNABOT_MODE=customer-run -v "$UPDATE_DIR:/var/lib/lunabot/update"');
-    expect(PATHS.update).toBe("/var/lib/lunabot/update");
+    expect(script).toContain('set -- "$@" -e MAUSBOT_MODE=customer-run -v "$UPDATE_DIR:/var/lib/mausbot/update"');
+    expect(PATHS.update).toBe("/var/lib/mausbot/update");
     expect(script).toContain('INSTALL_DIR="${LUNABOT_INSTALL_DIR:-/opt/lunabot}"');
     expect(script).toContain("PathExists=$UPDATE_DIR/request");
     expect(script).toContain("ExecStart=$SBIN_DIR/$UPDATE_RUNNER");
@@ -160,10 +160,10 @@ describe("install.sh", () => {
     const result = run(["uninstall", "--delete-data"], { ownServer: true });
     expect(result.status, result.stderr).toBe(0);
     expect(result.calls).toContain(`docker rm -f ${NAMES.connector} ${NAMES.connectorNext}`);
-    expect(result.calls.filter((call) => /lunabot-home|lunabot-data|openmausbot|compose/.test(call))).toEqual([]);
+    expect(result.calls.filter((call) => /mausbot-home|mausbot-data|openmausbot|compose/.test(call))).toEqual([]);
     expect(readFileSync(join(result.install, "data", "chats.json"), "utf8")).toBe("theirs");
     expect(existsSync(join(result.install, "compose.yaml"))).toBe(true);
-    for (const gone of [result.update, join(result.sbin, "lunabot-update-runner"), join(result.systemd, "lunabot-update.path"), join(result.systemd, "lunabot-update.service")]) expect(existsSync(gone), gone).toBe(false);
+    for (const gone of [result.update, join(result.sbin, "mausbot-update-runner"), join(result.systemd, "mausbot-update.path"), join(result.systemd, "mausbot-update.service")]) expect(existsSync(gone), gone).toBe(false);
     expect(result.stdout).toContain(`Your LunaBot in ${result.install} and its data were not touched, and it keeps running.`);
     expect(existsSync(join(result.apparmor, APPARMOR_PROFILE))).toBe(true);
   });

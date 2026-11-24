@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 import { startFakeConnectedApps } from "./testing/fake-connected-apps.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 

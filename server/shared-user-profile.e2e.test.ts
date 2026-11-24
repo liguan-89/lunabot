@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireBot } from "../shared/wire.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 it("persists shared user context and includes it in preview, direct and group turns", async () => {
   const fixture = await launchVerificationServer();
-  const control = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]);
   const api = async <T = { profile: { name: string; email: string; aboutMe: string } }>(path: string, method = "GET", body?: unknown, status = 200): Promise<T> => {
     const response = await fetch(fixture.info.url + path, {
       method, headers: { "content-type": "application/json" },

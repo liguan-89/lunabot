@@ -38,7 +38,6 @@ LEGACY_REPO="ghcr.io/milind-soni/openmausbot"
 PINNED="^ghcr\.io/liguan-89/lunabot@sha256:[0-9a-f]{64}$"
 STABLE_URL=${LUNABOT_STABLE_URL:-https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json}
 NEWEST_URL=${LUNABOT_NEWEST_URL:-https://api.github.com/repos/liguan-89/lunabot/releases/latest}
-SERVICE=${LUNABOT_UPDATE_SERVICE:-omb}
 # A healthy server answers within seconds of starting; two minutes leaves room for a slow first start after an update,
 # and is how long the server is down before a version that never answers is rolled back. LUNABOT_UPDATE_WAIT_S for more.
 WAIT_S=${LUNABOT_UPDATE_WAIT_S:-120}
@@ -94,7 +93,19 @@ ask() {
   printf '%s' "$answer"
 }
 compose() { docker compose "$@"; }
-container() { compose ps -aq "$SERVICE" 2>/dev/null | head -n 1; }
+# The app's service in the compose file in force: `lunabot` in files written since the rename, `omb` in older ones.
+# Read on every call because an update rewrites compose.yaml for the oldest installs half-way through.
+service() {
+  if [ -n "${LUNABOT_UPDATE_SERVICE:-}" ]; then printf '%s' "$LUNABOT_UPDATE_SERVICE"; return; fi
+  local f="${COMPOSE_FILE:-}"
+  f="${f%%:*}"
+  if [ -z "$f" ]; then
+    for f in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do [ -f "$f" ] && break; done
+    [ -f "$f" ] || return 0
+  fi
+  sed -n '/^services:/,/^[a-z]/p' "$f" | grep -oE '^  [a-z0-9_-]+:' | tr -d ' :' | grep -xE 'lunabot|omb' | head -n 1
+}
+container() { compose ps -aq "$(service)" 2>/dev/null | head -n 1; }
 inspect() { docker inspect -f "$1" "$2" 2>/dev/null; }
 image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null; }
 published_ref() { docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$1" 2>/dev/null | grep -E "^($REPO|$LEGACY_REPO)@" | head -n 1; }
@@ -339,7 +350,7 @@ installer_compose() {
 # back in a new one, and left Caddy refusing HTTPS in the old one.
 name: lunabot
 services:
-  omb:
+  lunabot:
     image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
@@ -360,7 +371,7 @@ services:
       LUNABOT_SIGNIN_MEMBER_EMAILS:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through LunaBot Relay. Sign in once: docker compose exec omb lunabot login --relay
+      # "1": phones pair by QR through LunaBot Relay. Sign in once: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
@@ -377,7 +388,7 @@ services:
     # Started with the server, not after it is healthy: Caddy reaches it over the socket
     # whenever it answers, so `up` never waits on the server's health.
     depends_on:
-      omb:
+      lunabot:
         condition: service_started
     environment:
       DOMAIN: ${DOMAIN}
@@ -438,14 +449,14 @@ stop_server() {
 
 # The update being checked against may still run a build from before the renames: /api/health's
 # app name and the descriptor path both changed, so accept every generation.
-answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(lunabot|dexbot|openmausbot)"'; }
+answers() { compose exec -T "$(service)" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(lunabot|dexbot|openmausbot)"'; }
 reported_version() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/lunabot/environment"' 2>/dev/null | json_top version
+  compose exec -T "$(service)" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${LUNABOT_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
 }
 # How many engines can start a bot, as the server counts them (GET /api/health/engines, which a hardened server answers
 # a local caller without a session); nothing from a version without that count.
 engine_count() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health/engines"' 2>/dev/null |
+  compose exec -T "$(service)" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${LUNABOT_PORT:-8799}/api/health/engines"' 2>/dev/null |
     sed -n 's/.*"engines":\([0-9][0-9]*\).*/\1/p' | head -n 1
 }
 # At least one engine can start a bot, within $1 seconds: the server's count, or `lunabot doctor` (once `lunabot doctor`, on
@@ -457,7 +468,7 @@ engine_ready() {
     count=$(engine_count)
     if [ -n "$count" ]; then
       [ "$count" -gt 0 ] && return 0
-    elif compose exec -T "$SERVICE" lunabot doctor >/dev/null 2>&1 || compose exec -T "$SERVICE" lunabot doctor >/dev/null 2>&1; then
+    elif compose exec -T "$(service)" lunabot doctor >/dev/null 2>&1 || compose exec -T "$(service)" openmausbot doctor >/dev/null 2>&1; then
       return 0
     fi
     [ "$(date +%s)" -lt "$deadline" ] || return 1
@@ -465,7 +476,7 @@ engine_ready() {
   done
 }
 caddy_runs() { compose ps --status running --services 2>/dev/null | grep -qx caddy; }
-last_words() { compose logs --no-color --no-log-prefix --tail 40 "$SERVICE" 2>/dev/null | grep -v '^[[:space:]]*$' | tail -n 1 | cut -c 1-300; }
+last_words() { compose logs --no-color --no-log-prefix --tail 40 "$(service)" 2>/dev/null | grep -v '^[[:space:]]*$' | tail -n 1 | cut -c 1-300; }
 
 # The server runs image $1, answers /api/health three times in a row, and (with $2) says it is version $2. Sets WHY.
 wait_healthy() {
@@ -560,7 +571,7 @@ roll_back() { # why, exit code when the old version is back
   if wait_healthy "$J_previous_id"; then back=yes; fi
   rm -f "$JOURNAL" "$LAST"
   if [ "$back" = no ]; then
-    say "$(old_name) and its data are back, but it did not become healthy either ($WHY). See: docker compose logs $SERVICE"
+    say "$(old_name) and its data are back, but it did not become healthy either ($WHY). See: docker compose logs $(service)"
     exit 2
   fi
   say "Your server runs $(old_name) again, with its data as it was before the update."

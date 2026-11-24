@@ -287,7 +287,7 @@ describe("a customer-run server: what leaves it", () => {
 
   it("answers a failed job with its code and a fixed sentence: what Docker or the home said stays in the audit log", () => {
     const failed = reducedReply({ id: "j", ok: false, error: { code: "unhealthy", message: `The home stopped: startup failed: could not open ${EMAIL}'s chat "${WRITTEN}"`, image: RUNNING } });
-    expect(failed).toEqual({ id: "j", ok: false, error: { code: "unhealthy", message: "The server did not become healthy. The server's admin can read the reason with: mausbot-connector audit", image: RUNNING } });
+    expect(failed).toEqual({ id: "j", ok: false, error: { code: "unhealthy", message: "The server did not become healthy. The server's admin can read the reason with: lunabot-connector audit", image: RUNNING } });
     const odd = reducedReply({ id: "j", ok: false, error: { code: WRITTEN as never, message: EMAIL, image: EMAIL } });
     expect(odd).toMatchObject({ error: { code: "docker" } });
     expect(JSON.stringify([failed, odd])).not.toMatch(/@|Nightingale/);
@@ -343,8 +343,8 @@ describe("a customer-run server: the home its owner installed", () => {
     fixture.docker.calls.length = 0;
     await fixture.adopted.restart();
     expect(fixture.docker.calls.filter((call) => /^(create|rm|rename|pull|rmi) /.test(call))).toEqual([]);
-    expect(fixture.docker.container("lunabot-home")).toBeNull();
-    expect(fixture.docker.volumes.has("lunabot-data")).toBe(false);
+    expect(fixture.docker.container("mausbot-home")).toBeNull();
+    expect(fixture.docker.volumes.has("mausbot-data")).toBe(false);
   });
 
   it("says the home did not answer when it does not, within the wait", async () => {
@@ -360,13 +360,13 @@ describe("a customer-run server: the home its owner installed", () => {
     const fixture = await server();
     await fixture.install();
     const { backup } = await fixture.adopted.backup("b1", "local");
-    expect(fixture.docker.files(`lunabot-backup-${backup.id}`)).toEqual({ "chats.json": WRITTEN });
+    expect(fixture.docker.files(`mausbot-backup-${backup.id}`)).toEqual({ "chats.json": WRITTEN });
     expect(fixture.docker.container("lunabot-omb-1")?.status).toBe("running");
     fixture.docker.folder(fixture.dataDir).files.set("chats.json", "changed since");
     fixture.docker.folder(fixture.dataDir).files.set("new.json", "made since");
     expect(await fixture.adopted.restore("r1", backup.id)).toMatchObject({ backupId: backup.id, home: { state: "running" } });
     expect(Object.fromEntries(fixture.docker.folder(fixture.dataDir).files)).toEqual({ "chats.json": WRITTEN });
-    expect(fixture.docker.files("lunabot-snapshot")).toEqual({ "chats.json": "changed since", "new.json": "made since" });
+    expect(fixture.docker.files("mausbot-snapshot")).toEqual({ "chats.json": "changed since", "new.json": "made since" });
     expect(fixture.steps).toEqual(["b1 stop", "b1 copy", "r1 stop", "r1 snapshot", "r1 copy", "r1 start"]);
     expect(fixture.state.home().operation).toBeNull();
     await expect(fixture.adopted.restore("r2", "20200101-000000-aaaa")).rejects.toMatchObject({ code: "not_found" });
@@ -383,7 +383,7 @@ describe("a customer-run server: the home its owner installed", () => {
     }
     const kept = (await fixture.adopted.copies()).backups.map((copy) => copy.id).sort();
     expect(kept).toEqual([mine, ...theirs.slice(2)].sort());
-    expect(fixture.docker.files(`lunabot-backup-${mine}`)).toEqual({ "chats.json": WRITTEN });
+    expect(fixture.docker.files(`mausbot-backup-${mine}`)).toEqual({ "chats.json": WRITTEN });
   });
 
   it("puts the data back as it was when the connector restarts in the middle of a restore", async () => {
@@ -392,10 +392,10 @@ describe("a customer-run server: the home its owner installed", () => {
     const { backup } = await fixture.adopted.backup("b1", "local");
     const before = { "chats.json": "the newest chats" };
     fixture.docker.folder(fixture.dataDir).files.set("chats.json", before["chats.json"]);
-    await fixture.docker.createVolume("lunabot-snapshot", { "com.lunabot.role": "snapshot" });
-    fixture.docker.volume("lunabot-snapshot").files.set("chats.json", before["chats.json"]);
+    await fixture.docker.createVolume("mausbot-snapshot", { "com.mausbot.role": "snapshot" });
+    fixture.docker.volume("mausbot-snapshot").files.set("chats.json", before["chats.json"]);
     fixture.docker.folder(fixture.dataDir).files.clear();
-    fixture.state.saveHome({ ...fixture.state.home(), operation: { jobId: "r9", type: "restore", phase: "copy", previousImage: RUNNING, nextImage: null, target: `lunabot-backup-${backup.id}`, dataAtRisk: true, wasRunning: true, startedAt: 1 } });
+    fixture.state.saveHome({ ...fixture.state.home(), operation: { jobId: "r9", type: "restore", phase: "copy", previousImage: RUNNING, nextImage: null, target: `mausbot-backup-${backup.id}`, dataAtRisk: true, wasRunning: true, startedAt: 1 } });
     expect(await fixture.adopted.recover()).toEqual({ id: "r9", ok: false, error: { code: "interrupted", message: "The connector restarted during this restore; the data was put back as it was before, and the home was started again." } });
     expect(Object.fromEntries(fixture.docker.folder(fixture.dataDir).files)).toEqual(before);
     expect(fixture.docker.container("lunabot-omb-1")?.status).toBe("running");
@@ -609,7 +609,7 @@ describe("a customer-run server: LunaBot's requests", () => {
     const { admin, record, refusals, handled } = await connected();
     admin.send({ job: admin.signJob(record.boxId, { id: "x1", type: "export-disk", args: {} }) });
     expect(await admin.replyTo("x1", 5_000)).toEqual({
-      id: "x1", ok: false, error: { code: "refused_by_mode", message: "This server is run by its owner, and this is not a job LunaBot may run on it. The server's admin can read the reason with: mausbot-connector audit" },
+      id: "x1", ok: false, error: { code: "refused_by_mode", message: "This server is run by its owner, and this is not a job LunaBot may run on it. The server's admin can read the reason with: lunabot-connector audit" },
     });
     admin.send({ job: admin.signJob(record.boxId, { id: "x2", type: "import-disk", args: { url: "https://storage.example.test/d.tar.gz" } }) });
     expect(await admin.replyTo("x2", 5_000)).toMatchObject({ ok: false, error: { code: "refused_by_mode" } });

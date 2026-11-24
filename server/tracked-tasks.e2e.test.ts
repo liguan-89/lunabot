@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { runControlOmb } from "../scripts/control-omb.ts";
+import { runControlLunabot } from "../scripts/control-lunabot.ts";
 import { launchRestartableServer } from "./testing/restartable-server.ts";
 
 it("lets a bot keep a task list the person can see", async () => {
@@ -15,14 +15,14 @@ it("lets a bot keep a task list the person can see", async () => {
     return body.bots.find((bot) => bot.id === botId)?.trackedItems ?? [];
   };
   try {
-    const { bot } = await runControlOmb(["new-bot", "--name", "Tracker", "--url", server.url]) as { bot: { id: string } };
+    const { bot } = await runControlLunabot(["new-bot", "--name", "Tracker", "--url", server.url]) as { bot: { id: string } };
     writeFileSync(join(server.dataDir, "room-plan.json"), JSON.stringify({
       [bot.id]: { turns: [
         { steps: [{ tool: "tracked_tasks", arguments: { action: "create", title: "Check overnight invoices", note: "waiting on finance" } }], reply: "On it." },
       ] },
     }));
-    await runControlOmb(["send", "--bot", bot.id, "--text", "Keep track of the invoices.", "--url", server.url]);
-    const waited = await runControlOmb(["wait", "--bot", bot.id, "--timeout", "30", "--url", server.url]) as { state?: string };
+    await runControlLunabot(["send", "--bot", bot.id, "--text", "Keep track of the invoices.", "--url", server.url]);
+    const waited = await runControlLunabot(["wait", "--bot", bot.id, "--timeout", "30", "--url", server.url]) as { state?: string };
     expect(waited.state).toBe("completed");
     await expect.poll(async () => (await trackedItems(bot.id)).some((item) => item.title === "Check overnight invoices"), { timeout: 30_000 }).toBe(true);
     expect(await trackedItems(bot.id)).toMatchObject([{ title: "Check overnight invoices", state: "open", note: "waiting on finance" }]);

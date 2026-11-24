@@ -17,11 +17,11 @@ Starting or selecting another bot task does not stop the previous one.
 ## Driving it
 
 ```sh
-pnpm control:omb new-bot --name Probe --url http://127.0.0.1:PORT
+pnpm control:lunabot new-bot --name Probe --url http://127.0.0.1:PORT
 # Copy bot.id from the JSON above as BOT_ID.
-pnpm control:omb send --bot BOT_ID --text "hello" --url http://127.0.0.1:PORT
-pnpm control:omb wait --bot BOT_ID --timeout 30 --url http://127.0.0.1:PORT
-pnpm control:omb messages --bot BOT_ID --limit 10 --url http://127.0.0.1:PORT
+pnpm control:lunabot send --bot BOT_ID --text "hello" --url http://127.0.0.1:PORT
+pnpm control:lunabot wait --bot BOT_ID --timeout 30 --url http://127.0.0.1:PORT
+pnpm control:lunabot messages --bot BOT_ID --limit 10 --url http://127.0.0.1:PORT
 ```
 
 The wait result must be `settled`, and the messages result must contain the
@@ -41,7 +41,7 @@ pnpm exec vitest run server/turn-images.test.ts server/box-attachments.test.ts s
 For an end-to-end check, launch the isolated fixture above, upload a synthetic
 PNG to its `POST /api/attachments` endpoint with `Content-Type: image/png`, then
 send `Use this photo with a media-upload CLI` followed by a standalone
-`<attached-image path="RETURNED_PATH" name="mug.png" />` through `control:omb send`.
+`<attached-image path="RETURNED_PATH" name="mug.png" />` through `control:lunabot send`.
 Use only the fixture's explicit URL. Wait for `settled` and save `messages`.
 In the fixture's `fake-claude-dump.json`, inspect only `prompt`: it must contain
 native image content and an `<attached-file>` reference for `mug.png`, with no
@@ -67,7 +67,7 @@ passed. The bubblewrap test was skipped because this container cannot run its sa
   reading, or stopping. Pass `--task THREAD_ID` to target another owned bot task
   without changing the selection. A channel send still requires its active task.
 - `set-model --bot BOT_ID --task THREAD_ID --instance INSTANCE_ID --model MODEL_ID`
-  changes only that idle task. Get exact available IDs from `control:omb models`.
+  changes only that idle task. Get exact available IDs from `control:lunabot models`.
   Without `--task`, the legacy model operation updates the bot default and its
   selected idle task, leaving other tasks unchanged.
 - A bot working inside a channel must be awaited through that channel.
@@ -81,17 +81,17 @@ Auto pins the conversation to whatever its first turn reached. A conversation
 pinned from the composer chip wins over the bot's Works on, except Off.
 
 ```sh
-node --experimental-strip-types scripts/control-omb.ts launch
-pnpm control:omb new-bot --name Orbit --url http://127.0.0.1:PORT
+node --experimental-strip-types scripts/control-lunabot.ts launch
+pnpm control:lunabot new-bot --name Orbit --url http://127.0.0.1:PORT
 curl -s -X PATCH "http://127.0.0.1:PORT/api/bots/BOT_ID" \
   -H 'content-type: application/json' -d '{"computer":"cloud"}'
-pnpm control:omb send --bot BOT_ID --text "compare shipping prices on two sites" --url http://127.0.0.1:PORT
-pnpm control:omb wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
+pnpm control:lunabot send --bot BOT_ID --text "compare shipping prices on two sites" --url http://127.0.0.1:PORT
+pnpm control:lunabot wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
 # pin this conversation to the browser, the way the composer chip does
 curl -s -X PATCH "http://127.0.0.1:PORT/api/bots/BOT_ID/tasks/THREAD_ID" \
   -H 'content-type: application/json' -d '{"surface":"browser"}'
-pnpm control:omb send --bot BOT_ID --text "compare shipping prices on two sites" --url http://127.0.0.1:PORT
-pnpm control:omb wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
+pnpm control:lunabot send --bot BOT_ID --text "compare shipping prices on two sites" --url http://127.0.0.1:PORT
+pnpm control:lunabot wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
 ```
 
 In `fake-claude-dump.json` the Cloud turn's `systemPrompt` must say everything
@@ -112,16 +112,16 @@ browser, and the turn must tell the model it has no screen rather than leave
 it to narrate a browser it cannot call.
 
 ```sh
-node --experimental-strip-types scripts/control-omb.ts launch
+node --experimental-strip-types scripts/control-lunabot.ts launch
 # second terminal, using the printed URL
-pnpm control:omb new-bot --name Orbit --url http://127.0.0.1:PORT
-pnpm control:omb send --bot BOT_ID --text "list my calendar events" --url http://127.0.0.1:PORT
-pnpm control:omb wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
+pnpm control:lunabot new-bot --name Orbit --url http://127.0.0.1:PORT
+pnpm control:lunabot send --bot BOT_ID --text "list my calendar events" --url http://127.0.0.1:PORT
+pnpm control:lunabot wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
 # the fixture's own API sets the destination the Works on picker sets
 curl -s -X PATCH "http://127.0.0.1:PORT/api/bots/BOT_ID" \
   -H 'content-type: application/json' -d '{"computer":"off"}'
-pnpm control:omb send --bot BOT_ID --text "open a browser and check my calendar" --url http://127.0.0.1:PORT
-pnpm control:omb wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
+pnpm control:lunabot send --bot BOT_ID --text "open a browser and check my calendar" --url http://127.0.0.1:PORT
+pnpm control:lunabot wait --bot BOT_ID --timeout 40 --url http://127.0.0.1:PORT
 ```
 
 After each settled turn read `fake-claude-dump.json` in the fixture's printed

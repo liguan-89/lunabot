@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { piAgentsToken, piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 
@@ -14,7 +14,7 @@ it("a bot's turn reads its accounts' usage limits through its own capability, an
   try {
     const request = (path: string, init: RequestInit = {}) => fetch(fixture.info.url + path, { ...init, headers: { "content-type": "application/json", origin: fixture.info.url, ...init.headers } });
     const { bot } = await (await request("/api/bots", { method: "POST", body: JSON.stringify({ name: "Scout" }) })).json() as { bot: { id: string; threadId: string } };
-    await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "How much Claude is left?", "--url", fixture.info.url]);
+    await runControlLunabot(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "How much Claude is left?", "--url", fixture.info.url]);
     let token = "";
     await expect.poll(() => Boolean(token = piAgentsToken(piTurnHolding(piDumpPath(fixture.info.dataDir), "How much Claude is left?")) ?? ""), { timeout: 15_000 }).toBe(true);
 
