@@ -483,7 +483,9 @@ learn pipeline has its caller: `server/notice-learn.ts` ports `LearnBuffer`,
 it per owner off `config.features.noticeLearn` (default off; conservative
 learns without reaching tasks). Still absent: the user's topic-management
 surface, per-app `SourceTier` (everything is `mid`), sensitive inference,
-and open/dismiss outcomes — the phone cannot report a removal reason.
+and open/dismiss outcomes — removals reach the server only as `notice-shade`
+key diffs, and the removal reason `onNotificationRemoved` offers is dropped
+on the phone before it crosses the wire.
 
 ## Intent gate
 
@@ -810,7 +812,7 @@ here is already owner-only.
 | --- | --- | --- |
 | Storage glue | `core/.../adb/` identity types (`AdbIdentitySource`, `AdbKeyState`, `AdbKeyStore`, `WrappedKeyFile`), `replay/FileRouteStore.kt`, `replay/RouteStore.kt`, `proactive/NoticeJournal.kt`, `app/src/main/java/com/wangzan101/mika/record/RunStore.kt` | Route storage is built, as `server/phone-routes.ts` rather than Mika's `FileRouteStore`: per-owner folder, 0700/0600, atomic, bounded. `NoticeJournal`, `RunStore` and the ADB key store stay unported: our state lives server-side (the gates in `PhoneUiConfirms`, the phone registry), and the ADB key store stays app-side by design, as `third_party/mika/README.md` records. |
 | Model client | `core/src/main/kotlin/com/wangzan101/mika/core/agent/ModelCaller.kt`, `ModelRouter.kt` | Not built: `server/decider/` already owns every model call we make, with keys, logging, relay and fail-open. A second client on the phone would duplicate it. |
-| Android notification-format parsing | `core/src/main/kotlin/com/wangzan101/mika/core/proactive/NoticeShapes.kt` | Not built: our phone posts flat `title`/`text` through `PhoneNoticeStore`, which reads `EXTRA_TITLE`, `EXTRA_TEXT` and `EXTRA_BIG_TEXT` only. Splitting MessagingStyle conversations needs a phone-side parser we do not have. |
+| Android notification-format parsing | `core/src/main/kotlin/com/wangzan101/mika/core/proactive/NoticeShapes.kt` | Partly built: `NoticeEvent.kt` parses MessagingStyle phone-side — the wire carries `messages[]` with per-line `sender`, `conversationTitle` and `group`. Still missing is the server-side `NoticeShapes` split (conversation, speaker and line as separate learn inputs), which the triage and learn pipeline does not consume. |
 | Screen port and snapshot plumbing | `core/.../uistate/ScreenPort.kt`, `ScreenSession.kt`, `AppAccessScreenPort.kt` | Not built: `PhoneUiDisplaySession`, `PhoneUiAccessibilityService.snapshot` and `PhoneUiTaskExecutor` already provide the display, the tree and the refs, with different types. |
 | Compose UI | `app/src/main/java/com/wangzan101/mika/ui/` | Deliberately out of scope: our phone-UI screens are ours; porting Mika's would be a rewrite, not a port. |
 | `phone_sms_login` | `core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneSmsLogin.kt`, `app/src/main/java/com/wangzan101/mika/cap/phone/sms/` | Needs a surface we do not have: an authorized local SMS service and stored account profiles. Our notice filter drops authentication codes rather than reading them. |
@@ -821,7 +823,7 @@ here is already owner-only.
 | `phone_gesture` | `PhoneAdvancedTools.kt` (`PhoneGesture`) | Needs a surface we do not have: multi-path and two-finger injection. The shell helper injects one stroke. |
 | `phone_system_command` | `PhoneAdvancedTools.kt` (`PhoneCommand`) | Deliberately out of scope: shell-UID command execution. The helper exists but no tool exposes a general command. |
 | `phone_set_wheel` | `core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/SetWheel.kt`, `WheelMath.kt` | Not built: wheel detection and stepping. Our tree carries no `wheel` flag. |
-| Capsule and overlay | `app/src/main/java/com/wangzan101/mika/capsule/` | Needs a surface we do not have: a `SYSTEM_ALERT_WINDOW` overlay. Our manifest declares no overlay permission. |
+| Capsule and overlay | `app/src/main/java/com/wangzan101/mika/capsule/` | Needs a surface we do not have: an interactive overlay the agent can drive. `SYSTEM_ALERT_WINDOW` is declared and `PhoneUiScreenOverlay` shows the controlled screen, but it is `FLAG_NOT_TOUCHABLE` — a read-only mirror for the person, not Mika's touchable capsule. |
 | `ViewUserScreen` | `core/src/main/kotlin/com/wangzan101/mika/core/general/ViewUserScreen.kt` | Needs a surface we do not have: a user-screen attachment model and the screenshot store behind it. |
 | `ViewPastScreens` | `core/src/main/kotlin/com/wangzan101/mika/core/general/ViewPastScreens.kt` | Same as above, for earlier screens. |
 | `teach` | `core/src/main/kotlin/com/wangzan101/mika/core/teach/Teach.kt`, `app/src/main/java/com/wangzan101/mika/ui/TeachScreen.kt` | Deliberately out of scope: a teach session that authors a skill from a run. |
