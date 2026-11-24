@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.annotation.SuppressLint
 
-/** Platform permissions used by local discovery and composer dictation. */
+/** Platform permissions used by local discovery, the routes to a computer on this phone's Wi-Fi, and composer dictation. */
 class CompanionPermissions(
     private val sdkInt: Int = Build.VERSION.SDK_INT,
     private val granted: (String) -> Boolean,
@@ -33,6 +33,11 @@ class CompanionPermissions(
     private val _snapshot = MutableStateFlow(read())
     val snapshot: StateFlow<Snapshot> = _snapshot.asStateFlow()
 
+    private val _localNetworkAnswers = MutableStateFlow(0)
+
+    /** How many times the system has answered the local-network prompt, whichever way; a screen waiting on one resumes when it moves. */
+    val localNetworkAnswers: StateFlow<Int> = _localNetworkAnswers.asStateFlow()
+
     fun refresh(): Snapshot {
         val next = read()
         _snapshot.value = next
@@ -41,9 +46,23 @@ class CompanionPermissions(
 
     /**
      * What a local browse needs. Called when someone opens the list of nearby
-     * computers, never on the way to the QR scanner, which needs none of it.
+     * computers, never on the way to the QR scanner, which needs none of it;
+     * the confirmation after a scan asks for [routePermissions] on its own.
      */
     fun discoveryPermissions(): Array<String> = refresh().missingDiscovery.toTypedArray()
+
+    /** Whether this phone may open a socket on its own network: what every route to a computer on its Wi-Fi needs on API 37. */
+    fun localNetworkGranted(): Boolean = sdkInt < LOCAL_NETWORK_SDK || granted(PERMISSION_ACCESS_LOCAL_NETWORK)
+
+    /** What connecting to a computer on this Wi-Fi still needs before its address may be dialled. */
+    fun routePermissions(): Array<String> =
+        if (localNetworkGranted()) emptyArray() else arrayOf(PERMISSION_ACCESS_LOCAL_NETWORK)
+
+    /** The system answered the local-network prompt, whichever way it went. */
+    fun onLocalNetworkResult() {
+        refresh()
+        _localNetworkAnswers.value += 1
+    }
 
     /** Composer mic — checked at the button, never at cold start. */
     fun recordAudioGranted(): Boolean = granted(Manifest.permission.RECORD_AUDIO)

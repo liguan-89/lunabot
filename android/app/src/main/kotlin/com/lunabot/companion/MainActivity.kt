@@ -2,6 +2,7 @@ package com.lunabot.companion
 
 import android.Manifest
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
@@ -43,7 +44,12 @@ import com.lunabot.companion.update.AppUpdater
 import com.lunabot.companion.ui.PendingThreadNavigation
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import android.annotation.SuppressLint
+import com.lunabot.companion.permissions.asksLocalNetworkOnce
+import kotlinx.coroutines.launch
 
 /**
  * The single Activity. It owns the permission launchers and the one thing that
@@ -67,6 +73,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var chatDrafts: ChatDraftHolder
     private lateinit var notifications: NotificationPermissionController
     private lateinit var permissionRequests: PermissionRequests
+    private lateinit var permissionPrefs: SharedPreferences
 
     /** Tracks which single-permission launch is in flight for [singlePermissionLauncher]. */
     private var pendingSinglePermission: String? = null
@@ -141,7 +148,7 @@ class MainActivity : ComponentActivity() {
             },
         )
 
-        val permissionPrefs = getSharedPreferences(PermissionPreferences.NAME, MODE_PRIVATE)
+        permissionPrefs = getSharedPreferences(PermissionPreferences.NAME, MODE_PRIVATE)
         // The only thing in the app that launches a permission prompt, so the
         // "we have asked" flag cannot be missed by a path that forgot to write it.
         permissionRequests = PermissionRequests(
@@ -155,7 +162,12 @@ class MainActivity : ComponentActivity() {
             },
             onNotificationResult = { granted -> notifications.onResult(granted) },
             onRecordAudioResult = { granted -> mic.onResult(granted) },
+            onLocalNetworkResult = {
+                app.permissions.onLocalNetworkResult()
+                app.session.onRouteAccessChanged()
+            },
         )
+        followLocalNetworkAccess()
 
         notifications = NotificationPermissionController(
             // The runtime grant is not the question: notifications can be off in
@@ -268,6 +280,30 @@ class MainActivity : ComponentActivity() {
         camera.refresh()
         mic.refresh()
         notifications.refresh()
+    }
+
+    /**
+     * A computer paired from a QR may never have asked to be let onto the phone's
+     * own network, and Android 17 refuses every Wi-Fi route to it until the person
+     * does. While the app is in front, each return re-reads the platform's answer
+     * for the session, and the first return asks.
+     */
+    private fun followLocalNetworkAccess() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                app.session.connection.collect { connection ->
+                    app.session.onRouteAccessChanged()
+                    val missing = app.permissions.routePermissions()
+                    val askedBefore = permissionPrefs.getBoolean(
+                        askedKey(PermissionPreferences.ACCESS_LOCAL_NETWORK),
+                        false,
+                    )
+                    if (asksLocalNetworkOnce(connection, missing, askedBefore)) {
+                        permissionRequests.request(missing.single())
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
