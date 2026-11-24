@@ -9,7 +9,7 @@ const generatedPaths = [
   "electron/resources/speech-helper",
   "electron/resources/Luna Bot Speech.app",
   "electron/resources/DEX BOT Speech.app",
-  "electron/resources/OpenMausBot Speech.app",
+  "electron/resources/LunaBot Speech.app",
 ];
 
 await Promise.all(

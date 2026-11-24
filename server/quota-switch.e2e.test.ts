@@ -55,9 +55,9 @@ async function withLimitFixture(
 ) {
   const port = await freePortBlock([0, 1]);
   const url = `http://127.0.0.1:${port}`;
-  const dataDir = mkdtempSync(join(tmpdir(), "openmausbot-quota-switch-"));
+  const dataDir = mkdtempSync(join(tmpdir(), "lunabot-quota-switch-"));
   mkdirSync(join(dataDir, "tmp"), { recursive: true });
-  const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");
+  const evidenceDir = join(tmpdir(), "lunabot-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });
   const logPath = join(evidenceDir, `quota-switch-${Date.now()}-${process.pid}.log`);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({

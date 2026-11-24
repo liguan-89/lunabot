@@ -213,7 +213,7 @@ export class FakeDocker implements Docker {
   }
 
   async volumeInspect(name: string): Promise<VolumeInfo | null> {
-    if (name === "lunabot-connector") return { Name: name, Labels: {}, Mountpoint: this.stateDir };
+    if (name === "mausbot-connector") return { Name: name, Labels: {}, Mountpoint: this.stateDir };
     const volume = this.volumes.get(name);
     return volume ? { Name: name, Labels: volume.labels, Mountpoint: `/var/lib/docker/volumes/${name}/_data` } : null;
   }

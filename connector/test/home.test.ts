@@ -76,7 +76,7 @@ function fixture(options: { free?: number } = {}) {
     now: () => clock,
     sleep: async (ms) => { clock += ms; },
     updateWindowMs: 600_000, startWindowMs: 600_000, pollMs: 2_000,
-    checkImage: async (ref) => { if (refused.has(ref)) throw new Error("it is not signed by MausBot"); },
+    checkImage: async (ref) => { if (refused.has(ref)) throw new Error("it is not signed by LunaBot"); },
     onStep: ({ id, step }) => steps.push(`${id} ${step}`),
   });
   const data = () => docker.files("mausbot-data");
@@ -114,7 +114,7 @@ describe("the home on an own server", () => {
     expect(spec).toEqual(homeSpec(A, env, SECCOMP));
     expect(spec.HostConfig).toMatchObject({
       Init: true, ShmSize: 512 * 1024 * 1024, MaskedPaths: [], ReadonlyPaths: [], CapDrop: ["ALL"], CapAdd: ["CHOWN", "SETUID", "SETGID", "KILL"], OomScoreAdj: -800,
-      SecurityOpt: ["apparmor=lunabot-home-narrow", `seccomp=${SECCOMP}`, "no-new-privileges=true"], RestartPolicy: { Name: "no" },
+      SecurityOpt: ["apparmor=omb-home-narrow", `seccomp=${SECCOMP}`, "no-new-privileges=true"], RestartPolicy: { Name: "no" },
       PortBindings: { "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "8080" }] }, Mounts: [{ Type: "volume", Source: "mausbot-data", Target: "/data" }],
     });
     expect(spec.StopTimeout).toBe(30);
@@ -362,7 +362,7 @@ describe("the home on an own server", () => {
     const f = fixture();
     f.refused.add(A);
     expect((await failure(f.home.start("start-1", A, env))).toJobError()).toEqual({
-      code: "image_refused", message: `${A} was refused (it is not signed by MausBot). Nothing was changed.`,
+      code: "image_refused", message: `${A} was refused (it is not signed by LunaBot). Nothing was changed.`,
     });
     expect(f.state.home()).toMatchObject({ desired: "stopped", image: null, operation: null });
     expect(f.state.homeEnv()).toBeNull();
@@ -514,9 +514,9 @@ describe("the home on an own server", () => {
     expect(failed.code).toBe("docker");
     expect(JSON.stringify(failed.toJobError())).not.toContain(SECRET);
     f.docker.startFailures.set("mausbot-home", "driver failed programming external connectivity: Bind for 127.0.0.1:8080 failed: port is already allocated");
-    expect((await failure(f.home.restart())).toJobError()).toEqual({ code: "port_in_use", message: "Port 8080 on this server is used by another program, and MausBot's home needs it." });
+    expect((await failure(f.home.restart())).toJobError()).toEqual({ code: "port_in_use", message: "Port 8080 on this server is used by another program, and LunaBot's home needs it." });
     f.docker.startFailures.set("mausbot-home", "driver failed programming external connectivity: Bind for 0.0.0.0:443 failed: port is already allocated");
-    expect((await failure(f.home.restart())).message).toBe("Port 443 on this server is used by another program, and MausBot's home needs it.");
+    expect((await failure(f.home.restart())).message).toBe("Port 443 on this server is used by another program, and LunaBot's home needs it.");
     f.docker.startFailures.set("mausbot-home", "OCI runtime create failed: apparmor failed to apply profile: write /proc/self/attr/apparmor/exec: no such file or directory");
     expect((await failure(f.home.restart())).code).toBe("box_unavailable");
     expect(existsSync(f.state.path("agent.json"))).toBe(false);

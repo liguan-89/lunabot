@@ -2,7 +2,7 @@
 // apps, the Chief's turn mounts the device tools, a tool call becomes a phone job the phone polls, leases and answers,
 // and the phone hears of the job over SSE. A bot whose phone apps are switched off sees no phone tools, a read-and-draft
 // run gets no phone at all, a turn hears whether the person wrote from the phone or the computer, and a send goes to the
-// phone with no card of OpenMausBot's own.
+// phone with no card of LunaBot's own.
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, openSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

@@ -65,7 +65,7 @@ export function duckdbDirectory(env: NodeJS.ProcessEnv = process.env): string | 
 
 /** createRequire resolves upwards from the anchor, so one inside <dir>/node_modules finds the staged @duckdb and @resvg first. */
 export function nativeRequire(directory: string | null = duckdbDirectory()): NodeJS.Require {
-  return createRequire(directory ? join(directory, "node_modules", "openmausbot-duckdb-anchor.js") : import.meta.url);
+  return createRequire(directory ? join(directory, "node_modules", "lunabot-duckdb-anchor.js") : import.meta.url);
 }
 
 function loadBinding(directory: string | null): Binding {

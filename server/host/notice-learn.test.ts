@@ -128,4 +128,13 @@ describe("createNoticeLearn", () => {
     await advance(31 * 60_000 + 2 * DAY_MS);
     expect(persisted).toHaveLength(0);
   });
+
+  it("a busy phone re-checks on a timer rather than stalling for the next notice", async () => {
+    const { learn, timers, flush } = runner({ busy: true });
+    learn.capture(record());
+    await flush();
+    // A finished job does not poke the runner, so the hold arms a recheck.
+    expect(timers.size).toBe(1);
+    expect([...timers.values()][0]!.ms).toBe(30_000);
+  });
 });

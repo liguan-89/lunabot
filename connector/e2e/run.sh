@@ -23,7 +23,7 @@ ADMIN="http://127.0.0.1:$PORT"
 CODE="MB-E2E-$(openssl rand -hex 4 | tr a-f A-F)"
 SECRET=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')
 if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$SECRET"; fi
-INSTALL_ENV=(MAUSBOT_ADMIN_URL="$ADMIN" MAUSBOT_CONNECTOR_IMAGE="$CONNECTOR_IMAGE" MAUSBOT_UPDATE_WAIT_S=90)
+INSTALL_ENV=(LUNABOT_ADMIN_URL="$ADMIN" LUNABOT_CONNECTOR_IMAGE="$CONNECTOR_IMAGE" LUNABOT_UPDATE_WAIT_S=90)
 
 step() { printf '\n== %s\n' "$*"; }
 fail() {
@@ -51,7 +51,7 @@ box_checks() { # the status reply once the home's box has run its self-check
   printf '%s' "$status"
 }
 home_settings() { # the home container's settings, without its environment (it holds the secret)
-  docker inspect -f '{"apparmor": {{json .AppArmorProfile}}, "host": {{json .HostConfig}}, "stopTimeout": {{json .Config.StopTimeout}}, "image": {{json .Config.Image}}}' mausbot-home
+  docker inspect -f '{"apparmor": {{json .AppArmorProfile}}, "host": {{json .HostConfig}}, "stopTimeout": {{json .Config.StopTimeout}}, "image": {{json .Config.Image}}}' lunabot-home
 }
 EVENTS=""
 cleanup() {
@@ -74,18 +74,18 @@ control state >/dev/null || fail "the fake Admin did not start: $(cat "$OUT/admi
 
 step "install.sh with the code, as a person runs it"
 sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" "$CODE" | tee "$OUT/install.txt"
-[ "$(tail -n 1 "$OUT/install.txt")" = "Connected. Your server shows up in MausBot in a minute, for your team's Owner to accept." ] || fail "install.sh did not end connected"
+[ "$(tail -n 1 "$OUT/install.txt")" = "Connected. Your server shows up in LunaBot in a minute, for your team's Owner to accept." ] || fail "install.sh did not end connected"
 state=$(control state)
 expect '.connected and (.servers | length) == 1' "$state" "enrolled once"
 expect '.servers[0].host | .arch == "x86_64" and .apparmor and .userns and .cpus >= 2 and .diskGb >= 20 and (.docker | length) > 0' "$state" "enrolled with the host's facts"
 expect '.servers[0].connector.protocol == 2 and .servers[0].connector.image == "lunabot-connector:e2e" and .servers[0].state == "pending"' "$state" "enrolled with its identity, waiting to be accepted"
-state_dir=/var/lib/docker/volumes/lunabot-connector/_data
+state_dir=/var/lib/docker/volumes/mausbot-connector/_data
 [ "$(sudo stat -c %a "$state_dir")" = 700 ] || fail "the connector's state folder is not root's alone"
 [ "$(sudo stat -c %a "$state_dir/agent.json")" = 600 ] || fail "the box key is not root's alone"
 
 step "running it again repairs and stays connected, without a new code"
 sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" | tee "$OUT/repair.txt"
-[ "$(tail -n 1 "$OUT/repair.txt")" = "Connected. Your server shows up in MausBot in a minute, for your team's Owner to accept." ] || fail "the repair did not end connected"
+[ "$(tail -n 1 "$OUT/repair.txt")" = "Connected. Your server shows up in LunaBot in a minute, for your team's Owner to accept." ] || fail "the repair did not end connected"
 expect '(.servers | length) == 1 and .connections >= 2 and .connected' "$(control state)" "the same server, connected again"
 
 step "a heartbeat with every check passing"
@@ -135,9 +135,9 @@ expect '.result.home.health.box.checks == "33/33"' "$status" "the box after the 
 docker volume inspect mausbot-snapshot >/dev/null || fail "the update kept no safety copy"
 
 step "a home killed uncleanly is started again on its volume"
-docker kill -s KILL mausbot-home >/dev/null
+docker kill -s KILL lunabot-home >/dev/null
 for _ in $(seq 1 60); do
-  if [ "$(docker inspect -f '{{.State.Running}}' mausbot-home 2>/dev/null)" = true ] && job status '{}' | jq -e '.result.home.health.ok' >/dev/null; then break; fi
+  if [ "$(docker inspect -f '{{.State.Running}}' lunabot-home 2>/dev/null)" = true ] && job status '{}' | jq -e '.result.home.health.ok' >/dev/null; then break; fi
   sleep 2
 done
 expect '.result.home.state == "running" and .result.home.health.ok' "$(job status '{}')" "the home after a SIGKILL"
@@ -151,13 +151,13 @@ step "an update forced to fail rolls back: the previous image, and the data as i
 # be gone once the rollback has put the safety copy back.
 FIFO=$(mktemp -u)
 mkfifo "$FIFO"
-timeout 900 docker events --filter container=mausbot-home --filter event=start --format '{{.Actor.Attributes.image}}' >"$FIFO" &
+timeout 900 docker events --filter container=lunabot-home --filter event=start --format '{{.Actor.Attributes.image}}' >"$FIFO" &
 EVENTS=$!
 (
   while read -r started; do
     [ "$started" = "$HOME_A" ] || continue
-    docker pause mausbot-home >/dev/null
-    docker run --rm -v mausbot-data:/data --entrypoint sh "$HOME_B" -c 'echo lost > /data/e2e-after-swap'
+    docker pause lunabot-home >/dev/null
+    docker run --rm -v lunabot-data:/data --entrypoint sh "$HOME_B" -c 'echo lost > /data/e2e-after-swap'
     echo frozen >"$OUT/sabotaged"
     break
   done <"$FIFO"
@@ -204,12 +204,12 @@ sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" uninstall | tee "$O
 for container in lunabot-connector mausbot-home; do
   if docker inspect "$container" >/dev/null 2>&1; then fail "$container is still there after uninstall"; fi
 done
-[ ! -e /etc/apparmor.d/lunabot-home-narrow ] || fail "the AppArmor profile is still installed"
+[ ! -e /etc/apparmor.d/omb-home-narrow ] || fail "the AppArmor profile is still installed"
 [ "$(docker run --rm -v mausbot-data:/data --entrypoint cat "$HOME_B" /data/e2e-marker)" = kept ] || fail "uninstall did not keep the data"
 docker volume inspect mausbot-snapshot >/dev/null || fail "uninstall did not keep the safety copy"
 sudo test -s /var/log/mausbot/audit.jsonl || fail "uninstall did not keep the audit log"
 sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" uninstall --delete-data | tee -a "$OUT/uninstall.txt"
-if docker volume inspect mausbot-data >/dev/null 2>&1; then fail "--delete-data kept the data"; fi
-if sudo test -e /var/log/mausbot; then fail "--delete-data kept the audit log"; fi
+if docker volume inspect lunabot-data >/dev/null 2>&1; then fail "--delete-data kept the data"; fi
+if sudo test -e /var/log/lunabot; then fail "--delete-data kept the audit log"; fi
 
 step "all passed"

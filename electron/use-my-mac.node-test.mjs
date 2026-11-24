@@ -259,10 +259,10 @@ test("lending on opens the app at login, out of sight; off removes only the logi
   linux.follow(false);
   await assert.rejects(readFile(entry, "utf8"), { code: "ENOENT" });
   await mkdir(path.dirname(entry), { recursive: true });
-  await writeFile(entry, "[Desktop Entry]\nExec=openmausbot\n");
+  await writeFile(entry, "[Desktop Entry]\nExec=lunabot\n");
   linux.follow(true);
   linux.follow(false);
-  assert.equal(await readFile(entry, "utf8"), "[Desktop Entry]\nExec=openmausbot\n", "an autostart entry the person wrote is never replaced or removed");
+  assert.equal(await readFile(entry, "utf8"), "[Desktop Entry]\nExec=lunabot\n", "an autostart entry the person wrote is never replaced or removed");
   const unpackaged = { ...fakeApp(), isPackaged: false };
   createOpenAtLogin({ app: unpackaged, file: path.join(dir, "dev.json"), platform: "darwin", home: dir }).follow(true);
   assert.equal(unpackaged.settings.openAtLogin, false, "a development build never registers itself");

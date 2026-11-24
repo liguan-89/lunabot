@@ -55,7 +55,7 @@ export const IMAGE_REPOSITORY = "localhost/lunabot/cua-local-vm";
 export const IMAGE_LAYER_VERSION = "8";
 export const IMAGE_LAYER_LABEL = "com.lunabot.image-layer";
 export const IMAGE = `${IMAGE_REPOSITORY}:driver-${CUA_DRIVER_VERSION}-v${IMAGE_LAYER_VERSION}`;
-export const CONTAINER = "openmausbot-computer";
+export const CONTAINER = "lunabot-computer";
 export const MANAGED_LABEL = "com.lunabot.local-vm";
 export const DRIVER_LABEL = "com.lunabot.cua-driver";
 export const BASE_IMAGE_LABEL = "com.lunabot.cua-base";
@@ -182,7 +182,7 @@ ${workspacePreparationDockerfile(VM_WORKSPACE_GUEST)}
 # A bot's own desktop: a 200 ms (not 800) watch for windows an action opens still sees Firefox popups; no cursor glide; plain logs; Chrome's own sandbox off, since it needs namespaces this hardened container (capabilities dropped, runtime seccomp) refuses and Chrome exits with code 21; the container is the isolation boundary here.
 RUN printf '%s\\n' \\
       '#!/bin/sh' \\
-      '/usr/local/bin/prepare-openmausbot-workspace.sh' \\
+      '/usr/local/bin/prepare-lunabot-workspace.sh' \\
       'attempt=0' \\
       'until DISPLAY=:1 xset q >/dev/null 2>&1; do' \\
       '  attempt=$((attempt + 1))' \\
@@ -629,7 +629,7 @@ export async function containerComputerStatus(
       ) {
         throw new Error(`Cua health report is ${report.overall ?? "invalid"}`);
       }
-      const readinessShot = "/tmp/openmausbot-readiness.png";
+      const readinessShot = "/tmp/lunabot-readiness.png";
       await runner(
         status.runtime,
         cuaExecArgs([
@@ -978,7 +978,7 @@ export async function containerComputerFrame(
   }
   if (cacheable) screenshotStatusCache.set(target.key, { status, expiresAt: now + SCREENSHOT_STATUS_TTL_MS });
   try {
-    const screenshot = "/tmp/openmausbot-preview.png";
+    const screenshot = "/tmp/lunabot-preview.png";
     await runner(
       status.runtime,
       cuaExecArgs([

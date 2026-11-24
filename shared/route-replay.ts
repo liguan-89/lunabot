@@ -406,8 +406,12 @@ export interface RouteRun extends LearnGateInput {
   id?: string;
 }
 
-/** Phone writes that reach past the screen; replaying them is not a screen action. */
-const NOT_REPLAYED: ReadonlySet<string> = new Set(["PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE"]);
+/**
+ * Phone writes a route must not replay. The clipboard and file sharing reach past the screen. DO_EACH nests its
+ * steps in `body`, where the recorder's ref-stripping and sensitive-text sweep do not look, so a stored one could
+ * pin what was typed: its turns are simply never learned.
+ */
+const NOT_REPLAYED: ReadonlySet<string> = new Set(["PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE", "PHONE_UI_DO_EACH"]);
 
 /** The phone writes a route can replay: the screen controls, never observing, the clipboard or file sharing. */
 export function isReplayablePhoneTool(tool: string): boolean {

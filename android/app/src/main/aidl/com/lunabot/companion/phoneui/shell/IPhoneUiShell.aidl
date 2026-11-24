@@ -4,7 +4,7 @@
  * Copyright 2026 wangzan101. The original is licensed under the Apache License,
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * Modifications Copyright 2026 LunaBot contributors. Changes from the
  * original: repackaged and trimmed to the virtual-display, launcher-launch,
  * own-display input, task-move, key-text and keyguard-unlock endpoints. No
  * shell command, file, clipboard, audio, main-display input or system-intent

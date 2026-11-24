@@ -52,7 +52,7 @@ class E2eRouteOrderTest {
         val transport = E2eTransport(
             descriptor = descriptor(),
             token = token,
-            app = "mausbot-test",
+            app = "lunabot-test",
             connector = connector,
             directUrl = "ws://192.168.1.42:8810/v1/e2e",
         )
@@ -69,7 +69,7 @@ class E2eRouteOrderTest {
         val transport = E2eTransport(
             descriptor = descriptor(routes = "local"),
             token = token,
-            app = "mausbot-test",
+            app = "lunabot-test",
             connector = connector,
             directUrl = "ws://192.168.1.42:8810/v1/e2e",
         )
@@ -86,7 +86,7 @@ class E2eRouteOrderTest {
             target = E2eTarget.Relay("wss://relay1.openmausbot.com/v1/phone", hostId, admission),
             transportKey = transportKey.publicKey,
             psk = E2eCredentials.psk(token, E2eCredentials.keyId(transportKey.publicKey)),
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
         assertFailsWith<NoiseException> { session.connect() }
         assertEquals("asleep", session.failure)
@@ -100,7 +100,7 @@ class E2eRouteOrderTest {
             target = E2eTarget.Direct("ws://192.168.1.42:8810/v1/e2e"),
             transportKey = transportKey.publicKey,
             psk = E2eCredentials.psk(token, E2eCredentials.keyId(transportKey.publicKey)),
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
         assertFailsWith<NoiseException> { session.connect() }
         assertEquals("removed", session.failure)
@@ -114,7 +114,7 @@ class E2eRouteOrderTest {
             target = E2eTarget.Relay("wss://relay1.openmausbot.com/v1/phone", hostId, admission),
             transportKey = transportKey.publicKey,
             psk = E2eCredentials.psk(token, E2eCredentials.keyId(transportKey.publicKey)),
-            app = "mausbot-test",
+            app = "lunabot-test",
         )
         assertFailsWith<NoiseException> { session.connect() }
         assertEquals("relay_rejected", session.failure)
@@ -130,7 +130,7 @@ class E2eRouteOrderTest {
                 descriptor = descriptor(),
                 credential = "omb_pair_" + "D".repeat(43),
                 deviceName = "Pixel",
-                app = "mausbot-test",
+                app = "lunabot-test",
                 directWsUrl = "ws://192.168.1.42:8810/v1/e2e",
             )
         }

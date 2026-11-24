@@ -83,7 +83,7 @@ export declare function createCompanionAccountService(options: {
   /** Hold the address only while something needs it (the desktop app). */
   onDemand?: boolean;
   managedEndpointNeeded?: () => Promise<boolean | "unused" | null>;
-  /** MausBot Relay: `capable` lets a "no" from managedEndpointNeeded hold even right after sign-in. */
+  /** LunaBot Relay: `capable` lets a "no" from managedEndpointNeeded hold even right after sign-in. */
   relay?: { capable: () => boolean; legacyDevices: () => Promise<number | null> };
   releaseGraceMs?: number;
   releaseJitterMs?: number;

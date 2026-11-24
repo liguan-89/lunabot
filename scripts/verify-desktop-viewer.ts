@@ -29,7 +29,7 @@ if (args[0] === "-H") args = args.slice(2);
 const labels = ${JSON.stringify({ "com.lunabot.local-vm": "1", "com.lunabot.cua-driver": CUA_DRIVER_VERSION, "com.lunabot.cua-base": BASE_IMAGE_DIGEST, "com.lunabot.image-layer": IMAGE_LAYER_VERSION, "com.lunabot.workspace": "1" })};
 let result;
 const imageId = 'sha256:' + 'a'.repeat(64);
-if (args[0] === 'inspect' && /^openmausbot-vps-/.test(args[1])) result = [{
+if (args[0] === 'inspect' && /^lunabot-vps-/.test(args[1])) result = [{
   Id:'b'.repeat(64), Image:imageId, State:{Running:true}, Mounts:[],
   Config:{Image:${JSON.stringify(IMAGE)}, Env:['VNC_PW=fixture-password'], Labels:{...labels,
     'com.lunabot.vps':'1', 'com.lunabot.container':args[1], 'com.lunabot.vps-viewer':'1'}},
@@ -42,7 +42,7 @@ else if (args[0] === 'exec') result = args.includes('--version') ? 'cua-driver $
   : args.includes('health_report') ? {schema_version:'1',overall:'ok',checks:[]} : {};
 else if (args[0] === 'info') result = 'fixture';
 else if (args[0] === 'image' && args[1] === 'inspect') result = [{Id:imageId,Config:{Labels:labels}}];
-else if (args[0] === 'inspect' && args[1] === 'openmausbot-computer') result = [{
+else if (args[0] === 'inspect' && args[1] === 'lunabot-computer') result = [{
   Config:{Image:${JSON.stringify(IMAGE)},Labels:labels,Env:['VNC_PW=fixture-password']},
   State:{Running:true},Image:imageId,
   HostConfig:{PortBindings:{'6901/tcp':[{HostIp:'127.0.0.1',HostPort:'${desktop.port}'}]}},

@@ -91,7 +91,7 @@ export interface EgressSetup {
   ownership?: ListenerOwnership;
   /** How a gate looks names up: the system's resolver unless a test passes one. */
   resolve?(host: string): Promise<ResolvedAddress[]>;
-  /** MausBot Cloud: the person's own computer while it lends its internet connection, which device is away, or that
+  /** LunaBot Cloud: the person's own computer while it lends its internet connection, which device is away, or that
    * none of the person's computers shares it; null where this browser may not use a computer's connection. Only the
    * sites that turn away data centres (home-sites.ts) go through it. */
   device?(session: string): GateUpstream | { away: string } | { unshared: true } | null;
@@ -124,12 +124,12 @@ export class BrowserEgress {
     };
   }
 
-  /** Why a destination is refused by its name alone on this host: Reddit, from MausBot Cloud. */
+  /** Why a destination is refused by its name alone on this host: Reddit, from LunaBot Cloud. */
   nameRefusal(name: string): Refusal | null {
     return this.setup && refusesReddit(this.setup.host, name) ? "reddit" : null;
   }
 
-  /** What a browser tool call that would open Reddit from MausBot Cloud is told instead of running, or null. */
+  /** What a browser tool call that would open Reddit from LunaBot Cloud is told instead of running, or null. */
   callRefusal(params: unknown): string | null {
     return this.setup && opensReddit(this.setup.host, params) ? REDDIT_REFUSAL : null;
   }
@@ -147,7 +147,7 @@ export class BrowserEgress {
     };
   }
 
-  /** The way out for one of `session`'s connections to a site that turns away data centres: on MausBot Cloud the
+  /** The way out for one of `session`'s connections to a site that turns away data centres: on LunaBot Cloud the
    * person's computer while it lends its connection, else this server's own (when that computer is away, or none shares
    * its connection, the bot is told once). Every other site always goes this server's own way. */
   private through(session: string): GateUpstream | null {

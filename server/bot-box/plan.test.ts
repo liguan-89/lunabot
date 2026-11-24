@@ -236,7 +236,7 @@ linuxBox("the box plan", () => {
       }
     }
     expect(visibleInBox(ask({ XDG_CACHE_HOME: join(dataDir, "workspaces", "b", "cache") }, true), join(dataDir, "workspaces", "b", "cache", "x"))).toBe("rw");
-    // An engine OpenMausBot starts keeps the home it was given there.
+    // An engine LunaBot starts keeps the home it was given there.
     expect(visibleInBox(ask({ CODEX_HOME: join(dataDir, "providers", "codex-1") }, false), join(dataDir, "providers", "codex-1", "auth.json"))).toBe("rw");
   });
 

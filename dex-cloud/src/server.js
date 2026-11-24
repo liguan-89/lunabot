@@ -6,7 +6,9 @@ import { handleAdmin, adminPlans } from "./admin.js";
 import { handleControl } from "./control.js";
 import { EmailUnavailable } from "./email.js";
 import { PLANS } from "./helpers.js";
-import { HttpError, RateLimiter, fail, html, json, methodNotAllowed, readJson, setCors, text } from "./http.js";
+import { HttpError, RateLimiter, fail, html, json, methodNotAllowed, readJsonRaw, setCors, text } from "./http.js";
+import { handleIncludedPages, handlePageIo, servePage } from "./included-pages.js";
+import { handleMachines } from "./machines.js";
 import { approvalPage, buyPage, docsPage, downloadPage, errorPage, feedbackPage, plansPage, provisionPage } from "./pages.js";
 import { newUuid } from "./crypto.js";
 
@@ -47,6 +49,13 @@ function staticResponse(res, path, { downloadName, immutable = false } = {}) {
   return true;
 }
 
+/** Android computes `MAJOR*10000+MINOR*100+PATCH` (`android/app/build.gradle.kts`): a fixed literal under a newer
+ * release answers "already latest" forever. Fall back to it only when the name cannot be parsed. */
+function versionCodeOf(versionName) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(String(versionName ?? ""));
+  return match ? Number(match[1]) * 10_000 + Number(match[2]) * 100 + Number(match[3]) : 20_000;
+}
+
 function updateManifest(config) {
   let sha256;
   let size;
@@ -59,7 +68,7 @@ function updateManifest(config) {
     size = undefined;
   }
   return JSON.stringify({
-    versionCode: 20000,
+    versionCode: versionCodeOf(config.latestVersion),
     versionName: config.latestVersion,
     apkUrl: "/download/dexbot.apk",
     notes: `Luna Bot ${config.latestVersion} · 自建 Luna Bot Cloud，支持与官方版同时安装`,
@@ -115,6 +124,9 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
       const dropped = store.purgeStalePhones(Date.now() - config.stalePhoneDays * 24 * 60 * 60_000);
       if (dropped) log(`swept ${dropped} stale phone installation(s)`);
     }
+    store.purgePageUploads(Date.now());
+    store.purgePagesAccess(Date.now());
+    store.purgeEmptyPages(Date.now() - 60 * 60_000);
   };
   // Once at startup as well as hourly: a deploy that ships a new rule should not
   // leave the old rows sitting for an hour before anything happens to them.
@@ -156,11 +168,13 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
         return res.end("unknown");
       }
       if (path.startsWith("/api/") || path.startsWith("/v1/") || path === "/healthz") {
-        const body = method === "GET" || method === "HEAD"
-          ? {}
-          : await readJson(req, path === "/api/bug-reports" ? BUG_REPORT_BODY_LIMIT : undefined);
+        // Page uploads are multipart, not JSON: their handler reads the stream itself.
+        const isPageIo = path.startsWith("/v1/pages/");
+        const { body, raw } = method === "GET" || method === "HEAD" || isPageIo
+          ? { body: {}, raw: Buffer.alloc(0) }
+          : await readJsonRaw(req, path === "/api/bug-reports" ? BUG_REPORT_BODY_LIMIT : undefined);
         const ctx = {
-          req, res, method, path, url, body, config, store, emailer, relayKey, provisioner, log, limits,
+          req, res, method, path, url, body, rawBody: raw, config, store, emailer, relayKey, provisioner, log, limits,
           ip: req.socket.remoteAddress ?? "0.0.0.0",
         };
         if (path.startsWith("/api/")) {
@@ -168,8 +182,14 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
           const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded ?? "").split(",")[0].trim();
           if (first) ctx.ip = first;
         }
-        if (await handleAdmin(ctx)) return;
-        if (await handleControl(ctx)) return;
+        if (isPageIo) {
+          if (await handlePageIo(ctx)) return;
+        } else {
+          if (await handleAdmin(ctx)) return;
+          if (await handleControl(ctx)) return;
+          if (await handleMachines(ctx)) return;
+          if (await handleIncludedPages(ctx)) return;
+        }
         return fail(res, 404, "not_found");
       }
 
@@ -186,6 +206,10 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
         const name = decodeURIComponent(path.slice("/desktop/".length));
         if (!DESKTOP_FILE.test(name)) return text(res, 404, "Not found");
         if (staticResponse(res, join(config.desktopDir, name), { immutable: /^latest.*\.yml$/.test(name) === false })) return;
+        return text(res, 404, "Not found");
+      }
+      if (path.startsWith("/p/")) {
+        if (servePage(res, config, path)) return;
         return text(res, 404, "Not found");
       }
       if (path === "/cloud") return html(res, 200, plansPage(config, adminPlans()));

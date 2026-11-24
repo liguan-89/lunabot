@@ -51,7 +51,7 @@ services:
       LUNABOT_SIGNIN_MEMBER_EMAILS:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through MausBot Relay (docs/phone-relay-server.md). Sign the
+      # "1": phones pair by QR through LunaBot Relay (docs/phone-relay-server.md). Sign the
       # container in once first: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:

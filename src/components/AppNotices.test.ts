@@ -585,7 +585,7 @@ describe("What's new after the update", () => {
     expect(on(await launch()), "the first chat, before its first reply").toBeNull();
     f.state.bots = structuredClone(FIRST_REPLY); markWelcomeFinished();
     expect(on(await launch()), "the launch the welcome finished in").toBeNull();
-    session.clear(); markLaunchDialog("mausbot");
+    session.clear(); markLaunchDialog("lunabot");
     expect(on(await launch()), "the launch Luna Bot's first card took").toBeNull();
     expect(on(await relaunch())).toBe("pro");
   });
@@ -739,7 +739,7 @@ describe("the product-updates question after the update", () => {
     f.viewerEmail = null;
     f.state.bots = [{ ...structuredClone(FIRST_REPLY[0]), id: "maus", defaultBot: {} }];
     expect(await launch(), "the card is due: the question waits for it").not.toContain(QUESTION);
-    markLaunchDialog("mausbot"); f.state.bots[0].welcomed = true;
+    markLaunchDialog("lunabot"); f.state.bots[0].welcomed = true;
     const after = await launch();
     expect(after, "the card closed in this launch: the question follows it, as it follows the popup").toContain(QUESTION);
     expect(after, "the popup still waits for a later launch").not.toContain(POPUP);

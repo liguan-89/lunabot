@@ -258,9 +258,6 @@ AppArmor policy for the root-owned browser executable under `/opt/Luna Bot`.
 They do not disable the browser sandbox or change the global user-namespace
 restriction. See [Linux desktop](linux-desktop.md).
 
-The AppImage contains the same binaries, but cannot install a privileged
-sandbox policy. Restricted hosts may need the `.deb` rather than the AppImage.
-
 ## Release verification and updates
 
 Versions, URLs, sizes and SHA-256 digests live in

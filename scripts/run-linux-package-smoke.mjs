@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,16 +22,7 @@ async function cleanupRuntime(directory) {
   }
   throw new Error(`[run-linux-package-smoke] could not clean released runtime ${directory}`);
 }
-const appImages = readdirSync(path.join(root, "release")).filter((name) => name.endsWith(".AppImage"));
-if (appImages.length !== 1) {
-  throw new Error(`[run-linux-package-smoke] expected exactly one AppImage, found ${appImages.length}`);
-}
-const [appImage] = appImages;
-
-const executables = [
-  path.join(root, "release", "linux-unpacked", "lunabot"),
-  path.join(root, "release", appImage),
-];
+const executables = [path.join(root, "release", "linux-unpacked", "lunabot")];
 if (process.env.LUNABOT_SMOKE_INSTALLED_DEB === "1") {
   executables.push("/opt/LunaBot/lunabot");
 }
@@ -63,8 +54,8 @@ for (const executable of executables) {
 }
 
 // A desktop watchdog or package manager sends SIGTERM to Electron itself,
-// not a synthetic window close. Exercise that path against the real bundled
-// AppImage and require the same descriptor/runtime cleanup.
+// not a synthetic window close. Exercise that path against the packaged app
+// and require the same descriptor/runtime cleanup.
 if (process.exitCode === undefined) {
   const runtimeDirectory = mkdtempSync(path.join(tmpdir(), prefixName));
   chmodSync(runtimeDirectory, 0o700);
@@ -78,7 +69,7 @@ if (process.exitCode === undefined) {
         XDG_RUNTIME_DIR: runtimeDirectory,
         LUNABOT_SMOKE_BUNDLED_CUA: "1",
         LUNABOT_SMOKE_SIGNAL_SHUTDOWN: "1",
-        LUNABOT_SMOKE_EXECUTABLE: path.join(root, "release", appImage),
+        LUNABOT_SMOKE_EXECUTABLE: path.join(root, "release", "linux-unpacked", "lunabot"),
       },
       stdio: "inherit",
     },

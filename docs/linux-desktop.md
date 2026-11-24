@@ -30,11 +30,9 @@ CUA supply-chain work is tracked in [issue #113](https://github.com/milind-soni/
 
 ## Download packages
 
-Choose one Ubuntu 24.04 x86_64 package from the latest release:
+Choose the Ubuntu 24.04 x86_64 Debian package from the latest release:
 
-- [Debian package (`LUNABOT-amd64.deb`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-amd64.deb) — recommended; APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
-- [Portable AppImage (`LUNABOT.AppImage`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT.AppImage) — does not install system files.
-- [RPM package (`LUNABOT-x86_64.rpm`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-x86_64.rpm) — for Fedora; see [below](#fedora-and-other-rpm-distributions).
+- [Debian package (`LUNABOT-amd64.deb`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-amd64.deb) — APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
 - [SHA-256 checksums](https://github.com/liguan-89/lunabot/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
 Versioned packages and previous releases remain available on the
@@ -59,10 +57,6 @@ pnpm package:linux
 The build creates:
 
 - `release/LUNABOT-<version>-amd64.deb`
-- `release/LUNABOT-<version>-x86_64.rpm`
-- `release/LUNABOT-<version>-x86_64.AppImage`
-
-The AppImage uses a static runtime and does not require the legacy `libfuse2` package.
 
 ## Install and run
 
@@ -78,32 +72,10 @@ Then open **Luna Bot** from the GNOME application launcher. To remove it:
 sudo apt remove lunabot
 ```
 
-The portable AppImage does not install system files:
-
-```sh
-chmod +x release/LUNABOT-*-x86_64.AppImage
-./release/LUNABOT-*-x86_64.AppImage
-```
-
-For a downloaded release AppImage, use `LUNABOT.AppImage` in place of the versioned path above.
-
-### Fedora and other RPM distributions
-
-The `.rpm` is community-supported: every release builds and checks it, but it is not tested on Fedora the way the
-`.deb` is on Ubuntu. Install it with the package manager so its desktop dependencies are resolved:
-
-```sh
-sudo dnf install ./LUNABOT-x86_64.rpm
-```
-
-Remove it with `sudo dnf remove lunabot`. Updates are downloaded by the app, which then copies the `rpm` install
-command and opens a terminal for you to run it. Other RPM distributions (RHEL, openSUSE) and image-based Fedora
-editions such as Silverblue are untested; use the AppImage there.
-
 ### Arch Linux and EndeavourOS
 
-Arch-based distributions are not an official target. The release AppImage runs there, or you can build a native
-`.pacman` package yourself.
+Arch-based distributions are not an official target. Build a native `.pacman`
+package yourself.
 
 #### Native pacman package
 Releases and CI do not build this package and nothing tests it. Removing it cleans up the launcher and browser
@@ -116,19 +88,6 @@ sudo pacman -U release/Luna Bot-<version>-x64.pacman
 
 Replace `<version>` with the built version (for example, `0.1.149`). Then launch `lunabot` from the application launcher or command line.
 
-#### Portable AppImage
-A minimal Arch install lacks the FUSE helper and some desktop libraries the AppImage needs, so install them first:
-
-```sh
-sudo pacman -S --needed fuse3 gtk3 nss alsa-lib libcups mesa
-chmod +x LUNABOT.AppImage
-./LUNABOT.AppImage
-```
-
-A full desktop install (for example EndeavourOS with KDE or GNOME) usually has all of these already, and
-`--needed` skips the ones that are present. This was checked with the v0.1.138 AppImage on a current Arch
-Linux image (fuse3 3.18, gtk3 3.24, mesa 26.2): the app opens to the welcome screen.
-
 ### Updating
 
 The app checks for updates in the background and downloads them by itself. Nothing restarts until you click
@@ -140,8 +99,7 @@ The app checks for updates in the background and downloads them by itself. Nothi
   refused and nothing is installed. Closing the prompt leaves the update ready to try again. If the session cannot
   show a prompt (SSH, no desktop, no `pkexec`), the app falls back to copying the `sudo apt-get install` command
   and opening a terminal, and says why. Set `LUNABOT_UPDATE_INSTALL=terminal` to always use the terminal.
-- **AppImage.** The update replaces the AppImage when you restart; no password is needed.
-- **rpm and pacman packages** still use the terminal hand-off.
+- **pacman packages** still use the terminal hand-off.
 
 ### Bundled bot browser on Ubuntu 24.04
 
@@ -151,10 +109,10 @@ package-owned files and loads an AppArmor rule for that exact executable. The br
 and the machine-wide user-namespace restriction is unchanged. Upgrades refresh the same rule; uninstalling
 the package removes it. Enabling a bot's browser and approving its actions remain explicit choices.
 
-An AppImage is portable and cannot install privileged system policy. On hosts restricting unprivileged
-user namespaces, its bundled browser can still report `No usable sandbox`. Install the `.deb` instead;
-do not add `--no-sandbox`, disable AppArmor globally, or allowlist arbitrary executables under your home
-directory. See [Chromium's explanation of the Ubuntu restriction](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md).
+On hosts restricting unprivileged user namespaces, the bundled browser can report `No usable sandbox` unless
+the `.deb` has installed its AppArmor rule. Do not add `--no-sandbox`, disable AppArmor globally, or allowlist
+arbitrary executables under your home directory. See
+[Chromium's explanation of the Ubuntu restriction](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md).
 
 Application data remains local in `~/.lunabot`. Electron browser data and window state use the normal XDG
 configuration directory (`~/.config/lunabot` unless the environment overrides it).
@@ -169,7 +127,7 @@ pnpm dev
 pnpm dev:desktop
 ```
 
-For a package-shaped build without creating `.deb` or AppImage artifacts:
+For a package-shaped build without creating `.deb` artifacts:
 
 ```sh
 pnpm package:linux:dir
@@ -194,7 +152,7 @@ It also probes the login shell in the background. If a CLI still is not detected
 path before launching the app from a terminal and verify it there:
 
 ```sh
-LUNABOT_EXTRA_PATH=/your/custom/bin ./release/LUNABOT-*-x86_64.AppImage
+LUNABOT_EXTRA_PATH=/your/custom/bin ./release/linux-unpacked/lunabot
 ```
 
 Restart Luna Bot after installing or signing in to a CLI.
@@ -222,7 +180,7 @@ fail-closed on Wayland. XWayland's `DISPLAY` never bypasses the Wayland safety g
 
 ## Enable local control
 
-Installed `.deb` and AppImage builds include the certified **Cua Driver 0.41.3** CLI and cursor-theme sidecar.
+Installed `.deb` builds include the certified **Cua Driver 0.41.3** CLI and cursor-theme sidecar.
 On GNOME Xorg, open Settings, choose **Enable local control (Beta)**, wait for **Ready**, then explicitly assign a bot
 to **This computer**. No driver download, terminal command, `chmod`, or daemon setup is required. The owned daemon
 starts with `--no-overlay`, so Cua's decorative full-screen X11 cursor surface is never created. Luna Bot also
@@ -256,10 +214,7 @@ The reviewed native runtime adds roughly 14–21 MiB to a compressed Ubuntu arti
 requires glibc 2.30 or newer plus the standard Ubuntu X11/XInput/xkbcommon libraries already present on the supported
 Ubuntu 24.04 desktop; the package verifier executes the exact binary from every artifact layout.
 
-AppImage's pinned SquashFS toolchain can emit root-owned directories as `0755` or `0775`; the package verifier
-requires one of those modes consistently across the reviewed resource tree. Before execution, AppImage copies only
-the pinned binaries into a private `0700` stage and verifies their hashes again. DEB upgrades repair their exact
-package-owned path to `root:root 0755` automatically.
+DEB upgrades repair their exact package-owned path to `root:root 0755` automatically.
 
 The packaged runtime remains outside ASAR for deterministic provenance and validation. In packaged builds neither a
 `CUA_DRIVER_PATH` value nor an ambient PATH candidate can replace it; on Wayland neither can bypass the safety gate.
@@ -279,7 +234,7 @@ Cua's Hyprland plugin turned on. The plugin gives bots two seats of their own in
 keyboard. Every other Wayland desktop (GNOME, KDE, Sway, or Hyprland without the plugin) keeps the safety gate above.
 Support is experimental, like the plugin itself, which Omarchy leaves off by default and outside its normal installer.
 
-1. Install and start the AppImage as in [Arch Linux and EndeavourOS](#arch-linux-and-endeavouros-appimage).
+1. Install and start the pacman package as in [Arch Linux and EndeavourOS](#arch-linux-and-endeavouros).
 2. Install Omarchy's Cua packages, `cua-driver-bin` and `cua-hyprland-plugin`, and turn the plugin on as
    [Cua's Omarchy guide](https://cua.ai/docs/cua-sdk/guides/omarchy) describes. In Omarchy's Lua configuration that is
    `hl.config({plugin = {cua = {enabled = true}}})`; in a legacy configuration, `plugin:cua:enabled = true`. Then run
@@ -334,8 +289,8 @@ pnpm smoke:linux-package
 ```
 
 The verifier checks `.deb` metadata, desktop identity, the exact dormant Cua resource tree and provenance,
-SquashFS/DEB directory modes, runtime path policy, and matching binary hashes across all artifacts. The local smoke
-launches the unpacked app and AppImage without `--no-sandbox`; CI first reproduces a `0.1.7` in-place DEB upgrade and
+directory modes, runtime path policy, and matching binary hashes across the unpacked and packaged trees. The local smoke
+launches the unpacked app without `--no-sandbox`; CI first reproduces a `0.1.7` in-place DEB upgrade and
 then runs the same smoke against `/opt/Luna Bot/lunabot`. These lanes prove the embedded server and UI are
 usable while an optional Composio broker stalls, verify that an old local-control opt-in is cleared, and assert that
 no Cua executable starts on Xorg or simulated Wayland. Low-level runtime tests retain the future private-daemon
@@ -366,19 +321,13 @@ On Xorg, confirm the session has an active display with `echo "$XDG_SESSION_TYPE
 On Wayland, confirm `xdg-desktop-portal` and the GNOME portal backend are running, then click **Try again** to
 open a new chooser. Cancelling or stopping sharing never causes an automatic second prompt.
 
-### The AppImage does not start
+### The .deb does not start
 
-Confirm the executable bit and architecture:
+Run the installed binary from a terminal once to collect the startup output:
 
 ```sh
-chmod +x Luna Bot-*-x86_64.AppImage
-file Luna Bot-*-x86_64.AppImage
+/opt/Luna Bot/lunabot
 ```
 
-Run it from a terminal once to collect the startup output. Do not install `libfuse2` just for this AppImage; the
-package is built with the static runtime.
-
-If it prints `No suitable fusermount binary found on the $PATH` or `Cannot mount AppImage, please check your FUSE
-setup`, install the distribution's FUSE 3 package (`fuse3` on Ubuntu, Debian and Arch). If it then names a missing
-`lib*.so` file, install the desktop libraries listed under
-[Arch Linux and EndeavourOS](#arch-linux-and-endeavouros-appimage), or your distribution's packages for them.
+If it names a missing `lib*.so` file, install your distribution's desktop
+libraries (GTK 3, NSS, ALSA, libcups, Mesa).

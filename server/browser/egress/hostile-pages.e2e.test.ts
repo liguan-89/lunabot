@@ -1,6 +1,6 @@
 // S6: a hostile page in a bot's real Chrome tries every way it has to reach Luna Bot, this machine's other services,
 // the local network and the cloud metadata service. Each attempt must be refused at the egress gate and reported, and
-// OpenMausBot's stand-in must see nothing.
+// LunaBot's stand-in must see nothing.
 import type { ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { connect as tcpConnect, type AddressInfo, type Socket } from "node:net";
@@ -37,7 +37,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
   let site: ChildProcess;
   let sitePort = 0;
 
-  /** Stands in for OpenMausBot at 127.0.0.1 and [::1] on one port; records anything that reaches it. */
+  /** Stands in for LunaBot at 127.0.0.1 and [::1] on one port; records anything that reaches it. */
   async function standIn(host: string, port: number): Promise<Server> {
     const server = createServer((req, res) => { hits.push(`${host} ${req.method} ${req.url}`); res.end("owner data"); });
     server.on("upgrade", (req, socket) => { hits.push(`${host} upgrade ${req.url}`); socket.destroy(); });

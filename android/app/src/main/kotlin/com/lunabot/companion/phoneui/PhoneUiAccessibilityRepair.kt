@@ -6,7 +6,7 @@
  * under the Apache License, Version 2.0 (third_party/mika/LICENSE in this
  * repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * Modifications Copyright 2026 LunaBot contributors. Changes from the
  * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, the flows and coroutines replaced by immutable
  * state and pure transitions, the clock taken as a parameter, and the shell

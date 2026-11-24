@@ -40,7 +40,7 @@ describe("the connector protocol", () => {
     expect(image("self-update", CONNECTOR)).toBe(true);
     for (const value of [
       "ghcr.io/milind-soni/openmausbot-cloud-home:latest", "ghcr.io/milind-soni/openmausbot-cloud-home:v0.1.130",
-      `ghcr.io/someone-else/openmausbot-cloud-home@sha256:${"a".repeat(64)}`, `docker.io/library/ubuntu@sha256:${"a".repeat(64)}`,
+      `ghcr.io/someone-else/lunabot-cloud-home@sha256:${"a".repeat(64)}`, `docker.io/library/ubuntu@sha256:${"a".repeat(64)}`,
       `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"A".repeat(64)}`, `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"a".repeat(63)}`,
       `ghcr.io/milind-soni/openmausbot-cloud-home@sha256:${"a".repeat(64)} --privileged`, `ghcr.io/milind-soni/openmausbot@sha256:${"a".repeat(64)}`,
     ]) {
@@ -91,7 +91,7 @@ describe("the connector protocol", () => {
     }
   });
 
-  it("keeps an enrolment answer only when every field is the Admin's shape, and a code only as MausBot shows it", () => {
+  it("keeps an enrolment answer only when every field is the Admin's shape, and a code only as LunaBot shows it", () => {
     const key = generateKeyPair().publicKey;
     const good = { boxId: "box_1a2b3c4d5e6f", teamId: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", adminKeys: { k1: key }, state: "pending" };
     expect(checkEnrollResponse(good)).toEqual({ ok: true, value: good });

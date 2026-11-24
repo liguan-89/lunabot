@@ -289,11 +289,6 @@ route("POST", "/api/cloud/desktop/services/x", async (ctx) => {
   throw new HttpError(404, "not_offered");
 });
 
-route("POST", "/api/cloud/desktop/services/pages", async (ctx) => {
-  sessions(ctx);
-  throw new HttpError(404, "not_offered");
-});
-
 route("GET", "/api/cloud/desktop/updates-consent", async (ctx) => {
   const session = sessions(ctx);
   const consent = ctx.store.consent(session.account_id);

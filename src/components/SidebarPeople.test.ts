@@ -96,11 +96,11 @@ describe("the team's people in the sidebar", () => {
   });
 
   it("finds the person's inbox with their own Chief, else their own Luna Bot", () => {
-    const mausbot = bot({ id: "mm", name: "Luna Bot", defaultBot: { person: BEN.email } });
+    const lunabot = bot({ id: "mm", name: "Luna Bot", defaultBot: { person: BEN.email } });
     const chief = bot({ id: "mc", name: "Ben's Chief", chiefOfStaff: true, reportsTo: BEN.email });
     const cleos = bot({ id: "pc", chiefOfStaff: true, reportsTo: CLEO.email });
-    expect(inboxBotOf([mausbot, cleos, chief], BEN.email)?.id).toBe("mc");
-    expect(inboxBotOf([mausbot, cleos], BEN.email)?.id).toBe("mm");
+    expect(inboxBotOf([lunabot, cleos, chief], BEN.email)?.id).toBe("mc");
+    expect(inboxBotOf([lunabot, cleos], BEN.email)?.id).toBe("mm");
     expect(inboxBotOf([cleos], BEN.email)).toBeUndefined();
   });
 });

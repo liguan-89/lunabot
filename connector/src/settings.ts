@@ -7,14 +7,19 @@ export const CONNECTOR_VERSION = "1.0.0";
 export const NAMES = {
   connector: "lunabot-connector",
   connectorNext: "lunabot-connector-next",
+  // Home-side objects keep their pre-rename names: the operated path finds them by exact name and a rename would
+  // strand every existing install's container and data volume. The connector's own name is safe to move: a
+  // self-update carries the mounts and renames the winner to NAMES.connector.
   home: "mausbot-home",
   dataVolume: "mausbot-data",
-  stateVolume: "lunabot-connector",
+  stateVolume: "mausbot-connector",
   snapshotVolume: "mausbot-snapshot",
   backupPrefix: "mausbot-backup-",
 } as const;
 
 export const LABELS = {
+  // Label keys on containers and volumes Docker already has can never be renamed: filters below match the keys the
+  // objects carry, so they keep the com.mausbot.* names new objects are also labelled with.
   role: "com.mausbot.role",
   instance: "com.mausbot.instance",
   created: "com.mausbot.created",
@@ -36,15 +41,15 @@ export const PATHS = {
   /** /var/log/mausbot on the host, mounted read-write: the audit log the server's owner reads. */
   audit: process.env.MAUSBOT_AUDIT_DIR || "/var/log/mausbot",
   /** In the container's own /tmp: `lunabot-connector job` reaches the running connector here. */
-  jobs: process.env.MAUSBOT_JOBS_SOCKET || "/tmp/mausbot-jobs.sock",
+  jobs: process.env.MAUSBOT_JOBS_SOCKET || "/tmp/lunabot-jobs.sock",
   /** /var/lib/mausbot/update on the host, on a customer-run server only: where an update is handed to the server's own updater. */
   update: process.env.MAUSBOT_UPDATE_DIR || "/var/lib/mausbot/update",
 } as const;
 
 export const AUDIT_FILE = "audit.jsonl";
 
-export const SECCOMP_FILE = "seccomp-lunabot-home.json";
-export const APPARMOR_PROFILE = "lunabot-home-narrow";
+export const SECCOMP_FILE = "seccomp-omb-home.json";
+export const APPARMOR_PROFILE = "omb-home-narrow";
 
 /** Where the home's edge listens on the server: loopback only, reached by the connector. */
 export const HOME_PORT = 8080;

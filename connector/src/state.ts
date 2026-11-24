@@ -23,7 +23,7 @@ export interface AgentRecord {
   mode?: ServerMode;
 }
 
-/** The server's admin paused remote management (`lunabot-connector pause`): every job and request from MausBot is refused. */
+/** The server's admin paused remote management (`lunabot-connector pause`): every job and request from LunaBot is refused. */
 export interface PauseRecord {
   paused: boolean;
   at: number;

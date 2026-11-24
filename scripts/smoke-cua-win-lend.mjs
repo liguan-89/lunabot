@@ -29,7 +29,7 @@ for (const { from } of resources) {
 }
 
 const work = mkdtempSync(join(tmpdir(), "omb-cua-lend-"));
-const installed = join(work, "OpenMausBot");
+const installed = join(work, "LunaBot");
 cpSync(dirname(createRequire(import.meta.url)("electron")), installed, { recursive: true });
 renameSync(join(installed, "electron.exe"), join(installed, "Luna Bot.exe"));
 for (const { from, to } of resources) cpSync(join(root, from), join(installed, "resources", to), { recursive: true });

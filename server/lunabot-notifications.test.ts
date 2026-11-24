@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { NotificationLogEntry, NotifyKind } from "../shared/notification.ts";
 import { readTeamRolesWith } from "./chief-level.ts";
-import { MAUSBOT_TOOL_DEFINITIONS, MAUSBOT_TOOL_NAMES } from "./drivers/agents-mausbot-tools.ts";
-import { listUnread, markRead, type NotificationsHost } from "./mausbot-notifications.ts";
-import { createMausBotNotificationRoutes } from "./routes/mausbot-notifications.ts";
+import { LUNABOT_TOOL_DEFINITIONS, LUNABOT_TOOL_NAMES } from "./drivers/agents-lunabot-tools.ts";
+import { listUnread, markRead, type NotificationsHost } from "./lunabot-notifications.ts";
+import { createLunaBotNotificationRoutes } from "./routes/lunabot-notifications.ts";
 import { PASS } from "./routes/table.ts";
 import type { BotRecord } from "./store.ts";
 
@@ -111,14 +111,14 @@ describe("who may", () => {
   });
 
   it("annotates the list read-only and the marker not", () => {
-    const hints = MAUSBOT_TOOL_DEFINITIONS.map((tool) => [tool.name, (tool as { annotations?: { readOnlyHint?: boolean } }).annotations?.readOnlyHint ?? false]);
+    const hints = LUNABOT_TOOL_DEFINITIONS.map((tool) => [tool.name, (tool as { annotations?: { readOnlyHint?: boolean } }).annotations?.readOnlyHint ?? false]);
     expect(hints).toEqual([["list_unread_notifications", true], ["mark_notifications_read", false]]);
   });
 
   it("is mounted for the Luna Bot profile and flat", () => {
-    expect([...MAUSBOT_TOOL_NAMES]).toEqual(["list_unread_notifications", "mark_notifications_read"]);
-    expect(MAUSBOT_TOOL_DEFINITIONS.map((tool) => tool.name)).toEqual([...MAUSBOT_TOOL_NAMES]);
-    expect(JSON.stringify(MAUSBOT_TOOL_DEFINITIONS)).not.toMatch(/"(oneOf|anyOf|allOf|const|format)"/);
+    expect([...LUNABOT_TOOL_NAMES]).toEqual(["list_unread_notifications", "mark_notifications_read"]);
+    expect(LUNABOT_TOOL_DEFINITIONS.map((tool) => tool.name)).toEqual([...LUNABOT_TOOL_NAMES]);
+    expect(JSON.stringify(LUNABOT_TOOL_DEFINITIONS)).not.toMatch(/"(oneOf|anyOf|allOf|const|format)"/);
   });
 });
 
@@ -126,7 +126,7 @@ describe("the internal route", () => {
   async function call(botId: string, method: string, path: string, body?: unknown) {
     const { host, rows } = setup([entry("a", "done"), entry("b", "question")], [MAUS, { id: "pip", name: "Pip" } as BotRecord]);
     const json = vi.fn();
-    const outcome = await createMausBotNotificationRoutes(host)({ method, path, res: {} as never, json, botId, readBody: async () => body });
+    const outcome = await createLunaBotNotificationRoutes(host)({ method, path, res: {} as never, json, botId, readBody: async () => body });
     const [, status, payload] = json.mock.calls[0] ?? [];
     return { outcome, status: status as number | undefined, payload: payload as { text?: string; error?: string } | undefined, rows };
   }

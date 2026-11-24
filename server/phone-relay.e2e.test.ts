@@ -52,7 +52,7 @@ async function boot(extra: Record<string, string> = {}) {
   const url = `http://127.0.0.1:${port}`;
   await waitFor(async () => {
     const body = await fetch(`${url}/api/health`).then((r) => r.json(), () => null) as { app?: string } | null;
-    return body?.app === "lunabot" || body?.app === "dexbot" || body?.app === "openmausbot";
+    return body?.app === "lunabot" || body?.app === "dexbot" || body?.app === "lunabot";
   }, 30_000);
   return { child: started, dataDir: dir, logPath: log, base: url };
 }
@@ -130,7 +130,7 @@ describe("serve --relay", () => {
     // Chat-only stays chat-only: the server's own scope rule answers.
     expect((await http(session, "POST", "/api/auth/pairing", { token: reply.token, body: "{}", headers: { "content-type": "application/json" } })).status).toBe(403);
 
-    // `openmausbot devices revoke`: the phone hears it inside the encryption.
+    // `lunabot devices revoke`: the phone hears it inside the encryption.
     expect((await owner(`/api/auth/sessions/${reply.device.id}`, { method: "DELETE" })).status).toBe(200);
     await session.closed;
     expect(session.removed).toBe(true);

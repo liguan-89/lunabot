@@ -7,7 +7,7 @@ import {
 
 const spec: ServiceSpec = {
   node: "/usr/bin/node",
-  script: "/usr/lib/node_modules/openmausbot/cli.js",
+  script: "/usr/lib/node_modules/lunabot/cli.js",
   serveArgs: ["--port", "8799", "--data-dir", "/home/lunabot/.lunabot", "--domain", "lunabot.example.com", "--no-pair"],
   dataDir: "/home/lunabot/.lunabot",
   user: "lunabot",
@@ -18,7 +18,7 @@ const spec: ServiceSpec = {
 
 describe("service units", () => {
   it("runs the same serve command, with strip-types only for a checkout", () => {
-    expect(serviceCommand(spec)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/openmausbot/cli.js", "serve", ...spec.serveArgs]);
+    expect(serviceCommand(spec)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/lunabot/cli.js", "serve", ...spec.serveArgs]);
     expect(serviceCommand({ ...spec, script: "/srv/Luna Bot/server/lunabot.ts" })[1]).toBe("--experimental-strip-types");
   });
 
@@ -27,13 +27,13 @@ describe("service units", () => {
     expect(unit).toContain("Description=Luna Bot (agentada)");
     expect(unit).toContain("User=lunabot");
     expect(unit).toContain("Environment=LUNABOT_DATA_DIR=/home/lunabot/.lunabot");
-    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --port 8799 --data-dir /home/lunabot/.lunabot --domain lunabot.example.com --no-pair");
+    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/lunabot/cli.js serve --port 8799 --data-dir /home/lunabot/.lunabot --domain lunabot.example.com --no-pair");
     expect(unit).toContain("Restart=always");
     expect(unit).toContain("AmbientCapabilities=CAP_NET_BIND_SERVICE");
     expect(unit).toContain("WantedBy=multi-user.target");
     const local = systemdUnit({ ...spec, bindsLowPorts: false, serveArgs: ["--port", "8799", "--data-dir", "/home/lunabot/.lunabot"] });
     expect(local).not.toContain("CAP_NET_BIND_SERVICE");
-    expect(systemdUnit({ ...spec, dataDir: "/home/lunabot/My Data", serveArgs: ["--data-dir", "/home/lunabot/My Data"] })).toContain('ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --data-dir "/home/lunabot/My Data"');
+    expect(systemdUnit({ ...spec, dataDir: "/home/lunabot/My Data", serveArgs: ["--data-dir", "/home/lunabot/My Data"] })).toContain('ExecStart=/usr/bin/node /usr/lib/node_modules/lunabot/cli.js serve --data-dir "/home/lunabot/My Data"');
   });
 
   it("renders a launchd agent that keeps the server alive and logs under the data dir", () => {
@@ -48,8 +48,8 @@ describe("service units", () => {
   });
 
   it("refuses to point a service at an npx cache, and knows where each platform's file goes", () => {
-    expect(unstableInstallWarning("/home/lunabot/.npm/_npx/abc123/node_modules/openmausbot/cli.js")).toMatch(/npm install -g lunabot/);
-    expect(unstableInstallWarning("/usr/lib/node_modules/openmausbot/cli.js")).toBeNull();
+    expect(unstableInstallWarning("/home/lunabot/.npm/_npx/abc123/node_modules/lunabot/cli.js")).toMatch(/npm install -g lunabot/);
+    expect(unstableInstallWarning("/usr/lib/node_modules/lunabot/cli.js")).toBeNull();
     const linux = servicePlan("linux", "/home/lunabot/.lunabot");
     expect(linux?.installed).toBe("/etc/systemd/system/lunabot.service");
     expect(linux?.activate.join("\n")).toContain("systemctl enable --now lunabot");
@@ -61,8 +61,8 @@ describe("service units", () => {
 
   it("renders Sentinel as a launchd agent on an interval, under its own label, logging outside the data dir", () => {
     const out = "/Users/lunabot/Library/Application Support/lunabot-sentinel";
-    const sentinel = { node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", dataDir: "/Users/lunabot/.lunabot", home: "/Users/lunabot", out };
-    expect(sentinelCommand(sentinel)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/openmausbot/cli.js", "sentinel", "--once", "--data-dir", "/Users/lunabot/.lunabot", "--out", out]);
+    const sentinel = { node: "/usr/bin/node", script: "/usr/lib/node_modules/lunabot/cli.js", dataDir: "/Users/lunabot/.lunabot", home: "/Users/lunabot", out };
+    expect(sentinelCommand(sentinel)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/lunabot/cli.js", "sentinel", "--once", "--data-dir", "/Users/lunabot/.lunabot", "--out", out]);
     expect(sentinelCommand({ ...sentinel, script: "/srv/Luna Bot/server/lunabot.ts" })[1]).toBe("--experimental-strip-types");
     const plist = sentinelLaunchdPlist(sentinel);
     expect(plist).toContain("<string>com.lunabot.sentinel</string>");
@@ -79,10 +79,10 @@ describe("service units", () => {
   });
 
   it("renders Sentinel as a systemd user timer, with no root", () => {
-    const sentinel = { node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", dataDir: "/home/lunabot/My Data", home: "/home/lunabot", out: "/home/lunabot/.local/state/lunabot-sentinel" };
+    const sentinel = { node: "/usr/bin/node", script: "/usr/lib/node_modules/lunabot/cli.js", dataDir: "/home/lunabot/My Data", home: "/home/lunabot", out: "/home/lunabot/.local/state/lunabot-sentinel" };
     const unit = sentinelSystemdService(sentinel);
     expect(unit).toContain("Type=oneshot");
-    expect(unit).toContain('ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js sentinel --once --data-dir "/home/lunabot/My Data" --out /home/lunabot/.local/state/lunabot-sentinel');
+    expect(unit).toContain('ExecStart=/usr/bin/node /usr/lib/node_modules/lunabot/cli.js sentinel --once --data-dir "/home/lunabot/My Data" --out /home/lunabot/.local/state/lunabot-sentinel');
     expect(unit).not.toContain("User=");
     expect(sentinelSystemdTimer()).toContain("OnUnitActiveSec=120s");
     expect(sentinelSystemdTimer()).toContain("WantedBy=timers.target");

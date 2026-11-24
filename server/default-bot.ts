@@ -9,11 +9,11 @@ import type { BotRecord, Message, Store } from "./store.ts";
 
 export type DefaultBotStore = Pick<Store, "bots" | "bot" | "createBot" | "patchBot" | "appendMessage" | "messagesFor" | "createTask" | "setChiefOfStaff">;
 
-/** Where each place (key "") and Team Cloud member (their email) is recorded as having had its MausBot, so one that is
+/** Where each place (key "") and Team Cloud member (their email) is recorded as having had its LunaBot, so one that is
  * gone is never made twice. */
 const LEDGER = "default-bot.json";
 
-/** The colour a new install gave its MausBot before Chrome, which an adopted MausBot trades for Chrome. */
+/** The colour a new install gave its LunaBot before Chrome, which an adopted LunaBot trades for Chrome. */
 const STARTER_COLOR = "silver";
 
 const HELPER_ASK_KEYS = [
@@ -38,7 +38,7 @@ export function ownsDefaultBot(bot: BotRecord | null | undefined, email: string 
   return Boolean(email && bot?.defaultBot && defaultBotPerson(bot) === email.trim().toLowerCase());
 }
 
-/** The English intro: who MausBot is, what it does here, and that it is looking around (its follow-up comes after, from
+/** The English intro: who LunaBot is, what it does here, and that it is looking around (its follow-up comes after, from
  * helper-followup.ts). Clients that know `helperIntro` say it in the viewer's own language. */
 export function helperIntroMessage(bot: Pick<BotRecord, "name" | "chiefOfStaff">, team?: string | null, language?: string): Omit<Message, "id" | "at"> {
   const title = bot.chiefOfStaff
@@ -73,7 +73,7 @@ function remember(dataDir: string, person: string, botId: string): void {
   writeFileAtomic(join(dataDir, LEDGER), JSON.stringify({ v: 1, places: { ...places, [person]: botId } }), { mode: 0o600 });
 }
 
-/** A member who left: should they join again, they are given a MausBot of their own again. */
+/** A member who left: should they join again, they are given a LunaBot of their own again. */
 export function forgetDefaultBot(dataDir: string, person: string): void {
   const places = ledger(dataDir);
   if (!person || !Object.hasOwn(places, person)) return;
@@ -82,11 +82,11 @@ export function forgetDefaultBot(dataDir: string, person: string): void {
 }
 
 /** A new install's own Luna Bot from before it was marked: the place's oldest bot, still live, outside any department,
- * not installed from a package, and still named MausBot or still in the colour a new install gave it. */
-export function seededMausBot(bots: readonly BotRecord[]): BotRecord | undefined {
+ * not installed from a package, and still named LunaBot or still in the colour a new install gave it. */
+export function seededLunaBot(bots: readonly BotRecord[]): BotRecord | undefined {
   const oldest = bots.reduce<BotRecord | undefined>((first, bot) => !first || bot.createdAt < first.createdAt ? bot : first, undefined);
   if (!oldest || oldest.hidden || oldest.movedTo || oldest.section?.trim() || oldest.installedPackage) return undefined;
-  return oldest.name === DEFAULT_BOT_NAME || oldest.name === "MausBot" || oldest.name === "DexBot" || oldest.color === STARTER_COLOR ? oldest : undefined;
+  return oldest.name === DEFAULT_BOT_NAME || oldest.name === "LunaBot" || oldest.name === "DexBot" || oldest.color === STARTER_COLOR ? oldest : undefined;
 }
 
 /** Puts the intro where its person sees it next: in its open conversation while nobody has written there, else at the
@@ -97,10 +97,10 @@ function introduce(store: DefaultBotStore, bot: BotRecord, team?: string | null,
   if (threadId) store.appendMessage(threadId, helperIntroMessage(bot, team, language));
 }
 
-/** The first message a new MausBot says instead of its intro. */
+/** The first message a new LunaBot says instead of its intro. */
 export type DefaultBotIntro = (bot: BotRecord) => Omit<Message, "id" | "at">;
 
-/** A new MausBot, with its intro as its first message. On a Team Cloud it is its member's alone. */
+/** A new LunaBot, with its intro as its first message. On a Team Cloud it is its member's alone. */
 export function createDefaultBot(store: DefaultBotStore, options: { person?: string; team?: string | null; language?: string; chief?: (id: string) => void; intro?: DefaultBotIntro; opened?: (bot: BotRecord) => void } = {}): BotRecord {
   const person = options.person?.trim().toLowerCase() ?? "";
   const taken = new Set(person ? [] : store.bots.map((bot) => bot.name.trim().toLowerCase()));
@@ -115,9 +115,9 @@ export function createDefaultBot(store: DefaultBotStore, options: { person?: str
   return bot;
 }
 
-/** Makes sure this place (no `person`) or this Team Cloud member has had its MausBot once: the one it has, the new
- * install's own adopted, or a new one. A MausBot that is gone is never made again. Two marked ones keep the oldest. A
- * place with no Chief of Staff at all gets MausBot as its Chief, so someone keeps an eye on the day; one that has a
+/** Makes sure this place (no `person`) or this Team Cloud member has had its LunaBot once: the one it has, the new
+ * install's own adopted, or a new one. A LunaBot that is gone is never made again. Two marked ones keep the oldest. A
+ * place with no Chief of Staff at all gets LunaBot as its Chief, so someone keeps an eye on the day; one that has a
  * Chief keeps it. */
 /** `opened`: a new one, before anyone is told of it, so its person's main chat is theirs from its first frame. */
 export function ensureDefaultBot(store: DefaultBotStore, options: { dataDir: string; person?: string; team?: string | null; language?: string; opened?: (bot: BotRecord) => void }): BotRecord | null {
@@ -130,7 +130,7 @@ export function ensureDefaultBot(store: DefaultBotStore, options: { dataDir: str
     return marked[0];
   }
   if (Object.hasOwn(ledger(options.dataDir), person)) return null;
-  const adoptable = person ? undefined : seededMausBot(store.bots);
+  const adoptable = person ? undefined : seededLunaBot(store.bots);
   const chief = !person && !store.bots.some((bot) => bot.chiefOfStaff && !bot.hidden) ? (id: string) => store.setChiefOfStaff(id) : undefined;
   let bot: BotRecord;
   if (adoptable) {
@@ -150,14 +150,14 @@ function usedBot(store: Pick<Store, "messagesFor">, bot: BotRecord): boolean {
   return store.messagesFor(bot.threadId).some((message) => message.role === "user");
 }
 
-/** This place's own MausBot that stays the MausBot when another arrives by a move: the visible one the person already used. */
+/** This place's own LunaBot that stays the LunaBot when another arrives by a move: the visible one the person already used. */
 export function keptDefaultBot(store: Pick<Store, "bots" | "messagesFor">, arrivingId: string): BotRecord | undefined {
   return store.bots.find((bot) => bot.id !== arrivingId && bot.defaultBot && !defaultBotPerson(bot) && !bot.hidden && usedBot(store, bot));
 }
 
-/** A move brought this place's MausBot from another computer. When nobody used the MausBot this place had, the arriving
- * one becomes the one MausBot here, and the one this place had becomes an ordinary bot (retireUnusedStarter archives it).
- * When this place's own MausBot was used, it stays the MausBot, and the arriving one becomes an ordinary bot that can be
+/** A move brought this place's LunaBot from another computer. When nobody used the LunaBot this place had, the arriving
+ * one becomes the one LunaBot here, and the one this place had becomes an ordinary bot (retireUnusedStarter archives it).
+ * When this place's own LunaBot was used, it stays the LunaBot, and the arriving one becomes an ordinary bot that can be
  * deleted, named for the computer it came from so the two are told apart. */
 export function takeArrivingDefaultBot(store: Pick<Store, "bots" | "patchBot" | "messagesFor">, id: string, computer?: string): void {
   const arriving = store.bots.find((bot) => bot.id === id);
@@ -165,7 +165,7 @@ export function takeArrivingDefaultBot(store: Pick<Store, "bots" | "patchBot" | 
   const kept = keptDefaultBot(store, id);
   if (kept) {
     const from = computer?.trim() || "another computer";
-    const plain = [DEFAULT_BOT_NAME, "MausBot", "DexBot", kept.name].map((name) => name.trim().toLowerCase()).includes(arriving.name.trim().toLowerCase());
+    const plain = [DEFAULT_BOT_NAME, "LunaBot", "DexBot", kept.name].map((name) => name.trim().toLowerCase()).includes(arriving.name.trim().toLowerCase());
     store.patchBot(id, { defaultBot: undefined, sidebarHidden: undefined, ...(plain ? { name: `${DEFAULT_BOT_NAME} (from ${from})` } : {}) });
     return;
   }
@@ -175,8 +175,8 @@ export function takeArrivingDefaultBot(store: Pick<Store, "bots" | "patchBot" | 
   if (!arriving.defaultBot || defaultBotPerson(arriving)) store.patchBot(id, { defaultBot: {} });
 }
 
-/** After a bot arrives by a move: the MausBot this place made for itself (by id, from the ledger), once it is neither
- * the MausBot nor the Chief and nobody has used it, is archived, so the move leaves one MausBot and nothing of the
+/** After a bot arrives by a move: the LunaBot this place made for itself (by id, from the ledger), once it is neither
+ * the LunaBot nor the Chief and nobody has used it, is archived, so the move leaves one LunaBot and nothing of the
  * person's is lost. */
 export function retireUnusedStarter(store: Pick<Store, "bot" | "patchBot" | "messagesFor">, dataDir: string): void {
   const own = ledger(dataDir)[""];

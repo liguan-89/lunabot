@@ -106,7 +106,7 @@ async function withFixture(test: (f: any) => Promise<void>, options: { plan: boo
   }
 }
 
-const SEARCH = { tool: "x_search", arguments: { query: "mausbot" } };
+const SEARCH = { tool: "x_search", arguments: { query: "lunabot" } };
 const PEOPLE = { tool: "research_call", arguments: { id: "apollo.people.search", params: { q_organization_domains: "openmausbot.com" } } };
 
 it("shows no research tools without a treg key or a Cloud plan, even to a bot switched on", async () => withFixture(async (f) => {

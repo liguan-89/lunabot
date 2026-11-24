@@ -66,7 +66,7 @@ export const WIDGET_SAMPLES: Record<string, unknown> = {
   pullRequests: {
     type: "ListView",
     title: "Pull requests",
-    caption: "mausbot-mobile",
+    caption: "lunabot-mobile",
     meta: "3 open",
     children: [
       prRow(750, "iOS: mid-turn steer", "#750 · 4 files · passed 2h ago", "Ready", "success"),

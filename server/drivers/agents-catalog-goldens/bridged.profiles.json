@@ -496,7 +496,7 @@
       "use_tool"
     ]
   },
-  "default+mausbot": {
+  "default+lunabot": {
     "bytes": 17974,
     "sha256": "ea5ad97d6f9e454796d77718e0b5e6cd4ad221ede64a74e40f5a62d75a043b8c",
     "tools": [
@@ -518,7 +518,7 @@
       "use_tool"
     ]
   },
-  "skills+shared+voice+mausbot": {
+  "skills+shared+voice+lunabot": {
     "bytes": 18822,
     "sha256": "8905f3e445d60e9687d6b4805cc516a91b1b8a88edfdadd68624cbfb2a144d4e",
     "tools": [

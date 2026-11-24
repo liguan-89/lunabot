@@ -59,7 +59,7 @@ export function methodNotAllowed(res, allow) {
   return json(res, 405, { error: "method_not_allowed" }, { allow });
 }
 
-export async function readJson(req, limit = BODY_LIMIT) {
+export async function readBody(req, limit = BODY_LIMIT) {
   const declared = Number(req.headers["content-length"] ?? 0);
   if (declared > limit) throw new HttpError(413, "request_too_large");
   const chunks = [];
@@ -69,15 +69,29 @@ export async function readJson(req, limit = BODY_LIMIT) {
     if (total > limit) throw new HttpError(413, "request_too_large");
     chunks.push(chunk);
   }
-  if (total === 0) return {};
+  return Buffer.concat(chunks);
+}
+
+function parseJsonObject(raw) {
   let value;
   try {
-    value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    value = JSON.parse(raw.toString("utf8"));
   } catch {
     throw new HttpError(400, "invalid_json");
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new HttpError(400, "invalid_json");
   return value;
+}
+
+export async function readJson(req, limit = BODY_LIMIT) {
+  const raw = await readBody(req, limit);
+  return raw.length === 0 ? {} : parseJsonObject(raw);
+}
+
+/** Body signed callers need the exact bytes a home hashed: parse JSON and keep them. */
+export async function readJsonRaw(req, limit = BODY_LIMIT) {
+  const raw = await readBody(req, limit);
+  return { raw, body: raw.length === 0 ? {} : parseJsonObject(raw) };
 }
 
 export function bearer(req) {

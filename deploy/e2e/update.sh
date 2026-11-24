@@ -33,7 +33,7 @@ version() { (cd "$DIR" && docker compose exec -T lunabot sh -c 'curl -sf http://
 wait_version() { for _ in $(seq 1 60); do [ "$(version)" = "$1" ] && return 0; sleep 3; done; return 1; }
 in_data() { docker run --rm --network none --user 0:0 -v "$DATA:/d" --entrypoint sh "$REPO:v$FROM" -c "$1"; }
 # The copies of the data the updates made: one Docker volume each, and never more than one once an update is done.
-copies() { docker volume ls -q --filter label=com.mausbot.role=update-backup; }
+copies() { docker volume ls -q --filter label=com.lunabot.role=update-backup; }
 copy() {
   local found
   found=$(copies)

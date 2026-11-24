@@ -148,7 +148,7 @@ class CompanionClient(
     val connection: Connection,
     private val token: String?,
     baseClient: OkHttpClient = OkHttpClient(),
-    appLabel: String = "mausbot-android",
+    appLabel: String = "lunabot-android",
 ) {
     /**
      * When the pairing carried an e2e descriptor, every request and stream runs
