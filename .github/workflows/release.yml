@@ -362,7 +362,7 @@ jobs:
       - name: Install package validation and native smoke tools
         run: >-
           sudo apt-get update && sudo apt-get install -y
-          at-spi2-core cpio dbus-x11 desktop-file-utils libxi6 libxkbcommon0 openbox rpm squashfs-tools x11-utils xdotool xvfb
+          at-spi2-core dbus-x11 desktop-file-utils libxi6 libxkbcommon0 openbox x11-utils xdotool xvfb
       - run: pnpm install --frozen-lockfile
       - name: Clean generated output
         run: pnpm clean
@@ -419,16 +419,12 @@ jobs:
         run: |
           v=$(node -p "require('./package.json').version")
           cp "release/LUNABOT-$v-amd64.deb" release/LUNABOT-amd64.deb
-          cp "release/LUNABOT-$v-x86_64.AppImage" release/LUNABOT.AppImage
-          cp "release/LUNABOT-$v-x86_64.rpm" release/LUNABOT-x86_64.rpm
-          (cd release && sha256sum LUNABOT-$v-amd64.deb LUNABOT-$v-x86_64.AppImage LUNABOT-$v-x86_64.rpm LUNABOT-amd64.deb LUNABOT.AppImage LUNABOT-x86_64.rpm > SHA256SUMS-ubuntu-x64.txt)
+          (cd release && sha256sum LUNABOT-$v-amd64.deb LUNABOT-amd64.deb > SHA256SUMS-ubuntu-x64.txt)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-release
           path: |
             release/*.deb
-            release/*.AppImage
-            release/*.rpm
             release/SHA256SUMS-ubuntu-x64.txt
             release/latest-linux.yml
           if-no-files-found: error
@@ -465,10 +461,8 @@ jobs:
             "LUNABOT-$VERSION-arm64.zip.blockmap"
             "LUNABOT-$VERSION-setup.exe"
             "LUNABOT-$VERSION-setup.exe.blockmap"
-            "LUNABOT-$VERSION-x86_64.AppImage"
-            "LUNABOT-$VERSION-x86_64.rpm"
-            LUNABOT-amd64.deb LUNABOT-setup.exe LUNABOT-x86_64.rpm
-            LUNABOT.AppImage LUNABOT.dmg SHA256SUMS-ubuntu-x64.txt
+            LUNABOT-amd64.deb LUNABOT-setup.exe LUNABOT.dmg
+            SHA256SUMS-ubuntu-x64.txt
           )
           for file in "${required[@]}"; do
             test -s "assets/$file" || { echo "::error::missing or empty release asset: $file"; exit 1; }
@@ -489,9 +483,7 @@ jobs:
             ]],
             ["latest.yml", ["LUNABOT-${{ needs.prepare.outputs.version }}-setup.exe"]],
             ["latest-linux.yml", [
-              "LUNABOT-${{ needs.prepare.outputs.version }}-x86_64.AppImage",
               "LUNABOT-${{ needs.prepare.outputs.version }}-amd64.deb",
-              "LUNABOT-${{ needs.prepare.outputs.version }}-x86_64.rpm",
             ]],
           ]);
           let bad = 0;
