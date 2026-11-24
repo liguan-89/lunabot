@@ -21,14 +21,43 @@ class OkHttpE2eConnector(
         .pingInterval(20, TimeUnit.SECONDS)
         .build(),
 ) : E2eSocketConnector {
+    /**
+     * Away from the computer's network nothing answers its LAN address: that connection can only time out, and the
+     * relay is tried right after it. OkHttp's default 10 s wait for an answer that is not coming is what made every
+     * start away from home take that long to reach the relay.
+     */
+    private val lanClient = client.newBuilder()
+        .connectTimeout(LAN_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        .build()
+
     override fun connect(url: String, protocols: List<String>, listener: E2eSocketListener): E2eSocket {
         val request = Request.Builder()
             .url(url)
             .apply { if (protocols.isNotEmpty()) header("Sec-WebSocket-Protocol", protocols.joinToString(", ")) }
             .build()
         val socket = OkHttpE2eSocket(listener)
-        socket.webSocket = client.newWebSocket(request, socket)
+        socket.webSocket = (if (isLanDial(url)) lanClient else client).newWebSocket(request, socket)
         return socket
+    }
+
+    companion object {
+        const val LAN_CONNECT_TIMEOUT_MS = 3_000L
+
+        /**
+         * A cleartext dial to a private or loopback IPv4 address — the computer on this phone's own network. A
+         * tailnet name may take seconds to find its path and a relay is far away; both keep the client's own timeout.
+         */
+        fun isLanDial(url: String): Boolean {
+            if (!url.startsWith("ws://")) return false
+            val authority = url.removePrefix("ws://").substringBefore('/')
+            if (authority.startsWith("[")) return false
+            val octets = authority.substringBeforeLast(':').split('.').map { it.toIntOrNull() ?: return false }
+            if (octets.size != 4 || octets.any { it !in 0..255 }) return false
+            return octets[0] == 127 || octets[0] == 10 ||
+                (octets[0] == 172 && octets[1] in 16..31) ||
+                (octets[0] == 192 && octets[1] == 168) ||
+                (octets[0] == 169 && octets[1] == 254)
+        }
     }
 }
 
