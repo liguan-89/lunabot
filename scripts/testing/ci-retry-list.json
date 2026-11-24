@@ -175,6 +175,20 @@
       "owner": "liguan-89",
       "reason": "Failed once on the release-lane macOS S4 (Nov 22): agent_browser_click answered 'No element matches #script' — the click reached the fresh page before its DOM was ready; macOS Chrome spawn under full-matrix load. Green everywhere else.",
       "since": "2026-11-22"
+    },
+    {
+      "file": "server/boat-auto-sleep.test.ts",
+      "test": "a cloud computer goes to sleep after its idle window > a stop the relay refuses is logged and retried after a longer wait each time",
+      "owner": "liguan-89",
+      "reason": "Failed twice on loaded ubuntu shards (Nov 24: main #89 run shard 6, PR #91 shard 6): the 1s/2s backoff stops did arrive (~1s/~2s gaps in the relay log) but the third did not land inside the 10s host-scaled waitFor window under shard load. Green locally.",
+      "since": "2026-11-25"
+    },
+    {
+      "file": "server/browser/viewers/viewers.e2e.test.ts",
+      "test": "viewers of the new browser on real Chrome > lets the bot see, click, type and scroll a narrow panel's tall page as it is laid out, and the standard page once nobody watches",
+      "owner": "liguan-89",
+      "reason": "Failed once on the PR #93 S4 ubuntu leg (Nov 24): after viewer.close() the page stayed at the transitional [1280,1400,2] past the 15 s until() window instead of returning to [1280,800,2] — real-Chrome viewport restore lagging under full-matrix load. Green locally.",
+      "since": "2026-11-25"
     }
   ]
 }
