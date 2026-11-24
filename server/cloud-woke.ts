@@ -13,12 +13,13 @@ export function wokeSignature(secret: string, machineId: string, timestamp: stri
 }
 
 export function createWokeNotifier(options: {
-  adminOrigin: string; machineId: string; secret: string; fetcher?: typeof fetch; now?: () => number; log?: (line: string) => void;
+  adminOrigin: string; machineId: string; secret: string; version?: string;
+  fetcher?: typeof fetch; now?: () => number; log?: (line: string) => void;
 }): () => void {
-  const { adminOrigin, machineId, secret, fetcher = fetch, now = Date.now, log } = options;
+  const { adminOrigin, machineId, secret, version, fetcher = fetch, now = Date.now, log } = options;
   let warned = false;
   return () => {
-    const body = JSON.stringify({ v: 1, wokeAt: now() });
+    const body = JSON.stringify({ v: 1, wokeAt: now(), ...(version ? { version } : {}) });
     const timestamp = String(Math.floor(now() / 1000)), nonce = randomBytes(18).toString("base64url");
     void fetcher(`${adminOrigin}${WOKE_ADMIN_PATH}`, { method: "POST", redirect: "error", cache: "no-store", body, signal: AbortSignal.timeout(WOKE_TIMEOUT_MS), headers: {
       accept: "application/json", "content-type": "application/json", "x-lunabot-cloud-machine": machineId, "x-lunabot-cloud-timestamp": timestamp, "x-lunabot-cloud-nonce": nonce,

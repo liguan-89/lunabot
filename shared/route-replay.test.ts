@@ -397,7 +397,7 @@ describe("small helpers", () => {
     for (const tool of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_KEY", "PHONE_UI_BACK"]) {
       expect(isReplayablePhoneTool(tool), tool).toBe(true);
     }
-    for (const tool of ["PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE", "RUN_COMMAND"]) {
+    for (const tool of ["PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE", "PHONE_UI_DO_EACH", "RUN_COMMAND"]) {
       expect(isReplayablePhoneTool(tool), tool).toBe(false);
     }
   });

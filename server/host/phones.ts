@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, saveFile, saveImage } from "../attachments.ts";
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
-import { createNoticeDedup, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type LearnLevel, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
+import { createNoticeDedup, LEARN_LEVELS, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type LearnLevel, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
 import { createNoticeLearn, type NoticeLearn } from "./notice-learn.ts";
 import { createNoticeTriage, type NoticeSurfacedItem, type NoticeTriage } from "./notice-triage.ts";
 import { renderObserved, type TopicPoolData } from "../notice-learn.ts";
@@ -165,6 +165,11 @@ export function createPhones(deps: PhonesDeps) {
           busy: () => registry.list(ownerKey, () => false).some((phone) => jobs.busy(phone.key)),
           language: () => deps.noticeLanguage?.() ?? "English",
           surface: (packageName, items) => deps.noticeSurfaced?.(ownerKey, packageName, items),
+          // The learn level's surface allowance; off leaves the conservative default.
+          surfaceCap: () => {
+            const level = deps.noticeLearnLevel?.(ownerKey);
+            return level && level !== "off" ? LEARN_LEVELS[level].surfaceCap : 10;
+          },
           now: Date.now,
           wait: (ms, run) => setTimeout(run, ms),
           unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
@@ -208,9 +213,12 @@ export function createPhones(deps: PhonesDeps) {
     if (shouldLearnPackage(record.packageName, policy) !== "keep") return;
     const sink = noticeSinkFor(phone.owner);
     // An unticked package stops being learned and its kept records go with it.
-    sink.inbox.removePackages((pkg) => policy.allow.has(pkg));
-    sink.learn.purge((pkg) => policy.allow.has(pkg));
-    for (const pkg of sink.msgApps) if (!policy.allow.has(pkg)) sink.msgApps.delete(pkg);
+    // "Unticked" means unticked on every phone the owner has: evidence may come
+    // from any of them, so the keep-list is their union, not this sender's.
+    const ownerAllow = new Set(registry.list(phone.owner, () => false).flatMap((p) => p.registration.noticeApps ?? []));
+    sink.inbox.removePackages((pkg) => ownerAllow.has(pkg));
+    sink.learn.purge((pkg) => ownerAllow.has(pkg));
+    for (const pkg of sink.msgApps) if (!ownerAllow.has(pkg)) sink.msgApps.delete(pkg);
     sink.inbox.noteReceived();
     if (shouldLearn(record, policy) !== "keep") return;
     const admitted = sink.dedup.admit(record);
@@ -237,7 +245,13 @@ export function createPhones(deps: PhonesDeps) {
     if (level === "off") return null;
     const sink = noticeInboxes.get(ownerKey);
     if (!sink) return null;
-    return renderObserved(sink.learn.topics(), level, (pkg) => sink.msgApps.has(pkg) ? "high" : "mid", Date.now());
+    // Consent is read live, not when the evidence was learned: an app the
+    // person unticked stops counting on the next prompt, not whenever a
+    // notice next happens to land. "low" is never a task tier, so its days
+    // cannot qualify a topic.
+    const allowed = new Set(registry.list(ownerKey, () => false).flatMap((p) => p.registration.noticeApps ?? []));
+    return renderObserved(sink.learn.topics(), level,
+      (pkg) => !allowed.has(pkg) ? "low" : sink.msgApps.has(pkg) ? "high" : "mid", Date.now());
   };
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
@@ -418,6 +432,9 @@ export function createPhones(deps: PhonesDeps) {
       const request = deps.request(threadId);
       const line = request?.messageId ? store.messagesFor(threadId).find((message) => message.id === request.messageId) : undefined;
       if (sends.has(line?.sendId)) return "phone";
+      // A turn a channel relay opened comes from the person's phone too.
+      const channel = line?.sender?.id;
+      if (channel?.startsWith("sms:") || channel?.startsWith("wechat:") || channel?.startsWith("notice:")) return "phone";
       return personAsked && !request?.automation && request?.origin?.kind === "user" ? "computer" : "unattended";
     },
     goalFor,
@@ -435,7 +452,10 @@ export function createPhones(deps: PhonesDeps) {
       const intent = matched.length === 1 ? await intentFor(input.turn) : undefined;
       const parts = host.parts(bot, phoneOwner, input.place, request, intent);
       // Only a route the prompt actually carries is owed the turn-end settle; the offer is spent once the turn ends.
-      if (phoneOwner !== null && matched.length === 1 && parts.some((part) => part.id === "device-route" && part.text !== "")) {
+      // The device-route part can be non-empty on the screen map alone, so the intent verdict — which decides
+      // whether the route text was injected at all — is checked here too.
+      if (phoneOwner !== null && matched.length === 1 && intent !== "discuss" && intent !== null
+        && parts.some((part) => part.id === "device-route" && part.text !== "")) {
         routeOffers.set(intentKey(input.turn), { ownerKey: phoneOwner, id: matched[0].id });
         for (const stale of routeOffers.keys()) {
           if (routeOffers.size <= 64) break;

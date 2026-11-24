@@ -292,26 +292,26 @@ function declinedRefusal(input: ControlInput, hit: IrreversibleHit): string {
     "Ask the person what they would like instead.";
 }
 
-/** A run is one card for a whole chain, so an irreversible step inside it must not ride that card. */
-function runRefusal(input: ControlInput, hit: IrreversibleHit): string {
-  const step = `this PHONE_UI_RUN includes ${controlWhat(input, hit)}, the irreversible action "${hit.action}"`;
+/** A run or each-loop is one card for a whole chain, so an irreversible step inside it must not ride that card. */
+function runRefusal(tool: string, input: ControlInput, hit: IrreversibleHit): string {
+  const step = `this ${tool} includes ${controlWhat(input, hit)}, the irreversible action "${hit.action}"`;
   if (hit.action === "pay") {
     return `Not run: ${step}, and a payment is never approved for a bot here. ` +
-      "Run the other steps with PHONE_UI_RUN, and ask the person to make the payment themselves.";
+      `Run the other steps with ${tool}, and ask the person to make the payment themselves.`;
   }
-  return `Not run: ${step}. Run the other steps with PHONE_UI_RUN, then that one step alone, so the person sees a card for exactly that.`;
+  return `Not run: ${step}. Run the other steps with ${tool}, then that one step alone, so the person sees a card for exactly that.`;
 }
 
 /** Why an approved card still grants nothing, and what the bot does instead. */
 type CardOutcome = Exclude<DeclareResult, "pending"> | "spent" | "run";
 
 /** The sentence for a card the gate could not turn into a grant. */
-function cardRefusal(input: ControlInput, hit: IrreversibleHit, outcome: CardOutcome): string {
+function cardRefusal(input: ControlInput, hit: IrreversibleHit, outcome: CardOutcome, tool = "PHONE_UI_RUN"): string {
   if (outcome === "unsupported") return payRefusal(input, hit);
   if (outcome === "mismatch") return changedRefusal(input, hit);
   if (outcome === "declined") return declinedRefusal(input, hit);
   if (outcome === "spent") return spentRefusal(input, hit);
-  return runRefusal(input, hit);
+  return runRefusal(tool, input, hit);
 }
 
 /** What an approved card became: a grant for this one step, or the sentence saying why it grants nothing. The refusal
@@ -364,7 +364,7 @@ function evict<K, V>(map: Map<K, V>, max: number): void {
 /** The per-turn gates, the loop guard, and the last screen each phone showed. One lives for the server's lifetime;
  * every map evicts its oldest entry, so a long-lived server does not grow without bound. */
 export class PhoneConfirms {
-  private readonly turns = new Map<string, { generation: string; gate: ConfirmGate; step: number; cards: Set<string> }>();
+  private readonly turns = new Map<string, { generation: string; gate: ConfirmGate; step: number; cards: Set<string>; lastTyped: string | null }>();
   private readonly screens = new Map<string, PhoneScreenRecord>();
   private readonly guards = new Map<string, { generation: string; state: GuardState }>();
 
@@ -413,8 +413,9 @@ export class PhoneConfirms {
     const view = viewOf(screen);
     // Graded only when a refusal needs it: the approved path pays for nothing.
     const risk = () => assessRisk({ tool, args, hit, screen: view });
-    if (tool.replace(MCP_PREFIX, "") === "PHONE_UI_RUN") {
-      return { result: "refused", reason: cardRefusal(input, hit, "run"), risk: risk() };
+    const wire = tool.replace(MCP_PREFIX, "");
+    if (wire === "PHONE_UI_RUN" || wire === "PHONE_UI_DO_EACH") {
+      return { result: "refused", reason: cardRefusal(input, hit, "run", wire), risk: risk() };
     }
     const app = this.foreground(phoneKey);
     const state = this.state(turn);
@@ -423,7 +424,7 @@ export class PhoneConfirms {
     const request: ConfirmationRequest = {
       action: hit.action,
       target: hit.matched.slice(0, TARGET_MAX),
-      content: contentOf(tool, args),
+      content: hit.action === "send" ? state.lastTyped ?? "" : contentOf(tool, args),
       // The amount the person saw on this screen, so the grant can bind it at permit time; null where the action
       // carries none, or where the screen's totals cannot be read into one.
       amount: approvalAmount(view, hit.action, hit.matched),
@@ -513,11 +514,14 @@ export class PhoneConfirms {
       : guardNoteScreen(state, screen.fingerprint));
   }
 
-  /** A write that ran. Typing is part of an approved send, so it keeps the grant; any other write voids it. A turn with
-   * no gate has nothing to void. */
-  noteWrite(turn: ConfirmTurn, kind: WriteKind): void {
-    const held = this.turns.get(confirmKey(turn));
-    if (held && held.generation === (turn.generation ?? "")) held.gate.noteWrite(kind);
+  /** A write that ran. Typing is part of an approved send, so it keeps the grant; any other write voids it. The typed
+   * text is kept for the send card: what a send would carry is the last thing typed, which the screen check then
+   * verifies is still in a field. The state is made here rather than only on a classified call, since a turn that has
+   * only typed so far has no gate yet but still needs its text remembered. */
+  noteWrite(turn: ConfirmTurn, kind: WriteKind, text?: string): void {
+    const state = this.state(turn);
+    state.gate.noteWrite(kind);
+    if (kind === "typing" && typeof text === "string") state.lastTyped = text;
   }
 
   /** Forget one turn: its grants, its refusals, its step count and its loop guard. A phone's last screen is not the
@@ -538,14 +542,14 @@ export class PhoneConfirms {
     return state !== undefined && state.generation === (turn.generation ?? "");
   }
 
-  private state(turn: ConfirmTurn): { generation: string; gate: ConfirmGate; step: number; cards: Set<string> } {
+  private state(turn: ConfirmTurn): { generation: string; gate: ConfirmGate; step: number; cards: Set<string>; lastTyped: string | null } {
     const key = confirmKey(turn);
     const generation = turn.generation ?? "";
     let state = this.turns.get(key);
     // A grant belongs to the turn that made it: the next turn in this conversation starts with none.
     if (state && state.generation !== generation) state = undefined;
     if (state) this.turns.delete(key);
-    else state = { generation, gate: new ConfirmGate(), step: 0, cards: new Set() };
+    else state = { generation, gate: new ConfirmGate(), step: 0, cards: new Set(), lastTyped: null };
     this.turns.set(key, state);
     evict(this.turns, MAX_CONFIRM_TURNS);
     return state;

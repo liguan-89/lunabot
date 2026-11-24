@@ -59,6 +59,18 @@ describe("resolveDataDir", () => {
     expect(existsSync(join(dir, DATA_DIR_NAME))).toBe(false);
   });
 
+  it("adopts a lone legacy folder when LUNABOT_DATA_DIR names the canonical one", () => {
+    const dir = home();
+    const legacy = join(dir, LEGACY_DATA_DIR_NAMES[0]);
+    mkdirSync(legacy);
+    writeFileSync(join(legacy, "config.json"), "{}");
+    const configured = join(dir, DATA_DIR_NAME);
+
+    expect(resolveDataDir({ LUNABOT_DATA_DIR: configured }, { home: dir })).toBe(configured);
+    expect(existsSync(legacy)).toBe(false);
+    expect(readFileSync(join(configured, "config.json"), "utf8")).toBe("{}");
+  });
+
   it("joins with the platform's own separator, as a Cloud volume needs", () => {
     const calls: Array<[string, string]> = [];
     const posix = (base: string, name: string) => {

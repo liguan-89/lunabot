@@ -24,6 +24,46 @@ The upstream attribution for every ported file is in
 `third_party/mika/README.md`; this document is the engineering record of what
 changed and how to check it.
 
+## Status update (2026-11-24)
+
+This analysis predates the wiring commits; several "not wired" claims below are
+now stale. Verified against the code, the current state is:
+
+- **Intent gate**: wired. `server/host/phones.ts` `assessTurn` judges the
+  person's own message only (botDecide leg at 0.85, judge leg reusing the
+  answer-verify text call, 10 s budgets, per-turn cache). A `discuss` verdict
+  refuses every phone call that turn (`server/phones/host.ts`), and only a
+  single route candidate is ever offered a route prompt.
+- **Route replay**: wired end to end — match → `routePrompt` + screenmap into
+  the `device-route` prompt part → `routeOffers` → turn-end settle
+  (used/success/miss) → `learnable` → `server/phone-routes.ts` store
+  (0700/0600, atomic, 50 per owner, 64 KiB). `PHONE_UI_DO_EACH` is excluded
+  from learning: its `body` nests steps where the ref/sensitive sweeps do not
+  look.
+- **Pacing**: wired — Settings "操作节奏" → `ChatPreferences.phonePace` →
+  `PhoneJobRunner` → `PhoneUiTaskExecutor.setPace` (FAST/STANDARD/HUMAN,
+  default FAST).
+- **Notice learning**: wired end to end — `NoticeRelay` → `phoneEvent` →
+  `noticeFor`/`shadeFor` (whitelist re-check, sanitize, dedup, triage.poke,
+  learn.capture) → per-owner `NoticeTriage`/`NoticeLearn` sinks →
+  `learnedNotices` rendered into the prompt at the owner's learn level.
+- **Self-check / repair / back-affordance / DO_EACH / unlock / WeChat relay**:
+  all have production entry points (see the audit trail in git history).
+
+Fixed after this analysis (branch `fix/mika-audit-wiring`): notice event
+fields that the server requires (`title`, `text`, message `sender`) are now
+`@EncodeDefault` so empty values still reach the wire; `PHONE_UI_DO_EACH` is
+refused on the same irreversible-step rule as `PHONE_UI_RUN`; typed text in a
+send approval now binds the last typed text instead of always mismatching;
+triage/learn re-check on a timer while a phone job is busy instead of
+stalling; unticked notice apps stop counting at render time and the purge
+keep-list is the union of all the owner's phones; the triage surface cap
+reads the learn level; turns opened by the sms/wechat/notice relays report
+the phone place; WeChat event text is capped at the wire limit. Still open:
+`order` approvals cannot succeed (no amount is extracted, so the permit
+always mismatches — fail-closed, documented here rather than silently
+claimed), and `server/phone-risk.ts` remains uncalled pure module.
+
 ## Decision model
 
 Our decider already reached further than Mika's. `server/decider/types.ts`

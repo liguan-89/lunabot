@@ -203,6 +203,25 @@ test("control plane creates installations and mints a relay token the relay key 
     assert.equal(renewed.body.hostId, grant.body.hostId);
     const renewedClaims = JSON.parse(Buffer.from(renewed.body.token.split(".")[0], "base64url").toString("utf8"));
     assert.equal(renewedClaims.hid, grant.body.hostId);
+
+    // The refresh doubles as the desktop's heartbeat: the account page shows
+    // the version that last rang home, not the one that registered. A report
+    // refreshes it; an absent report leaves the stored one alone.
+    const listed = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(listed.body.installations.find((row) => row.id === installation.body.installation.id).appVersion, "2.0.0");
+    const upgraded = await call(app.base, "POST", "/v1/installations/self/relay-token", {
+      appVersion: "2.1.7",
+      devices: { e2e: true, legacy: 0 },
+    }, installation.body.credential);
+    assert.equal(upgraded.status, 200);
+    const afterUpgrade = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(afterUpgrade.body.installations.find((row) => row.id === installation.body.installation.id).appVersion, "2.1.7");
+    const silent = await call(app.base, "POST", "/v1/installations/self/relay-token", {
+      devices: { e2e: true, legacy: 0 },
+    }, installation.body.credential);
+    assert.equal(silent.status, 200);
+    const afterSilent = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(afterSilent.body.installations.find((row) => row.id === installation.body.installation.id).appVersion, "2.1.7");
   } finally {
     app.server.close();
     app.store.close();
@@ -236,7 +255,7 @@ test("the Cloud serves docs, feedback and the download page instead of a private
     const download = await call(app.base, "GET", "/download");
     assert.equal(download.status, 200);
     assert.match(String(download.body), /\/download\/dexbot\.apk/);
-    assert.match(String(download.body), /com\.openmausbot\.companion/);
+    assert.match(String(download.body), /com\.lunabot\.companion/);
     assert.doesNotMatch(String(download.body), /com\.dexbot\.companion/);
     assert.doesNotMatch(String(download.body), /github\.com\/liguan-89/);
   } finally {

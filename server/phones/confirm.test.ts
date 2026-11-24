@@ -24,6 +24,11 @@ const orderScreen = observed([
   { ref: "e1", text: "合计 ¥39.90", bounds: [0, 800, 400, 840] },
   { ref: "e2", text: "去结算", bounds: [0, 900, 400, 960] },
 ]);
+const sendScreen = observed([
+  { ref: "e1", text: "张三", bounds: [0, 40, 400, 100] },
+  { ref: "e2", text: "晚上好", editable: true, bounds: [0, 300, 400, 360] },
+  { ref: "e3", text: "发送", bounds: [0, 800, 400, 860] },
+]);
 const request = (over: Partial<ConfirmationRequest> = {}): ConfirmationRequest =>
   ({ action: "delete", target: "旧照片", content: "", amount: null, app: APP, ...over });
 
@@ -313,6 +318,42 @@ describe("the approved card as the person's approval", () => {
     expect(confirms.approveCard(TURN, PHONE, "PHONE_UI_RUN", {
       commands: [{ op: "launch", app: APP }, { op: "scroll", direction: "down" }, { op: "back" }],
     })).toEqual({ result: "approved" });
+  });
+
+  it("refuses an each-loop whose body carries a classified step, and lets a harmless one through", () => {
+    const confirms = confirmsWith(payScreen);
+    const each = confirms.approveCard(TURN, PHONE, "PHONE_UI_DO_EACH", {
+      item: { text: "row" },
+      body: [{ op: "tap", ref: "e1" }, { op: "back" }],
+    });
+    expect(each.result).toBe("refused");
+    expect(each.result === "refused" && each.reason).toContain("PHONE_UI_DO_EACH includes tapping 付款");
+    expect(each.result === "refused" && each.reason).toContain("Run the other steps with PHONE_UI_DO_EACH");
+    expect(confirms.approveCard(TURN, PHONE, "PHONE_UI_DO_EACH", {
+      item: { text: "row" },
+      body: [{ op: "launch", app: APP }, { op: "scroll", direction: "down" }, { op: "back" }],
+    })).toEqual({ result: "approved" });
+  });
+
+  it("approves a send for the text that was typed, and only while the screen still holds it", () => {
+    const confirms = confirmsWith(sendScreen);
+    confirms.noteWrite(TURN, "typing", "晚上好");
+    expect(confirms.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
+    expect(confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" }))
+      .toMatchObject({ result: "allowed", hit: { action: "send" } });
+
+    // A send whose typed text is not what a field holds grants nothing.
+    const other = confirmsWith(sendScreen);
+    other.noteWrite(TURN, "typing", "别的话");
+    expect(other.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
+    const refused = other.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" });
+    expect(refused.result).toBe("refused");
+    expect(refused.result === "refused" && refused.reason).toContain("the text to send is not exactly what was approved");
+
+    // Nothing typed this turn: no content was approved, so the send cannot run.
+    const silent = confirmsWith(sendScreen);
+    expect(silent.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
+    expect(silent.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" }).result).toBe("refused");
   });
 
   it("leaves a call the word list does not name alone", () => {

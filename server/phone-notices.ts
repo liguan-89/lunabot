@@ -958,4 +958,6 @@ export const NOTICE_TUNING = Object.freeze({
   SURFACE_COOLDOWN_MS: 30 * 60_000,
   /** Cooldown after ignore/remember, by how many times judged since the person last handled the notification. */
   TRIAGE_BACKOFF_MS: Object.freeze([2 * 60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000] as const),
+  /** How soon a runner held back by a busy phone looks again; a finished job does not poke it. */
+  BUSY_RECHECK_MS: 30_000,
 });

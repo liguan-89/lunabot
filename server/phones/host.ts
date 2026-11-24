@@ -732,7 +732,7 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           }
           // A control the gate let through used up its approval; any other screen write voids one still waiting, since
           // the step the person approved is no longer the step the bot is on. Typing is part of an approved send.
-          if (outcome.ok && isPhoneUiWrite(name)) confirms.noteWrite(turn, name === "PHONE_UI_TYPE" ? "typing" : "other");
+          if (outcome.ok && isPhoneUiWrite(name)) confirms.noteWrite(turn, name === "PHONE_UI_TYPE" ? "typing" : "other", typeof args.text === "string" ? args.text : undefined);
           // A turn that ended while the job waited, or a phone dropped while it did, has no run left to guard: the next
           // turn starts clean. A turn that outlives this call keeps its guard, and a new generation starts fresh anyway.
           if ((!outcome.ok && outcome.code === "turn_ended") || !registry.get(phone.key)) confirms.resetGuard(turn);
