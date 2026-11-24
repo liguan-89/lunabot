@@ -635,8 +635,12 @@ irreversible. `send` is always `external`, `pay` and `order` are always
 as `external` because the content leaves our hands.
 
 This module grades only. It grants nothing, and `pay` is still refused outright
-by `ConfirmGate.declare`. The grade is not yet fed into the refusal wording or
-the decision log.
+by `ConfirmGate.declare`. The grade reaches the audit trail: a refusal from the
+confirm gate (`approveCard`/`check` in `server/phones/confirm.ts`) is logged by
+`server/phones/host.ts` as an `auto-denied`/`outbound` decision row whose rule
+is `phone-risk:<level>` and whose summary is the refusal sentence. The
+bot-facing refusal wording is unchanged — for a classified control it already
+names the action — and no grade tiers any approval policy yet.
 
 ## Self-repair and self-check
 

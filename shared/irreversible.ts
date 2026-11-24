@@ -443,6 +443,33 @@ function hasPayableAmount(screen: ScreenView): boolean {
   });
 }
 
+/** The screen read the amount check and the approval's own extraction share: a field the person typed into is not
+ * the page speaking, and an element inside a scrolling area is not the total they are looking at. */
+function payableTotals(screen: ScreenView) {
+  const shown = screen.elements.filter((element) => !element.editable);
+  const scrollables = screen.elements.filter((element) => element.scrollable);
+  const outside = (element: ScreenElement) => !scrollables.some((scrollable) => inside(element, scrollable));
+  const labels = shown
+    .filter((element) => TOTAL_LABELS.some((word) => fold(elementText(element)).includes(word)))
+    .map((element) => ({ element, value: totalOf(element, shown) }));
+  return { shown, outside, labels };
+}
+
+/** The total nearest the control, for a screen whose totals all sit inside scrolling areas; without the control's
+ * own element on the screen, the lowest one stands in, since a pay button usually sits under its total. */
+function nearestTotal(
+  totals: readonly { element: ScreenElement; value: number | null }[],
+  shown: readonly ScreenElement[],
+  button: string,
+): { element: ScreenElement; value: number | null } | undefined {
+  const buttonElement = shown.find((element) => elementText(element).trim() === button.trim());
+  return [...totals].sort((a, b) => {
+    const da = buttonElement ? Math.abs(centerY(a.element) - centerY(buttonElement)) : -top(a.element);
+    const db = buttonElement ? Math.abs(centerY(b.element) - centerY(buttonElement)) : -top(b.element);
+    return da - db;
+  })[0];
+}
+
 /**
  * The declared amount must equal the screen's total, not merely appear in it: every total outside a scrolling area
  * must match; with none outside, the total nearest the button does. Without a total label, the largest amount
@@ -453,26 +480,41 @@ function amountShown(amount: string | null, screen: ScreenView, button: string):
   if (declaredText === undefined) return false;
   const declared = Number(declaredText);
   if (!Number.isFinite(declared)) return false;
-  const shown = screen.elements.filter((element) => !element.editable);
-  const scrollables = screen.elements.filter((element) => element.scrollable);
-  const outside = (element: ScreenElement) => !scrollables.some((scrollable) => inside(element, scrollable));
-  const labels = shown.filter((element) => TOTAL_LABELS.some((word) => fold(elementText(element)).includes(word)));
+  const { shown, outside, labels } = payableTotals(screen);
   if (labels.length) {
-    const totals = labels.map((element) => ({ element, value: totalOf(element, shown) }));
-    if (totals.some((total) => total.value === null)) return false;
-    const outer = totals.filter((total) => outside(total.element));
+    if (labels.some((total) => total.value === null)) return false;
+    const outer = labels.filter((total) => outside(total.element));
     if (outer.length) return outer.every((total) => total.value === declared);
-    const buttonElement = shown.find((element) => elementText(element).trim() === button.trim());
-    const nearest = [...totals].sort((a, b) => {
-      const da = buttonElement ? Math.abs(centerY(a.element) - centerY(buttonElement)) : -top(a.element);
-      const db = buttonElement ? Math.abs(centerY(b.element) - centerY(buttonElement)) : -top(b.element);
-      return da - db;
-    })[0];
-    return nearest?.value === declared;
+    return nearestTotal(labels, shown, button)?.value === declared;
   }
   const candidates = shown.filter(outside).flatMap((element) => amounts(elementText(element)));
   if (!candidates.length) return false;
   return Math.max(...candidates) === declared;
+}
+
+/**
+ * The amount an approval should declare, read off the screen the card was approved on: the same total
+ * [amountShown] demands at permit time, so a grant can only ever name an amount the screen actually showed. A send
+ * carries none; a delete carries one only on a payment screen, the same condition [amountBinds] applies later. An
+ * order or pay always binds, so the total is required — and a screen whose totals disagree, or show none, declares
+ * null rather than guess, which fails closed at permit time exactly as an unreadable amount always did.
+ */
+export function approvalAmount(screen: ScreenView, action: IrreversibleAction, button: string): string | null {
+  if (action === "send") return null;
+  if (action === "delete" && !hasPayableAmount(screen)) return null;
+  const { shown, outside, labels } = payableTotals(screen);
+  if (labels.length) {
+    if (labels.some((total) => total.value === null)) return null;
+    const outer = labels.filter((total) => outside(total.element));
+    if (outer.length) {
+      const values = [...new Set(outer.map((total) => total.value))];
+      return values.length === 1 && values[0] != null ? String(values[0]) : null;
+    }
+    const nearest = nearestTotal(labels, shown, button);
+    return nearest?.value == null ? null : String(nearest.value);
+  }
+  const candidates = shown.filter(outside).flatMap((element) => amounts(elementText(element)));
+  return candidates.length ? String(Math.max(...candidates)) : null;
 }
 
 /**

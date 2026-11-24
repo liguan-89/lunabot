@@ -13,6 +13,7 @@ import { criteriaFor, verifyAnswer, type Verification, type VerifyEvidence, type
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
 import type { Intent } from "../intent-gate.ts";
+import type { RiskGrade } from "../phone-risk.ts";
 import { elementAtPoint, elementByRef, screenFromAnswer, type PhoneRoutes, type RouteTurn } from "../phone-routes.ts";
 import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "../proxy-paths.ts";
 import type { BotRecord } from "../store.ts";
@@ -687,12 +688,30 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             // The person may have taken the turn back while the card waited.
             if (!active()) return refuse({ ok: false, code: "denied", error: GONE_TEXT });
           }
+          // The card approved the tool call; the gate then binds that approval to the exact control. A refusal here
+          // is an authorization decision the card rows never show, so it is logged with the step's risk grade.
+          const noteGateRefusal = (refused: { reason: string; risk: RiskGrade }) => {
+            const bot = deps.bot(capability.botId);
+            if (!bot) return;
+            appendDecision(deps.dataDir, {
+              threadId: capability.threadId, botId: bot.id, botName: bot.name,
+              tool: `mcp__${PHONE_MCP_SERVER}__${name}`,
+              summary: refused.reason, decision: "auto-denied", source: "outbound",
+              rule: `phone-risk:${refused.risk.level}`,
+            });
+          };
           // A second, narrower gate: the card above approves the tool call, so it is also the person's approval of the
           // control, once and for one action. A run that hides a control in its steps is refused instead.
           const approval = isPhoneUiWrite(name) ? confirms.approveCard(turn, phone.key, name, args) : { result: "approved" as const };
-          if (approval.result === "refused") return refuse({ ok: false, code: "denied", error: approval.reason });
+          if (approval.result === "refused") {
+            noteGateRefusal(approval);
+            return refuse({ ok: false, code: "denied", error: approval.reason });
+          }
           const check = isPhoneUiWrite(name) ? confirms.check(turn, phone.key, name, args) : { result: "proceed" as const };
-          if (check.result === "refused") return refuse({ ok: false, code: "denied", error: check.reason });
+          if (check.result === "refused") {
+            noteGateRefusal(check);
+            return refuse({ ok: false, code: "denied", error: check.reason });
+          }
           const job = jobs.request(phone.key, name, args, {
             // A UI control keeps the short job timeout: it already waited on
             // the person's approval above, not on a Send tap on the phone.

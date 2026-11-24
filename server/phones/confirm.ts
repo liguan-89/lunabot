@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 
 import {
   ConfirmGate,
+  approvalAmount,
   classifyControl,
   type ConfirmationRequest,
   type ControlElement,
@@ -18,6 +19,7 @@ import {
   type ScreenView,
   type WriteKind,
 } from "../../shared/irreversible.ts";
+import { assessRisk, type RiskGrade } from "../phone-risk.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
 import {
   actionSignature,
@@ -312,8 +314,9 @@ function cardRefusal(input: ControlInput, hit: IrreversibleHit, outcome: CardOut
   return runRefusal(input, hit);
 }
 
-/** What an approved card became: a grant for this one step, or the sentence saying why it grants nothing. */
-export type CardApproval = { result: "approved" } | { result: "refused"; reason: string };
+/** What an approved card became: a grant for this one step, or the sentence saying why it grants nothing. The refusal
+ * carries the step's risk grade so the caller can put it in the decision log. */
+export type CardApproval = { result: "approved" } | { result: "refused"; reason: string; risk: RiskGrade };
 
 /** The text a PHONE_UI_TYPE call would type; every other control carries none. */
 function contentOf(tool: string, args: Record<string, unknown>): string {
@@ -332,11 +335,12 @@ function refusal(input: ControlInput, hit: IrreversibleHit, permit: Permit): str
     "Ask the person to say this exact step may run; a new turn gets a fresh card for the retry.";
 }
 
-/** What one pending screen control needs: run it, or stop and ask. `allowed` means the gate used up the approval. */
+/** What one pending screen control needs: run it, or stop and ask. `allowed` means the gate used up the approval. A
+ * refusal carries the step's risk grade so the caller can put it in the decision log. */
 export type ConfirmCheck =
   | { result: "proceed" }
   | { result: "allowed"; hit: IrreversibleHit }
-  | { result: "refused"; hit: IrreversibleHit; reason: string };
+  | { result: "refused"; hit: IrreversibleHit; reason: string; risk: RiskGrade };
 
 /** What the loop guard makes of a screen-driving call before it is queued: run it, run it with a nudge, or refuse it. */
 export type GuardAdvice =
@@ -402,25 +406,31 @@ export class PhoneConfirms {
    * declined card never reaches this method: the hold answers `ok: false` with the person's own sentence.
    */
   approveCard(turn: ConfirmTurn, phoneKey: string, tool: string, args: Record<string, unknown>): CardApproval {
-    const input = controlOn(tool, args, this.screens.get(phoneKey) ?? null);
+    const screen = this.screens.get(phoneKey) ?? null;
+    const input = controlOn(tool, args, screen);
     const hit = input ? classifyControl(input) : null;
     if (!input || !hit) return { result: "approved" };
+    const view = viewOf(screen);
+    // Graded only when a refusal needs it: the approved path pays for nothing.
+    const risk = () => assessRisk({ tool, args, hit, screen: view });
     if (tool.replace(MCP_PREFIX, "") === "PHONE_UI_RUN") {
-      return { result: "refused", reason: cardRefusal(input, hit, "run") };
+      return { result: "refused", reason: cardRefusal(input, hit, "run"), risk: risk() };
     }
     const app = this.foreground(phoneKey);
     const state = this.state(turn);
     const card = cardKey(hit.action, app);
-    if (state.cards.has(card)) return { result: "refused", reason: cardRefusal(input, hit, "spent") };
+    if (state.cards.has(card)) return { result: "refused", reason: cardRefusal(input, hit, "spent"), risk: risk() };
     const request: ConfirmationRequest = {
       action: hit.action,
       target: hit.matched.slice(0, TARGET_MAX),
       content: contentOf(tool, args),
-      amount: null,
+      // The amount the person saw on this screen, so the grant can bind it at permit time; null where the action
+      // carries none, or where the screen's totals cannot be read into one.
+      amount: approvalAmount(view, hit.action, hit.matched),
       app,
     };
     const declared = this.declare(turn, phoneKey, request);
-    if (declared !== "pending") return { result: "refused", reason: cardRefusal(input, hit, declared) };
+    if (declared !== "pending") return { result: "refused", reason: cardRefusal(input, hit, declared), risk: risk() };
     this.decide(turn, true);
     state.cards.add(card);
     return { result: "approved" };
@@ -455,10 +465,11 @@ export class PhoneConfirms {
     // Every control the gate looks at is a step, so a grant cannot outlive the next few taps.
     state.step += 1;
     if (!hit) return { result: "proceed" };
-    const permit = state.gate.permits(hit, viewOf(screen), state.step);
+    const view = viewOf(screen);
+    const permit = state.gate.permits(hit, view, state.step);
     return permit.result === "allowed"
       ? { result: "allowed", hit }
-      : { result: "refused", hit, reason: refusal(input, hit, permit) };
+      : { result: "refused", hit, reason: refusal(input, hit, permit), risk: assessRisk({ tool, args, hit, screen: view }) };
   }
 
   /**
