@@ -84,6 +84,9 @@ class ServerPairingRetryError(cause: IOException) : IOException(
 
 internal const val SCOPED_IPV6_HTTP_HOST = "scoped-ipv6.lunabot.invalid"
 
+/** What a companion answers `/api/health` with; one on an older release says the name that release had. */
+internal val COMPANION_APP_NAMES: Set<String> = setOf("lunabot", "dexbot", "openmausbot")
+
 /**
  * OkHttp deliberately rejects RFC 6874 zone identifiers in HttpUrl hosts.
  * A bare IPv6 literal makes OkHttp bypass Dns entirely, so a zoned address
@@ -1829,7 +1832,7 @@ class CompanionClient(
                     companion.makeRequest("GET", "/api/health"),
                     probeClient,
                 )
-                identity.app == "dexbot" || identity.app == "openmausbot"
+                identity.app in COMPANION_APP_NAMES
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
