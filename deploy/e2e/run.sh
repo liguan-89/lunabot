@@ -17,6 +17,8 @@ mkdir -p "$OUT"
 DOMAIN=installer-e2e.internal
 DIR=/opt/lunabot
 SETTINGS=(LUNABOT_INSTALL_SKIP_DNS=1 LUNABOT_INSTALL_HTTPS_WAIT_S=20 "LUNABOT_INSTALL_SOURCE=file://$ROOT")
+# sudo scrubs the environment; api.github.com anonymous calls share a 60/hour limit per egress IP that CI runners exhaust.
+if [ -n "${GITHUB_TOKEN:-}" ]; then SETTINGS+=("GITHUB_TOKEN=$GITHUB_TOKEN"); fi
 # Without a version asked for: what a person's later run is, which must keep the version update.sh pinned.
 PLAIN_INSTALL=(sudo env "${SETTINGS[@]}" sh "$ROOT/deploy/install.sh")
 if [ -n "${LUNABOT_INSTALL_IMAGE:-}" ]; then SETTINGS+=("LUNABOT_INSTALL_IMAGE=$LUNABOT_INSTALL_IMAGE"); fi
@@ -81,7 +83,7 @@ install_until_https() { # evidence-file [the install command, when not the usual
 step "the checks alone, with a name that points nowhere: one thing to fix, nothing changed"
 status=0
 containers_before=$(sudo docker ps -aq | sort)
-as_root sh "$ROOT/deploy/install.sh" --check --domain "$DOMAIN" >"$OUT/check.txt" 2>&1 || status=$?
+as_root env "GITHUB_TOKEN=${GITHUB_TOKEN:-}" sh "$ROOT/deploy/install.sh" --check --domain "$DOMAIN" >"$OUT/check.txt" 2>&1 || status=$?
 cat "$OUT/check.txt"
 [ "$status" = 1 ] || fail "--check exited $status, not 1"
 [ "$(grep -c '^  FIX   ' "$OUT/check.txt")" = 1 ] || fail "--check found more than the DNS record to fix"

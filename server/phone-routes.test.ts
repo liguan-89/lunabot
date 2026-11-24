@@ -360,9 +360,10 @@ describe("PhoneRoutes", () => {
       result: { ok: true, changed: true },
     });
     const saved = routes.finish(current, { outcome: "done" })!;
-    // A number, a time or an amount is never an anchor: a code changes between runs, so it must not be pinned.
+    // A number, a time or an amount is never an anchor: a code changes between runs, so it must not be pinned. The
+    // check names the whole code, not "493" alone — saved row ids are random uuids that occasionally contain it.
     expect(saved.steps[0]!.before.texts).toEqual(["已连接"]);
-    expect(allText(root)).not.toContain("493");
+    expect(allText(root)).not.toContain("493 812");
   });
 
   it("refuses a run that showed a pairing-code field, even one with no digit in it", () => {
