@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   COORDINATE_GRID,
+  EACH_LOOP_NUDGE,
+  EachLoopDetector,
   PHONE_GUARD_LIMITS,
   actionSignature,
   checkAction,
+  guardVerb,
   noteAction,
   noteScreen,
   reset,
@@ -206,5 +209,94 @@ describe("state upkeep", () => {
     expect(fresh.repeated).toBe(0);
     expect(fresh.unchanged).toBe(0);
     expect(state.history.length).toBeGreaterThan(0);
+  });
+});
+
+describe("guardVerb", () => {
+  it("reads our tools as upstream's counted verbs", () => {
+    expect(guardVerb("PHONE_UI_OBSERVE")).toBe("observe");
+    expect(guardVerb("PHONE_UI_TAP")).toBe("tap");
+    expect(guardVerb("PHONE_UI_TAP_AT")).toBe("tap");
+    expect(guardVerb("PHONE_UI_TYPE")).toBe("type");
+    expect(guardVerb("PHONE_UI_SCROLL")).toBe("scroll");
+    expect(guardVerb("PHONE_UI_SWIPE")).toBe("swipe");
+    expect(guardVerb("PHONE_UI_BACK")).toBe("back");
+    expect(guardVerb("PHONE_UI_KEY", { key: "enter" })).toBe("press");
+    expect(guardVerb("PHONE_UI_KEY", { key: "back" })).toBe("back");
+    expect(guardVerb("PHONE_UI_WAIT")).toBe("wait");
+    expect(guardVerb("PHONE_UI_DO_EACH")).toBe("do_each");
+  });
+
+  it("reads everything upstream does not count as no verb", () => {
+    // query, collect, find, run, screenshot and every non-screen tool reset the sequence upstream.
+    for (const tool of ["PHONE_UI_QUERY", "PHONE_UI_COLLECT", "PHONE_UI_FIND", "PHONE_UI_RUN", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_UI_LAUNCH", "PHONE_SEND_SMS", "mcp__composio__GMAIL_SEND"]) {
+      expect(guardVerb(tool), tool).toBeNull();
+    }
+    expect(guardVerb("mcp__device__PHONE_UI_TAP")).toBe("tap");
+  });
+});
+
+describe("EachLoopDetector", () => {
+  const feedAll = (detector: EachLoopDetector, verbs: readonly (string | null)[], ok = true): boolean[] =>
+    verbs.map((verb) => detector.feed(verb, ok));
+  const firedAt = (hits: readonly boolean[]): number[] => hits.flatMap((hit, index) => (hit ? [index] : []));
+
+  it("open, act, back three times fires once at the ninth", () => {
+    const detector = new EachLoopDetector();
+    const rounds = Array.from({ length: 4 }, () => ["observe", "tap", "back"]).flat();
+    expect(firedAt(feedAll(detector, rounds))).toEqual([8]);
+  });
+
+  it("tap, wait, back three times fires once at the ninth", () => {
+    const detector = new EachLoopDetector();
+    const rounds = Array.from({ length: 4 }, () => ["tap", "wait", "back"]).flat();
+    expect(firedAt(feedAll(detector, rounds))).toEqual([8]);
+  });
+
+  it("a tap-back pair fires at the sixth", () => {
+    const detector = new EachLoopDetector();
+    const rounds = Array.from({ length: 4 }, () => ["tap", "back"]).flat();
+    expect(firedAt(feedAll(detector, rounds))).toEqual([5]);
+  });
+
+  it("scrolling through a list never fires", () => {
+    const detector = new EachLoopDetector();
+    const rounds = Array.from({ length: 6 }, () => ["observe", "scroll"]).flat();
+    expect(feedAll(detector, rounds).some(Boolean)).toBe(false);
+  });
+
+  it("a motif without a tap never fires", () => {
+    const detector = new EachLoopDetector();
+    const rounds = Array.from({ length: 4 }, () => ["observe", "back"]).flat();
+    expect(feedAll(detector, rounds).some(Boolean)).toBe(false);
+  });
+
+  it("a failure breaks the streak", () => {
+    const detector = new EachLoopDetector();
+    feedAll(detector, Array.from({ length: 2 }, () => ["tap", "back"]).flat());
+    expect(detector.feed("tap", false)).toBe(false);
+    const rounds = Array.from({ length: 3 }, () => ["tap", "back"]).flat();
+    expect(firedAt(feedAll(detector, rounds))).toEqual([5]);
+  });
+
+  it("a verb with no counted shape breaks the streak", () => {
+    const detector = new EachLoopDetector();
+    feedAll(detector, Array.from({ length: 2 }, () => ["tap", "back"]).flat());
+    detector.feed(null, true);
+    const rounds = Array.from({ length: 3 }, () => ["tap", "back"]).flat();
+    expect(firedAt(feedAll(detector, rounds))).toEqual([5]);
+  });
+
+  it("using do_each disarms it for the task", () => {
+    const detector = new EachLoopDetector();
+    detector.feed("do_each", true);
+    const rounds = Array.from({ length: 3 }, () => ["tap", "back"]).flat();
+    expect(feedAll(detector, rounds).some(Boolean)).toBe(false);
+  });
+
+  it("the nudge names do_each and the @item body", () => {
+    expect(EACH_LOOP_NUDGE).toContain("PHONE_UI_DO_EACH");
+    expect(EACH_LOOP_NUDGE).toContain("@item");
+    expect(EACH_LOOP_NUDGE).toContain("3 times in a row");
   });
 });

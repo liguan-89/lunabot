@@ -725,6 +725,10 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           if (raced.kind === "steered") return refuse({ ok: false, error: SKIPPED_FOR_NEW_MESSAGE });
           const outcome = raced.value;
           if (outcome.ok) registry.used(phone.key);
+          // The do_each detector sees every executed call, reads and sends
+          // included: a verb outside its motif breaks the run, as upstream's
+          // feed does. It fires at most once per turn.
+          const eachNudge = confirms.noteEach(turn, name, args, outcome.ok);
           // The answer's screen is recorded first, so the loop guard reads the screen the answer left, then the call
           // joins that guard's history. A read that took a snapshot moves the guard's trail along the same way.
           if (outcome.ok && recordsScreen(name) && confirms.noteScreen(phone.key, outcome.result)) {
@@ -737,7 +741,10 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           // turn starts clean. A turn that outlives this call keeps its guard, and a new generation starts fresh anyway.
           if ((!outcome.ok && outcome.code === "turn_ended") || !registry.get(phone.key)) confirms.resetGuard(turn);
           noteEvidence(turn, phone.key, name, args, before, outcome);
-          return advice.result === "warn" ? withNudge(outcome, advice.nudge) : outcome;
+          const nudge = [advice.result === "warn" ? advice.nudge : null, eachNudge]
+            .filter((text): text is string => text !== null)
+            .join(" ");
+          return nudge.length > 0 ? withNudge(outcome, nudge) : outcome;
         },
         onWrite: (record) => {
           const bot = deps.bot(capability.botId);

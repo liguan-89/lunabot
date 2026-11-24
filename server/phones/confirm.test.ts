@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ConfirmationRequest } from "../../shared/irreversible.ts";
+import { EACH_LOOP_NUDGE } from "../phone-guards.ts";
 import { MAX_CONFIRM_TURNS, PhoneConfirms, controlFor, recordsScreen, screenViewOf } from "./confirm.ts";
 
 const APP = "com.example.shop";
@@ -241,6 +242,50 @@ describe("PhoneConfirms", () => {
     expect(confirms.declare(TURN, PHONE, request())).toBe("pending");
     // A phone that never showed a screen cannot say what app the person approved in.
     expect(confirms.declare({ threadId: "thread-9", botId: "chief" }, "companion:other", request())).toBe("mismatch");
+  });
+
+  it("nudgeOnce: the do_each nudge fires once when the per-item motif completes, per turn", () => {
+    const confirms = new PhoneConfirms();
+    const turn = { ...TURN, generation: "gen-1" };
+    const motif = ["PHONE_UI_TAP", "PHONE_UI_BACK"];
+    for (let round = 0; round < 2; round++) {
+      for (const tool of motif) expect(confirms.noteEach(turn, tool, {}, true)).toBeNull();
+    }
+    expect(confirms.noteEach(turn, "PHONE_UI_TAP", {}, true)).toBeNull();
+    expect(confirms.noteEach(turn, "PHONE_UI_BACK", {}, true)).toBe(EACH_LOOP_NUDGE);
+    // Once per turn: the motif completing again does not repeat it.
+    for (const tool of motif) expect(confirms.noteEach(turn, tool, {}, true)).toBeNull();
+    // A new generation is a new task: the detector starts over.
+    const next = { ...TURN, generation: "gen-2" };
+    for (let round = 0; round < 2; round++) {
+      for (const tool of motif) expect(confirms.noteEach(next, tool, {}, true)).toBeNull();
+    }
+    expect(confirms.noteEach(next, "PHONE_UI_TAP", {}, true)).toBeNull();
+    expect(confirms.noteEach(next, "PHONE_UI_BACK", {}, true)).toBe(EACH_LOOP_NUDGE);
+  });
+
+  it("nudgeOnce: a failed call and an unmapped tool both break the motif", () => {
+    const confirms = new PhoneConfirms();
+    const turn = { ...TURN, generation: "gen-1" };
+    const motif = ["PHONE_UI_TAP", "PHONE_UI_BACK"];
+    for (let round = 0; round < 2; round++) {
+      for (const tool of motif) confirms.noteEach(turn, tool, {}, true);
+    }
+    // The failed tap breaks the half-formed streak; two more rounds are not enough.
+    confirms.noteEach(turn, "PHONE_UI_TAP", {}, false);
+    const partial: (string | null)[] = [];
+    for (let round = 0; round < 2; round++) {
+      for (const tool of motif) partial.push(confirms.noteEach(turn, tool, {}, true));
+    }
+    expect(partial.every((hit) => hit === null)).toBe(true);
+    // An unmapped tool breaks it the same way; three fresh rounds then fire once, on the last back.
+    confirms.noteEach(turn, "PHONE_SEND_SMS", { to: "x", text: "y" }, true);
+    const hits: (string | null)[] = [];
+    for (let round = 0; round < 3; round++) {
+      for (const tool of motif) hits.push(confirms.noteEach(turn, tool, {}, true));
+    }
+    expect(hits.filter((hit) => hit !== null)).toEqual([EACH_LOOP_NUDGE]);
+    expect(hits[5]).toBe(EACH_LOOP_NUDGE);
   });
 });
 

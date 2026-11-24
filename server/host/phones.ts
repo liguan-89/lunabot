@@ -9,6 +9,7 @@ import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
 import { createNoticeDedup, LEARN_LEVELS, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type LearnLevel, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
+import { shapeNotice } from "../phone-shapes.ts";
 import { createNoticeLearn, type NoticeLearn } from "./notice-learn.ts";
 import { createNoticeTriage, type NoticeSurfacedItem, type NoticeTriage } from "./notice-triage.ts";
 import { renderObserved, type TopicPoolData } from "../notice-learn.ts";
@@ -209,7 +210,7 @@ export function createPhones(deps: PhonesDeps) {
     const phone = registry.get(key);
     if (!phone) return;
     const policy: NoticePolicy = { allow: new Set(phone.registration.noticeApps ?? []), listenerGranted: true };
-    const record = sanitizeNotice(noticeRecordOf(event));
+    const record = shapeNotice(sanitizeNotice(noticeRecordOf(event)));
     if (shouldLearnPackage(record.packageName, policy) !== "keep") return;
     const sink = noticeSinkFor(phone.owner);
     // An unticked package stops being learned and its kept records go with it.

@@ -3,9 +3,9 @@
 // core/proactive (NoticeInbox, NoticeFilter, NoticeDedup, TriagePlanner, LearnLevel, LearnTuning, NoticeRecord;
 // Apache-2.0) as pure, in-memory logic: no HTTP, no model client, no storage.
 //
-// Left to the wiring that comes later: NoticeShapes (splitting a chat notification into conversation, speaker and line),
-// LiveUpdates (a status display reposted forever), CatchUp and the shade reconcile (the caller passes `retainKeys`), the
-// dedup codec and journal, LearnBuffer/TopicPool/ContactPool, prompt building and reply parsing. Nothing here sends a
+// Left to the wiring that comes later: NoticeShapes lives in phone-shapes.ts, LiveUpdates (a status display reposted
+// forever), CatchUp and the shade reconcile (the caller passes `retainKeys`), the dedup codec and journal,
+// LearnBuffer/TopicPool/ContactPool, prompt building and reply parsing. Nothing here sends a
 // request; `planTriage` only says whether one may be sent.
 
 import { createHash } from "node:crypto";
