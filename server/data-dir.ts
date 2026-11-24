@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, renameSync } from "node:fs";
 import { homedir, tmpdir, userInfo } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 let home: string | undefined;
 
@@ -25,11 +25,25 @@ export interface DataDirDefaults {
   join?: (home: string, name: string) => string;
 }
 
-/** Where the server keeps its data: `LUNABOT_DATA_DIR` when set (never migrated, never moved), else `~/.lunabot`, with a
- * folder left under an earlier name by a previous release renamed to it the first time anything asks. */
+/** Where the server keeps its data: `LUNABOT_DATA_DIR` when set, else `~/.lunabot`. A folder left under an earlier name
+ * by a previous release is renamed to it the first time anything asks — and likewise adopted when the configured path
+ * is the canonical name: the image pins `LUNABOT_DATA_DIR=/data/.lunabot`, but a volume from before the rename still
+ * holds the folder under the old one. A configured path with any other name is used exactly as given. */
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env, defaults: DataDirDefaults = {}): string {
   const configured = env.LUNABOT_DATA_DIR?.trim();
-  if (configured) return configured;
+  if (configured) {
+    if (basename(configured) !== DATA_DIR_NAME || existsSync(configured)) return configured;
+    const parent = configured.slice(0, -DATA_DIR_NAME.length);
+    const legacy = LEGACY_DATA_DIR_NAMES.map((name) => `${parent}${name}`).find((path) => existsSync(path));
+    if (legacy) {
+      try {
+        renameSync(legacy, configured);
+      } catch {
+        // Another process moved it first, or the folder is busy: use whichever name is there rather than start empty.
+      }
+    }
+    return configured;
+  }
   const joinPath = defaults.join ?? join;
   const home = defaults.home ?? dataHome();
   const current = joinPath(home, DATA_DIR_NAME);
