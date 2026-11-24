@@ -179,6 +179,23 @@ class WechatRuntimeTest {
     }
 
     @Test
+    fun `an over-long message is truncated to the wire cap instead of retrying forever`() = runTest {
+        boundStore()
+        val sink = RecordingSink()
+        val transport = ScriptedTransport {
+            WechatUpdates(msgs = listOf(textMessage("m1", text = "长".repeat(5000))), cursor = "c1")
+        }
+        val runtime = runtime(transport, sink)
+
+        runtime.pollOnce(store.account()!!)
+
+        // The event schema caps text at 4000; an over-long one would answer 400
+        // and the journal entry would be replayed on every poll.
+        assertEquals(4000, sink.events.single().text.length)
+        assertTrue(store.pending().isEmpty())
+    }
+
+    @Test
     fun `the same message id is posted once even if the cursor rewinds`() = runTest {
         boundStore()
         val sink = RecordingSink()

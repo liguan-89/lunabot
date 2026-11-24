@@ -3,6 +3,7 @@ package com.lunabot.companion.core
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -209,7 +210,7 @@ class PhoneJobsTest {
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(49, PhoneTool.entries.size)
+        assertEquals(50, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")
@@ -246,6 +247,23 @@ class PhoneJobsTest {
         assertEquals(setOf("kind", "sendId", "from", "text"), json.keys)
         assertEquals("wechat", json.getValue("kind").jsonPrimitive.content)
         assertEquals("wxid_owner", json.getValue("from").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `a notice event keeps its required keys even when they are empty`() {
+        // The server requires title/text on every notice and sender on every
+        // message; the encoder drops values equal to a default, so these three
+        // are pinned on or the whole event answers 400.
+        val event = PhoneNoticeEvent(
+            key = "0|com.example|1", packageName = "com.example", postedAtMs = 1,
+            messages = listOf(PhoneNoticeMessage(sender = null, text = "hi", atMs = 1)),
+        )
+        val json = CompanionJson.encodeToJsonElement(PhoneNoticeEvent.serializer(), event).jsonObject
+        assertEquals("", json.getValue("title").jsonPrimitive.content)
+        assertEquals("", json.getValue("text").jsonPrimitive.content)
+        val message = json.getValue("messages").jsonArray.single().jsonObject
+        assertTrue(message.containsKey("sender"))
+        assertNull(message.getValue("sender").jsonPrimitive.contentOrNull)
     }
 
     @Test
