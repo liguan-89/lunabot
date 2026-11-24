@@ -51,7 +51,7 @@ box_checks() { # the status reply once the home's box has run its self-check
   printf '%s' "$status"
 }
 home_settings() { # the home container's settings, without its environment (it holds the secret)
-  docker inspect -f '{"apparmor": {{json .AppArmorProfile}}, "host": {{json .HostConfig}}, "stopTimeout": {{json .Config.StopTimeout}}, "image": {{json .Config.Image}}}' lunabot-home
+  docker inspect -f '{"apparmor": {{json .AppArmorProfile}}, "host": {{json .HostConfig}}, "stopTimeout": {{json .Config.StopTimeout}}, "image": {{json .Config.Image}}}' mausbot-home
 }
 EVENTS=""
 cleanup() {
@@ -135,9 +135,9 @@ expect '.result.home.health.box.checks == "33/33"' "$status" "the box after the 
 docker volume inspect mausbot-snapshot >/dev/null || fail "the update kept no safety copy"
 
 step "a home killed uncleanly is started again on its volume"
-docker kill -s KILL lunabot-home >/dev/null
+docker kill -s KILL mausbot-home >/dev/null
 for _ in $(seq 1 60); do
-  if [ "$(docker inspect -f '{{.State.Running}}' lunabot-home 2>/dev/null)" = true ] && job status '{}' | jq -e '.result.home.health.ok' >/dev/null; then break; fi
+  if [ "$(docker inspect -f '{{.State.Running}}' mausbot-home 2>/dev/null)" = true ] && job status '{}' | jq -e '.result.home.health.ok' >/dev/null; then break; fi
   sleep 2
 done
 expect '.result.home.state == "running" and .result.home.health.ok' "$(job status '{}')" "the home after a SIGKILL"
@@ -151,13 +151,13 @@ step "an update forced to fail rolls back: the previous image, and the data as i
 # be gone once the rollback has put the safety copy back.
 FIFO=$(mktemp -u)
 mkfifo "$FIFO"
-timeout 900 docker events --filter container=lunabot-home --filter event=start --format '{{.Actor.Attributes.image}}' >"$FIFO" &
+timeout 900 docker events --filter container=mausbot-home --filter event=start --format '{{.Actor.Attributes.image}}' >"$FIFO" &
 EVENTS=$!
 (
   while read -r started; do
     [ "$started" = "$HOME_A" ] || continue
-    docker pause lunabot-home >/dev/null
-    docker run --rm -v lunabot-data:/data --entrypoint sh "$HOME_B" -c 'echo lost > /data/e2e-after-swap'
+    docker pause mausbot-home >/dev/null
+    docker run --rm -v mausbot-data:/data --entrypoint sh "$HOME_B" -c 'echo lost > /data/e2e-after-swap'
     echo frozen >"$OUT/sabotaged"
     break
   done <"$FIFO"
@@ -209,7 +209,7 @@ done
 docker volume inspect mausbot-snapshot >/dev/null || fail "uninstall did not keep the safety copy"
 sudo test -s /var/log/mausbot/audit.jsonl || fail "uninstall did not keep the audit log"
 sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" uninstall --delete-data | tee -a "$OUT/uninstall.txt"
-if docker volume inspect lunabot-data >/dev/null 2>&1; then fail "--delete-data kept the data"; fi
+if docker volume inspect mausbot-data >/dev/null 2>&1; then fail "--delete-data kept the data"; fi
 if sudo test -e /var/log/lunabot; then fail "--delete-data kept the audit log"; fi
 
 step "all passed"
