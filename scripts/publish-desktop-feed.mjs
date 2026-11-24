@@ -6,15 +6,20 @@
 // history the GitHub release already keeps.
 //
 //   node scripts/publish-desktop-feed.mjs [--assets-dir release-assets] \
-//     [--apk path/to/app-dist.apk] [--notes "release notes"] [--dry-run]
+//     [--apk path/to/app-dist.apk] [--notes "release notes"] [--dry-run] \
+//     [--no-cloud-home]
 //
 // --assets-dir must contain the assembled release set (the same files the
 // GitHub release carries). --apk additionally publishes the Android channel;
-// without it only the desktop feed is touched.
+// without it only the desktop feed is touched. Afterwards the Cloud home
+// image on the same host is promoted to the release and running Clouds are
+// rebuilt on it (--no-cloud-home skips that; promote-cloud-home.mjs is the
+// same step on its own).
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const FEED_BASE = process.env.LUNABOT_FEED_BASE || "https://cloud.dexai.vip";
 const SSH_HOST = process.env.LUNABOT_PUBLISH_HOST || "wholesale";
@@ -179,5 +184,12 @@ if (apkPath) {
     fail(`update.json serves versionCode ${manifest.versionCode}, expected ${version}`);
   }
   console.log(`[publish-desktop-feed] update.json serves ${version} (versionCode ${manifest.versionCode})`);
+}
+console.log("[publish-desktop-feed] feed OK");
+
+if (process.argv.includes("--no-cloud-home")) {
+  console.log("[publish-desktop-feed] cloud-home promotion skipped (--no-cloud-home)");
+} else {
+  execFileSync(process.execPath, [fileURLToPath(new URL("./promote-cloud-home.mjs", import.meta.url)), "--version", version], { stdio: "inherit" });
 }
 console.log("[publish-desktop-feed] OK");
