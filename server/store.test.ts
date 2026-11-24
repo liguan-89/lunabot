@@ -585,17 +585,17 @@ describe("Store", () => {
       "Bookings, shopping and errands", "Data, spreadsheets and reports",
     ]);
     expect(greeting(store.createBot({ description: "Files bugs." }))?.setupChoices).toBeUndefined();
-    language = "es-MX";
-    expect(greeting(store.createBot())?.setupChoices?.[0]).toBe("Investigar y profundizar en temas");
+    language = "zh-CN";
+    expect(greeting(store.createBot())?.setupChoices?.[0]).toBe("调研和深挖各种主题");
   });
 
   it("reads the current language when creating a bot", () => {
     let language = "en";
     const store = new Store(selection, undefined, undefined, () => language);
-    language = "pt-BR";
+    language = "zh";
 
     const bot = store.createBot();
-    expect(store.messagesFor(bot.threadId)[0]?.text).toBe(`Oi, eu sou ${bot.name}. O que você gostaria que eu fizesse?`);
+    expect(store.messagesFor(bot.threadId)[0]?.text).toBe(`嗨，我是 ${bot.name}。你想让我做什么？`);
   });
 
   it("greets the person by the first name they have given by the time the bot is created", () => {

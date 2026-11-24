@@ -44,12 +44,12 @@ describe("toolStepLabel", () => {
 });
 
 describe("a server notice on a step", () => {
-  const answered = { name: "Resposta entregue à tarefa em espera" };
+  const answered = { name: "已答复等待中的任务" };
   it("preserves the server's localized title and still words client-coded notices", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     try {
       expect(toolStepLabel(answered)).toBe(answered.name);
-      expect(toolStepLabel({ name: "Resuming after a restart", nameCode: "chat.notice.resumingAfterRestart" })).toBe("Retomando após uma reinicialização");
+      expect(toolStepLabel({ name: "Resuming after a restart", nameCode: "chat.notice.resumingAfterRestart" })).toBe("重启后正在恢复");
       expect(toolStepLabel({ name: "Answer passed", nameCode: "toolStep.runCommand" })).toBe("Answer passed");
     } finally {
       setLocale("en");

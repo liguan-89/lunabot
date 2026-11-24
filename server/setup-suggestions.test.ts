@@ -66,8 +66,8 @@ describe("reading the reply", () => {
   });
 
   it("checks the script and capitalises by the app's language", () => {
-    expect(parseSetupSuggestions('["Sort my inbox", "Find flights", "Check my calendar"]', "ja")).toBeNull();
-    expect(parseSetupSuggestions('["メールを仕分けする", "予定を確認する", "旅行を調べる", "Gmail"]', "ja")).toEqual(["メールを仕分けする", "予定を確認する", "旅行を調べる"]);
+    expect(parseSetupSuggestions('["Sort my inbox", "Find flights", "Check my calendar"]', "zh")).toBeNull();
+    expect(parseSetupSuggestions('["整理收件箱", "确认日程", "查找机票", "Gmail"]', "zh")).toEqual(["整理收件箱", "确认日程", "查找机票"]);
     expect(parseSetupSuggestions('["istanbul gezisini planla", "e-postalarımı sırala", "faturalarımı kontrol et"]', "tr"))
       .toEqual(["İstanbul gezisini planla", "E-postalarımı sırala", "Faturalarımı kontrol et"]);
   });
@@ -88,8 +88,8 @@ describe("what is sent", () => {
     const nothing: SuggestionBasis = { otherJobs: [], language: "English", languageCode: "en", canBrowse: true };
     expect(isPickedBotName("Pikachu")).toBe(true);
     expect(isPickedBotName("Pikachu 2")).toBe(true);
-    expect(isPickedBotName("哪吒")).toBe(true);
-    expect(isPickedBotName("達摩 3")).toBe(true);
+    expect(isPickedBotName("Nezha")).toBe(true);
+    expect(isPickedBotName("Damo 3")).toBe(true);
     expect(isPickedBotName("Bookkeeper")).toBe(false);
     expect(worthAsking(nothing, null)).toBe(false);
     expect(worthAsking(nothing, { known: [] })).toBe(false);
@@ -98,8 +98,8 @@ describe("what is sent", () => {
     }
     expect(worthAsking(nothing, { known: ["Gmail"] })).toBe(true);
     expect(worthAsking(nothing, { known: [], later: new Promise(() => {}) })).toBe(true);
-    expect(hasSetupChoices("es")).toBe(true);
-    expect(worthAsking({ ...nothing, languageCode: "es" }, null)).toBe(false);
+    expect(hasSetupChoices("es")).toBe(false);
+    expect(worthAsking({ ...nothing, languageCode: "es" }, null)).toBe(true);
     expect(hasSetupChoices("de")).toBe(false);
     expect(hasSetupChoices("zh-tw")).toBe(true);
     expect(hasSetupChoices("zh")).toBe(true);
@@ -107,7 +107,7 @@ describe("what is sent", () => {
       "调研和深挖各种主题", "帮我盯着一些事情", "邮件、日历和消息", "预订、购物和跑腿", "数据、表格和报告",
     ]);
     expect(setupChoices("zh-hant")).toEqual([
-      "研究與深入探討主題", "幫我留意各種事情", "電子郵件、行事曆和訊息", "預約、購物和跑腿", "資料、試算表和報告",
+      "调研和深挖各种主题", "帮我盯着一些事情", "邮件、日历和消息", "预订、购物和跑腿", "数据、表格和报告",
     ]);
     expect(worthAsking({ ...nothing, languageCode: "de" }, null)).toBe(true);
   });
@@ -118,11 +118,11 @@ describe("what is sent", () => {
     const bots = [made, bot({ id: "a", title: "Travel planner" }), bot({ id: "b", description: "Plans meals\nand shops" }),
       bot({ id: "c", title: "Hidden", hidden: true }), bot({ id: "d", title: "Default", defaultBot: {} }),
       bot({ id: "e", title: "Chief", chiefOfStaff: true }), bot({ id: "f", title: "Moved", movedTo: { team: { id: "t", name: "Team" }, state: "moved", at: 1 } })];
-    const place = { bots, shared: false, aboutMe: "I keep the books for a bakery.", languageCode: "pt-BR", canBrowse: true };
+    const place = { bots, shared: false, aboutMe: "I keep the books for a bakery.", languageCode: "zh", canBrowse: true };
     expect(suggestionBasis(made, place)).toEqual({ name: "Ledger", title: "Bookkeeper", department: "Finance", aboutMe: "I keep the books for a bakery.",
-      otherJobs: ["Travel planner", "Plans meals"], language: "Brazilian Portuguese", languageCode: "pt-BR", canBrowse: true });
-    expect(suggestionBasis(bot({ id: "new", name: "Pikachu 2" }), { ...place, shared: true })).toEqual({ otherJobs: [], language: "Brazilian Portuguese",
-      languageCode: "pt-BR", canBrowse: true });
+      otherJobs: ["Travel planner", "Plans meals"], language: "Chinese", languageCode: "zh", canBrowse: true });
+    expect(suggestionBasis(bot({ id: "new", name: "Pikachu 2" }), { ...place, shared: true })).toEqual({ otherJobs: [], language: "Chinese",
+      languageCode: "zh", canBrowse: true });
   });
 });
 

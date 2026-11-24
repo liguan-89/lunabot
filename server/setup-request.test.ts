@@ -127,8 +127,8 @@ describe("pressing Set me up", () => {
 
   it("speaks the app's language", () => {
     const s = setup();
-    const pressed = askForSetup(s.store, s.bot.id, s.threadId, "pt-BR");
-    expect(pressed.ok && "message" in pressed && pressed.message.text).toMatch(/^Ótimo\./);
+    const pressed = askForSetup(s.store, s.bot.id, s.threadId, "zh");
+    expect(pressed.ok && "message" in pressed && pressed.message.text).toMatch(/^好的。/);
   });
 });
 

@@ -35,25 +35,24 @@ afterEach(() => {
 
 describe("Settings → General", () => {
   it("renders in the language the picker selected, and re-renders in the next one", async () => {
-    setLocale("pt-br");
-    const pt = await renderSettings();
-    expect(pt).toContain("Configurações");
-    expect(pt).toContain("Models &amp; AI");
-    expect(pt).toContain("Idioma do app");
-    expect(pt).toContain("Geral");
+    setLocale("zh");
+    const zh = await renderSettings();
+    expect(zh).toContain("设置");
+    expect(zh).toContain("模型与能力");
+    expect(zh).toContain("应用语言");
+    expect(zh).toContain("通用");
 
-    // Same module instance, no reload: a frozen label would still say "Configurações" here.
-    setLocale("ja");
-    const ja = await renderSettings();
-    expect(ja).toContain("設定");
+    // Same module instance, no reload: a frozen label would still say "设置" here.
+    setLocale("en");
+    const english = await renderSettings();
+    expect(english).toContain("Settings");
     for (const key of [
       "settings.section.general", "settings.section.appearance",
     ] as const) {
-      expect(locales.ja[key], key).toBeTruthy();
-      expect(locales.ja[key], key).not.toBe(en[key]);
-      expect(ja, key).toContain(locales.ja[key]!);
+      expect(english, key).toContain(en[key]!);
+      expect(english, key).not.toContain(locales.zh[key]!);
     }
-    expect(ja).not.toContain("Provedores de modelos");
+    expect(english).not.toContain("模型与能力");
   });
 
   it("stays English when no language is picked", async () => {

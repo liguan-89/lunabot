@@ -22,15 +22,15 @@ describe("attachment notices", () => {
     ];
     expect(attachNoticeText(problems)).toBe("A message takes up to 10 images, 40 MB in all. left.png wasn't attached. Unable to attach b.bin. Choose a supported image, document, or audio file. (c.pdf: disk full)");
     expect(attachNoticeText([{ kind: "image-limit", names: ["a.png", "b.png"] }])).toBe("A message takes up to 10 images, 40 MB in all. a.png, b.png weren't attached.");
-    setLocale("pt-br");
-    expect(attachNoticeText(problems)).toBe("Uma mensagem aceita até 10 imagens, com 40 MB no total. O arquivo left.png não foi anexado. Não foi possível anexar b.bin. Escolha um arquivo compatível: imagem, documento ou áudio. (c.pdf: não foi possível enviar. Motivo: disk full)");
-    expect(attachNoticeText([{ kind: "image-limit", names: ["a.png", "b.png"] }])).toContain("Os arquivos a.png, b.png não foram anexados.");
+    setLocale("zh");
+    expect(attachNoticeText(problems)).toBe("一条消息最多包含 10 张图片，总计 40 MB。left.png 未附加。 无法附加 b.bin。请选择受支持的图片、文档或音频文件。 (c.pdf：disk full)");
+    expect(attachNoticeText([{ kind: "image-limit", names: ["a.png", "b.png"] }])).toContain("a.png, b.png 未附加。");
   });
 
   it("word them in the person's language", () => {
-    setLocale("pt-br");
-    expect(attachNoticeText([{ kind: "too-large", name: "big.png", limitMb: 25 }])).toBe("big.png tem mais de 25 MB");
-    expect(attachNoticeText([{ kind: "upload-failed", name: "c.pdf", reason: "disk full" }])).toBe("c.pdf: não foi possível enviar. Motivo: disk full");
+    setLocale("zh");
+    expect(attachNoticeText([{ kind: "too-large", name: "big.png", limitMb: 25 }])).toBe("big.png 超过 25 MB");
+    expect(attachNoticeText([{ kind: "upload-failed", name: "c.pdf", reason: "disk full" }])).toBe("c.pdf：disk full");
   });
 
   it("carry an oversized image's limit through intake, keeping the English message on the error", async () => {
@@ -44,7 +44,7 @@ describe("attachment notices", () => {
   it("size a pasted block with the person's number format", () => {
     expect(pasteSummaryText({ lines: 2, size: 1536 })).toBe("2 lines, 1.5 KB");
     expect(sizeText(512)).toBe("512 B");
-    setLocale("pt-br");
-    expect(pasteSummaryText({ lines: 1200, size: 1536 })).toBe("Linhas: 1.200 · 1,5 KB");
+    setLocale("zh");
+    expect(pasteSummaryText({ lines: 1200, size: 1536 })).toBe("1,200 行，1.5 KB");
   });
 });

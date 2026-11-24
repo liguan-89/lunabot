@@ -66,9 +66,9 @@ describe("a server card in the sidebar", () => {
 
   it("previews in the reader's language, and as written in English or for a bot's card", () => {
     expect(serverCardText({ ...card, serverCard: true } as Message)).toBeUndefined();
-    setLocale("pt-br");
+    setLocale("zh");
     try {
-      expect(serverCardText({ ...card, serverCard: true } as Message)).toBe("**Seu resumo** · quinta-feira, 22 de outubro");
+      expect(serverCardText({ ...card, serverCard: true } as Message)).toBe("**你的简报** · 10月22日星期四");
       expect(serverCardText(card)).toBeUndefined();
     } finally {
       setLocale("en");

@@ -24,16 +24,16 @@ describe("held notes name the buttons the selector shows", () => {
   });
 
   it("resolves the labels when they are read, not when the module loads", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     expect(approvalModeOptions().map((option) => option.label)).toEqual([
-      "Pedir aprovação",
-      "Aceitar edições automaticamente",
-      "Aprovar por mim",
-      "Acesso total",
-      "Personalizado (config.toml)",
+      "请求批准",
+      "自动接受编辑",
+      "代我批准",
+      "完全访问",
+      "自定义（config.toml）",
     ]);
 
-    setLocale("ja");
-    expect(approvalModeOptions()[2].label).toBe("自動で承認");
+    setLocale("en");
+    expect(approvalModeOptions()[2].label).toBe("Approve for me");
   });
 });

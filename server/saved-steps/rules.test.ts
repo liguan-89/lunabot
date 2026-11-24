@@ -214,10 +214,11 @@ describe("buildRecipe", () => {
 
   describe("final, can't-undo actions", () => {
     it.each([
-      "Send", "Senden", "Envoyer", "Enviar", "Invia", "Wyślij", "Отправить", "Надіслати", "Gönder", "Gửi", "भेजें", "보내기", "送信", "发送", "傳送",
-      "Delete", "Löschen", "Supprimer", "Usuń", "Удалить", "Sil", "Xóa", "삭제", "削除", "删除", "Buy now", "Jetzt kaufen", "Acheter", "Kup teraz", "구매하기", "購入",
-      "Pay", "Bezahlen", "Pagar", "Оплатить", "Öde", "付款", "Publish", "Publier", "Pubblica", "公開", "Submit", "Absenden", "Place your order",
-      "Zahlungspflichtig bestellen", "Sipariş ver", "Đặt hàng", "注文を確定する", "下单", "Transfer", "Überweisen", "Przelej", "转账", "Don’t Save", "Empty Trash",
+      "Send", "发送", "Delete", "删除", "转发", "抹掉", "清空回收站", "不保存",
+      "Buy now", "Pay", "付款", "支付", "下单", "Publish", "发布", "Submit", "提交", "Place your order",
+      "Transfer", "转账", "汇款", "Don't Save", "Do not save", "Empty Trash", "Move to bin",
+      "Subscribe", "Unsubscribe", "Post", "Tweet", "Share", "共享", "Reply", "回复", "Comment", "评论",
+      "Upload", "上传", "Approve", "批准", "Uninstall", "卸载", "Reset", "重置", "Shut down", "Restart", "重启",
     ])("never saves a click on %s", (label) => {
       expect(bare([shown([row(4, "AXButton", label)]), action("click", { element_token: "s1-e4" })])).toEqual({ ok: false, reason: "final-action" });
     });
@@ -259,7 +260,7 @@ describe("buildRecipe", () => {
 
     it.each<[string, RecordedCall[]]>([
       ["holds a send button", [...LISTED, shown([row(4, "AXButton", "Send")]), action("press_key", { key: "return", pid: 4242, window_id: 7 })]],
-      ["holds one in another language", [...LISTED, shown([row(4, "AXButton", "Отправить")]), action("press_key", { key: "return", element_token: "s1-e2" })]],
+      ["holds one in another language", [...LISTED, shown([row(4, "AXButton", "发送")]), action("press_key", { key: "return", element_token: "s1-e2" })]],
       ["shows one only after the key", [...textEditJournal().calls.slice(0, 3), action("press_key", { key: "return", pid: 4242, window_id: 7 }), shown([row(4, "AXButton", "Submit")])]],
       ["was never read", [...LISTED, action("press_key", { key: "return", pid: 4242, window_id: 7 })]],
       ["was read only in part", [...LISTED, shown([], { elements_complete: undefined }), action("press_key", { key: "return", pid: 4242, window_id: 7 })]],
@@ -287,8 +288,8 @@ describe("buildRecipe", () => {
       expect(bare([shown([row(4, "AXSecureTextField", "Password")]), action("click", { element_token: "s1-e4" })])).toEqual({ ok: false, reason: "secret-field" });
     });
 
-    it.each(["Password", "Enter your password", "Passwort", "Mot de passe", "Contraseña", "Senha", "Hasło", "Пароль", "Şifre", "Mật khẩu", "पासवर्ड", "비밀번호",
-      "パスワード", "密码", "密碼", "PIN", "Card number", "Verification code"])("never saves typing into a field labelled %s", (label) => {
+    it.each(["Password", "Enter your password", "密码", "口令", "安全码", "验证码", "卡号", "信用卡",
+      "PIN", "Card number", "Verification code", "Passphrase", "OTP", "API key", "Recovery phrase"])("never saves typing into a field labelled %s", (label) => {
       expect(typed(row(4, "AXTextField", label, { value_read: true }))).toEqual({ ok: false, reason: "secret-field" });
     });
 

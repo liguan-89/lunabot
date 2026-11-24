@@ -116,12 +116,12 @@ describe("incident wording", () => {
   });
 
   it("tells the person in their language, while the Chief's report stays English", () => {
-    expect(incidentChip(incident, "de")).toBe("Ada hatte ein Problem: Die Ausführung im Thread #Invoice reconciliation ist fehlgeschlagen: „exit_before_result“");
-    expect(incidentChip({ ...incident, kind: "stalled", detail: "" }, "de"))
-      .toBe("Ada hatte ein Problem: Die Ausführung im Thread #Invoice reconciliation wurde gestoppt, weil sie keine Aktivität mehr zeigte");
-    expect(incidentChip({ ...incident, kind: "routine-failed", title: null, room: "Standup" }, "de"))
-      .toBe("Ada hatte ein Problem: Die geplante Routine im Raum „Standup“ ist fehlgeschlagen: „exit_before_result“");
-    expect(incidentChip({ ...incident, kind: "could-not-start", title: null, detail: "" }, "de")).toBe("Ada hatte ein Problem: Die Ausführung in der Hauptunterhaltung konnte nicht starten");
+    expect(incidentChip(incident, "zh")).toBe("Ada 遇到问题：在对话 #Invoice reconciliation 中 的执行失败了：「exit_before_result」");
+    expect(incidentChip({ ...incident, kind: "stalled", detail: "" }, "zh"))
+      .toBe("Ada 遇到问题：在对话 #Invoice reconciliation 中 的执行因没有任何活动而被停止");
+    expect(incidentChip({ ...incident, kind: "routine-failed", title: null, room: "Standup" }, "zh"))
+      .toBe("Ada 遇到问题：在群组聊天「Standup」中 的定时例行任务失败了：「exit_before_result」");
+    expect(incidentChip({ ...incident, kind: "could-not-start", title: null, detail: "" }, "zh")).toBe("Ada 遇到问题：在主对话中 的执行无法启动");
     expect(incidentText(incident, { count: 1, mayRetry: true, muted: false })).toContain("Ada's run in its thread #Invoice reconciliation failed");
   });
 });

@@ -170,13 +170,13 @@ describe("Luna Bot keeps an eye on the day, hidden from the sidebar", () => {
   });
 
   it("the brief follows the language set in Settings", async () => {
-    await api("PATCH", "/api/config", { language: "pt-br" });
+    await api("PATCH", "/api/config", { language: "zh" });
     apps.gmailError = "Connected account is not ACTIVE: token expired";
     await settled((await runNow()).id);
-    const portuguese = async () => (await messages()).findLast((message) => message.serverCard && message.widget?.root.title === "Seu resumo");
-    await expect.poll(async () => JSON.stringify((await portuguese())?.widget.root ?? null), { timeout: 10_000 }).toContain("Reconecte Gmail em Apps conectados.");
-    const shown = JSON.stringify((await portuguese()).widget.root);
-    expect(shown).toContain("Precisa da sua atenção");
+    const chinese = async () => (await messages()).findLast((message) => message.serverCard && message.widget?.root.title === "你的简报");
+    await expect.poll(async () => JSON.stringify((await chinese())?.widget.root ?? null), { timeout: 10_000 }).toContain("请在已连接应用中重新连接 Gmail。");
+    const shown = JSON.stringify((await chinese()).widget.root);
+    expect(shown).toContain("需要你处理");
     expect(shown).not.toMatch(/Needs you|Your day|Reconnect Gmail/);
     delete apps.gmailError;
   });

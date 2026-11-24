@@ -77,7 +77,7 @@ const button = (label: string) => [...host.querySelectorAll("button")].find((can
 describe("the picture and the page", () => {
   it.each([
     ["en", "The browser stopped responding, so it is being restarted. The live view reconnects by itself."],
-    ["pt-br", "O navegador parou de responder e está sendo reiniciado. A visualização ao vivo se reconecta sozinha."],
+    ["zh", "浏览器停止响应，正在重启。实时视图会自动重新连接。"],
   ] as const)("renders the coded browser restart in %s without changing the event", async (locale, expected) => {
     setLocale(locale);
     const onMessage = vi.fn();
@@ -90,7 +90,7 @@ describe("the picture and the page", () => {
   });
 
   it("keeps uncoded notices and unknown server keys as the original fallback", async () => {
-    setLocale("pt-br");
+    setLocale("zh");
     const { events } = await mount();
     for (const errorKey of [undefined, "serverError.unknown", "approval.applied.waitFollowUp"]) {
       await act(async () => events().onMessage?.({ type: "notice", message: "Original browser diagnostic", ...(errorKey ? { errorKey } : {}) }));

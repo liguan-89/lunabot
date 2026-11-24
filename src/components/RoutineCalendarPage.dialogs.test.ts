@@ -137,7 +137,7 @@ describe("calendar event editor", () => {
 
   it.each([
     ["en", "Room no longer exists. Choose another.", "Save"],
-    ["pt-br", "O grupo não existe mais. Escolha outro.", "Salvar"],
+    ["zh", "群组聊天已不存在。请选择其他群组聊天。", "保存"],
   ])("cannot save a room goal whose room is gone until another room is chosen in %s", (locale, notice, save) => {
     setLocale(locale);
     const orphaned: Routine = { ...routine, target: "room-goal", groupId: "gone" };

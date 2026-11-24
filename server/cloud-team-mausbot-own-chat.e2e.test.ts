@@ -76,7 +76,7 @@ it("is the person's own: private on the wire, its notes in their layer, and nobo
 
 it.each([
   ["en", "This note moved here from where the bot kept it before, so it can't be reverted here."],
-  ["pt-br", "Esta nota veio de onde o bot a guardava antes, então não é possível reverter a alteração aqui."],
+  ["zh", "这条笔记是从机器人之前存放它的位置移到这里来的，因此无法在这里撤销。"],
 ])("moves earlier notes to their person's layer in %s when the server is English", async (language, reason) => {
   expect((await team.as(olive, "PUT", "/api/config", { language: "en" })).status).toBe(200);
   expect((await team.as(ben, "POST", "/api/presence/active", { source: "desktop", language })).status).toBe(200);
