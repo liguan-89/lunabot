@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,16 +17,25 @@ const CLOUD = "https://home-7f3k2.fly.dev";
 const OTHER = "https://bots.example.test";
 const OWN = "https://omb-c-a.fly.dev";
 
-const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "", signature: "signed" }));
+const fixture = vi.hoisted(() => ({
+  autoUpdater: null, handlers: new Map(), home: "", signature: "signed",
+  nativeAutoUpdater: { emit: () => {} }, appQuit: () => {}, imageInstall: { install: async () => "/staged" },
+}));
 
 vi.mock("electron", () => ({
-  app: { isPackaged: true, getPath: () => fixture.home, getVersion: () => "1.0.0", hide: vi.fn() },
+  app: {
+    isPackaged: true, getPath: () => fixture.home, getVersion: () => "1.0.0", hide: vi.fn(),
+    quit: () => fixture.appQuit(), getAppPath: () => `${fixture.home}/Luna Bot.app/Contents/Resources/app.asar`,
+  },
+  autoUpdater: fixture.nativeAutoUpdater,
   clipboard: { writeText: vi.fn() },
   shell: { openPath: vi.fn(async () => "") },
   ipcMain: { handle: (name, handler) => fixture.handlers.set(name, handler) },
 }));
 // Real detection would read the test runner's own binary; each test states what the running app is signed with.
 vi.mock("./app-signing.mjs", () => ({ appSignatureKind: async () => fixture.signature }));
+// The detached swap runs real hdiutil/ditto — the tests arm it, they never run it.
+vi.mock("./image-install.mjs", () => ({ createImageInstall: () => fixture.imageInstall }));
 vi.mock("node:module", () => ({
   createRequire: () => () => ({ autoUpdater: fixture.autoUpdater }),
 }));
@@ -125,6 +135,10 @@ const settle = async () => {
 beforeEach(() => {
   fixture.home = mkdtempSync(join(tmpdir(), "omb-updater-home-"));
   fixture.signature = "signed";
+  fixture.appQuit = vi.fn();
+  // The mock factory binds these objects once: reset their methods, never the object itself.
+  fixture.nativeAutoUpdater.emit = vi.fn();
+  fixture.imageInstall.install = vi.fn(async () => "/staged");
   localOriginModule.setLocalOrigin(LOCAL);
   vi.useFakeTimers();
 });
@@ -367,6 +381,43 @@ it("an adhoc-signed macOS app updates through the release's disk image, never th
       status: "error", retryable: true, messageKey: "native.update.imageNoDmg",
     });
   } finally {
+    fixture.signature = "signed";
+    Object.defineProperty(process, "platform", platform);
+  }
+});
+
+it("an adhoc macOS update swaps itself in at a quiet moment, never showing the disk image", async () => {
+  const platform = Object.getOwnPropertyDescriptor(process, "platform");
+  Object.defineProperty(process, "platform", { ...platform, value: "darwin" });
+  fixture.signature = "adhoc";
+  const bytes = Buffer.from("dmg bytes");
+  const sha = createHash("sha512").update(bytes).digest("base64");
+  vi.stubGlobal("fetch", async () => ({
+    ok: true, status: 200,
+    headers: { get: (name) => (name.toLowerCase() === "content-length" ? String(bytes.length) : null) },
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
+  }));
+  try {
+    const quiet = { locked: () => true, idleMs: () => 0, typedAt: () => 0, shown: () => true, busy: () => null, work: async () => null, watch: () => {} };
+    const { updater, autoUpdater, handlers } = await load(() => true);
+    autoUpdater.checkForUpdates = vi.fn(async () => {
+      autoUpdater.emit("checking-for-update");
+      autoUpdater.emit("update-available", { version: "2.0.0", files: [{ url: "https://feed.test/LUNABOT-2.0.0-arm64.dmg", sha512: sha, size: bytes.length }] });
+      return { isUpdateAvailable: true };
+    });
+    updater.startUpdater(quiet);
+    await settle();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await settle();
+    expect(await handlers.get("update:get-state")({})).toMatchObject({ status: "downloaded", version: "2.0.0", installsByItself: true });
+    await vi.advanceTimersByTimeAsync(30_000);
+    await settle();
+    expect(fixture.imageInstall.install).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeAutoUpdater.emit).toHaveBeenCalledWith("before-quit-for-update");
+    expect(fixture.appQuit).toHaveBeenCalled();
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllGlobals();
     fixture.signature = "signed";
     Object.defineProperty(process, "platform", platform);
   }

@@ -1,6 +1,7 @@
 // An adhoc-signed macOS app cannot be replaced by Squirrel.Mac (see app-signing.mjs), so its updates arrive as the
-// release's own .dmg: this downloads that disk image, checks it against the feed's sha512, and opens it for the person
-// to drag the app into Applications. electron-updater still does the checking — it just never downloads or stages.
+// release's own .dmg: this downloads that disk image, checks it against the feed's sha512, stages the bundle out of
+// it, and a detached swap puts it in place once the app quits. The person only drags the image in when staging fails.
+// electron-updater still does the checking — it just never downloads or stages.
 import { createHash } from "node:crypto";
 import { once } from "node:events";
 import {
@@ -64,12 +65,16 @@ function wordedError(key) {
 
 /**
  * The same shape the updater coordinator exposes — check(), install(), installable() — over a downloaded disk image
- * instead of a native stage. Every failure is retryable: nothing here can leave a half-installed app behind.
+ * instead of a native stage. `swap` stages the bundle out of the image and arms the detached install, `quit` leaves
+ * the app so it can run; the person only drags the image in when `swap` is missing or staging fails. Every failure is
+ * retryable: nothing here can leave a half-installed app behind.
  */
 export function createImageUpdateCoordinator(updater, setState, {
   baseUrl = null,
   downloadDir,
   openPath,
+  swap = null,
+  quit = null,
   fetchImpl = (...args) => fetch(...args),
   hashFile = sha512OfFile,
   log = () => {},
@@ -270,8 +275,20 @@ export function createImageUpdateCoordinator(updater, setState, {
     actionOwnsState = true;
     const operation = { failed: false };
     installOperation = operation;
-    setState({ status: "installing", version: staged.version, ...updateWords("native.update.imageOpening") });
+    setState({ status: "installing", version: staged.version, message: undefined });
     try {
+      if (swap) {
+        try {
+          await swap(staged.file);
+          // The swap runs once the process has left, so the state never settles past "installing".
+          quit?.();
+          return;
+        } catch (error) {
+          if (installOperation !== operation) return;
+          log(`The staged swap could not start (${error?.message ?? error}); opening the image instead`);
+        }
+      }
+      setState({ status: "installing", version: staged.version, ...updateWords("native.update.imageOpening") });
       const error = await openPath(staged.file);
       if (installOperation !== operation) return;
       if (typeof error === "string" && error.length > 0) {
@@ -290,9 +307,9 @@ export function createImageUpdateCoordinator(updater, setState, {
     }
   }
 
-  /** An image update is never applied by itself: opening it is the person's own act. */
+  /** A staged image swaps itself in once the app quits, so a quiet moment installs it like a native stage does. */
   function installable() {
-    return null;
+    return swap && staged ? { version: staged.version } : null;
   }
 
   return { check, install, installable };

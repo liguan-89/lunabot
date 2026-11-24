@@ -1,4 +1,5 @@
-// The adhoc-signed macOS update path: check with electron-updater, then download the release's .dmg, verify it, open it.
+// The adhoc-signed macOS update path: check with electron-updater, download the release's .dmg, verify it, then a
+// staged swap puts the new bundle in place once the app quits. Opening the image stays the fallback.
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
@@ -17,12 +18,14 @@ function sha512(bytes) {
   return createHash("sha512").update(bytes).digest("base64");
 }
 
-function harness(t, { dmg = "fixture DMG bytes", sha = null, files = null, status = 200, openError = "" } = {}) {
+function harness(t, { dmg = "fixture DMG bytes", sha = null, files = null, status = 200, openError = "", swap = undefined, quit = null } = {}) {
   const updater = new EventEmitter();
   const states = [];
   let version = "2.1.6";
   const requests = [];
   let opens = 0;
+  let quits = 0;
+  const swaps = [];
   const workspace = mkdtempSync(join(tmpdir(), "omb-image-update-"));
   t.after(() => rmSync(workspace, { recursive: true, force: true }));
   const bytes = Buffer.isBuffer(dmg) ? dmg : Buffer.from(dmg);
@@ -40,6 +43,8 @@ function harness(t, { dmg = "fixture DMG bytes", sha = null, files = null, statu
     baseUrl: "https://cloud.dexai.vip/desktop",
     downloadDir: join(workspace, "pending-image"),
     openPath: async () => { opens += 1; return openError; },
+    swap: swap === undefined ? async (file) => { swaps.push(file); return true; } : swap,
+    quit: quit ?? (() => { quits += 1; }),
     fetchImpl: async (url) => {
       requests.push(url);
       return {
@@ -54,9 +59,10 @@ function harness(t, { dmg = "fixture DMG bytes", sha = null, files = null, statu
   const last = () => states.at(-1);
   const settle = async (promise) => { await promise; await new Promise((resolve) => setImmediate(resolve)); };
   return {
-    updater, coordinator, states, last, requests, workspace, settle,
+    updater, coordinator, states, last, requests, workspace, settle, swaps,
     setVersion: (value) => { version = value; },
     opens: () => opens,
+    quits: () => quits,
     pending: () => join(workspace, "pending-image"),
     files: () => (existsSync(join(workspace, "pending-image")) ? readdirSync(join(workspace, "pending-image")) : []),
   };
@@ -83,7 +89,7 @@ test("the disk image is the feed's .dmg, resolved against the feed", () => {
   assert.equal(imageFromFeed({}, "https://feed.test/d"), null);
 });
 
-test("checking downloads the image, verifies it and hands it to the person to open", async (t) => {
+test("checking downloads the image, verifies it and installs it by quitting the app", async (t) => {
   const h = harness(t);
   await h.settle(h.coordinator.check());
   assert.deepEqual(h.requests, ["https://cloud.dexai.vip/desktop/LUNABOT-2.1.6-arm64.dmg"]);
@@ -92,15 +98,31 @@ test("checking downloads the image, verifies it and hands it to the person to op
   assert.deepEqual(h.files(), ["LUNABOT-2.1.6-arm64.dmg"]);
   assert.equal(readFileSync(join(h.pending(), "LUNABOT-2.1.6-arm64.dmg"), "utf8"), "fixture DMG bytes");
   assert.equal(h.states.some((state) => state.status === "downloading" && state.percent === 100), true);
+  // Once downloaded, a quiet moment may install it like a native stage does.
+  assert.deepEqual(h.coordinator.installable(), { version: "2.1.6" });
 
   await h.settle(h.coordinator.install());
+  assert.deepEqual(h.swaps, [join(h.pending(), "LUNABOT-2.1.6-arm64.dmg")]);
+  assert.equal(h.quits(), 1);
+  assert.equal(h.opens(), 0);
+  assert.equal(h.last().status, "installing");
+});
+
+test("a swap that cannot stage the bundle falls back to opening the image for the person", async (t) => {
+  const h = harness(t, { swap: async () => { throw new Error("hdiutil said no"); } });
+  await h.settle(h.coordinator.check());
+  await h.settle(h.coordinator.install());
+  assert.equal(h.quits(), 0);
   assert.equal(h.opens(), 1);
   assert.equal(h.last().status, "handed-off");
   assert.equal(h.last().messageKey, "native.update.imageOpened");
   // A second click has nothing left to open.
   await h.settle(h.coordinator.install());
   assert.equal(h.opens(), 1);
-  assert.deepEqual(h.coordinator.installable(), null);
+  // Without a swap there is nothing a quiet moment can install by itself.
+  const manual = harness(t, { swap: null });
+  await manual.settle(manual.coordinator.check());
+  assert.equal(manual.coordinator.installable(), null);
 });
 
 test("a digest that does not match the feed fails as an integrity error and leaves no file", async (t) => {
@@ -156,7 +178,7 @@ test("an HTTP failure is classified the way the native updater classifies one", 
 });
 
 test("an image that cannot be opened stays the person's to retry", async (t) => {
-  const h = harness(t, { openError: "no application opens disk images" });
+  const h = harness(t, { swap: null, openError: "no application opens disk images" });
   await h.settle(h.coordinator.check());
   await h.settle(h.coordinator.install());
   assert.equal(h.last().status, "error");

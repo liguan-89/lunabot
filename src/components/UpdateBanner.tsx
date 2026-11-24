@@ -69,9 +69,7 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
       : installing
         ? handoff
           ? t("settings.updates.openingTerminal")
-          : image
-            ? t("update.image.opening")
-            : t("settings.updates.restarting")
+          : t("settings.updates.restarting")
         : s.status === "handed-off"
           ? image
             ? t("update.image.open")
@@ -81,11 +79,9 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
     s.status === "downloaded"
       ? handoff
         ? t("update.banner.copyCommand")
-        : image
-          ? t("update.image.readyNote", { app: productName() })
-          : s.installsByItself
-            ? t("update.card.idleNote", { app: productName() })
-            : t("update.banner.restartToFinish")
+        : s.installsByItself
+          ? t("update.card.idleNote", { app: productName() })
+          : t("update.banner.restartToFinish")
       : installing
         ? handoff
           ? t("update.banner.copying")
@@ -151,11 +147,11 @@ export function UpdateBanner({ sidebarIndicator = false }: UpdateBannerProps) {
             >
               {pending === "install" ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" /> {t(handoff || image ? "settings.updates.opening" : "settings.updates.restartingShort")}
+                  <Loader2 size={13} className="animate-spin" /> {t(handoff ? "settings.updates.opening" : "settings.updates.restartingShort")}
                 </>
-              ) : handoff || image ? (
+              ) : handoff ? (
                 <>
-                  <PackageOpen size={13} /> {t(image ? "update.image.open" : "settings.updates.install")}
+                  <PackageOpen size={13} /> {t("settings.updates.install")}
                 </>
               ) : (
                 <>
