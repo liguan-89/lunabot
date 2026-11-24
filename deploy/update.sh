@@ -807,8 +807,11 @@ J_started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 phase backup
 say "Stopping the server and copying its data aside…"
 copied=no
+# A data folder a release before the rename left under the old name is adopted under the new one before the copy, so
+# the copy is what the new version finds. The old name stays as a link: a version put back by a rollback still sees it.
 if stop_server; then
-  if copy_aside "$J_data" "$J_backup" "$J_previous_id" >>"$LOG" 2>&1; then copied=yes; fi
+  if helper "$J_previous_id" "$J_data:/d" -- 'if [ ! -e /d/.lunabot ]; then for old in .openmausbot .dexbot; do if [ -d "/d/$old" ] && [ ! -L "/d/$old" ]; then mv "/d/$old" /d/.lunabot && ln -s .lunabot "/d/$old"; break; fi; done; fi' >>"$LOG" 2>&1 \
+    && copy_aside "$J_data" "$J_backup" "$J_previous_id" >>"$LOG" 2>&1; then copied=yes; fi
   why="Copying the data aside failed, or the copy did not match the data (see $LOG)."
 else
   why="The server could not be stopped (see $LOG), so its data was not copied."
