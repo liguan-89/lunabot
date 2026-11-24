@@ -2732,7 +2732,7 @@ private fun Composer(
                 Row(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(25.dp))
                     .background(if (minisIsDark()) minisCard else Color(0xFFEBEBE9))
                     .heightIn(min = 50.dp)
                     .padding(start = 6.dp, end = 6.dp),
