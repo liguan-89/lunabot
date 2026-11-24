@@ -24,7 +24,7 @@ export interface WidgetWhere {
   cell?: boolean;
 }
 
-const RULE = "bg-ink/[0.12]";
+const RULE = "bg-hairline/40";
 
 export function WidgetChildren({ nodes, where }: { nodes: WidgetNode[]; where: WidgetWhere }) {
   return <>{nodes.map((child, index) => <WidgetNodeView key={child.id ?? index} node={child} where={where} />)}</>;
@@ -58,7 +58,7 @@ export function WidgetNodeView({ node, where }: { node: WidgetNode; where: Widge
       const ink = INK[widgetString(node, "color") ?? ""];
       if (!(where.item && where.lead)) return <WidgetGlyph name={node.name} size={size} className={ink} />;
       return (
-        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-[8px] bg-inset group-hover/row:bg-composer group-aria-checked/row:bg-composer", ink ?? "text-ink-secondary")}>
+        <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full bg-inset group-hover/row:bg-composer group-aria-checked/row:bg-composer", ink ?? "text-ink-secondary")}>
           <WidgetGlyph name={node.name} size={size} />
         </span>
       );

@@ -79,7 +79,7 @@ export function WidgetBadge({ node }: { node: WidgetNode }) {
         node.pill === false ? "rounded-[8px]" : "rounded-full",
         variant === "solid" ? BADGE_SOLID[color] ?? BADGE_SOLID.secondary : BADGE_INK[color] ?? BADGE_INK.secondary,
         variant === "outline" && "shadow-[inset_0_0_0_1px_color-mix(in_srgb,currentColor_45%,transparent)]",
-        variant !== "solid" && variant !== "outline" && "bg-[color:color-mix(in_srgb,currentColor_13%,transparent)]",
+        variant !== "solid" && variant !== "outline" && (color === "secondary" ? "bg-inset ring-[0.5px] ring-ink/[0.08]" : "bg-[color:color-mix(in_srgb,currentColor_13%,transparent)]"),
       )}
     >
       {label}
