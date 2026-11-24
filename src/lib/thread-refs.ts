@@ -113,9 +113,9 @@ const THREAD_URL_PREFIX = "lunabot://thread/";
 const BOT_URL_PREFIX = "lunabot://bot/";
 const TASK_URL_PREFIX = "lunabot://task";
 // Links written before the rebrand still have to open; only the new prefix is ever written.
-const LEGACY_THREAD_URL_PREFIXES = ["dexbot://thread/", "lunabot://thread/"];
-const LEGACY_BOT_URL_PREFIXES = ["dexbot://bot/", "lunabot://bot/"];
-const LEGACY_TASK_URL_PREFIXES = ["dexbot://task", "lunabot://task"];
+const LEGACY_THREAD_URL_PREFIXES = ["openmausbot://thread/", "dexbot://thread/"];
+const LEGACY_BOT_URL_PREFIXES = ["openmausbot://bot/", "dexbot://bot/"];
+const LEGACY_TASK_URL_PREFIXES = ["openmausbot://task", "dexbot://task"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID_LIMIT = 256;
 
@@ -377,7 +377,7 @@ export function threadTokenFromPaste(
 ): { token: string; ref: ResolvedThreadRef } | null {
   const trimmed = pasted.trim();
   if (!trimmed) return null;
-  const wrapped = trimmed.match(/^\[((?:\\.|[^\\\]])*)\]\(((?:openmausbot|dexbot|lunabot):\/\/thread\/[^()\s]*)\)$/);
+  const wrapped = trimmed.match(/^\[((?:\\.|[^\\\]])*)\]\(((?:lunabot|dexbot|openmausbot):\/\/thread\/[^()\s]*)\)$/);
   const address = wrapped
     ? parseThreadRefUrl(wrapped[2])
     : parseThreadRefUrl(trimmed) ?? (isThreadUuid(trimmed) ? { threadId: trimmed } : null);

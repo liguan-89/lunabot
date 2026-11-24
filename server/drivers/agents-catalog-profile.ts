@@ -21,7 +21,7 @@ export interface CatalogProfile {
   /** A Team Cloud: message_person is mounted. */
   team?: boolean;
   /** The person's Luna Bot with a Chief's powers: its notification tools are mounted. */
-  mausbot?: boolean;
+  lunabot?: boolean;
   /** A direct chat whose bot may pick where it works (Works on is not Off and no team computer is its own): select_computer
    * is mounted, and the harness refuses a pick on any turn but a person's own message. */
   computerSelection?: boolean;
@@ -48,7 +48,7 @@ export function catalogProfileFromEnv(env: NodeJS.ProcessEnv): CatalogProfile {
     chief: env.LUNABOT_CHIEF_OF_STAFF === "1",
     botId: env.LUNABOT_BOT_ID ?? "",
     team: env.LUNABOT_TEAM_PEOPLE === "1",
-    mausbot: env.LUNABOT_MAUSBOT === "1",
+    lunabot: env.LUNABOT_LUNABOT === "1",
     computerSelection: env.LUNABOT_COMPUTER_SELECTION === "1",
     room: env.LUNABOT_ROOM === "1",
     imageGeneration: env.LUNABOT_IMAGE_GENERATION === "1",

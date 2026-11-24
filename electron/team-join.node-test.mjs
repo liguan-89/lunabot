@@ -12,7 +12,7 @@ test("a team link names a team by its id and nothing else; anything more is no l
   // A join page that handed out the older scheme still opens the team.
   assert.equal(teamIdFromLink(`dexbot://team/${ACME}`), ACME);
   for (const value of [null, undefined, 42, "", `${LINK}/`, `${LINK}?code=ABCDE`, `${LINK}#token=x`, "lunabot://team/", "lunabot://team/acme",
-    `lunabot://team/${ACME.toUpperCase()}`, `OPENMAUSBOT://team/${ACME}`, `lunabot://teams/${ACME}`, `https://evil.example/lunabot://team/${ACME}`, ` ${LINK}`]) {
+    `lunabot://team/${ACME.toUpperCase()}`, `LUNABOT://team/${ACME}`, `lunabot://teams/${ACME}`, `https://evil.example/lunabot://team/${ACME}`, ` ${LINK}`]) {
     assert.equal(teamIdFromLink(value), null, String(value));
   }
   // Older handlers leave it alone, and it is no Cloud or chat link.

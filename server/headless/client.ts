@@ -121,7 +121,7 @@ export async function openClient(flags: Flags, deps: ClientDeps, mutating: boole
 }
 
 export function serverWords(message: string): string {
-  const body = message.match(/^(?:Luna Bot|OpenMausBot) API error \(\d+\): ([\s\S]*)$/)?.[1];
+  const body = message.match(/^(?:Luna Bot|LunaBot) API error \(\d+\): ([\s\S]*)$/)?.[1];
   if (body === undefined) return message;
   try {
     const said = (JSON.parse(body) as { error?: unknown }).error;

@@ -4,15 +4,15 @@ import { describe, expect, it } from "vitest";
 
 import { t } from "@/lib/i18n";
 import { StoreProvider, type Bot } from "@/state/store";
-import { draftOf, MausBotWelcomeCard, mausBotWelcomeDue, welcomeName, welcomePatch } from "./MausBotWelcome";
+import { draftOf, LunaBotWelcomeCard, lunaBotWelcomeDue, welcomeName, welcomePatch } from "./LunaBotWelcome";
 
 const maus = { id: "maus", threadId: "t1", name: "Luna Bot", title: "", description: "", notifications: true, color: "chrome", mascotBody: null,
   avatarUrl: null, unread: false, modelSelection: { instanceId: "claude", model: "sonnet" }, createdAt: 1, defaultBot: {} } as unknown as Bot;
 
 describe("Luna Bot's first-launch welcome", () => {
   it("shows once, after onboarding and its tour, and never again after either choice", () => {
-    const due = (bot: Pick<Bot, "welcomed" | "hidden"> | undefined, more: Partial<Parameters<typeof mausBotWelcomeDue>[0]> = {}) =>
-      mausBotWelcomeDue({ bot, onboardingDue: false, welcomeOpen: false, tourOpen: false, ...more });
+    const due = (bot: Pick<Bot, "welcomed" | "hidden"> | undefined, more: Partial<Parameters<typeof lunaBotWelcomeDue>[0]> = {}) =>
+      lunaBotWelcomeDue({ bot, onboardingDue: false, welcomeOpen: false, tourOpen: false, ...more });
     expect(due({})).toBe(true);
     expect(due({ welcomed: true })).toBe(false);
     expect(due({}, { onboardingDue: true })).toBe(false);
@@ -54,12 +54,12 @@ describe("Luna Bot's first-launch welcome", () => {
   });
 
   it("opens on Luna Bot's picture alone: the customise panel stays closed until the picture is clicked", () => {
-    const html = renderToStaticMarkup(createElement(StoreProvider, null, createElement(MausBotWelcomeCard, { bot: maus, onClose: () => {} })));
-    expect(html).toContain(`aria-label="${t("mausbotWelcome.customize", { name: "Luna Bot" })}"`);
+    const html = renderToStaticMarkup(createElement(StoreProvider, null, createElement(LunaBotWelcomeCard, { bot: maus, onClose: () => {} })));
+    expect(html).toContain(`aria-label="${t("lunabotWelcome.customize", { name: "Luna Bot" })}"`);
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('data-mausbot-welcome-panel="closed"');
-    expect(html).toMatch(/data-mausbot-welcome-panel="closed"[^>]*|inert=""[^>]*data-mausbot-welcome-panel="closed"/);
-    expect(html).toContain(t("mausbotWelcome.title", { name: "Luna Bot" }));
-    expect(html).toContain(t("mausbotWelcome.add", { name: "Luna Bot" }));
+    expect(html).toContain('data-lunabot-welcome-panel="closed"');
+    expect(html).toMatch(/data-lunabot-welcome-panel="closed"[^>]*|inert=""[^>]*data-lunabot-welcome-panel="closed"/);
+    expect(html).toContain(t("lunabotWelcome.title", { name: "Luna Bot" }));
+    expect(html).toContain(t("lunabotWelcome.add", { name: "Luna Bot" }));
   });
 });

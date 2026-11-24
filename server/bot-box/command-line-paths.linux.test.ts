@@ -11,7 +11,7 @@ import { detectBox } from "./detect.ts";
 
 const ENV = { PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin", LUNABOT_BOT_BOX: "1" };
 const detection = detectBox({ env: ENV });
-const CANARY = "OPENMAUSBOT-COMMAND-LINE-CANARY";
+const CANARY = "LUNABOT-COMMAND-LINE-CANARY";
 // Ubuntu 26.04's bubblewrap probes fine but changed behavior: boxed commands hang where 24.04's completed
 // (observed failing the same way on main, 2026-11). Skip there until the box learns the new bwrap.
 const osRelease = (() => { try { return readFileSync("/etc/os-release", "utf8"); } catch { return ""; } })();

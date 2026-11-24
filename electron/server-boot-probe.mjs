@@ -4,7 +4,7 @@ export const BOOT_PROBE_INTERVAL_MS = 500;
 
 export const SERVER_BOOT_TIMEOUT_MS = 60_000;
 export const SERVER_LISTENING_GRACE_MS = 180_000;
-// The server names itself "lunabot" from this build and "dexbot"/"openmausbot" from one packaged before the rename;
+// The server names itself "lunabot" from this build and "dexbot"/"lunabot" from one packaged before the rename;
 // every one of those is this app's server.
 const SERVER_APP_NAMES = ["lunabot", "dexbot", "openmausbot"];
 // The server says its name when it starts listening: "lunabot server on …" from this build, "dexbot server on …"

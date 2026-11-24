@@ -16,7 +16,7 @@ vi.mock("@/state/team-people", async (original) => ({ ...await original<typeof i
 import { TeamWelcome } from "./TeamWelcome";
 import { teamPrivateChatsLineDue } from "./TeamPrivateChatsLine";
 import { finishTeamWelcome, markTeamWelcomeShown, parseTeamWelcome, resetTeamWelcome, teamWelcomeDue, teamWelcomeView, WELCOME_USE_MS } from "@/lib/team-welcome";
-import { teamQuiet } from "./MausBotWelcome";
+import { teamQuiet } from "./LunaBotWelcome";
 
 const ACME = { id: "team-acme", name: "Acme" };
 const people = [

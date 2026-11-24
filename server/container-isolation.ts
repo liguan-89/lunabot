@@ -32,7 +32,7 @@ const GUEST_IDS_SCRIPT = [
 ].join("\n");
 
 export function guestIdsCommand(ids: HostUser): string[] {
-  return ["sh", "-c", GUEST_IDS_SCRIPT, "openmausbot-desktop", String(ids.uid), String(ids.gid)];
+  return ["sh", "-c", GUEST_IDS_SCRIPT, "lunabot-desktop", String(ids.uid), String(ids.gid)];
 }
 
 /** Docker Engine on Linux, and Podman run by root (whose keep-id is the host's own id map), run the desktop's root as the

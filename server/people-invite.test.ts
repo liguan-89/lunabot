@@ -67,7 +67,7 @@ function send(path: string, init: CallInit, headers: Record<string, string>): Pr
   });
 }
 
-/** The box itself: a loopback Host and Origin, nothing forwarded, the way `openmausbot` on the server talks. */
+/** The box itself: a loopback Host and Origin, nothing forwarded, the way `lunabot` on the server talks. */
 const owner = (path: string, init: CallInit = {}) => send(path, init, { host: `127.0.0.1:${port}`, origin: `http://127.0.0.1:${port}` });
 
 const remote = (path: string, init: CallInit = {}) =>

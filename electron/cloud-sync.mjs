@@ -21,7 +21,7 @@ const BACKOFF_MS = [1_000, 3_000, 8_000, 15_000, 30_000];
 const CHECK_FILES_MAX = 100_000, CHECK_MS = 3_000;
 // Keys and settings: never shared, wherever they sit.
 // Folders that hold keys or sign-ins, including the AI CLIs' own homes (their login files live there).
-const PRIVATE = [".ssh", ".aws", ".gnupg", ".kube", ".docker", ".config", ".local", ".npm", "Library", "AppData", ".lunabot", ".dexbot", ".lunabot", ".claude", ".codex", ".gemini", ".grok"];
+const PRIVATE = [".ssh", ".aws", ".gnupg", ".kube", ".docker", ".config", ".local", ".npm", "Library", "AppData", ".lunabot", ".dexbot", ".openmausbot", ".claude", ".codex", ".gemini", ".grok"];
 
 const within = (child, parent, platform) => pathKey(child, platform) === pathKey(parent, platform) || pathKey(child, platform).startsWith(`${pathKey(parent, platform)}/`);
 
@@ -68,7 +68,7 @@ export function createCloudFilesService({
   // updating keeps every file their bots made; a failed move leaves the old folder where it is and starts
   // the new one empty. Newest first — the name a person still has decides which files follow them.
   if (!fs.existsSync(outputsDir)) {
-    for (const old of ["DEX BOT", "DexBot", "MausBot"]) {
+    for (const old of ["DEX BOT", "DexBot", "LunaBot"]) {
       const legacy = path.join(documentsDir, old);
       if (!fs.existsSync(legacy)) continue;
       try {

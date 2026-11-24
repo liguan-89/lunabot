@@ -95,7 +95,7 @@ it("shows a jsx page, takes what the person pointed at to the bot as records, re
   expect(first.status).toBe(200);
   expect(String(first.body.srcdoc).startsWith(`${CSP_META_PREFIX}${BOT_HTML_CSP}">`)).toBe(true);
   expect(first.body.srcdoc).toContain("<script type=\"importmap\">");
-  expect(first.body.srcdoc).toContain("data-mausbot-point");
+  expect(first.body.srcdoc).toContain("data-lunabot-point");
   expect(first.body.srcdoc).toContain(JSON.stringify(PRICING).replace(/</g, "\\u003c"));
 
   plan([{ tool: "update_html", arguments: { app_id: appId, jsx: PRICING_V2 } }]);
@@ -126,7 +126,7 @@ it("shows a jsx page, takes what the person pointed at to the bot as records, re
   const [pageId] = [...stub.service.pages.keys()];
   const html = stub.service.pages.get(pageId!)!.files.get("index.html")!;
   expect(html.startsWith("<!DOCTYPE html>")).toBe(true);
-  expect(html).toContain("window.__mausbotPage=function(require,module,exports){");
+  expect(html).toContain("window.__lunabotPage=function(require,module,exports){");
   expect(html).toContain("_react.useState.call(void 0, \"Pro\")");
   expect(html).not.toContain("useState(\"Pro\")");
   expect(html).not.toContain("Content-Security-Policy");

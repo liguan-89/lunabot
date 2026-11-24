@@ -19,7 +19,7 @@ function fixture() {
   const messages = new Map<string, unknown[]>();
   const bots = [
     { id: "scout", tasks: [{ threadId: "scout-main" }, { threadId: "bob-private" }] },
-    { id: "bobs-mausbot", defaultBot: { person: BOB }, tasks: [{ threadId: "mausbot-main" }, { threadId: "mausbot-second" }] },
+    { id: "bobs-lunabot", defaultBot: { person: BOB }, tasks: [{ threadId: "lunabot-main" }, { threadId: "lunabot-second" }] },
   ];
   const deleted: string[] = [];
   const deletedBots: string[] = [];
@@ -89,18 +89,18 @@ describe("createTeamMemberLeft", () => {
 
   it("deletes the departing member's own Luna Bot with its chats, and counts them", async () => {
     const fx = fixture();
-    fx.messages.set("mausbot-main", [{ role: "user", text: "LC-L2-MAIN-9081" }]);
+    fx.messages.set("lunabot-main", [{ role: "user", text: "LC-L2-MAIN-9081" }]);
     const result = await createTeamMemberLeft(fx.deps)(BOB);
-    expect(fx.deletedBots).toEqual(["bobs-mausbot"]);
+    expect(fx.deletedBots).toEqual(["bobs-lunabot"]);
     expect(fx.bots.map((bot) => bot.id)).toEqual(["scout"]);
     expect(result).toMatchObject({ chats: 3, bots: 1 });
   });
 
   it("stops the departing member's Luna Bot at work (a routine, a room turn) before deleting it", async () => {
     const fx = fixture();
-    fx.working.add("bobs-mausbot");
+    fx.working.add("bobs-lunabot");
     const result = await createTeamMemberLeft(fx.deps)(BOB);
-    expect(fx.deletedBots).toEqual(["bobs-mausbot"]);
+    expect(fx.deletedBots).toEqual(["bobs-lunabot"]);
     expect(result).toMatchObject({ bots: 1, botsKept: 0 });
   });
 

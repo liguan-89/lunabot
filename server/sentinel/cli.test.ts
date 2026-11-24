@@ -18,7 +18,7 @@ function sentinel(...args: string[]): { status: number | null; stdout: string; s
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-describe("openmausbot sentinel", () => {
+describe("lunabot sentinel", () => {
   let dir: string;
   let fixture: FixtureDataDir;
   beforeEach(() => {

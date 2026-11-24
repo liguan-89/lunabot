@@ -15,7 +15,7 @@ const IN_CHUNK = 500;
 export interface TeamPrivacy {
   /** The conversations that are one member's alone. */
   threads: ReadonlySet<string>;
-  /** Each member's own MausBot: everything of it is theirs. */
+  /** Each member's own LunaBot: everything of it is theirs. */
   bots: ReadonlySet<string>;
   /** Files in attachments/ only those conversations, or a member's unsent uploads, use. */
   attachments: ReadonlySet<string>;

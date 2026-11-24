@@ -93,7 +93,7 @@ describe("computer inventory request wiring", () => {
     const local = confirmComputerAction(perBotLocalVmDeletePlan(cloudVm), confirm);
     const cloudDelete = confirmComputerAction(cloudComputerActionPlan("delete", ownedCloudComputer), confirm);
     const cloudSleep = confirmComputerAction(cloudComputerActionPlan("sleep", ownedCloudComputer), confirm);
-    const vpsName = "openmausbot-vps-current-123456abcdef";
+    const vpsName = "lunabot-vps-current-123456abcdef";
     const vps = confirmComputerAction(vpsComputerRemovePlan({
       name: vpsName,
       state: "running",
@@ -440,7 +440,7 @@ describe("cloud computer inventory UI", () => {
 
 describe("VPS computer inventory UI", () => {
   const ownedVps: VpsComputerInventoryInstance = {
-    name: "openmausbot-vps-current-123456abcdef",
+    name: "lunabot-vps-current-123456abcdef",
     state: "running",
     vpsAlias: "production-vps",
     ownerBotId: "current-owner",
@@ -463,7 +463,7 @@ describe("VPS computer inventory UI", () => {
     }));
 
   it("shows the configured host, owners, orphans, and status without raw container details", () => {
-    const orphanName = "openmausbot-vps-deleted-abcdef123456";
+    const orphanName = "lunabot-vps-deleted-abcdef123456";
     const markup = renderCard({
       instances: [
         ownedVps,
@@ -490,7 +490,7 @@ describe("VPS computer inventory UI", () => {
   });
 
   it("derives a stable identifier without exposing the bot-derived container name", () => {
-    expect(vpsComputerShortId("openmausbot-vps-deleted-abcdef123456")).toBe("ef123456");
+    expect(vpsComputerShortId("lunabot-vps-deleted-abcdef123456")).toBe("ef123456");
     expect(vpsComputerShortId("unexpected-provider-name")).toBe("unknown");
   });
 
@@ -520,7 +520,7 @@ describe("VPS computer inventory UI", () => {
   it("tags computers on more than one server and keeps reachable rows beside the warning", () => {
     const second = {
       ...ownedVps,
-      name: "openmausbot-vps-second-123456abcdef",
+      name: "lunabot-vps-second-123456abcdef",
       vpsAlias: "alpha-vps",
       ownerName: "Ops",
     };

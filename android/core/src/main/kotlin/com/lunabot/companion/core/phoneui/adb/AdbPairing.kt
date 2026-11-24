@@ -4,7 +4,7 @@
  * Copyright 2026 wangzan101. The original is licensed under the Apache License,
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * Modifications Copyright 2026 LunaBot contributors. Changes from the
  * original: repackaged under com.lunabot.companion.core.phoneui.adb, comments
  * translated into English, and the mDNS/NSD service discovery types
  * (AdbServiceTypes, AdbServiceFinder) are not ported, that stays app-side.

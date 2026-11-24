@@ -21,7 +21,7 @@ interface IntroProps {
   followup?: Message;
 }
 
-/** MausBot's first message: Simple mode's few short bubbles and follow-up, or Advanced mode's one bubble with asks. */
+/** LunaBot's first message: Simple mode's few short bubbles and follow-up, or Advanced mode's one bubble with asks. */
 export function HelperIntro(props: IntroProps) {
   return useAdvancedMode() ? <AdvancedHelperIntro {...props} /> : <SimpleHelperIntro {...props} />;
 }

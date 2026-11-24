@@ -10,8 +10,8 @@ const rooms: RosterMember = { id: "rooms", name: "Rooms", visibility: B };
 const hours: RosterMember = { id: "hours", name: "Staff Hours", visibility: B };
 const books: RosterMember = { id: "books", name: "Bookkeeping", visibility: "admins" };
 const ledger: RosterMember = { id: "ledger", name: "Ledger", visibility: "admins" };
-const mausbot: RosterMember = { id: "maus", name: "Luna Bot", visibility: { people: ["olive@acme.test"] }, defaultBot: { person: "olive@acme.test" } };
-const bots = [rooms, hours, books, ledger, mausbot];
+const lunabot: RosterMember = { id: "maus", name: "Luna Bot", visibility: { people: ["olive@acme.test"] }, defaultBot: { person: "olive@acme.test" } };
+const bots = [rooms, hours, books, ledger, lunabot];
 
 const SAID = "Rooms couldn't hand this to Bookkeeping, because they're shared with different people. Nothing was sent.";
 const LEDGER_SAID = "Rooms couldn't hand this to Ledger, because they're shared with different people. Nothing was sent.";

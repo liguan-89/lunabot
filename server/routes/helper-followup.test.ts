@@ -1,5 +1,5 @@
-// POST /api/bots/:id/helper-followup: MausBot's follow-up after its first look around, written once under its intro as
-// a real bot message, by MausBot's own person only.
+// POST /api/bots/:id/helper-followup: LunaBot's follow-up after its first look around, written once under its intro as
+// a real bot message, by LunaBot's own person only.
 import { readFileSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";

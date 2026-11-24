@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createMausBotOwnChat } from "./mausbot-own-chat.ts";
+import { createLunaBotOwnChat } from "./lunabot-own-chat.ts";
 
 const key = (email: string) => `key:${email}`;
 function world(starters: Record<string, string> = {}) {
@@ -10,7 +10,7 @@ function world(starters: Record<string, string> = {}) {
     { id: "maus-place", threadId: "t-place", defaultBot: {} },
     { id: "sales", threadId: "t-sales" },
   ];
-  const own = createMausBotOwnChat({
+  const own = createLunaBotOwnChat({
     bots: () => bots,
     starters: { get: (threadId) => starters[threadId], set: (threadId, person) => { starters[threadId] = person; } },
     personKey: key,

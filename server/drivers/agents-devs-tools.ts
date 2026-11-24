@@ -1,4 +1,4 @@
-// The agents catalog's report_bug tool: a person's message that tags @devs is a bug report for the MausBot team, and
+// The agents catalog's report_bug tool: a person's message that tags @devs is a bug report for the LunaBot team, and
 // the bot answering it writes the summary that goes with it.
 import type { ToolCallContext, ToolCallResult } from "./agents-call.ts";
 import type { Json } from "./agents-client.ts";

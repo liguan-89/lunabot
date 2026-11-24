@@ -770,7 +770,7 @@ describe("pairing, end to end", () => {
         authenticate: (t) => registry.authenticate(t ?? undefined),
         redeem: (code, deviceName, pairRequestId) => registry.redeem(code, deviceName, pairRequestId),
         serverName: () => "Ada's computer",
-        hosts: () => ["macbook.tail1234.ts.net", "192.168.1.42", "openmausbot-abcd1234.local"],
+        hosts: () => ["macbook.tail1234.ts.net", "192.168.1.42", "lunabot-abcd1234.local"],
         endpoints: () => [
           { url: "https://device-123.companion.example", kind: "hosted", priority: 0 },
           { url: "http://192.168.1.42:8810", kind: "lan", priority: 200 },
@@ -784,7 +784,7 @@ describe("pairing, end to end", () => {
       devices: registry,
       controlToken: () => CONTROL_TOKEN,
       companionPort: port,
-      discovery: () => ({ advertising: false, name: "OpenMausBot" }),
+      discovery: () => ({ advertising: false, name: "LunaBot" }),
       connectedDeviceIds: connections.ids,
       disconnectDevice: connections.disconnect,
     });
@@ -830,7 +830,7 @@ describe("pairing, end to end", () => {
       };
       expect(body.serverName).toBe("Ada's computer");
       expect(body.token).toMatch(/^omb_/);
-      expect(body.hosts).toEqual(["macbook.tail1234.ts.net", "192.168.1.42", "openmausbot-abcd1234.local"]);
+      expect(body.hosts).toEqual(["macbook.tail1234.ts.net", "192.168.1.42", "lunabot-abcd1234.local"]);
       expect(body.endpoints).toEqual([
         { url: "https://device-123.companion.example", kind: "hosted", priority: 0 },
         { url: "http://192.168.1.42:8810", kind: "lan", priority: 200 },
@@ -889,7 +889,7 @@ describe("pairing, end to end", () => {
       devices: new DeviceRegistry(),
       controlToken: () => CONTROL_TOKEN,
       companionPort: 8800,
-      discovery: () => ({ advertising: false, name: "OpenMausBot" }),
+      discovery: () => ({ advertising: false, name: "LunaBot" }),
     });
     await new Promise<void>((r) => control.listen(0, "127.0.0.1", r));
     const port = (control.address() as { port: number }).port;
@@ -914,7 +914,7 @@ describe("pairing, end to end", () => {
       devices: new DeviceRegistry(),
       controlToken: () => CONTROL_TOKEN,
       companionPort: 8800,
-      discovery: () => ({ advertising: false, name: "OpenMausBot" }),
+      discovery: () => ({ advertising: false, name: "LunaBot" }),
     });
     await new Promise<void>((r) => control.listen(0, "127.0.0.1", r));
     const port = (control.address() as { port: number }).port;
@@ -938,7 +938,7 @@ describe("pairing, end to end", () => {
       devices: registry,
       controlToken: () => CONTROL_TOKEN,
       companionPort: 8800,
-      discovery: () => ({ advertising: false, name: "OpenMausBot" }),
+      discovery: () => ({ advertising: false, name: "LunaBot" }),
     });
     await new Promise<void>((r) => control.listen(0, "127.0.0.1", r));
     const port = (control.address() as { port: number }).port;
@@ -982,7 +982,7 @@ describe("pairing, end to end", () => {
       devices: registry,
       controlToken: () => CONTROL_TOKEN,
       companionPort: 8800,
-      discovery: () => ({ advertising: false, name: "OpenMausBot" }),
+      discovery: () => ({ advertising: false, name: "LunaBot" }),
     });
     await new Promise<void>((r) => control.listen(0, "127.0.0.1", r));
     const port = (control.address() as { port: number }).port;

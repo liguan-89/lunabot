@@ -6,7 +6,7 @@
  * Copyright 2026 wangzan101. The original is licensed under the Apache
  * License, Version 2.0 (third_party/mika/LICENSE in this repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors: adapted to the
+ * Modifications Copyright 2026 LunaBot contributors: adapted to the
  * trimmed protocol in HandoffProtocol.kt (no USB-script surface).
  */
 package com.lunabot.companion.phoneui.shell

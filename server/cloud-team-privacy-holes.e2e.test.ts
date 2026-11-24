@@ -1,6 +1,6 @@
 // Private means private on a Team Cloud (docs/team-cloud.md), tried as the people it must hold against: an Admin, the
 // Owner and another member, on a real Team Cloud (LUNABOT_CLOUD_ROLE=team) with the synthetic Claude CLI. Usage counts what
-// Rui spent and never says on what; Rui's own MausBot exists for nobody but Rui, on every route and in every list; and a
+// Rui spent and never says on what; Rui's own LunaBot exists for nobody but Rui, on every route and in every list; and a
 // routine made with no audience named is its writer's alone.
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -28,7 +28,7 @@ let fx: CloudSendFixture, team: CloudTeamFixture;
 let owner = "", admin = "", rui = "", marta = "";
 let quotes: Bot, ruiMaus: Bot;
 let ruiThread = "", ruiRoutine = "", ariRoutine = "";
-/** Every id that is Rui's alone: his private conversations, his private routine and its runs, his MausBot. */
+/** Every id that is Rui's alone: his private conversations, his private routine and its runs, his LunaBot. */
 const ruiIds = new Set<string>();
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));

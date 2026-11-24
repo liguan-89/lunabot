@@ -559,7 +559,7 @@ export function createProxyHandler(options: ProxyOptions) {
             // SAFETY: identity is untrusted JSON; the assertion only permits
             // reading one optional property compared to fixed literals. This
             // fleet's harness answers "lunabot"; builds from before the rename
-            // answered "dexbot", upstream builds answer "openmausbot".
+            // answered "dexbot", upstream builds answer "lunabot".
             const app = (identity as { app?: unknown } | null)?.app;
             if (
               (harness.statusCode ?? 500) < 200 ||

@@ -46,7 +46,7 @@ writeFileSync(
   path.join(home, ".lunabot", "config.json"),
   JSON.stringify({ instances: { ghost: { driver: "not-a-real-driver", displayName: "Ghost" } } }),
 );
-for (const appName of ["Luna Bot", "lunabot", "dexbot", "openmausbot", "OpenMausBot"]) {
+for (const appName of ["Luna Bot", "lunabot", "dexbot", "openmausbot", "LunaBot"]) {
   const userData = path.join(xdgConfig, appName);
   mkdirSync(userData, { recursive: true, mode: 0o700 });
   chmodSync(userData, 0o700);
@@ -336,7 +336,7 @@ try {
   if (sessionBlocked) {
     await waitForExit();
     if (existsSync(marker)) throw new Error("release safety block still invoked a CUA executable");
-    const activeUserData = ["lunabot", "Luna Bot", "dexbot", "openmausbot", "OpenMausBot"]
+    const activeUserData = ["lunabot", "Luna Bot", "dexbot", "lunabot", "LunaBot"]
       .map((name) => path.join(xdgConfig, name))
       .find((directory) => existsSync(path.join(directory, "cua-connection.json")));
     if (!activeUserData) throw new Error("release safety smoke could not locate the CUA descriptor");
@@ -383,7 +383,7 @@ try {
     if (existsSync(marker)) {
       throw new Error(`packaged app invoked the ambient driver:\n${readFileSync(marker, "utf8")}`);
     }
-    const userData = ["lunabot", "Luna Bot", "dexbot", "openmausbot", "OpenMausBot"]
+    const userData = ["lunabot", "Luna Bot", "dexbot", "lunabot", "LunaBot"]
       .map((name) => path.join(xdgConfig, name))
       .find((directory) => existsSync(path.join(directory, "cua-connection.json")));
     if (!userData) throw new Error("bundled smoke could not locate the CUA descriptor");
@@ -479,7 +479,7 @@ try {
       await delay(50);
     }
     if (staleHealth?.ok) throw new Error("embedded harness survived hard Electron death");
-    const userData = ["lunabot", "Luna Bot", "dexbot", "openmausbot", "OpenMausBot"]
+    const userData = ["lunabot", "Luna Bot", "dexbot", "lunabot", "LunaBot"]
       .map((name) => path.join(xdgConfig, name))
       .find((directory) => existsSync(path.join(directory, "cua-connection.json")));
     if (!userData) throw new Error("hard-death smoke could not locate the CUA descriptor");

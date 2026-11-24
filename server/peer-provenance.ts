@@ -120,7 +120,7 @@ export function reportNote(rawName: string): string {
 const DELIVERED_NOTES = ["message from", "delegated by", "thread opened by", "retry requested by", "aside from"];
 const NOTE_OPENINGS = [...DELIVERED_NOTES, "from", "messages this conversation", "delivered earlier by", "posted by", "assigned by",
   "report from", "teammate report", "teammate result", "thread you opened", "incident report", "escalation notice"].map(opening => opening.split(" "));
-const HEADER_WORDS = new Set(["openmausbot", "lunabot", "omb"]);
+const HEADER_WORDS = new Set(["lunabot", "lunabot", "omb"]);
 const FIRST_WORDS = new Set([...NOTE_OPENINGS.map(words => words[0]!), ...HEADER_WORDS, "dex", "luna"]);
 const LEADING_NOTE = new RegExp(`^\\[(?:${DELIVERED_NOTES.map(opening => opening.replace(/ /g, "\\s+")).join("|")})\\b[^\\]\\n]*\\]`, "iu");
 const OPENER = /[[［【〔〖〘〚⟦⁅⦋]/gu;
@@ -195,9 +195,9 @@ export function labelledLine(line: ProvenanceLine, text: string, labels: LineLab
 }
 
 export function peerProvenanceAuthor(text: string): string | null {
-  // Lines written before the rebrands say OpenMausBot or DEX BOT; new lines say Luna Bot.
+  // Lines written before the rebrands say LunaBot or DEX BOT; new lines say Luna Bot.
   const normalized = text
-    .split("another bot in this OpenMausBot workspace").join("another bot in this Luna Bot workspace")
+    .split("another bot in this LunaBot workspace").join("another bot in this Luna Bot workspace")
     .split("another bot in this DEX BOT workspace").join("another bot in this Luna Bot workspace");
   const opening = normalized.match(/^\[(?:Message from @(.+?), another bot in this Luna Bot workspace|From @(.+?) \(bot\) · message · )/);
   return opening?.[1] ?? opening?.[2] ?? null;

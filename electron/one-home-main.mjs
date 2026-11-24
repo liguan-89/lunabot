@@ -125,7 +125,7 @@ async function answer(response) {
  *   clean?: import("./clean-workspace.mjs").CleanWorkspace | null,
  * }} deps `accountsHere`: how many accounts are signed in on this device: with more than one, which Cloud this computer's bots
  * belong in is the person's to say, so no first move starts by itself. `localRequest`: this computer's server, as its owner (main adds the owner's header), and only its own copy while `clean`
- * (the clean workspace) runs. `account`: the MausBot
+ * (the clean workspace) runs. `account`: the LunaBot
  * Cloud sign-in (cloud-account.mjs). `journal`: where the move's journal is kept, journalFile by default; `keep`: the
  * person's choice to keep this computer's bots here, one-home-keep.json beside it by default. `openTeam`:
  * shows a team's page, where a bot moved into it from My Cloud now lives (team-move-main.mjs, whose journal is
