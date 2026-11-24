@@ -148,7 +148,19 @@ feed:
    first. Hosts and paths come from `LUNABOT_PUBLISH_HOST` (default
    `wholesale`) and `LUNABOT_PUBLISH_DATA_DIR` (default
    `/opt/dex-cloud/data`).
-3. There is no second repository and no mirror. Nothing in the release pipeline
+3. Our own Clouds update from the same run: `scripts/promote-cloud-home.mjs`
+   pulls the release's `lunabot-cloud-home` image on that host, re-tags it as
+   `lunabot-cloud-home:local` by digest (the previous `:local` keeps a
+   `rollback-<version>` tag), and asks the control plane to rebuild every
+   running Cloud container on it — the provisioner's image default is exactly
+   that tag. `dex-cloud/src/reprovision.mjs`, streamed into the control-plane
+   container, does each rebuild through the real `provision()` path, so the
+   data volume survives and an unhealthy rebuild lands `offline`, never
+   half-installed. `--no-cloud-home` skips this step, and the script stands
+   alone for a catch-up promote (`--version`, `--dry-run`,
+   `--skip-reprovision`, `--cloud c-…`). Clouds are the fleet the 48-hour
+   stable soak below counts on: they must run each release promptly.
+4. There is no second repository and no mirror. Nothing in the release pipeline
    writes outside `liguan-89/lunabot`.
 
 The npm package is published separately and its versioned `.tgz` is attached
