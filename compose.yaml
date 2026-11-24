@@ -65,7 +65,7 @@ services:
     # whenever it answers, so `up` never waits on the server's health, and HTTPS is back
     # as soon as a restarted server is.
     depends_on:
-      omb:
+      lunabot:
         condition: service_started
     volumes:
       - ./deploy/local/Caddyfile:/etc/caddy/Caddyfile:ro
