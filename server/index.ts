@@ -12154,6 +12154,7 @@ function configStatus() {
     wecom: { configured: Boolean(cfg.wecom?.corpId && cfg.wecom.corpSecret && cfg.wecom.token && cfg.wecom.encodingAesKey && cfg.wecom.agentId && cfg.wecom.botId), botId: cfg.wecom?.botId ?? "", corpId: cfg.wecom?.corpId ?? "", agentId: cfg.wecom?.agentId ?? "" },
     botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
     sms: { configured: Boolean(cfg.sms?.botId), botId: cfg.sms?.botId ?? "", owners: cfg.sms?.owners ?? [] },
+    wechat: { configured: Boolean(cfg.wechat?.botId), botId: cfg.wechat?.botId ?? "" },
     webauthn: { required: Boolean(cfg.webauthn?.required), enrolled: webAuthnCredentials.length },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),
