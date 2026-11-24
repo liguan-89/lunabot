@@ -247,6 +247,43 @@ class PairingClientTest {
     }
 
     @Test
+    fun aCompanionIsRecognisedUnderTheNameItsReleaseAnswersWith() = runBlocking {
+        for (app in COMPANION_APP_NAMES) {
+            val stub = PairingStub { request ->
+                if (request.url.encodedPath == "/api/health") {
+                    StubAction.reply(200, """{"app":"$app","pid":42,"static":true}""")
+                } else {
+                    StubAction.reply(201, PAIRED)
+                }
+            }
+            val connection = Connection(name = "Mac", host = "192.168.1.42", port = 8810)
+
+            val outcome = CompanionClient.pairFirstReachable(connection, CREDENTIAL, "Pixel", client = stub.client)
+
+            assertEquals(listOf("192.168.1.42"), stub.pairRequests.map { it.url.host }, app)
+            assertEquals("omb_device", outcome.response.token, app)
+        }
+    }
+
+    @Test
+    fun aServerThatIsNotACompanionIsStillLeftAlone() = runBlocking {
+        val stub = PairingStub { request ->
+            if (request.url.encodedPath == "/api/health") {
+                StubAction.reply(200, """{"app":"mausbot","pid":42,"static":true}""")
+            } else {
+                StubAction.reply(201, PAIRED)
+            }
+        }
+        val connection = Connection(name = "Mac", host = "192.168.1.42", port = 8810)
+
+        assertFailsWith<PairingRouteError> {
+            CompanionClient.pairFirstReachable(connection, CREDENTIAL, "Pixel", client = stub.client)
+        }
+
+        assertTrue(stub.pairRequests.isEmpty(), "no credential is sent to something that is not a companion")
+    }
+
+    @Test
     fun clientRejectionIsAuthoritativeAndNotSentToFallback() = runBlocking {
         val hosted = endpoint("https://mac.companion.example", CompanionEndpointKind.HOSTED, 0)
         val tailnet = endpoint("http://mac.tail1234.ts.net:8810", CompanionEndpointKind.TAILNET, 100)

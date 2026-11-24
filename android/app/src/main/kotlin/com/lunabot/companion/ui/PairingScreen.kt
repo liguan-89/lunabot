@@ -53,6 +53,7 @@ import com.lunabot.companion.core.ServerPairingRetryError
 import com.lunabot.companion.discovery.DiscoveredService
 import com.lunabot.companion.discovery.DiscoveryState
 import com.lunabot.companion.discovery.toConnection
+import com.lunabot.companion.permissions.CompanionPermissions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -72,6 +73,10 @@ import kotlinx.coroutines.launch
  * used to browse from the moment it existed, so someone who only ever meant to
  * scan the QR code printed on their own computer paid for a local search they
  * never looked at, and met a permission dialog to make it work.
+ *
+ * Confirming a computer on this Wi-Fi is the one moment the scan itself asks:
+ * Android 17 refuses every socket to that computer until the person allows the
+ * local network, so the tap that confirms is the tap that asks.
  *
  * A scan never pairs by itself. A scanned or deep-linked invite fills the form
  * and the user confirms the computer's name and address before anything is
@@ -115,6 +120,9 @@ fun PairingScreen(onCancel: () -> Unit) {
     // attempt is in flight is the secret store's answer, not this flag's —
     // `PairingSecrets` is the one object that can refuse to replace the slot.
     var pairing by remember { mutableStateOf(false) }
+    // Set while the system sheet for the local network is up: the confirmation that asked for it is redeemed once
+    // the sheet has been answered, whichever way, and not before.
+    var redeemAtLocalNetworkAnswer by remember { mutableStateOf<Int?>(null) }
     // The handle an account hand-off opened (a Cloud code, or a computer that
     // just approved this phone), while its one automatic submit is still owed.
     // Process memory only, like everything else secret here.
@@ -134,6 +142,7 @@ fun PairingScreen(onCancel: () -> Unit) {
     var showingOtherWays by rememberSaveable { mutableStateOf(false) }
 
     val permissionSnapshot by environment.permissions.snapshot.collectAsState()
+    val localNetworkAnswers by environment.permissions.localNetworkAnswers.collectAsState()
 
     LaunchedEffect(showingOtherWays) {
         searchedLongEnough = false
@@ -281,7 +290,18 @@ fun PairingScreen(onCancel: () -> Unit) {
         return
     }
 
-    fun submit(connection: Connection, credential: String, cameFromScanner: Boolean) {
+    /** What the selected confirmation redeems with right now; null when there is nothing left to redeem. */
+    fun selectedCredential(): String? {
+        val selected = pending ?: return null
+        return when (val step = PairingConfirmation.of(selected, secrets).step) {
+            is PairingConfirmation.Step.Confirm -> step.credential
+            PairingConfirmation.Step.EnterCode -> code
+            PairingConfirmation.Step.Rescan -> null
+        }
+    }
+
+    /** The redemption itself. Every caller has already made sure this phone may dial the computer's routes. */
+    fun redeem(connection: Connection, credential: String, cameFromScanner: Boolean) {
         val selectedHandle = pending?.handle
         val pairRequestId = secrets.pairRequestId(selectedHandle) ?: return
         // Claims the slot for this redemption. It refuses a second submit, and
@@ -341,6 +361,30 @@ fun PairingScreen(onCancel: () -> Unit) {
         }
     }
 
+    fun submit(connection: Connection, credential: String, cameFromScanner: Boolean) {
+        if (connection.usesLocalNetwork) {
+            val missing = environment.permissions.routePermissions()
+            if (missing.isNotEmpty()) {
+                // Android 17 refuses the Wi-Fi route to this computer until the person agrees. Answered no, the
+                // redemption still runs: the relay carries it, or Session says what is missing.
+                pairing = true
+                redeemAtLocalNetworkAnswer = localNetworkAnswers + 1
+                environment.requestPermissions(missing)
+                return
+            }
+        }
+        redeem(connection, credential, cameFromScanner)
+    }
+
+    LaunchedEffect(localNetworkAnswers) {
+        if (redeemAtLocalNetworkAnswer != localNetworkAnswers) return@LaunchedEffect
+        redeemAtLocalNetworkAnswer = null
+        pairing = false
+        val selected = pending ?: return@LaunchedEffect
+        val credential = selectedCredential() ?: return@LaunchedEffect
+        redeem(selected.connection, credential, selected.fromScan)
+    }
+
     // The tap in Settings that started this flow is the confirmation: the code
     // was minted for this account and this Cloud, or the computer answered a
     // request this phone made. Submit once, here, so a refusal lands on this
@@ -351,11 +395,7 @@ fun PairingScreen(onCancel: () -> Unit) {
         val selected = pending ?: return@LaunchedEffect
         if (autoSubmit != selected.handle) return@LaunchedEffect
         autoSubmit = null
-        val credential = when (val step = PairingConfirmation.of(selected, secrets).step) {
-            is PairingConfirmation.Step.Confirm -> step.credential
-            PairingConfirmation.Step.EnterCode -> code
-            PairingConfirmation.Step.Rescan -> return@LaunchedEffect
-        }
+        val credential = selectedCredential() ?: return@LaunchedEffect
         submit(selected.connection, credential, cameFromScanner = selected.fromScan)
     }
 
@@ -445,8 +485,15 @@ fun PairingScreen(onCancel: () -> Unit) {
                 // Next to the list it makes empty, and only once the search it
                 // describes is the thing on screen.
                 if (permissionSnapshot.discoveryNeedsRequest) {
+                    val missing = permissionSnapshot.missingDiscovery
+                    val pairingAsks = if (CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK in missing) {
+                        "扫码配对一台同一 Wi-Fi 上的电脑时，系统也会询问是否允许访问本地网络。"
+                    } else {
+                        ""
+                    }
                     Text(
-                        text = "搜索当前网络需要开启 ${permissionSnapshot.missingDiscovery.joinToString()} 权限（当前尚未开启）。使用上方二维码或下方手动输入地址无需此权限。",
+                        text = "搜索当前网络需要开启 ${environment.permissions.described(missing).joinToString("、")}" +
+                            " 权限（当前尚未开启）。$pairingAsks",
                         fontSize = 13.sp,
                         color = secondaryTint,
                     )

@@ -48,8 +48,10 @@ class Session(
     private val deviceNameProvider: () -> String,
     private val notificationSink: NotificationSink = NoOpNotificationSink,
     private val httpClient: OkHttpClient = OkHttpClient(),
+    /** Which of a pairing's routes this phone may open a socket to right now; read again on every walk. */
+    private val routeAccess: RouteAccess = RouteAccess.ALL,
     private val clientFactory: (Connection, String?) -> CompanionClient = { connection, token ->
-        CompanionClient(connection, token, httpClient)
+        CompanionClient(connection, token, httpClient, routeAccess = routeAccess)
     },
     private val pairFn: suspend (Connection, String, String, String) -> PairingOutcome =
         { connection, credential, deviceName, pairRequestId ->
@@ -59,6 +61,7 @@ class Session(
                 deviceName = deviceName,
                 pairRequestId = pairRequestId,
                 client = httpClient,
+                routeAccess = routeAccess,
             )
         },
     /** Test seam: override the SSE Flow without subclassing [CompanionClient]. */
@@ -294,7 +297,7 @@ class Session(
                     if (error is kotlinx.coroutines.CancellationException) throw error
                     val routeFailure = error is PairingRouteError || error is ServerPairingRetryError
                     if (qr && !routeFailure) burnQrCredential(credential)
-                    _actionError.value = if (qr && !routeFailure) qrFailureMessage(error) else error.message
+                    _actionError.value = if (qr && !routeFailure) qrFailureMessage(error) else pairingFailureText(error)
                     throw error
                 }
                 if (qr) burnQrCredential(credential)
@@ -320,7 +323,7 @@ class Session(
                     )
                 } catch (error: Throwable) {
                     if (error is kotlinx.coroutines.CancellationException) throw error
-                    _actionError.value = if (qr) qrFailureMessage(error) else error.message
+                    _actionError.value = if (qr) qrFailureMessage(error) else pairingFailureText(error)
                     throw error
                 }
 
@@ -361,7 +364,7 @@ class Session(
                     credential = credential,
                     deviceName = deviceName,
                     app = "lunabot-android",
-                    directWsUrl = invited.e2eDirectUrl,
+                    directWsUrl = invited.e2eDirectUrl(routeAccess),
                     pairRequestId = requestId,
                 )
             }
@@ -399,6 +402,11 @@ class Session(
                 serverEnvironmentId = paired.environment.environmentId,
                 serverScopes = paired.session.scopes,
             ) to paired.token
+        }
+        // Probing a route the platform refuses costs its whole timeout and cannot succeed. The credential stays
+        // retryable: the next attempt reads the grant again.
+        if (invited.usesLocalNetwork && invited.dialableEndpoints(routeAccess).isEmpty()) {
+            throw PairingRouteError(emptyList(), LocalNetworkRefused.PAIR + LocalNetworkRefused.SETTINGS)
         }
         val outcome = pairFn(invited, credential, deviceName, requestId)
         val paired = outcome.response
@@ -528,10 +536,8 @@ class Session(
         }
     }
 
-    private fun qrFailureMessage(error: Throwable): String {
-        val base = error.message?.takeIf { it.isNotBlank() } ?: "配对失败。"
-        return "$base 请在电脑上重新发起配对，并重新扫描新的二维码。"
-    }
+    private fun qrFailureMessage(error: Throwable): String =
+        "${pairingFailureText(error)} 请在电脑上重新发起配对，并重新扫描新的二维码。"
 
     fun signOut() {
         attachmentSendIds.clear()
@@ -814,12 +820,19 @@ class Session(
 
     private fun configureActiveConnectionLocked(saved: Connection, storedToken: String) {
         _connection.value = saved
+        val dialable = liveRoutes(saved, null)
+        if (dialable.isEmpty() && !saved.reachesComputerByRelay && saved.usesLocalNetwork) {
+            // Nothing is dialled and — as with a locked token store — the next connect() asks the platform again.
+            _restoreState.value = RestoreState.Pending
+            _status.value = Status.Offline(LocalNetworkRefused.CONNECT, LocalNetworkRefused.SETTINGS)
+            return
+        }
         token = storedToken
         // A restored pairing walks the desktop's advertised priority, and it walks
         // it credential-safely: a connection already on a protected route never
         // reaches for a local one. Surviving a failover is not a promotion — the
         // computer still decides which protected route leads.
-        rotation = CandidateRotation(saved.orderedEndpoints)
+        rotation = CandidateRotation(dialable)
         val first = rotation.currentEndpoint?.let(saved::dialing) ?: saved
         client = clientFactory(first, storedToken)
         _restoreState.value = RestoreState.Ready
@@ -1334,7 +1347,7 @@ class Session(
                         current.reconciling(metadata)
                     }
                     persistActiveConnectionLocked(updated)
-                    rotation = CandidateRotation(liveRoutes(updated, workingEndpoint))
+                    rotation = CandidateRotation(liveRoutes(updated, workingEndpoint?.takeIf(routeAccess::allows)))
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -1351,12 +1364,51 @@ class Session(
      * The head here is a transient cursor for one session, not a stored preference: what gets
      * written down is [Connection.orderedEndpoints], where the desktop's priority governs.
      */
+    /** What [routeAccess] answered for the active pairing's routes when its walk was last built. */
+    private var routeAnswers: List<Boolean> = emptyList()
+
     private fun liveRoutes(
         connection: Connection,
         winner: CompanionEndpoint?,
     ): List<CompanionEndpoint> {
-        val routes = connection.orderedEndpoints
+        routeAnswers = connection.orderedEndpoints.map(routeAccess::allows)
+        val routes = connection.dialableEndpoints(routeAccess)
         return if (winner == null) routes else listOf(winner) + routes.filterNot { it.url == winner.url }
+    }
+
+    /**
+     * The platform changed its mind about a route: the person answered the local-network prompt or came back from
+     * Settings. A pairing that was waiting on that answer is restored now. A live session moves onto the route the
+     * stored order leads with, the way a route change moves it; one already there is left alone.
+     */
+    fun onRouteAccessChanged() {
+        scope.launch {
+            restored.await()
+            gate.withLock {
+                val active = client
+                if (active == null) {
+                    if (_restoreState.value is RestoreState.Pending) restoreLocked()
+                    return@withLock
+                }
+                val current = _connection.value ?: return@withLock
+                val activeToken = token ?: return@withLock
+                if (current.orderedEndpoints.map(routeAccess::allows) == routeAnswers) return@withLock
+                val routes = liveRoutes(current, null)
+                val inPlace = if (current.e2eDescriptor != null) {
+                    // An encrypted session is where its tunnel dials — the first route it is allowed, or the relay —
+                    // which the head of the walk alone does not say.
+                    active.e2eDirectUrl == current.e2eDirectUrl(routeAccess) &&
+                        routes.firstOrNull()?.url == rotation.currentEndpoint?.url
+                } else {
+                    routes.firstOrNull()?.url == active.connection.activeEndpoint?.url
+                }
+                if (inPlace) return@withLock
+                val lead = routes.firstOrNull() ?: return@withLock
+                rotation = CandidateRotation(routes)
+                client = clientFactory(current.dialing(lead), activeToken)
+                restartStreamLocked()
+            }
+        }
     }
 
     /** Replace the stored address by hand, keeping the pairing and its token. */

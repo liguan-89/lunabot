@@ -15,6 +15,7 @@ import com.lunabot.companion.ui.PairingScreen
 import com.lunabot.companion.ui.PermissionPreferences
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Rule
 import org.junit.Test
@@ -188,5 +189,69 @@ class PairingDiscoveryTimingTest {
 
         gate.complete(Unit)
         compose.waitForIdle()
+    }
+
+    /** A QR for a computer on this phone's Wi-Fi, as the desktop prints one for a signed-out computer. */
+    private fun lanInvite(scene: OnboardingScene) {
+        scene.session.receivePairingURL("openmausbot://pair?address=192.168.1.20&code=123456")
+        compose.waitUntil(5_000) { scene.session.pairingInvite.value != null }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `confirming a computer on this Wi-Fi asks for the local network first and redeems once it is allowed`() {
+        val scene = scene()
+        mount(scene)
+        lanInvite(scene)
+
+        compose.onNodeWithText("与此电脑配对").performClick()
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf(CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK),
+            scene.asked(),
+            "the local network is asked for at the tap that is about to dial it, and for nothing else",
+        )
+        compose.onNodeWithText("暂不").assertIsNotEnabled()
+        assertNull(scene.session.connection.value, "nothing was redeemed under the system sheet")
+
+        scene.granted += CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK
+        scene.permissions.onLocalNetworkResult()
+        compose.waitUntil(5_000) { scene.session.connection.value != null }
+
+        assertEquals(1, scene.permissionRequests.size, "allowed once, asked once")
+    }
+
+    @Test
+    fun `a refusal still redeems, once, and the screen lets go`() {
+        val scene = scene()
+        mount(scene)
+        lanInvite(scene)
+
+        compose.onNodeWithText("与此电脑配对").performClick()
+        compose.waitForIdle()
+        scene.permissions.onLocalNetworkResult()
+        compose.waitUntil(5_000) { scene.session.connection.value != null }
+
+        assertEquals(
+            listOf(CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK),
+            scene.asked(),
+            "a refused local network is not asked for again in a loop",
+        )
+        compose.onNodeWithText("暂不").assertIsEnabled()
+    }
+
+    @Test
+    fun `confirming a computer this phone reaches another way asks for nothing`() {
+        val scene = scene()
+        mount(scene)
+        scene.session.receivePairingURL("openmausbot://pair?address=127.0.0.1&code=123456")
+        compose.waitUntil(5_000) { scene.session.pairingInvite.value != null }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("与此电脑配对").performClick()
+        compose.waitUntil(5_000) { scene.session.connection.value != null }
+
+        assertEquals(emptyList(), scene.asked(), "loopback is this phone talking to itself")
     }
 }

@@ -65,4 +65,46 @@ class CompanionPermissionsTest {
         recordAudioGranted = true
         assertTrue(permissions.recordAudioGranted())
     }
+
+    @Test
+    fun aRouteToAComputerOnThisWifiNeedsTheLocalNetworkOnlyOnApi37() {
+        val refused = CompanionPermissions(sdkInt = 37, granted = { false })
+        assertFalse(refused.localNetworkGranted())
+        assertEquals(
+            listOf(CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK),
+            refused.routePermissions().toList(),
+            "nothing else is asked on the way to a computer: not discovery, not notifications",
+        )
+
+        val legacy = CompanionPermissions(sdkInt = 36, granted = { false })
+        assertTrue(legacy.localNetworkGranted(), "before API 37 the platform grants the local network implicitly")
+        assertTrue(legacy.routePermissions().isEmpty())
+    }
+
+    @Test
+    fun theHintNamesPermissionsAsTheSystemDoes() {
+        val permissions = CompanionPermissions(sdkInt = 37, granted = { false })
+        assertEquals(
+            listOf("附近设备", "本地网络"),
+            permissions.described(permissions.discoveryPermissions().toList()),
+        )
+        assertEquals(listOf("附近设备", "android.permission.RECORD_AUDIO"), permissions.described(listOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.RECORD_AUDIO)))
+    }
+
+    @Test
+    fun theLocalNetworkAnswerMovesOncePerSystemAnswer() {
+        val granted = mutableSetOf<String>()
+        val permissions = CompanionPermissions(sdkInt = 37, granted = { it in granted })
+        assertEquals(0, permissions.localNetworkAnswers.value)
+
+        permissions.onLocalNetworkResult()
+        assertEquals(1, permissions.localNetworkAnswers.value, "a refusal is an answer too")
+        assertFalse(permissions.localNetworkGranted())
+
+        granted += CompanionPermissions.PERMISSION_ACCESS_LOCAL_NETWORK
+        permissions.onLocalNetworkResult()
+        assertEquals(2, permissions.localNetworkAnswers.value)
+        assertTrue(permissions.localNetworkGranted())
+        assertTrue(permissions.routePermissions().isEmpty())
+    }
 }

@@ -21,6 +21,18 @@ import kotlinx.serialization.decodeFromString
 internal fun isBonjourName(host: String): Boolean =
     host.trim().trimEnd('.').lowercase().endsWith(".local")
 
+/**
+ * Loopback is this phone talking to itself — a developer's `adb forward` puts the companion there — and no
+ * local-network permission governs it, so it must never cost a prompt or be left out of the walk.
+ */
+internal fun isLoopbackHost(host: String): Boolean {
+    val bare = host.trim().trimEnd('.').lowercase().removeSurrounding("[", "]")
+    val mapped = bare.removePrefix("::ffff:")
+    val v4 = mapped.split('.')
+    return mapped == "localhost" || bare == "::1" || bare == "0:0:0:0:0:0:0:1" ||
+        (v4.size == 4 && v4[0] == "127" && v4.all { part -> part.toIntOrNull() in 0..255 })
+}
+
 @Serializable
 data class Connection(
     val id: String = UUID.randomUUID().toString(),
@@ -55,16 +67,23 @@ data class Connection(
                 as? com.lunabot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
         }
 
-    /** A direct encrypted route (`ws://host:port/v1/e2e`) from the advertised endpoints. */
-    val e2eDirectUrl: String?
-        get() {
-            val candidates = buildList {
-                activeEndpoint?.let(::add)
-                endpoints?.let(::addAll)
-            }
-            val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED } ?: return null
-            return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+    /** A direct encrypted route (`ws://host:port/v1/e2e`) from the advertised endpoints, the first this phone may dial. */
+    fun e2eDirectUrl(access: RouteAccess = RouteAccess.ALL): String? {
+        val candidates = buildList {
+            activeEndpoint?.let(::add)
+            endpoints?.let(::addAll)
         }
+        val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED && access.allows(it) } ?: return null
+        return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+    }
+
+    /** Whether the relay can carry the encrypted connection when none of this computer's own routes may be dialled. */
+    val reachesComputerByRelay: Boolean
+        get() = e2eDescriptor?.let { it.routes != "local" && it.relays.isNotEmpty() } == true
+
+    /** Whether connecting to this computer means opening a socket on this phone's own network. */
+    val usesLocalNetwork: Boolean
+        get() = orderedEndpoints.any { it.isOnLocalNetwork }
 
     val baseUrl: URI?
         get() {
@@ -221,6 +240,10 @@ data class Connection(
     val automaticEndpoints: List<CompanionEndpoint>
         get() = CompanionEndpoint.automaticCandidates(orderedEndpoints)
 
+    /** [orderedEndpoints] without the routes this phone may not open right now. */
+    fun dialableEndpoints(access: RouteAccess = RouteAccess.ALL): List<CompanionEndpoint> =
+        orderedEndpoints.filter(access::allows)
+
     /**
      * Apply an authenticated endpoint snapshot, which is a replacement rather than a hint.
      *
@@ -349,7 +372,7 @@ data class Connection(
         }
 
         fun parse(text: String, defaultPort: Int = 8810): Connection? {
-            var trimmed = text.trim()
+            var trimmed = typedAddress(text)
             val lowercased = trimmed.lowercase()
             if (lowercased.startsWith("http://") || lowercased.startsWith("https://")) {
                 val parsed = runCatching { URI(trimmed) }.getOrNull() ?: return null
@@ -372,7 +395,8 @@ data class Connection(
 
             var parsedHost = trimmed
             var parsedPort = defaultPort
-            if (trimmed.startsWith("[")) {
+            val bracketed = trimmed.startsWith("[")
+            if (bracketed) {
                 val close = trimmed.indexOf(']')
                 if (close < 0) return null
                 parsedHost = trimmed.substring(1, close)
@@ -387,10 +411,26 @@ data class Connection(
                 parsedPort = trimmed.substring(colon + 1).toIntOrNull() ?: return null
             }
 
-            if (parsedHost.isEmpty() || parsedHost.any { it.isWhitespace() || it in "/?#[]" }) return null
+            if (parsedHost.isEmpty()) return null
+            val legalHost = if (bracketed) {
+                parsedHost.none { it.isWhitespace() || it in "/?#[]" }
+            } else {
+                parsedHost.all { it in HOST_NAME_CHARS }
+            }
+            if (!legalHost) return null
             if (parsedPort !in 1..65535) return null
             return Connection(name = parsedHost, host = urlHost(parsedHost), port = parsedPort)
         }
+
+        /**
+         * A Chinese keyboard turns "." and ":" into full-width marks (`。` `．` `：`) that name the same address, and a
+         * full-width digit or letter looks the same at a glance. Anything else it may put there is not part of an
+         * address, and is refused rather than dialed.
+         */
+        private fun typedAddress(text: String): String =
+            java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKC).replace('。', '.').trim()
+
+        private const val HOST_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:%"
 
         private const val MAX_ENDPOINTS = 8
     }

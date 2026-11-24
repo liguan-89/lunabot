@@ -8,6 +8,7 @@ import com.lunabot.companion.account.CloudAccountApi
 import com.lunabot.companion.account.CloudAccountController
 import com.lunabot.companion.account.CloudAccountStore
 import com.lunabot.companion.avatar.AvatarImageStore
+import com.lunabot.companion.core.RouteAccess
 import com.lunabot.companion.core.Session
 import com.lunabot.companion.discovery.NsdDiscovery
 import com.lunabot.companion.lifecycle.AlwaysOnConnectionService
@@ -151,6 +152,8 @@ class OpenMausApp : Application() {
                     ?: android.os.Build.MODEL
             },
             notificationSink = notifications,
+            // Read on every walk: the platform's answer can change under a live process.
+            routeAccess = RouteAccess.localNetwork(permissions::localNetworkGranted),
             // The offline roster cache: a launch that cannot reach the
             // computer still shows the last fleet, stamped with how old it is.
             // Files-dir, not cache-dir: Android may wipe cacheDir under storage

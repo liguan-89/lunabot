@@ -18,6 +18,9 @@ internal object PermissionPreferences {
 
     /** Composer dictation mic — asked only from the mic button's flow. */
     const val RECORD_AUDIO = "android.permission.RECORD_AUDIO"
+
+    /** Android 17's local-network grant; literal for the same reason as the two above. */
+    const val ACCESS_LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
 }
 
 /**
@@ -42,14 +45,19 @@ internal class PermissionRequests(
     private val launchSingle: (String) -> Unit,
     private val onNotificationResult: (Boolean) -> Unit,
     private val onRecordAudioResult: (Boolean) -> Unit = {},
+    /** The system answered the local-network prompt, whichever way. */
+    private val onLocalNetworkResult: () -> Unit = {},
     /**
      * Permissions whose "already asked" state has to outlive the process.
      * RECORD_AUDIO joins notifications so a permanent denial through the mic
-     * button cannot be misread as "never asked" after a recreation.
+     * button cannot be misread as "never asked" after a recreation, and the
+     * local network joins both so a phone that already refused it is not asked
+     * again on every return to the app.
      */
     private val tracked: Set<String> = setOf(
         PermissionPreferences.POST_NOTIFICATIONS,
         PermissionPreferences.RECORD_AUDIO,
+        PermissionPreferences.ACCESS_LOCAL_NETWORK,
     ),
 ) {
     /** The root's first-entry request for everything still missing. */
@@ -69,5 +77,6 @@ internal class PermissionRequests(
     fun onResults(results: Map<String, Boolean>) {
         results[PermissionPreferences.POST_NOTIFICATIONS]?.let(onNotificationResult)
         results[PermissionPreferences.RECORD_AUDIO]?.let(onRecordAudioResult)
+        if (results.containsKey(PermissionPreferences.ACCESS_LOCAL_NETWORK)) onLocalNetworkResult()
     }
 }
