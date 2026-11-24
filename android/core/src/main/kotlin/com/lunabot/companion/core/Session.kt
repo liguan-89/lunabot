@@ -822,7 +822,7 @@ class Session(
 
     private fun configureActiveConnectionLocked(saved: Connection, storedToken: String) {
         _connection.value = saved
-        val dialable = saved.dialableEndpoints(routeAccess)
+        val dialable = liveRoutes(saved, null)
         if (dialable.isEmpty() && !saved.reachesComputerByRelay && saved.usesLocalNetwork) {
             // Nothing is dialled and — as with a locked token store — the next connect() asks the platform again.
             _restoreState.value = RestoreState.Pending
@@ -1366,10 +1366,14 @@ class Session(
      * The head here is a transient cursor for one session, not a stored preference: what gets
      * written down is [Connection.orderedEndpoints], where the desktop's priority governs.
      */
+    /** What [routeAccess] answered for the active pairing's routes when its walk was last built. */
+    private var routeAnswers: List<Boolean> = emptyList()
+
     private fun liveRoutes(
         connection: Connection,
         winner: CompanionEndpoint?,
     ): List<CompanionEndpoint> {
+        routeAnswers = connection.orderedEndpoints.map(routeAccess::allows)
         val routes = connection.dialableEndpoints(routeAccess)
         return if (winner == null) routes else listOf(winner) + routes.filterNot { it.url == winner.url }
     }
@@ -1383,15 +1387,25 @@ class Session(
         scope.launch {
             restored.await()
             gate.withLock {
-                if (client == null) {
+                val active = client
+                if (active == null) {
                     if (_restoreState.value is RestoreState.Pending) restoreLocked()
                     return@withLock
                 }
                 val current = _connection.value ?: return@withLock
                 val activeToken = token ?: return@withLock
+                if (current.orderedEndpoints.map(routeAccess::allows) == routeAnswers) return@withLock
                 val routes = liveRoutes(current, null)
+                val inPlace = if (current.e2eDescriptor != null) {
+                    // An encrypted session is where its tunnel dials — the first route it is allowed, or the relay —
+                    // which the head of the walk alone does not say.
+                    active.e2eDirectUrl == current.e2eDirectUrl(routeAccess) &&
+                        routes.firstOrNull()?.url == rotation.currentEndpoint?.url
+                } else {
+                    routes.firstOrNull()?.url == active.connection.activeEndpoint?.url
+                }
+                if (inPlace) return@withLock
                 val lead = routes.firstOrNull() ?: return@withLock
-                if (lead.url == rotation.currentEndpoint?.url) return@withLock
                 rotation = CandidateRotation(routes)
                 client = clientFactory(current.dialing(lead), activeToken)
                 restartStreamLocked()

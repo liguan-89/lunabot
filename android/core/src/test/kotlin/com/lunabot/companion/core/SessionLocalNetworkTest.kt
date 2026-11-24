@@ -57,21 +57,36 @@ class SessionLocalNetworkTest {
 
     @Test
     fun anEncryptedPairingIsNotHeldBackByAClosedLocalNetwork() = runTest {
-        val saved = lanOnly.copy(
-            e2e = com.lunabot.companion.core.e2e.E2eDescriptor(
-                k = transportKey(),
-                h = com.lunabot.companion.core.e2e.E2eBase64.encode(ByteArray(16) { 1 }),
-                relays = listOf("cloud.dexai.vip"),
-            ).encode(),
-        )
         val dialed = mutableListOf<String>()
-        val session = session(saved = saved, allowed = { false }, dialed = dialed)
+        val session = session(saved = encryptedLanOnly(), allowed = { false }, dialed = dialed)
 
         session.awaitRestored()
 
         assertEquals(Session.RestoreState.Ready, session.restoreState.value)
         assertEquals(Session.Status.Connecting, session.status.value)
-        assertEquals(listOf(lan.displayAddress), dialed)
+        assertEquals(listOf("tunnel:relay"), dialed)
+    }
+
+    @Test
+    fun aSessionTheRelayCarriedMovesOntoTheWifiRouteOnceItOpens() = runTest {
+        var allowed = false
+        val dialed = mutableListOf<String>()
+        val session = session(saved = encryptedLanOnly(), allowed = { allowed }, dialed = dialed)
+        session.awaitRestored()
+        assertEquals(listOf("tunnel:relay"), dialed)
+
+        session.onRouteAccessChanged()
+        runCurrent()
+        assertEquals(1, dialed.size, "nothing changed, so a healthy session is not restarted")
+
+        allowed = true
+        session.onRouteAccessChanged()
+        runCurrent()
+        assertEquals(listOf("tunnel:relay", "tunnel:ws://192.168.1.20:8810/v1/e2e"), dialed)
+
+        session.onRouteAccessChanged()
+        runCurrent()
+        assertEquals(2, dialed.size, "already on the route the computer leads with")
     }
 
     @Test
@@ -124,8 +139,14 @@ class SessionLocalNetworkTest {
         assertEquals(1, paired)
     }
 
-    private fun transportKey(): String = com.lunabot.companion.core.e2e.E2eBase64.encode(
-        com.lunabot.companion.core.e2e.P256.generateKeyPair(java.security.SecureRandom()).publicKey,
+    private fun encryptedLanOnly() = lanOnly.copy(
+        e2e = com.lunabot.companion.core.e2e.E2eDescriptor(
+            k = com.lunabot.companion.core.e2e.E2eBase64.encode(
+                com.lunabot.companion.core.e2e.P256.generateKeyPair(java.security.SecureRandom()).publicKey,
+            ),
+            h = com.lunabot.companion.core.e2e.E2eBase64.encode(ByteArray(16) { 1 }),
+            relays = listOf("cloud.dexai.vip"),
+        ).encode(),
     )
 
     private fun TestScope.session(
@@ -144,8 +165,11 @@ class SessionLocalNetworkTest {
             deviceNameProvider = { "Pixel" },
             routeAccess = RouteAccess.localNetwork(allowed),
             clientFactory = { connection, _ ->
-                dialed += connection.displayAddress
-                CompanionClient(connection, "device-token")
+                CompanionClient(connection, "device-token", routeAccess = RouteAccess.localNetwork(allowed)).also { made ->
+                    // What the client really dials: an encrypted one its tunnel's own route, a plain one its address.
+                    dialed += made.e2eDirectUrl?.let { "tunnel:$it" }
+                        ?: if (connection.e2eDescriptor != null) "tunnel:relay" else connection.displayAddress
+                }
             },
             pairFn = pair,
             eventsFn = { _, _, _ -> emptyFlow() },
