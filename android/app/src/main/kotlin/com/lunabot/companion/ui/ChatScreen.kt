@@ -1479,6 +1479,7 @@ private fun LoadedChat(
                 queuedSends = queuedSends,
                 steering = steering,
                 onSteer = steerNow,
+                onStop = { scope.launch { session.interrupt(chat) } },
                 onCancelQueued = { queued ->
                     scope.launch { session.cancelQueued(queued, chat) }
                 },
@@ -2602,6 +2603,8 @@ private fun Composer(
     queuedSends: List<QueuedSend>,
     steering: Boolean,
     onSteer: (() -> Unit)?,
+    /** 桌面 Composer 的停止钮：bot 运行中插在发送钮旁边，点了打断本轮。 */
+    onStop: (() -> Unit)?,
     onCancelQueued: (QueuedSend) -> Unit,
     onEditQueued: (QueuedSend) -> Unit,
     openingFileName: String?,
@@ -2833,6 +2836,23 @@ private fun Composer(
                 // the send arrow, so the bar never carries two endings at once.
                 // The two are one control changing its mind, so the change is a
                 // crossfade with a small scale, not an icon swap between frames.
+                if (busy && onStop != null && !dictationLocked) {
+                    TouchTarget(
+                        onClick = onStop,
+                        contentDescription = "停止本轮",
+                    ) {
+                        Box(
+                            modifier = Modifier.size(34.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(minisInk, RoundedCornerShape(3.dp)),
+                            )
+                        }
+                    }
+                }
                 AnimatedContent(
                     targetState = canSend,
                     transitionSpec = {
