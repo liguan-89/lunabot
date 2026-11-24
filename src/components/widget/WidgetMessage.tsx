@@ -238,35 +238,43 @@ function WidgetCard({ botId, threadId, messageId, payload, viewOnly }: { botId: 
       >
         <div className={cn(SURFACE, pending !== undefined && "opacity-[0.55]")}>
           {headed && (
-            <div className={cn("flex items-start gap-3 px-4 pt-3.5", kids(root).length ? "pb-3" : "pb-3.5")}>
+            <div className={cn("flex items-start gap-3 px-[18px] pt-4", kids(root).length ? "border-b border-hairline/40 pb-3.5" : "pb-4")}>
               <div className="min-w-0 flex-1">
                 {statusText && (
-                  <p className={cn("flex items-center gap-1.5 text-[13px] font-semibold leading-[18px] text-accent-text", (title || caption) && "mb-1")}>
-                    {typeof status.icon === "string" && <WidgetGlyph name={status.icon} size={14} />}
+                  <p className={cn("flex items-center gap-2 text-[13px] font-semibold leading-[18px] text-accent-text", (title || caption) && "mb-1.5")}>
+                    {typeof status.icon === "string" && (
+                      <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-inset text-ink-secondary">
+                        <WidgetGlyph name={status.icon} size={13} />
+                      </span>
+                    )}
                     <bdi dir="auto" className="min-w-0 truncate">{statusText}</bdi>
                   </p>
                 )}
                 {title && <div title={title} className="truncate text-[15px] font-semibold leading-6 text-ink"><bdi dir="auto">{title}</bdi></div>}
                 {caption && <div dir="auto" className="mt-0.5 text-[13px] leading-snug text-ink-secondary">{caption}</div>}
               </div>
-              {meta && <span dir="auto" className="mt-1 shrink-0 whitespace-nowrap text-[12px] leading-4 tabular-nums text-ink-tertiary">{meta}</span>}
+              {meta && <span dir="auto" className="mt-0.5 shrink-0 whitespace-nowrap rounded-full bg-inset px-2 py-0.5 text-[11px] font-medium leading-4 tabular-nums text-ink-secondary">{meta}</span>}
             </div>
           )}
           <WidgetBody root={root} headed={headed} />
           {problem && (
-            <div id={errorId} role="alert" className="mx-4 flex items-start gap-2 border-t border-ink/[0.12] pb-3.5 pt-3 text-[13px] leading-[18px] text-danger">
+            <div id={errorId} role="alert" className="mx-[18px] flex items-start gap-2 border-t border-hairline/40 pb-3.5 pt-3 text-[13px] leading-[18px] text-danger">
               <CircleAlert aria-hidden="true" size={14} className="mt-0.5 shrink-0" />
               <span dir="auto" className="min-w-0 break-words">{problem.text}</span>
             </div>
           )}
+          {withdrawn && (
+            <div className="border-t border-hairline/40 px-[18px] py-2.5 text-[12.5px] italic text-ink-tertiary">
+              {t("widget.withdrawn")}
+            </div>
+          )}
+          {!settled && !withdrawn && (confirm || cancel) && (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-hairline/40 px-[18px] py-3">
+              {cancel && <WidgetButton actionRef="cancel" label={cancel.label} look="outline" />}
+              {confirm && <WidgetButton actionRef="confirm" label={confirm.label} look="primary" />}
+            </div>
+          )}
         </div>
-        {withdrawn && <div className="mt-2.5 text-[13px] italic text-ink-tertiary">{t("widget.withdrawn")}</div>}
-        {!settled && !withdrawn && (confirm || cancel) && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            {confirm && <WidgetButton actionRef="confirm" label={confirm.label} look="primary" />}
-            {cancel && <WidgetButton actionRef="cancel" label={cancel.label} look="outline" />}
-          </div>
-        )}
         <span role="status" className="sr-only">{pending !== undefined ? t("widget.sending") : sent !== undefined ? t("widget.sent") : ""}</span>
       </div>
     </WidgetFormProvider>
