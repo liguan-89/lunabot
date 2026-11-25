@@ -9,7 +9,8 @@ import kotlin.test.assertTrue
 
 /**
  * Route selection and the close that arrives before the handshake: spec §3/§4 (direct routes lead, the relay is the
- * fallback) and §9/§12 (a relay refusal means "try the next route", a direct 4001 means "removed").
+ * fallback) and §9/§12 (a refusal before the handshake means "try the next route"; only GoAway(3) inside the
+ * tunnel means the owner removed this phone).
  */
 class E2eRouteOrderTest {
     private val random = SecureRandom()
@@ -94,7 +95,7 @@ class E2eRouteOrderTest {
     }
 
     @Test
-    fun `a 4001 on a direct route is the owner removing the phone`() {
+    fun `a bare 4001 on a direct route is transient and walks on to the relay`() {
         val session = E2eSession(
             connector = RefusingConnector(4001),
             target = E2eTarget.Direct("ws://192.168.1.42:8810/v1/e2e"),
@@ -103,7 +104,25 @@ class E2eRouteOrderTest {
             app = "lunabot-test",
         )
         assertFailsWith<NoiseException> { session.connect() }
-        assertEquals("removed", session.failure)
+        assertEquals("direct_rejected", session.failure)
+        assertTrue(session.failure != "removed")
+    }
+
+    @Test
+    fun `a direct 4001 no longer stops the walk before the relay`() {
+        val connector = RefusingConnector(4001)
+        val transport = E2eTransport(
+            descriptor = descriptor(),
+            token = token,
+            app = "lunabot-test",
+            connector = connector,
+            directUrl = "ws://192.168.1.42:8810/v1/e2e",
+        )
+        assertFailsWith<Exception> { transport.ensureSession() }
+        assertEquals(
+            listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.openmausbot.com/v1/phone"),
+            connector.dialled,
+        )
     }
 
     @Test

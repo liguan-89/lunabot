@@ -15,6 +15,7 @@ class PairingFailureTextTest {
         "asleep" to "电脑现在不在线。",
         "payload2_conn" to "应答的不是二维码上的那台电脑。",
         "relay_rejected" to "电脑没有接起这次连接。",
+        "direct_rejected" to "电脑没有接起这次连接。",
         "relay_no_data_socket" to "电脑没有接起这次连接。",
         "relay_busy" to "中继暂时不可用，请稍后重试。",
         "relay_restarting" to "中继暂时不可用，请稍后重试。",

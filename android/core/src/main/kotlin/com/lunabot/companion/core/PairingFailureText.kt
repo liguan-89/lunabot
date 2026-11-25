@@ -18,7 +18,7 @@ internal fun pairingFailureText(error: Throwable): String {
         reason == "no_route" -> "没有可用的方式连到这台电脑。"
         reason == "asleep" -> "电脑现在不在线。"
         reason.startsWith("payload2_") -> "应答的不是二维码上的那台电脑。"
-        reason == "relay_rejected" || reason == "relay_no_data_socket" -> "电脑没有接起这次连接。"
+        reason == "relay_rejected" || reason == "relay_no_data_socket" || reason == "direct_rejected" -> "电脑没有接起这次连接。"
         reason == "relay_busy" || reason == "relay_restarting" -> "中继暂时不可用，请稍后重试。"
         reason == "removed" -> "这台手机已从电脑上移除。"
         else -> error.message?.takeIf { it.isNotBlank() } ?: "配对失败。"

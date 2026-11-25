@@ -99,8 +99,10 @@ class E2eTransport(
             } catch (error: Throwable) {
                 E2eLog.line("target failed: ${error.message}")
                 candidate.close()
-                // The owner removed this phone. No other route changes that, so the walk stops here rather than
-                // spending the relay's attempt on a device the computer will refuse again (spec §12).
+                // GoAway(3) inside the tunnel means the owner removed this phone. No other route changes that,
+                // so the walk stops here rather than spending the relay's attempt on a device the computer will
+                // refuse again (spec §12). A bare 4001 is transient (sidecar busy / pairing window lapsed) and
+                // walks on to the relay.
                 if (candidate.failure == "removed" || error is E2eRemovedException) throw E2eRemovedException()
                 lastError = error
             }
