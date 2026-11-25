@@ -9,6 +9,7 @@ import { botOwner, chiefConflict, chiefScope, ownerEmail } from "../shared/bot-o
 import { ensureSections, readSections, changeEmptySection } from "./section-context.ts";
 import type { TeamComputers } from "./team-computers.ts";
 import { removeBotFolder, soulFile, soulHash, writeSoulMirror } from "./bot-folder.ts";
+import { migrateBotRecords } from "./store-bot-migrations.ts";
 import type { BotProfilePatch } from "./bot-profile.ts";
 import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, loadBrowserProfileIdAliases } from "./config.ts";
 import * as mdb from "./message-db.ts";
@@ -379,23 +380,7 @@ export class Store {
       delete b.managedSections;
       botsMigrated = true;
     }
-    for (const b of this.bots as Array<BotRecord & { peers?: unknown; approvePeerComms?: unknown }>) {
-      if (!("peers" in b) && !("approvePeerComms" in b)) continue;
-      delete b.peers;
-      delete b.approvePeerComms;
-      botsMigrated = true;
-    }
-    // Recover only app-issued provider-tool grants into bot defaults, never task/session grants such as shell commands.
-    for (const b of this.bots) {
-      const taskProviderGrants = (b.tasks ?? []).flatMap((task) =>
-        (task.alwaysAllow ?? []).filter((key) => key.startsWith("provider-tool:")),
-      );
-      if (!taskProviderGrants.length) continue;
-      const migrated = [...new Set([...(b.alwaysAllow ?? []), ...taskProviderGrants])].slice(0, 200);
-      if (JSON.stringify(migrated) === JSON.stringify(b.alwaysAllow ?? [])) continue;
-      b.alwaysAllow = migrated;
-      botsMigrated = true;
-    }
+    if (migrateBotRecords(this.bots)) botsMigrated = true;
     const botIds = new Set(this.bots.map((b) => b.id));
     for (const g of this.groups) {
       g.busyBotId = null;

@@ -345,22 +345,15 @@ export interface ProviderAdapter {
   enginePid?(threadId: ThreadId): number | undefined;
   stopAll(): Promise<void>;
   onEvent(listener: RuntimeEventListener): () => void;
-  /** `ping` sends one tool-less forked request without touching the thread's session; `hold` keeps the live session open until
-   * `until` (epoch ms; null releases) and says whether one exists. `compact` summarizes the conversation with the engine's own
+  /** `hold` keeps the live session open until `until` (epoch ms; null releases) and says whether one exists.
+   * `compact` summarizes the conversation with the engine's own
    * compaction on a fork of its session (`session`: the one it must still be on), so the next turn starts small; on success the
    * thread's process is closed or left warm on the fork, and `session` is the conversation's session from now on. */
   cacheKeepWarm?: {
-    ping(threadId: ThreadId, options?: { signal?: AbortSignal }): Promise<CacheWarmPingResult>;
     hold(threadId: ThreadId, until: number | null): boolean;
     compact?(threadId: ThreadId, options: { instructions: string; session?: string; signal?: AbortSignal }): Promise<IdleCompactResult>;
   };
 }
-
-/** Tokens are the ping's own; `costUsd` is notional on a subscription. `busy`: a turn was running and nothing was sent;
- * `limit`: the account's usage limit refused it. */
-export type CacheWarmPingResult =
-  | { ok: true; input: number; cacheRead: number; cacheWrite: number; output: number; costUsd: number | null; model: string | null }
-  | { ok: false; reason: string; busy?: boolean; limit?: boolean };
 
 /** A warm summary: the fork's `session` replaces `sessionBefore`; the tokens are the summary call's own. `busy`: a turn ran
  * meanwhile and nothing changed. */

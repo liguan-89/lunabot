@@ -1,5 +1,5 @@
 // The engine homes of a Team Cloud at run time. A turn's spawns run inside its conversation (`within`, set around each
-// adapter's sendTurn and keep-warm ping), and procs.ts asks `forSpawn` for the home of that conversation's audience. Off a
+// adapter's sendTurn), and procs.ts asks `forSpawn` for the home of that conversation's audience. Off a
 // Team Cloud nothing is started and every spawn keeps the server's HOME.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { mkdirSync } from "node:fs";
@@ -95,7 +95,7 @@ export class EngineHomes {
 
 export const engineHomes = new EngineHomes();
 
-/** On a Team Cloud, every turn, keep-warm ping and warm summary of this instance runs inside its conversation. */
+/** On a Team Cloud, every turn and warm summary of this instance runs inside its conversation. */
 export function withEngineHomes(instance: ProviderInstance, homes: EngineHomes = engineHomes): ProviderInstance {
   if (!homes.active()) return instance;
   const adapter = instance.adapter;
@@ -105,7 +105,6 @@ export function withEngineHomes(instance: ProviderInstance, homes: EngineHomes =
     sendTurn: (input) => homes.within(input.threadId, () => adapter.sendTurn(input)),
     ...(warm ? { cacheKeepWarm: {
       ...warm,
-      ping: (threadId, options) => homes.within(threadId, () => warm.ping(threadId, options)),
       // A summary forks the conversation's session, which lives in its audience's home, and starts the bot's servers there.
       ...(warm.compact ? { compact: (threadId, options) => homes.within(threadId, () => warm.compact!(threadId, options)) } : {}),
     } } : {}),
