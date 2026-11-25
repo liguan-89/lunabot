@@ -79,12 +79,16 @@ export function PairRequestCard() {
     if (busy || !bridge?.answerPairRequest) return;
     setBusy(true);
     setError(null);
+    // The window this attempt opened: a failure below must close it again,
+    // or nobody can pair until its TTL runs out.
+    let openedToken: string | null = null;
     try {
       // The same window a Scan opens: a code is minted there, and the link below
       // is what carries it to the phone.
       const companion = companionBridge();
       if (!companion) throw new Error(t("pairRequest.failed"));
       const state = await companion.pairing(true);
+      openedToken = state.pairing?.token ?? null;
       const route = companionPairingRoute(state, "local");
       if (!route || !state.pairing?.token) throw new Error(t("pairRequest.noLink"));
       const link = phonePairingLink({
@@ -98,6 +102,10 @@ export function PairRequestCard() {
       await bridge.answerPairRequest(request.id, "allow", link);
       next();
     } catch (problem) {
+      if (openedToken) {
+        // Best-effort: the error below is what the person acts on.
+        await companionBridge()?.pairing(false, openedToken).catch(() => {});
+      }
       setError(problem instanceof Error ? problem.message : t("pairRequest.failed"));
     } finally {
       setBusy(false);

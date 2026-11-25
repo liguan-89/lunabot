@@ -73,7 +73,14 @@ data class Connection(
             activeEndpoint?.let(::add)
             endpoints?.let(::addAll)
         }
-        val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED && access.allows(it) } ?: return null
+        // Android cannot resolve `.local` at all: a Bonjour name here would eat a DNS timeout on every dial
+        // before the walk ever reaches the relay.
+        val endpoint = candidates.firstOrNull {
+            it.kind != CompanionEndpointKind.HOSTED &&
+                it.kind != CompanionEndpointKind.BONJOUR &&
+                !isBonjourName(it.host) &&
+                access.allows(it)
+        } ?: return null
         // Bracketed when the host is an IPv6 literal: a bare `ws://fd00::1:8810/...` never parses.
         return "ws://${urlHost(endpoint.host)}:${endpoint.port}/v1/e2e"
     }

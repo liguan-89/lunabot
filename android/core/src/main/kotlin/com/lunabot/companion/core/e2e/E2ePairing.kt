@@ -52,13 +52,27 @@ class OkHttpE2eConnector(
         fun isLanDial(url: String): Boolean {
             if (!url.startsWith("ws://")) return false
             val authority = url.removePrefix("ws://").substringBefore('/')
-            if (authority.startsWith("[")) return false
+            if (authority.startsWith("[")) {
+                val host = authority.substringAfter("[").substringBefore("]")
+                return isLanIpv6Literal(host)
+            }
             val octets = authority.substringBeforeLast(':').split('.').map { it.toIntOrNull() ?: return false }
             if (octets.size != 4 || octets.any { it !in 0..255 }) return false
             return octets[0] == 127 || octets[0] == 10 ||
                 (octets[0] == 172 && octets[1] in 16..31) ||
                 (octets[0] == 192 && octets[1] == 168) ||
                 (octets[0] == 169 && octets[1] == 254)
+        }
+
+        /** Link-local, loopback and unique-local v6: this phone's own network, same as the v4 ranges above. */
+        private fun isLanIpv6Literal(host: String): Boolean {
+            val bare = host.substringBefore('%').lowercase()
+            if (bare == "::1") return true
+            val address = runCatching { java.net.InetAddress.getByName(bare) }.getOrNull() ?: return false
+            if (address.isLoopbackAddress || address.isLinkLocalAddress) return true
+            val raw = address.address
+            // fc00::/7 unique-local.
+            return raw.size == 16 && (raw[0].toInt() and 0xFE) == 0xFC
         }
     }
 }
