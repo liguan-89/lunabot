@@ -676,6 +676,15 @@ private fun LoadedChat(
     LaunchedEffect(showingTasks) { if (showingTasks) dictation.stop() }
     LaunchedEffect(showingProfile) { if (showingProfile) dictation.stop() }
     LaunchedEffect(showingCall) { if (showingCall) dictation.stop() }
+    LaunchedEffect(showingCall) { environment.spokenReplies.setCallActive(showingCall) }
+    val recordingForSpeech = voiceCardOpen || dictationListening || dictationStarting
+    LaunchedEffect(recordingForSpeech) { environment.spokenReplies.setRecordingActive(recordingForSpeech) }
+    DisposableEffect(Unit) {
+        onDispose {
+            environment.spokenReplies.setCallActive(false)
+            environment.spokenReplies.setRecordingActive(false)
+        }
+    }
 
     val connection by session.connection.collectAsState()
     LaunchedEffect(chatId, threadId, connection?.id) {

@@ -71,6 +71,20 @@ class VoiceClientTest {
     }
 
     @Test
+    fun currentLiveCallReadsTheComputersAuthoritativeState() = runBlocking {
+        server.enqueue(json("""{"call":{"callId":"c1","botId":"b1","threadId":"t1","client":"desktop","voice":"alloy","startedAt":1,"status":"live"}}"""))
+        val call = client.liveCall()
+        val request = server.takeRequest()
+        assertEquals("GET", request.method)
+        assertEquals("/api/live/call", request.path)
+        assertEquals("c1", call?.callId)
+        assertEquals("live", call?.status)
+
+        server.enqueue(json("""{"call":null}"""))
+        assertEquals(null, client.liveCall())
+    }
+
+    @Test
     fun theProviderTravelsAsExactlyTheVoiceShapeTheCompanionForwards() = runBlocking {
         server.enqueue(json("{}"))
         client.updateVoiceProvider("system")

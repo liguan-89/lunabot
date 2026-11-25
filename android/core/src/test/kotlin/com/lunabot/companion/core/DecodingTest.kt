@@ -525,13 +525,13 @@ class DecodingTest {
 
         val call = frame(
             """{"kind":"live.call","botId":"b1","threadId":"t1","seq":2,
-               "call":{"callId":"c1","botId":"b1","client":"desktop","startedAt":1,
-                       "endedAt":31,"seconds":30,"endReason":"hung-up"}}""",
+               "call":{"callId":"c1","botId":"b1","threadId":"t1","client":"desktop","voice":"alloy",
+                       "startedAt":1,"status":"ended","endReason":"hung-up"}}""",
         )
         assertTrue(call is Frame.LiveCall)
         call as Frame.LiveCall
         assertEquals("b1", call.botId)
-        assertEquals(30.0, call.call?.seconds)
+        assertEquals("ended", call.call?.status)
 
         assertEquals(
             Frame.ComputerControl("b1", true, "needs your hands"),

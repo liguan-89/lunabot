@@ -224,6 +224,7 @@ class MainActivity : ComponentActivity() {
             avatars = app.avatars,
             voicePreview = app.voicePreview,
             voiceNotes = app.voiceNotes,
+            spokenReplies = app.spokenReplies,
             speechModels = app.speechModels,
             dictation = dictation,
             chatDrafts = chatDrafts,

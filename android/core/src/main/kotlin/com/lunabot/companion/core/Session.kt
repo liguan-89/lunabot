@@ -175,6 +175,10 @@ class Session(
     private val _liveCall = MutableSharedFlow<Frame.LiveCall>(extraBufferCapacity = 8)
     val liveCall: SharedFlow<Frame.LiveCall> = _liveCall.asSharedFlow()
 
+    /** 实时到达且可自动朗读的 bot 完成回复；无 replay，订阅晚到就不补读。 */
+    private val _botReplyCues = MutableSharedFlow<BotReplyCue>(extraBufferCapacity = 16)
+    val botReplyCues: SharedFlow<BotReplyCue> = _botReplyCues.asSharedFlow()
+
     private val _actionError = MutableStateFlow<String?>(null)
     var actionError: String?
         get() = _actionError.value
@@ -1100,6 +1104,7 @@ class Session(
                             is Frame.DeviceJob -> _deviceJobNudge.tryEmit(Unit)
                             else -> {
                                 _state.update { it.apply(frame) }
+                                spokenReplyCue(_state.value, payload)?.let(_botReplyCues::tryEmit)
                                 when (payload) {
                                     is Frame.Notify -> notificationSink.deliver(payload.notification, frame.seq)
                                     Frame.McpChanged -> _mcpChanged.tryEmit(Unit)
@@ -2460,6 +2465,12 @@ class Session(
             _actionError.value = error.message
             null
         }
+    }
+
+    suspend fun liveCallActive(): Boolean {
+        val activeClient = client ?: throw APIError.Transport("此电脑当前离线。")
+        val call = activeClient.liveCall() ?: return false
+        return call.status != "ended"
     }
 
     /**

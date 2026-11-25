@@ -31,6 +31,31 @@ data class PendingEdit(
     val placeholderId: String get() = "pending-edit-$sourceId"
 }
 
+/** 一条可自动朗读的完成回复。只由实时 stream 的权威消息帧产生，不由历史 hydrate 回放。 */
+data class BotReplyCue(
+    val threadId: String,
+    val messageId: String,
+    val botId: String,
+    val voiceId: String?,
+    val text: String,
+)
+
+/** 开启「语音朗读回复」的 bot 的完成文本才成为候选；patch、活动和房间消息都不读。 */
+internal fun spokenReplyCue(state: CompanionState, frame: Frame): BotReplyCue? {
+    if (frame !is Frame.Message) return null
+    val message = frame.message
+    val text = message.text?.takeIf { it.isNotBlank() } ?: return null
+    if (message.role != Message.Role.BOT || message.kind != Message.Kind.TEXT) return null
+    val bot = state.botForThread(frame.threadId)?.takeIf { it.speakReplies == true } ?: return null
+    return BotReplyCue(
+        threadId = frame.threadId,
+        messageId = message.id,
+        botId = bot.id,
+        voiceId = bot.voice,
+        text = text,
+    )
+}
+
 data class CompanionState(
     val bots: List<Bot> = emptyList(),
     val rooms: List<Room> = emptyList(),

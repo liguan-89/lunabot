@@ -76,6 +76,36 @@ class StoreTest {
     }
 
     @Test
+    fun spokenReplyCueOnlyTakesAEnabledBotsCompletedText() {
+        val base = fleet().bots.first()
+        val bot = base.copy(speakReplies = true, voice = "voice-7")
+        val state = CompanionState(bots = listOf(bot))
+        val reply = Message(
+            id = "m-new",
+            role = Message.Role.BOT,
+            kind = Message.Kind.TEXT,
+            at = 2.0,
+            text = "已经处理完了。",
+        )
+        val cue = spokenReplyCue(state, Frame.Message(bot.threadId, reply))
+        assertEquals(
+            BotReplyCue(
+                threadId = bot.threadId,
+                messageId = "m-new",
+                botId = bot.id,
+                voiceId = "voice-7",
+                text = "已经处理完了。",
+            ),
+            cue,
+        )
+        assertNull(spokenReplyCue(state, Frame.Message(bot.threadId, reply.copy(role = Message.Role.USER))))
+        assertNull(spokenReplyCue(state, Frame.Message(bot.threadId, reply.copy(kind = Message.Kind.ACTIVITY))))
+        assertNull(spokenReplyCue(state, Frame.Message(bot.threadId, reply.copy(text = "  "))))
+        assertNull(spokenReplyCue(CompanionState(bots = listOf(bot.copy(speakReplies = false))), Frame.Message(bot.threadId, reply)))
+        assertNull(spokenReplyCue(state, Frame.MessagePatch(bot.threadId, reply)))
+    }
+
+    @Test
     fun applyIsPureAndLeavesThePreviousStateUntouched() {
         val before = hydrated()
         val threadId = before.bots.first().threadId

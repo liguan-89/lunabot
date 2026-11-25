@@ -716,6 +716,14 @@ class CompanionClient(
         ),
     )
 
+    @Serializable
+    private data class LiveCallResponse(val call: LiveCallState? = null)
+
+    /** 电脑当前是否有 Live 通话；只读状态，不含语音内容或密钥。 */
+    suspend fun liveCall(): LiveCallState? = send<LiveCallResponse>(
+        makeRequest("GET", "/api/live/call"),
+    ).call
+
     /** 切换语音引擎；请求体必须正好是 companion 窄写口允许的形状。 */
     suspend fun updateVoiceProvider(provider: String) {
         sendUnit(makeRequest("PUT", "/api/config", body = buildJsonObject {

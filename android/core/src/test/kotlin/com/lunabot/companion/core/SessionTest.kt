@@ -90,6 +90,65 @@ class SessionTest {
     }
 
     @Test
+    fun liveCompletedBotTextEmitsOneSpokenReplyCueWithoutReplayingHistory() = runTest {
+        val connection = Connection(id = "c1", name = "Mac", host = "192.168.1.2", port = 8810)
+        val historical = Message(
+            id = "m-old",
+            role = Message.Role.BOT,
+            kind = Message.Kind.TEXT,
+            at = 1.0,
+            text = "历史回复",
+        )
+        val bot = sampleBot("b1", "t1").copy(
+            speakReplies = true,
+            voice = "voice-7",
+            messages = listOf(historical),
+        )
+        val frames = MutableSharedFlow<StreamFrame>(extraBufferCapacity = 4)
+        val session = session(
+            connectionStore = FakeConnectionStore(connection),
+            tokenStore = FakeTokenStore().apply { saved["c1"] = "device-token" },
+            events = { _, _ -> frames },
+            hydrate = { Fleet(listOf(bot), emptyList()) },
+        )
+        val cues = mutableListOf<BotReplyCue>()
+        val collector = backgroundScope.launch { session.botReplyCues.collect { cues += it } }
+        session.awaitRestored()
+        session.connect()
+        runCurrent()
+        assertEquals(1, frames.subscriptionCount.value)
+
+        frames.tryEmit(StreamFrame(Frame.Hello(cursor = "s:1", resumed = false), seq = 1))
+        runCurrent()
+        assertEquals(Session.Status.Live, session.status.value)
+        assertEquals(emptyList(), cues)
+
+        val live = Message(
+            id = "m-live",
+            role = Message.Role.BOT,
+            kind = Message.Kind.TEXT,
+            at = 2.0,
+            text = "新的完成回复",
+        )
+        frames.tryEmit(StreamFrame(Frame.Message("t1", live), seq = 2))
+        runCurrent()
+
+        assertEquals(
+            listOf(
+                BotReplyCue(
+                    threadId = "t1",
+                    messageId = "m-live",
+                    botId = "b1",
+                    voiceId = "voice-7",
+                    text = "新的完成回复",
+                ),
+            ),
+            cues,
+        )
+        collector.cancel()
+    }
+
+    @Test
     fun restoredTokenIsReady() = runTest {
         val connection = Connection(id = "c1", name = "Mac", host = "192.168.1.2", port = 8810)
         val session = session(

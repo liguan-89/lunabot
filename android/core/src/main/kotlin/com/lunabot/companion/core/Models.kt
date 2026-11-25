@@ -243,6 +243,20 @@ data class CommChip(
     val withColor: String,
 )
 
+/** stream 中的 Live 通话状态；线上 `status` 为 connecting/live/ending/ended。 */
+@Serializable
+data class LiveCallState(
+    val callId: String = "",
+    val botId: String = "",
+    val threadId: String = "",
+    val client: String = "",
+    val voice: String = "",
+    val startedAt: Double = 0.0,
+    val status: String = "",
+    val endReason: String? = null,
+    val error: String? = null,
+)
+
 /**
  * The record a finished Live call leaves (`kind == "call"`).
  *
