@@ -30,6 +30,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 class NoticeRelay : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val removedKeys = ShadeRemovalTracker()
     private var shadeJob: Job? = null
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -51,24 +52,25 @@ class NoticeRelay : NotificationListenerService() {
 
     /**
      * Removals arrive in bursts (clear-all fires one per key): debounce into one
-     * post carrying the keys still on the shade for the ticked packages.
-     * [removedKey] is excluded explicitly — on some builds the removed entry
-     * still shows in the active list while this callback runs.
+     * post carrying the keys still on the shade for the ticked packages. Every
+     * key remembered since the last shade read is excluded explicitly — on some
+     * builds the removed entry still shows in the active list while its callback runs.
      */
     private fun queueShade(removedKey: String?) {
+        removedKeys.add(removedKey)
         shadeJob?.cancel()
         shadeJob = scope.launch {
             delay(SHADE_DEBOUNCE_MS)
-            postShade(removedKey)
+            postShade()
         }
     }
 
-    private suspend fun postShade(removedKey: String?) {
+    private suspend fun postShade() {
         val prefs = ChatPreferences(this)
         if (!prefs.phoneNoticeShare.value) return
         val ticked = prefs.phoneNoticeApps.value
         if (ticked.isEmpty()) return
-        val keys = shadeKeys(activeNotifications.orEmpty(), ticked, packageName, removedKey)
+        val keys = shadeKeys(activeNotifications.orEmpty(), ticked, packageName, removedKeys.drain())
         val app = applicationContext as? OpenMausApp ?: return
         app.session.connect()
         val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
@@ -106,20 +108,21 @@ class NoticeRelay : NotificationListenerService() {
         }
     }
 
-    /** Notifications repost on every update; identical content is one event, not a stream. */
-    private object NoticePostDedup {
+    /** Notifications repost on every update; identical content inside the window is one event, not a stream. */
+    internal object NoticePostDedup {
+        private const val WINDOW_MS = 120_000L
         private const val MAX_ENTRIES = 200
-        private val recent = LinkedHashMap<String, Boolean>()
+        private val recent = LinkedHashMap<String, Long>()
+
+        fun note(event: com.lunabot.companion.core.PhoneNoticeEvent): Boolean = noteAt(event, System.currentTimeMillis())
 
         @Synchronized
-        fun note(event: com.lunabot.companion.core.PhoneNoticeEvent): Boolean {
+        internal fun noteAt(event: com.lunabot.companion.core.PhoneNoticeEvent, now: Long): Boolean {
             val signature = signatureOf(event)
-            if (recent.remove(signature) != null) {
-                recent[signature] = true
-                return false
-            }
-            recent[signature] = true
-            if (recent.size > MAX_ENTRIES) recent.remove(recent.keys.first())
+            recent.entries.removeIf { now - it.value > WINDOW_MS }
+            if (recent.containsKey(signature)) return false
+            if (recent.size >= MAX_ENTRIES) recent.remove(recent.keys.first())
+            recent[signature] = now
             return true
         }
 
@@ -140,13 +143,30 @@ class NoticeRelay : NotificationListenerService() {
     }
 }
 
-/** The keys the shade event carries: ticked packages only, never this app, and the just-removed key out. */
+/** The keys a cancelled debounce had not read yet. They drain only when the shade itself is read. */
+internal class ShadeRemovalTracker {
+    private val lock = Any()
+    private val keys = mutableSetOf<String>()
+
+    fun add(key: String?) {
+        if (key == null) return
+        synchronized(lock) { keys += key }
+    }
+
+    fun drain(): Set<String> = synchronized(lock) {
+        val out = keys.toSet()
+        keys.clear()
+        out
+    }
+}
+
+/** The keys the shade event carries: ticked packages only, never this app, and the just-removed keys out. */
 internal fun shadeKeys(
     active: Array<out StatusBarNotification>,
     ticked: Set<String>,
     selfPackage: String,
-    removedKey: String?,
+    removedKeys: Set<String>,
 ): List<String> = active.asSequence()
-    .filter { it.packageName in ticked && it.packageName != selfPackage && it.key != removedKey }
+    .filter { it.packageName in ticked && it.packageName != selfPackage && it.key !in removedKeys }
     .map { it.key.take(300) }
     .toList()

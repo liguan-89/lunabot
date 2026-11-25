@@ -32,7 +32,11 @@ object SmsEventDedup {
         recent.remove(keyOf(from, text))
     }
 
-    // Digits-only sender so "+86 138-0000-0000" and "13800000000" dedupe to the same message.
-    private fun keyOf(from: String, text: String): String =
-        from.replace(Regex("[^0-9A-Za-z一-鿿]"), "") + "" + text
+    // Sender without punctuation, so "+86 138-0000-0000" and "13800000000" dedupe to the same message;
+    // the broadcast path carries the country code while the notification path often carries none.
+    private fun keyOf(from: String, text: String): String {
+        val compact = from.replace(Regex("[^0-9A-Za-z一-鿿]"), "")
+        val sender = if (compact.length == 13 && compact.startsWith("86") && compact.all { it.isDigit() }) compact.substring(2) else compact
+        return sender + "\u0000" + text
+    }
 }
