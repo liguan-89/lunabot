@@ -13,6 +13,7 @@ class PairingFailureTextTest {
         "handshake_deadline" to "电脑没有及时应答：配对码可能已过期，或这台手机连不到这台电脑。",
         "no_route" to "没有可用的方式连到这台电脑。",
         "asleep" to "电脑现在不在线。",
+        "payload2" to "应答的不是二维码上的那台电脑。",
         "payload2_conn" to "应答的不是二维码上的那台电脑。",
         "relay_rejected" to "电脑没有接起这次连接。",
         "direct_rejected" to "电脑没有接起这次连接。",
