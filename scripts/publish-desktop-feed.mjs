@@ -19,16 +19,19 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const FEED_BASE = process.env.LUNABOT_FEED_BASE || "https://cloud.dexai.vip";
 const SSH_HOST = process.env.LUNABOT_PUBLISH_HOST || "wholesale";
-const SSH_BIN = process.env.LUNABOT_FEED_SSH || "ssh";
-const RSYNC_BIN = process.env.LUNABOT_FEED_RSYNC || "rsync";
-const CURL_BIN = process.env.LUNABOT_FEED_CURL || "curl";
 const DATA_DIR = process.env.LUNABOT_PUBLISH_DATA_DIR || "/opt/dex-cloud/data";
 const DESKTOP_DIR = `${DATA_DIR}/downloads/desktop`;
 const DOWNLOADS_DIR = `${DATA_DIR}/downloads`;
+
+const transport = await import(
+  process.env.LUNABOT_FEED_TRANSPORT
+    ? pathToFileURL(path.resolve(process.env.LUNABOT_FEED_TRANSPORT)).href
+    : new URL("./publish-feed-transport.mjs", import.meta.url).href
+);
 
 function fail(message) {
   console.error(`[publish-desktop-feed] ${message}`);
@@ -97,7 +100,7 @@ for (const name of FEED_FILES) {
 }
 
 function ssh(command) {
-  return execFileSync(SSH_BIN, [SSH_HOST, command], { encoding: "utf8" }).trim();
+  return transport.ssh(SSH_HOST, command).trim();
 }
 
 function remoteList(dir) {
@@ -208,7 +211,7 @@ for (const feed of FEEDS) {
 
 if (!verifyOnly) {
   for (const u of uploads) {
-    execFileSync(RSYNC_BIN, ["-az", "--", u.local, `${SSH_HOST}:${u.remote}`], { stdio: "inherit" });
+    transport.rsyncPut(SSH_HOST, u.local, u.remote);
   }
   for (const name of desktopDeletes) {
     ssh(`rm -f -- ${DESKTOP_DIR}/${name}`);
@@ -217,16 +220,16 @@ if (!verifyOnly) {
     if (item.delete) {
       ssh(`rm -f -- ${item.remote}`);
     } else if (item.content) {
-      execFileSync(SSH_BIN, [SSH_HOST, `cat > ${item.remote}`], { input: item.content });
+      transport.sshWrite(SSH_HOST, `cat > ${item.remote}`, item.content);
     } else {
-      execFileSync(RSYNC_BIN, ["-az", "--", item.local, `${SSH_HOST}:${item.remote}`], { stdio: "inherit" });
+      transport.rsyncPut(SSH_HOST, item.local, item.remote);
     }
   }
 }
 
 function fetchText(url) {
   try {
-    return execFileSync(CURL_BIN, ["-fsS", url], { encoding: "utf8" });
+    return transport.fetchText(url);
   } catch {
     fail(`feed check failed: ${url}`);
   }
@@ -270,7 +273,7 @@ if (apkPath) {
   const apkUrl = `${FEED_BASE}${manifest.apkUrl}`;
   let head;
   try {
-    head = execFileSync(CURL_BIN, ["-fsSI", apkUrl], { encoding: "utf8" });
+    head = transport.fetchHead(apkUrl);
   } catch {
     fail(`channel APK does not download: ${apkUrl}`);
   }

@@ -1,56 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const VERSION = "2.1.9";
 const SCRIPT = fileURLToPath(new URL("./publish-desktop-feed.mjs", import.meta.url));
+const FAKE_TRANSPORT = fileURLToPath(new URL("./testing/publish-feed-fake-transport.mjs", import.meta.url));
 const sha512b64 = (buf) => createHash("sha512").update(buf).digest("base64");
 const sha256hex = (buf) => createHash("sha256").update(buf).digest("hex");
-
-// Tool stubs: the script shells out to ssh/rsync/curl (overridable via
-// LUNABOT_FEED_* env), so each test points them at these stubs and a fake
-// remote rooted in a temp dir via LUNABOT_PUBLISH_DATA_DIR + FAKE_ROOT.
-let binDir;
-const stubPath = (name) => path.join(binDir, process.platform === "win32" ? `${name}.cmd` : name);
-
-beforeAll(() => {
-  binDir = mkdtempSync(path.join(tmpdir(), "feed-test-bin-"));
-  const stub = (name, body) => {
-    const file = path.join(binDir, name);
-    writeFileSync(file, `#!/bin/bash\n${body}\n`);
-    chmodSync(file, 0o755);
-  };
-  // ssh <host> <command>: run the remote command against the fake filesystem.
-  stub("ssh", 'shift; eval "$@"');
-  // rsync -az -- <local> <host>:<dst>
-  stub("rsync", 'cp "$3" "${4#*:}"');
-  // curl -fsS <url> | curl -fsSI <url>: serve from the fake remote.
-  stub(
-    "curl",
-    `flag="$1"; url="$2"
-p=$(printf '%s' "$url" | sed -E 's|^https?://[^/]+||; s|\\?.*$||')
-case "$p" in
-  /download/*) f="$FAKE_ROOT/downloads/\${p#/download/}" ;;
-  *) f="$FAKE_ROOT/downloads$p" ;;
-esac
-[ -f "$f" ] || exit 22
-if [ "$flag" = "-fsSI" ]; then
-  sz=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f")
-  printf 'HTTP/1.1 200 OK\\r\\ncontent-length: %s\\r\\n\\r\\n' "$sz"
-  exit 0
-fi
-cat "$f"`,
-  );
-  // Windows resolves commands via PATHEXT: extensionless stubs are invisible,
-  // so each gets a .cmd that runs the same bash stub through Git's bash.exe.
-  for (const name of ["ssh", "rsync", "curl"]) {
-    writeFileSync(path.join(binDir, `${name}.cmd`), `@echo off\r\n"C:\\Program Files\\Git\\bin\\bash.exe" "%~dp0${name}" %*\r\n`);
-  }
-});
 
 function feedYml(files) {
   const lines = [`version: ${VERSION}`, "files:"];
@@ -92,19 +52,18 @@ function makeWorkspace() {
   const downloads = path.join(root, "data", "downloads");
   mkdirSync(path.join(downloads, "desktop"), { recursive: true });
   mkdirSync(assets, { recursive: true });
-  // Remote paths go through `eval` in the ssh stub: forward slashes so
-  // backslashes are not eaten as escapes (Windows paths otherwise mangle).
+  // Forward slashes: remote paths are regex-parsed inside the fake transport.
   const data = `${root}/data`.replaceAll("\\", "/");
   return { root, assets, downloads, data };
 }
 
+// The fake transport stands in for ssh/rsync/curl against a local dir, so the
+// script under test runs identically on every platform.
 function runScript(workspace, args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
     env: {
       ...process.env,
-      LUNABOT_FEED_SSH: stubPath("ssh"),
-      LUNABOT_FEED_RSYNC: stubPath("rsync"),
-      LUNABOT_FEED_CURL: stubPath("curl"),
+      LUNABOT_FEED_TRANSPORT: FAKE_TRANSPORT,
       FAKE_ROOT: workspace.data,
       LUNABOT_PUBLISH_DATA_DIR: workspace.data,
       LUNABOT_PUBLISH_HOST: "fakehost",
