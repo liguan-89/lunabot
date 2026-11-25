@@ -682,6 +682,22 @@ class CompanionClient(
         return raw.data
     }
 
+    /** 手机前台可朗读时在电脑登记；失败静默，因为这只是双端仲裁心跳。 */
+    suspend fun reportReplySpeechListener(active: Boolean) {
+        sendUnit(makeRequest("POST", "/api/tts/reply-listener", body = buildJsonObject { put("active", active) }))
+    }
+
+    /** 自动朗读一个 turn 前认领它；409 表示另一端已经负责，其他错误照常抛出。 */
+    suspend fun claimReplySpeech(threadId: String, turnId: String?): Boolean {
+        val raw = perform(makeRequest("POST", "/api/tts/reply-claim", body = buildJsonObject {
+            put("threadId", threadId)
+            if (!turnId.isNullOrEmpty()) put("turnId", turnId)
+        }))
+        if (raw.code == 409) return false
+        check(raw)
+        return true
+    }
+
     /**
      * One voice clip heard by the computer's ASR provider: the raw WAV goes
      * up as the body, `{text}` comes back. The upload client because a minute

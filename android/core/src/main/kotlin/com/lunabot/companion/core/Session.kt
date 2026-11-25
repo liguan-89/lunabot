@@ -2478,6 +2478,23 @@ class Session(
      * has no voice set up — so a call can say so rather than fall silent.
      * Throws: a call reads the failure itself instead of an action banner.
      */
+    /** 自动朗读仲裁心跳；安静失败，断网就等于手机不在场。 */
+    suspend fun reportReplySpeechListener(active: Boolean) {
+        val activeClient = client ?: return
+        try {
+            activeClient.reportReplySpeechListener(active)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+        }
+    }
+
+    /** 自动朗读一个 turn 前认领它；离线按失败处理，不静默冒充成功。 */
+    suspend fun claimReplySpeech(threadId: String, turnId: String?): Boolean {
+        val activeClient = client ?: throw APIError.Transport("此电脑当前离线。")
+        return activeClient.claimReplySpeech(threadId, turnId)
+    }
+
     suspend fun prepareSpeech(text: String, voiceId: String?): PreparedSpeech {
         val activeClient = client ?: throw APIError.Transport("此电脑当前离线。")
         return activeClient.prepareSpeech(text, voiceId)

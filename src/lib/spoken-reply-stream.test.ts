@@ -64,6 +64,31 @@ const settle = async (): Promise<void> => {
   for (let i = 0; i < 6; i += 1) await Promise.resolve();
 };
 
+describe("reply speech arbitration", () => {
+  it("never prepares when the claim is refused", async () => {
+    const { sink, handles } = fakeSpeech();
+    const stream = new SpokenReplyStream(sink, async () => false);
+    stream.onRuntimeEvent(delta("One two. Three "), owner);
+    await settle();
+    expect(handles).toHaveLength(1);
+    expect(handles[0].inputs).toEqual([]);
+    expect(handles[0].pushes).toEqual([]);
+    expect(handles[0].cancels).toBe(1);
+  });
+
+  it("passes the turn identity to the claim", async () => {
+    const { sink } = fakeSpeech();
+    const claims: Array<[string, string | undefined]> = [];
+    const stream = new SpokenReplyStream(sink, async (threadId, turnId) => {
+      claims.push([threadId, turnId]);
+      return true;
+    });
+    stream.onRuntimeEvent(delta("One two. Three "), owner);
+    await settle();
+    expect(claims[0]).toEqual(["t", "turn-1"]);
+  });
+});
+
 describe("SpokenReplyStream", () => {
   it("pushes the first closed block before the completed message frame arrives", async () => {
     const { sink, handles } = fakeSpeech();
