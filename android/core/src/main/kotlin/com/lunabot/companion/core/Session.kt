@@ -27,6 +27,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 
+/** 语音消息转写结果；unavailable 只表示电脑或服务不可用，不代表没听清。 */
+data class VoiceTranscription(
+    val text: String?,
+    val unavailable: Boolean,
+)
+
 /**
  * Stream lifecycle, pairing restore, and actions — port of `ios/App/Session.swift`.
  *
@@ -2471,20 +2477,18 @@ class Session(
         return activeClient.speak(text, voiceId)
     }
 
-    /**
-     * Best-effort voice-message transcription on the computer. Null means "no
-     * words": the clip still sends as an audio attachment, so a computer that
-     * is offline, too old for the route, or has no ASR key is silent by
-     * design rather than an error banner.
-     */
-    suspend fun transcribeVoice(wav: ByteArray): String? {
-        val activeClient = client ?: return null
+    /** 语音消息在电脑端转写；音频本体总会发送，所以失败只降级转写，不阻塞消息。 */
+    suspend fun transcribeVoice(wav: ByteArray): VoiceTranscription {
+        val activeClient = client ?: return VoiceTranscription(text = null, unavailable = true)
         return try {
-            activeClient.transcribe(wav).trim().ifEmpty { null }
+            VoiceTranscription(
+                text = activeClient.transcribe(wav).trim().ifEmpty { null },
+                unavailable = false,
+            )
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            null
+            VoiceTranscription(text = null, unavailable = true)
         }
     }
 

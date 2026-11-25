@@ -1440,6 +1440,43 @@ class SessionTest {
     }
 
     @Test
+    fun voiceTranscriptionSeparatesNoWordsFromAnUnavailableComputer() = runTest {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val connection = requireNotNull(Connection.parse(server.url("/").toString()))
+            val session = session(
+                connectionStore = FakeConnectionStore(connection),
+                tokenStore = FakeTokenStore().apply { saved[connection.id] = "tok" },
+            )
+            session.awaitRestored()
+
+            server.enqueue(MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"text":" 你好 "}"""))
+            val heard = session.transcribeVoice(byteArrayOf(1, 2, 3))
+            assertEquals("你好", heard.text)
+            assertFalse(heard.unavailable)
+
+            server.enqueue(MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"text":" "}"""))
+            val silent = session.transcribeVoice(byteArrayOf(1, 2, 3))
+            assertNull(silent.text)
+            assertFalse(silent.unavailable)
+
+            server.enqueue(MockResponse().setResponseCode(503))
+            val failed = session.transcribeVoice(byteArrayOf(1, 2, 3))
+            assertNull(failed.text)
+            assertTrue(failed.unavailable)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun createRoomFoldsTheResultAndSurfacesFailure() = runTest {
         val server = MockWebServer()
         server.start()

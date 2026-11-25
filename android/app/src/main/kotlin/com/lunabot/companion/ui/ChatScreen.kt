@@ -785,26 +785,16 @@ private fun LoadedChat(
         settled = true
     }
 
-    // The voice card's finish: transcript or audio, same send path the sheet
-    // used, and the card closes itself through the same state the gesture set.
-    fun sendVoice(clip: VoiceClip, transcript: String) {
+    // 语音消息永远携带音频；识别出的文字是随附转写，不再替代语音本体。
+    fun sendVoice(result: VoiceCaptureResult) {
         voiceCardOpen = false
         voiceHold = false
-        // A recognized clip sends as text only: the wav would just
-        // cost the bot a transcription pass it no longer needs.
-        val voice = if (transcript.isEmpty()) listOf(
-            PendingMessageAttachment(
-                data = clip.data,
-                name = clip.name,
-                mime = "audio/wav",
-                kind = PendingMessageAttachment.Kind.FILE,
-            )
-        ) else emptyList()
+        val (text, voice) = voiceMessagePayload(result)
         scope.launch {
             sendingMessage = true
             attachmentError = null
             val sent = try {
-                session.send(transcript, voice, chat)
+                session.send(text, voice, chat)
             } finally {
                 sendingMessage = false
             }
@@ -812,6 +802,7 @@ private fun LoadedChat(
                 attachmentError = session.actionError ?: "无法发送语音消息，请重试。"
                 session.actionError = null
             } else {
+                attachmentError = voiceTranscriptWarning(result)
                 stickToBottom.value = true
                 haptics.play(HapticCue.SEND)
             }
@@ -824,7 +815,7 @@ private fun LoadedChat(
             environment = environment,
             scope = scope,
             haptics = haptics,
-            onResult = { clip, transcript -> sendVoice(clip, transcript) },
+            onResult = { result -> sendVoice(result) },
         )
     }
 
