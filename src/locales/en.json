@@ -10879,5 +10879,14 @@
   "videoGen.endpointAria": "{{title}} endpoint URL",
   "videoGen.modelAria": "{{title}} model ID",
   "videoGen.updateMeta": "Update settings",
-  "videoGen.removeKey": "Remove key"
+  "videoGen.removeKey": "Remove key",
+  "templates.mine": "My templates",
+  "templates.mineSaved": "Saved {date}",
+  "templates.install": "Install",
+  "templates.installAria": "Install {name}",
+  "templates.deleteAria": "Delete template {name}",
+  "templates.deleteTitle": "Delete {name}?",
+  "templates.deleteBody": "This removes only the saved template — anything already added from it stays.",
+  "teamShare.storeTemplate": "Save to templates",
+  "teamShare.storedTemplate": "Saved to your templates — find it in Templates → Explore."
 }

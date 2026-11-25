@@ -10879,5 +10879,14 @@
   "videoGen.endpointAria": "{{title}} 接口地址",
   "videoGen.modelAria": "{{title}} 模型 ID",
   "videoGen.updateMeta": "更新参数",
-  "videoGen.removeKey": "移除密钥"
+  "videoGen.removeKey": "移除密钥",
+  "templates.mine": "我的模板",
+  "templates.mineSaved": "保存于 {date}",
+  "templates.install": "安装",
+  "templates.installAria": "安装 {name}",
+  "templates.deleteAria": "删除模板 {name}",
+  "templates.deleteTitle": "删除 {name}？",
+  "templates.deleteBody": "只会删除保存的模板，已从中添加的内容不受影响。",
+  "teamShare.storeTemplate": "存入模板库",
+  "teamShare.storedTemplate": "已存入模板库，可在模板 → 浏览中找到。"
 }
