@@ -154,6 +154,14 @@ export function screenViewOf(result: unknown): ScreenView {
   return viewOf(screenOf(result));
 }
 
+/** The one visible draft a send card can bind; several non-empty fields are ambiguous and fail closed. */
+function typedTextOnScreen(screen: PhoneScreen | null): string | null {
+  const drafts = (screen?.elements ?? [])
+    .filter((element) => element.editable && !element.password && typeof element.text === "string" && element.text.trim() !== "")
+    .map((element) => element.text as string);
+  return drafts.length === 1 ? drafts[0]! : null;
+}
+
 function screenTextsOf(screen: PhoneScreen | null): string[] {
   const texts: string[] = [];
   for (const element of screen?.elements ?? []) {
@@ -427,7 +435,7 @@ export class PhoneConfirms {
     const request: ConfirmationRequest = {
       action: hit.action,
       target: hit.matched.slice(0, TARGET_MAX),
-      content: hit.action === "send" ? state.lastTyped ?? "" : contentOf(tool, args),
+      content: hit.action === "send" ? typedTextOnScreen(screen) ?? state.lastTyped ?? "" : contentOf(tool, args),
       // The amount the person saw on this screen, so the grant can bind it at permit time; null where the action
       // carries none, or where the screen's totals cannot be read into one.
       amount: approvalAmount(view, hit.action, hit.matched),
