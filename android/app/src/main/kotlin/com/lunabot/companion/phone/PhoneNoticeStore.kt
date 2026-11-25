@@ -37,9 +37,11 @@ internal object PhoneNoticeStore {
         val title = runCatching { extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() }
             .getOrNull()?.trim()?.take(MAX_TEXT)?.takeIf { it.isNotEmpty() }
         val text = runCatching {
-            (extras.getCharSequence(Notification.EXTRA_TEXT)
-                ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString()
-        }.getOrNull()?.trim()?.take(MAX_TEXT)?.takeIf { it.isNotEmpty() }
+            NoticeEvent.fullerText(
+                extras.getCharSequence(Notification.EXTRA_TEXT),
+                extras.getCharSequence(Notification.EXTRA_BIG_TEXT),
+            )
+        }.getOrNull()?.take(MAX_TEXT)?.takeIf { it.isNotEmpty() }
         if (title == null && text == null) return
         val notice = Notice(sbn.packageName, title, text, sbn.postTime)
         synchronized(lock) {
