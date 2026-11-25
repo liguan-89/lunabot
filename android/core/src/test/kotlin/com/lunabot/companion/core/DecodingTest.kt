@@ -792,4 +792,20 @@ class DecodingTest {
         )
         assertNull(plain.tool?.claudeUpdate)
     }
+
+    @Test
+    fun decodesTheLimitResetStampOnAnErrorChipAndItsAbsence() {
+        // 与 claudeUpdate 同一个先例：字段在场才提供按钮，旧电脑不带它。
+        val limited = CompanionJson.decodeFromString<Message>(
+            """{"id":"m7","role":"bot","kind":"activity","at":1,
+               "tool":{"name":"error: usage limit reached","ok":false,"limitResetsAt":1764000000000}}""",
+        )
+        assertEquals(1_764_000_000_000.0, limited.tool?.limitResetsAt)
+
+        val plain = CompanionJson.decodeFromString<Message>(
+            """{"id":"m8","role":"bot","kind":"activity","at":1,
+               "tool":{"name":"error: engine is not signed in","ok":false}}""",
+        )
+        assertNull(plain.tool?.limitResetsAt)
+    }
 }

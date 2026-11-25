@@ -534,6 +534,16 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             onOpenRoutines = { navigator.push(Destination.BotRoutines(it)) },
             onOpenComputer = { navigator.push(Destination.Computer(it)) },
             onOpenBrowser = { navigator.push(Destination.Browser(it)) },
+            onOpenActivity = { navigator.push(Destination.BotActivity(it)) },
+            onOpenMcpServers = { navigator.push(Destination.BotMcpServers(it)) },
+        )
+        is Destination.BotActivity -> BotActivityScreen(
+            botId = destination.botId,
+            onBack = navigator::pop,
+        )
+        is Destination.BotMcpServers -> BotMcpServersScreen(
+            botId = destination.botId,
+            onBack = navigator::pop,
         )
         is Destination.BotRoutines -> TasksRoutinesScreen(
             onBack = navigator::pop,

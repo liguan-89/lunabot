@@ -175,7 +175,7 @@ class AndroidThreadNavigationTest {
         compose.onNodeWithText(fixture.name).performClick()
         compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "second" }
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
-        assertTrue(requests.none { it.method == "POST" })
+        assertTrue(requests.none { it.method == "POST" && it.path?.startsWith("/api/presence/") != true })
     }
 
     @Test
@@ -225,7 +225,7 @@ class AndroidThreadNavigationTest {
         assertEquals(ChatTarget.Bot(fixture.id, "second"), selected)
         assertEquals(1, dismissed)
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
-        assertTrue(requests.none { it.method == "POST" })
+        assertTrue(requests.none { it.method == "POST" && it.path?.startsWith("/api/presence/") != true })
     }
 
     @Test

@@ -476,6 +476,27 @@ class CompanionClient(
     suspend fun mcpServers(botId: String): McpServersResponse =
         send(makeRequest("GET", "/api/bots/${segment(botId)}/mcp-servers"))
 
+    /**
+     * 这个智能体的活动记录：用过的工具与求过的批准，新的在前。与 mcpServers
+     * 同样需要 admin 范围，团队成员的会话会被拒。
+     */
+    suspend fun botActivity(botId: String, limit: Int = 300): BotActivityResponse =
+        send(makeRequest("GET", "/api/bots/${segment(botId)}/activity", listOf("limit" to limit.toString())))
+
+    /**
+     * 给被额度限制停住的回合安排「到点继续」：在这个会话里建一条一次性自动化，
+     * 重置后从停下的地方接着干。服务端按 botId+threadId 幂等——已有一条等待中的
+     * 安排时答 200 而不是新建，所以重复点击安全。响应体（例程本体）手机用不上，
+     * 建好之后例程列表经事件流自己刷新。
+     */
+    suspend fun continueAtLimitReset(botId: String, threadId: String) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/limit-resets/continue",
+            body = jsonBody("botId" to botId, "threadId" to threadId),
+        ))
+    }
+
     suspend fun createBot(): Bot = send<CreatedBot>(makeRequest("POST", "/api/bots")).bot
 
     /**
