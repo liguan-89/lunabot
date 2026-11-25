@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { t } from "@/lib/i18n";
+import { useBusyCounter } from "@/hooks/use-busy-counter";
 import {
   ArrowLeft,
   Check,
@@ -149,7 +150,6 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
   const [codeSent, setCodeSent] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [pairingBusy, setPairingBusy] = useState(false);
-  const [accountBusy, setAccountBusy] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [setupTimedOut, setSetupTimedOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -169,7 +169,6 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
   const [pairingRoutePinState, setPairingRoutePinState] =
     useState<OwnedCompanionPairingRoutePin | null>(null);
   const setupGeneration = useRef(0);
-  const accountBusyCount = useRef(0);
   const mounted = useRef(true);
   const companionMutationEpoch = useRef(0);
   const loadInFlight = useRef<Promise<void> | null>(null);
@@ -220,20 +219,8 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
     if (!emailEdited.current && profileEmail) setEmailState(profileEmail);
   }, [profileEmail]);
 
-  const accountBusyBegin = useCallback(() => {
-    accountBusyCount.current += 1;
-    setAccountBusy(true);
-  }, []);
-
-  const accountBusyEnd = useCallback(() => {
-    accountBusyCount.current = Math.max(0, accountBusyCount.current - 1);
-    if (mounted.current && accountBusyCount.current === 0) setAccountBusy(false);
-  }, []);
-
-  const accountBusyReset = useCallback(() => {
-    accountBusyCount.current = 0;
-    if (mounted.current) setAccountBusy(false);
-  }, []);
+  const { busy: accountBusy, begin: accountBusyBegin, end: accountBusyEnd, reset: accountBusyReset } =
+    useBusyCounter();
 
   const act = useCallback(async (call: (companion: CompanionBridge) => Promise<CompanionState>) => {
     const companion = companionBridge();
