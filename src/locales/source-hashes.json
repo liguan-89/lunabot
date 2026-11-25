@@ -10893,7 +10893,16 @@
       "videoGen.endpointAria": "4074cd07e2d6e8a847881df8fd9d475bc0749c5aee7fb125bcd7a9da89cfc1a5",
       "videoGen.modelAria": "22834e51b6a49c0d5608022e158f33a7fe7d499817d4067d35bfdab6f3c18d41",
       "videoGen.updateMeta": "46ed69579c396feaa780e716e778b9dea387bebfe925e9d661ec6882c96525e9",
-      "videoGen.removeKey": "81c45fd9b904308ae8d00aa14e8d8be085604cad40871ef27075a0da0a8022ae"
+      "videoGen.removeKey": "81c45fd9b904308ae8d00aa14e8d8be085604cad40871ef27075a0da0a8022ae",
+      "templates.mine": "1901b64190f97c4efefbbde666a9d9e2681d5345b8e61560320435f5c5c2a130",
+      "templates.mineSaved": "169f14574958d6d9769c7909071f45aacc86a8b0121ecc6230efda69696db14a",
+      "templates.install": "569ca49f4aaf7846e952c1d4aeca72febd0b79fa1c4f9db08fd3127551218572",
+      "templates.installAria": "15d27e180bc64b4b3219b11337fa5e748c69724a16fc7b9918b5994ddaad2e9f",
+      "templates.deleteAria": "45c3694eef71ee6423438fc1a63a418a155488894ff328828ef3ef6f786c13e2",
+      "templates.deleteTitle": "a4b982a9e0bc24133bce18717f9db74bd70095b79c24ee45c57a8194fb727d4d",
+      "templates.deleteBody": "5eb501cda6aa65d37ae025813d062a6b18d1495b03c7783cf8aa29f412794635",
+      "teamShare.storeTemplate": "8f942d310573ae567ba514f49000e1a58225f90f70dbee68e159561d833f44a6",
+      "teamShare.storedTemplate": "763c3228739d94bcebcfda9d34b0a89c599ccfc883d9692ce5276bbd49b23338"
     }
   }
 }
