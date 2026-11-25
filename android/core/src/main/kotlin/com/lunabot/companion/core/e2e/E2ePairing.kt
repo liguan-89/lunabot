@@ -1,5 +1,7 @@
 package com.lunabot.companion.core.e2e
 
+import com.lunabot.companion.core.PairingRouteError
+import com.lunabot.companion.core.ServerPairingRetryError
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
@@ -165,6 +167,7 @@ object E2ePairing {
         if (targets.isEmpty()) throw NoiseException("no_route")
 
         var lastError: Throwable? = null
+        var answered = false
         for (target in targets) {
             val session = E2eSession(
                 connector = connector,
@@ -189,18 +192,48 @@ object E2ePairing {
                     body = body.toByteArray(),
                     readTimeoutMs = readTimeoutMs,
                 )
+                answered = true
+                if (response.status == 429 || response.status >= 500) {
+                    // Rate-limited or a transient computer error: the same code stays retryable.
+                    throw ServerPairingRetryError(IOException("HTTP ${response.status}: ${response.body.toString(Charsets.UTF_8).take(200)}"))
+                }
                 if (response.status !in 200..299) {
+                    // Any other HTTP answer comes from inside the tunnel, i.e. from the computer itself: another
+                    // route reaches the same computer and would answer the same, so the walk stops here with the
+                    // original refusal instead of retrying and swallowing it.
                     throw E2eHttpException(response.status, response.body.toString(Charsets.UTF_8))
                 }
                 return parsePairResponse(response.body.toString(Charsets.UTF_8))
+            } catch (error: E2eHttpException) {
+                throw error
+            } catch (error: ServerPairingRetryError) {
+                throw error
             } catch (error: Throwable) {
                 lastError = error
             } finally {
                 session.close()
             }
         }
-        throw lastError ?: NoiseException("no_route")
+        val fatal = lastError ?: NoiseException("no_route")
+        if (!answered && !isAuthoritativePairingRefusal((fatal as? NoiseException)?.reason)) {
+            // Pure route failure: the computer never answered, so the one-time credential stays retryable
+            // instead of burning (mirrors pairFirstReachable ending in PairingRouteError).
+            throw PairingRouteError(targets.map {
+                when (it) {
+                    is E2eTarget.Direct -> it.url
+                    is E2eTarget.Relay -> it.url
+                }
+            })
+        }
+        throw fatal
     }
+
+    /**
+     * The handshake proved the peer holds this pairing's key material: a removal announced inside the tunnel,
+     * or a message-2 that decrypts but is not for this phone. Those are the computer's answer, not a route failure.
+     */
+    private fun isAuthoritativePairingRefusal(reason: String?): Boolean =
+        reason == "removed" || reason == "payload2" || (reason?.startsWith("payload2_") == true)
 
     fun parsePairResponse(json: String): E2ePairResult {
         val root = Json.parseToJsonElement(json) as JsonObject

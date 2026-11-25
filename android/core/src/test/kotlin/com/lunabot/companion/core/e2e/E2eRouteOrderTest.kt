@@ -1,5 +1,6 @@
 package com.lunabot.companion.core.e2e
 
+import com.lunabot.companion.core.PairingRouteError
 import java.security.SecureRandom
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -141,9 +142,9 @@ class E2eRouteOrderTest {
     }
 
     @Test
-    fun `pairing walks the same order and stops at the first refusal that is not a removal`() {
+    fun `pairing walks the same order and keeps a pure route failure retryable`() {
         val connector = RefusingConnector(4404)
-        val failure = assertFailsWith<Throwable> {
+        val failure = assertFailsWith<PairingRouteError> {
             E2ePairing.pair(
                 connector = connector,
                 descriptor = descriptor(),
@@ -157,6 +158,6 @@ class E2eRouteOrderTest {
             listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.openmausbot.com/v1/phone"),
             connector.dialled,
         )
-        assertTrue(failure is NoiseException)
+        assertTrue(failure.attemptedRoutes.size == 2)
     }
 }
