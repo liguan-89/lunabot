@@ -11,9 +11,11 @@ const SCRIPT = fileURLToPath(new URL("./publish-desktop-feed.mjs", import.meta.u
 const sha512b64 = (buf) => createHash("sha512").update(buf).digest("base64");
 const sha256hex = (buf) => createHash("sha256").update(buf).digest("hex");
 
-// PATH stubs: the script shells out to ssh/rsync/curl, so each test points it at
-// a fake remote rooted in a temp dir via LUNABOT_PUBLISH_DATA_DIR + FAKE_ROOT.
+// Tool stubs: the script shells out to ssh/rsync/curl (overridable via
+// LUNABOT_FEED_* env), so each test points them at these stubs and a fake
+// remote rooted in a temp dir via LUNABOT_PUBLISH_DATA_DIR + FAKE_ROOT.
 let binDir;
+const stubPath = (name) => path.join(binDir, process.platform === "win32" ? `${name}.cmd` : name);
 
 beforeAll(() => {
   binDir = mkdtempSync(path.join(tmpdir(), "feed-test-bin-"));
@@ -100,7 +102,9 @@ function runScript(workspace, args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
     env: {
       ...process.env,
-      PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+      LUNABOT_FEED_SSH: stubPath("ssh"),
+      LUNABOT_FEED_RSYNC: stubPath("rsync"),
+      LUNABOT_FEED_CURL: stubPath("curl"),
       FAKE_ROOT: workspace.data,
       LUNABOT_PUBLISH_DATA_DIR: workspace.data,
       LUNABOT_PUBLISH_HOST: "fakehost",

@@ -23,6 +23,9 @@ import { fileURLToPath } from "node:url";
 
 const FEED_BASE = process.env.LUNABOT_FEED_BASE || "https://cloud.dexai.vip";
 const SSH_HOST = process.env.LUNABOT_PUBLISH_HOST || "wholesale";
+const SSH_BIN = process.env.LUNABOT_FEED_SSH || "ssh";
+const RSYNC_BIN = process.env.LUNABOT_FEED_RSYNC || "rsync";
+const CURL_BIN = process.env.LUNABOT_FEED_CURL || "curl";
 const DATA_DIR = process.env.LUNABOT_PUBLISH_DATA_DIR || "/opt/dex-cloud/data";
 const DESKTOP_DIR = `${DATA_DIR}/downloads/desktop`;
 const DOWNLOADS_DIR = `${DATA_DIR}/downloads`;
@@ -94,7 +97,7 @@ for (const name of FEED_FILES) {
 }
 
 function ssh(command) {
-  return execFileSync("ssh", [SSH_HOST, command], { encoding: "utf8" }).trim();
+  return execFileSync(SSH_BIN, [SSH_HOST, command], { encoding: "utf8" }).trim();
 }
 
 function remoteList(dir) {
@@ -205,7 +208,7 @@ for (const feed of FEEDS) {
 
 if (!verifyOnly) {
   for (const u of uploads) {
-    execFileSync("rsync", ["-az", "--", u.local, `${SSH_HOST}:${u.remote}`], { stdio: "inherit" });
+    execFileSync(RSYNC_BIN, ["-az", "--", u.local, `${SSH_HOST}:${u.remote}`], { stdio: "inherit" });
   }
   for (const name of desktopDeletes) {
     ssh(`rm -f -- ${DESKTOP_DIR}/${name}`);
@@ -214,16 +217,16 @@ if (!verifyOnly) {
     if (item.delete) {
       ssh(`rm -f -- ${item.remote}`);
     } else if (item.content) {
-      execFileSync("ssh", [SSH_HOST, `cat > ${item.remote}`], { input: item.content });
+      execFileSync(SSH_BIN, [SSH_HOST, `cat > ${item.remote}`], { input: item.content });
     } else {
-      execFileSync("rsync", ["-az", "--", item.local, `${SSH_HOST}:${item.remote}`], { stdio: "inherit" });
+      execFileSync(RSYNC_BIN, ["-az", "--", item.local, `${SSH_HOST}:${item.remote}`], { stdio: "inherit" });
     }
   }
 }
 
 function fetchText(url) {
   try {
-    return execFileSync("curl", ["-fsS", url], { encoding: "utf8" });
+    return execFileSync(CURL_BIN, ["-fsS", url], { encoding: "utf8" });
   } catch {
     fail(`feed check failed: ${url}`);
   }
@@ -267,7 +270,7 @@ if (apkPath) {
   const apkUrl = `${FEED_BASE}${manifest.apkUrl}`;
   let head;
   try {
-    head = execFileSync("curl", ["-fsSI", apkUrl], { encoding: "utf8" });
+    head = execFileSync(CURL_BIN, ["-fsSI", apkUrl], { encoding: "utf8" });
   } catch {
     fail(`channel APK does not download: ${apkUrl}`);
   }
