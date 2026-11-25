@@ -103,11 +103,26 @@ export function isBrowserControlAccess(method: string, path: string): boolean {
     || (method === BROWSER_ACTION_ROUTE.method && BROWSER_ACTION_ROUTE.path.test(path));
 }
 
+/** 手机窄写口唯一允许的请求体：只切语音引擎，不带音色、密钥、服务器地址或任何其他配置。 */
+export function isVoiceProviderOnlyConfigWrite(body: unknown): boolean {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+  const outer = body as Record<string, unknown>;
+  if (Object.keys(outer).join("\0") !== "tts") return false;
+  const tts = outer.tts;
+  if (!tts || typeof tts !== "object" || Array.isArray(tts)) return false;
+  const inner = tts as Record<string, unknown>;
+  if (Object.keys(inner).join("\0") !== "provider") return false;
+  return typeof inner.provider === "string"
+    && ["elevenlabs", "fish", "system", "chatterbox", "xai", "gemini", "openai", "volc", "qwen"].includes(inner.provider);
+}
+
 /** Every request the iOS app makes, and nothing else. Paths arrive undecoded
  * and are anchored at both ends, so an encoded traversal fails to match. */
 const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
-  // Configured-or-not booleans, never keys; the write side is refused below.
+  // 只回配置布尔值，绝不回密钥。PUT 必须先由代理用
+  // isVoiceProviderOnlyConfigWrite 检查完请求体，才能到 harness。
   { method: "GET", path: /^\/api\/config$/ },
+  { method: "PUT", path: /^\/api\/config$/ },
   { method: "GET", path: /^\/api\/events$/ },
   { method: "GET", path: /^\/api\/instances$/ },
   // The harness refuses it while any Claude turn runs. Instance ids may carry

@@ -21,6 +21,7 @@ import {
   isCloudDesktopAccess,
   isDesktopScreenAccess,
   isMessageFileDownload,
+  isVoiceProviderOnlyConfigWrite,
 } from "./routes.ts";
 import { createJsonScrubber } from "./json-scrub.ts";
 import { acceptsGzip, gzipCandidate, sendTunnelJson, varyOnEncoding } from "./tunnel-gzip.ts";
@@ -806,7 +807,47 @@ export function createProxyHandler(options: ProxyOptions) {
           : { error: "Luna Bot is not running on this computer" },
       );
     });
-    req.pipe(upstream);
+
+    // 安全边界：`PUT /api/config` 虽然进了路由白名单，但只有“只切语音引擎”的
+    // 小请求体可以结束上游请求；其它形状在上游拿到请求体前就被销毁。
+    if (method === "PUT" && path === "/api/config") {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      let answered = false;
+      const refuse = (status: number, error: string, destroyRequest = false): void => {
+        if (answered) return;
+        answered = true;
+        upstream.destroy();
+        sendJson(res, status, { error });
+        if (destroyRequest) req.destroy();
+      };
+      req.on("data", (chunk: Buffer) => {
+        if (answered) return;
+        size += chunk.length;
+        if (size > 4_096) {
+          refuse(413, "voice engine change body is too large", true);
+          return;
+        }
+        chunks.push(chunk);
+      });
+      req.on("end", () => {
+        if (answered) return;
+        let body: unknown;
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        } catch {
+          refuse(403, "only the voice engine can be changed from a paired device");
+          return;
+        }
+        if (!isVoiceProviderOnlyConfigWrite(body)) {
+          refuse(403, "only the voice engine can be changed from a paired device");
+          return;
+        }
+        upstream.end(Buffer.concat(chunks));
+      });
+    } else {
+      req.pipe(upstream);
+    }
   };
 
   handle.upgrade = (req: IncomingMessage, socket: Duplex, head: Buffer, listener: ProxyListener = "lan"): void => {
