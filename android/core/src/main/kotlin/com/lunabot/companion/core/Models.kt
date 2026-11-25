@@ -243,6 +243,20 @@ data class CommChip(
     val withColor: String,
 )
 
+/** stream 中的 Live 通话状态；线上 `status` 为 connecting/live/ending/ended。 */
+@Serializable
+data class LiveCallState(
+    val callId: String = "",
+    val botId: String = "",
+    val threadId: String = "",
+    val client: String = "",
+    val voice: String = "",
+    val startedAt: Double = 0.0,
+    val status: String = "",
+    val endReason: String? = null,
+    val error: String? = null,
+)
+
 /**
  * The record a finished Live call leaves (`kind == "call"`).
  *
@@ -1152,13 +1166,14 @@ enum class VoiceProvider(val wire: String) {
     FISH("fish"),
     SYSTEM("system"),
     CHATTERBOX("chatterbox"),
-    // The desktop's `tts.provider` enum grew past the four the phone first
-    // shipped with. Without these three an xAI, Gemini or OpenAI workspace
-    // read as ElevenLabs: wrong label, wrong missing-key sentence, and a
-    // picker that could not name the engine it was already on.
+    // 桌面端 `tts.provider` 已超出手机最初支持的四个引擎。缺少这些值时，
+    // xAI、Gemini、OpenAI、豆包或千问工作区会被读成 ElevenLabs：标签错误、
+    // 缺钥提示错误，选择器也无法说出当前引擎。
     XAI("xai"),
     GEMINI("gemini"),
-    OPENAI("openai");
+    OPENAI("openai"),
+    VOLC("volc"),
+    QWEN("qwen");
 
     companion object {
         fun fromWire(value: String?): VoiceProvider = entries.firstOrNull { it.wire == value } ?: ELEVENLABS

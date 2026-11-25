@@ -271,6 +271,30 @@ describe("the sidecar in front of an unmodified harness", () => {
     expect((await device("PATCH", `/api/groups/not-a-room`, { body: { unread: false } })).status).toBe(404);
   });
 
+  it("lets a paired device switch only the voice engine, never a voice key or any wider config", async () => {
+    const before = await device("GET", "/api/config");
+    const originalProvider = before.body.tts?.provider ?? "elevenlabs";
+    try {
+      const switched = await device("PUT", "/api/config", { body: { tts: { provider: "fish" } } });
+      expect(switched.status, JSON.stringify(switched.body)).toBe(200);
+      expect(switched.body.tts?.provider).toBe("fish");
+
+      for (const body of [
+        { tts: { provider: "fish", key: "steal-or-write-a-key" } },
+        { tts: { key: "steal-or-write-a-key" } },
+        { tts: { provider: "fish" }, xai: { key: "wider-config" } },
+        { tts: { provider: "not-a-provider" } },
+      ]) {
+        const refused = await device("PUT", "/api/config", { body });
+        expect(refused.status, JSON.stringify(body)).toBe(403);
+      }
+      expect((await device("PATCH", "/api/config", { body: { tts: { provider: "fish" } } })).status).toBe(403);
+      expect((await device("GET", "/api/config")).body.xai?.configured).not.toBe(true);
+    } finally {
+      await device("PUT", "/api/config", { body: { tts: { provider: originalProvider } } });
+    }
+  });
+
   it("lets a device answer an approval, and manage its own chats", async () => {
     // The harness's own "no such pending request" proves the route arrived.
     const { body } = await device("GET", "/api/bots");

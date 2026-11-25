@@ -27,6 +27,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 
+/** 语音消息转写结果；unavailable 只表示电脑或服务不可用，不代表没听清。 */
+data class VoiceTranscription(
+    val text: String?,
+    val unavailable: Boolean,
+)
+
 /**
  * Stream lifecycle, pairing restore, and actions — port of `ios/App/Session.swift`.
  *
@@ -168,6 +174,10 @@ class Session(
     /** A Live call started or ended on the desktop. */
     private val _liveCall = MutableSharedFlow<Frame.LiveCall>(extraBufferCapacity = 8)
     val liveCall: SharedFlow<Frame.LiveCall> = _liveCall.asSharedFlow()
+
+    /** 实时到达且可自动朗读的 bot 语音事件；无 replay，订阅晚到就不补读。 */
+    private val _botReplySpeechEvents = MutableSharedFlow<BotReplySpeechEvent>(extraBufferCapacity = 32)
+    val botReplySpeechEvents: SharedFlow<BotReplySpeechEvent> = _botReplySpeechEvents.asSharedFlow()
 
     private val _actionError = MutableStateFlow<String?>(null)
     var actionError: String?
@@ -1094,6 +1104,7 @@ class Session(
                             is Frame.DeviceJob -> _deviceJobNudge.tryEmit(Unit)
                             else -> {
                                 _state.update { it.apply(frame) }
+                                spokenReplySpeechEvent(_state.value, payload)?.let(_botReplySpeechEvents::tryEmit)
                                 when (payload) {
                                     is Frame.Notify -> notificationSink.deliver(payload.notification, frame.seq)
                                     Frame.McpChanged -> _mcpChanged.tryEmit(Unit)
@@ -2456,6 +2467,12 @@ class Session(
         }
     }
 
+    suspend fun liveCallActive(): Boolean {
+        val activeClient = client ?: throw APIError.Transport("此电脑当前离线。")
+        val call = activeClient.liveCall() ?: return false
+        return call.status != "ended"
+    }
+
     /**
      * A reply as utterances the computer can voice, or `ready = false` when it
      * has no voice set up — so a call can say so rather than fall silent.
@@ -2471,33 +2488,18 @@ class Session(
         return activeClient.speak(text, voiceId)
     }
 
-    /**
-     * Best-effort voice-message transcription on the computer. Null means "no
-     * words": the clip still sends as an audio attachment, so a computer that
-     * is offline, too old for the route, or has no ASR key is silent by
-     * design rather than an error banner.
-     */
-    suspend fun transcribeVoice(wav: ByteArray): String? {
-        val activeClient = client ?: return null
+    /** 语音消息在电脑端转写；音频本体总会发送，所以失败只降级转写，不阻塞消息。 */
+    suspend fun transcribeVoice(wav: ByteArray): VoiceTranscription {
+        val activeClient = client ?: return VoiceTranscription(text = null, unavailable = true)
         return try {
-            activeClient.transcribe(wav).trim().ifEmpty { null }
+            VoiceTranscription(
+                text = activeClient.transcribe(wav).trim().ifEmpty { null },
+                unavailable = false,
+            )
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            null
-        }
-    }
-
-    /** Save the ElevenLabs key on the computer. The server's reason when it refuses, null on success. */
-    suspend fun updateVoiceKey(key: String): String? {
-        val activeClient = client ?: return "此电脑当前离线。"
-        return try {
-            activeClient.updateVoiceKey(key)
-            null
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            voiceWriteFailure(error)
+            VoiceTranscription(text = null, unavailable = true)
         }
     }
 
@@ -2514,9 +2516,8 @@ class Session(
     }
 
     /**
-     * A desktop from 0.1.104 refuses every `/api/config` write from a phone —
-     * the allowlist answers 403 with an English sentence meant for an API
-     * client. A person holding the phone needs to know where the setting went.
+     * 旧桌面拒绝手机的一切 `/api/config` 写入；新桌面也只接受窄口径语音引擎切换。
+     * 403 原文写给 API 调用者，这里换成持机人能执行的去处。
      */
     private fun voiceWriteFailure(error: Throwable): String =
         if ((error as? APIError)?.isForbidden == true) {

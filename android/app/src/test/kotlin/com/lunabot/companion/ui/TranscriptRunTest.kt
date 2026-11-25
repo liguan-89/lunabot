@@ -158,7 +158,7 @@ class ChatActionsTest {
         assertEquals("选择文件", actions[1].title)
         assertEquals("从文件中添加文档", actions[1].subtitle)
         assertEquals("语音消息", actions[2].title)
-        assertEquals("按住说话，松开发送", actions[2].subtitle)
+        assertEquals("按住说话，能识别时附带文字", actions[2].subtitle)
         assertEquals("新建话题", actions[3].title)
         assertEquals("与 Scout 开启新话题", actions[3].subtitle)
         assertEquals("话题列表", actions[4].title)

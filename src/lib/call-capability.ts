@@ -28,7 +28,7 @@ const turnsOnThisComputer = (): CallCapabilityHelp => ({
 export function callCapabilityHelp(
   capabilities: DesktopCapabilities,
   speechServiceAvailable: boolean,
-  fishKeySaved: boolean,
+  transcriptionReady: boolean,
 ): CallCapabilityHelp | null {
   if (!capabilities.dictation.available) {
     switch (capabilities.dictation.reasonCode) {
@@ -44,7 +44,7 @@ export function callCapabilityHelp(
         };
     }
   }
-  if (capabilities.dictation.engine === "fish-audio" && !fishKeySaved) return turnsNeedFishKey();
+  if (capabilities.dictation.engine === "fish-audio" && !transcriptionReady) return turnsNeedFishKey();
   if (!speechServiceAvailable) {
     return {
       label: t("call.capability.serviceUnavailable"),

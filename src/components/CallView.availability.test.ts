@@ -85,11 +85,11 @@ describe("call capability guidance", () => {
     expect(help).not.toHaveProperty("action");
   });
 
-  it("keeps Take turns off on Windows until a Fish Audio key is saved, and says where to add one", () => {
+  it("keeps Take turns off on Windows until speech-to-text is configured, without naming Fish as the only route", () => {
     const fish = capabilities({ available: true, engine: "fish-audio", onDevice: false }, "win32");
     expect(callCapabilityHelp(fish, true, false)).toEqual({
-      label: "Add a Fish Audio key to take turns on calls",
-      reason: "On this computer, Take turns hears you through Fish Audio speech-to-text. Add a Fish Audio key in Settings → API keys.",
+      label: "Set up speech-to-text to take turns on calls",
+      reason: "On this computer, Take turns sends what you say to the computer's speech-to-text service. Add a Fish Audio key in Settings → API keys, or configure Doubao · Volc or Qwen voice with its shared Live call credential.",
     });
     expect(callCapabilityHelp(fish, true, true)).toBeNull();
   });

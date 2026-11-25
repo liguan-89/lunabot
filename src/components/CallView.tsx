@@ -27,7 +27,7 @@ import { callStarted } from "@/lib/product-events";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { callCapabilityHelp, type CallCapabilityHelp } from "@/lib/call-capability";
 import { onCallStartRequest } from "@/lib/call-start-request";
-import { CALL_ENDPOINT_MS, fishListeningReady, listensHere, speechBridge } from "@/lib/speech";
+import { CALL_ENDPOINT_MS, listensHere, serverListeningReady, speechBridge } from "@/lib/speech";
 import { VoiceSetupDialog } from "./VoiceSetupDialog";
 import { openBotSettings } from "./bot-panel/panel-link";
 import { MENU_SHEET } from "./menu-recipe";
@@ -102,7 +102,7 @@ export function CallTargetButton({
   const active = onCall || onLiveCall;
   const remoteClient = globalThis.window?.ogb?.remoteClient?.active === true;
   const capabilityHelp = capabilitiesReady
-    ? callCapabilityHelp(capabilities, Boolean(speechBridge()?.speechStart), fishListeningReady(state.config))
+    ? callCapabilityHelp(capabilities, Boolean(speechBridge()?.speechStart), serverListeningReady(state.config))
     : null;
   const supported = capabilitiesReady && !capabilityHelp;
   const localVoice = localSystemVoiceActive();

@@ -2,6 +2,7 @@ package com.lunabot.companion
 
 import android.app.Application
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.lunabot.companion.audio.SpokenReplyPlayer
 import com.lunabot.companion.audio.VoicePreviewPlayer
 import com.lunabot.companion.audio.VoiceNotePlayer
 import com.lunabot.companion.account.CloudAccountApi
@@ -67,6 +68,9 @@ class OpenMausApp : Application() {
     lateinit var voicePreview: VoicePreviewPlayer
         private set
     lateinit var voiceNotes: VoiceNotePlayer
+        private set
+    /** 手机本地自动朗读；进程级唯一实例，避免与通话或语音条叠声。 */
+    lateinit var spokenReplies: SpokenReplyPlayer
         private set
     /** The on-device ASR model's files; one root for Settings' download and the sheet's check. */
     lateinit var speechModels: ModelManager
@@ -164,6 +168,18 @@ class OpenMausApp : Application() {
         avatars = AvatarImageStore(fetch = session::avatarData)
         voicePreview = VoicePreviewPlayer(this)
         voiceNotes = VoiceNotePlayer(this)
+        spokenReplies = SpokenReplyPlayer(this, session, appScope)
+        spokenReplies.start()
+        appScope.launch {
+            voiceNotes.playback.collect { playback ->
+                spokenReplies.setVoiceNoteActive(playback?.playing == true)
+            }
+        }
+        appScope.launch {
+            voicePreview.playing.collect { playing ->
+                spokenReplies.setVoicePreviewActive(playing)
+            }
+        }
         speechModels = ModelManager(this)
 
         // iOS resets the avatar cache inside signOut. Observe Unpaired here so

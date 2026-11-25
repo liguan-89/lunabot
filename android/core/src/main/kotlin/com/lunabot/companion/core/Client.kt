@@ -716,23 +716,15 @@ class CompanionClient(
         ),
     )
 
-    /**
-     * Store (or, with an empty string, remove) the workspace's ElevenLabs key.
-     * The companion forwards only this shape, and the server checks a
-     * non-empty key against the provider before saving it; the key itself
-     * never comes back in any response.
-     */
-    suspend fun updateVoiceKey(key: String) {
-        val trimmed = key.trim()
-        if (trimmed.toByteArray().size > 512 || trimmed.any(Char::isISOControl)) {
-            throw APIError.Transport("这看起来不像有效的 API 密钥。")
-        }
-        sendUnit(makeRequest("PUT", "/api/config", body = buildJsonObject {
-            put("tts", buildJsonObject { put("key", trimmed) })
-        }))
-    }
+    @Serializable
+    private data class LiveCallResponse(val call: LiveCallState? = null)
 
-    /** Pick the voice engine: "elevenlabs" or "system". */
+    /** 电脑当前是否有 Live 通话；只读状态，不含语音内容或密钥。 */
+    suspend fun liveCall(): LiveCallState? = send<LiveCallResponse>(
+        makeRequest("GET", "/api/live/call"),
+    ).call
+
+    /** 切换语音引擎；请求体必须正好是 companion 窄写口允许的形状。 */
     suspend fun updateVoiceProvider(provider: String) {
         sendUnit(makeRequest("PUT", "/api/config", body = buildJsonObject {
             put("tts", buildJsonObject { put("provider", provider) })
