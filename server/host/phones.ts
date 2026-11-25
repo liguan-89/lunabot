@@ -197,6 +197,9 @@ export function createPhones(deps: PhonesDeps) {
       noticeInboxes.set(ownerKey, sink);
       for (const stale of noticeInboxes.keys()) {
         if (noticeInboxes.size <= 16) break;
+        const evicted = noticeInboxes.get(stale);
+        evicted?.triage.stop();
+        evicted?.learn.stop();
         noticeInboxes.delete(stale);
       }
     }

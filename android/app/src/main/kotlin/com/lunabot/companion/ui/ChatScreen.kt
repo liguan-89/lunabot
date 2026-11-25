@@ -2836,7 +2836,7 @@ private fun Composer(
                 // the send arrow, so the bar never carries two endings at once.
                 // The two are one control changing its mind, so the change is a
                 // crossfade with a small scale, not an icon swap between frames.
-                if (busy && onStop != null && !dictationLocked) {
+                if (busy && onStop != null) {
                     TouchTarget(
                         onClick = onStop,
                         contentDescription = "停止本轮",

@@ -284,7 +284,7 @@ class E2eSession(
         }
 
         override fun ended(streamId: Int) {
-            streams[streamId]?.remoteEnd()
+            streams.remove(streamId)?.remoteEnd()
         }
 
         override fun reset(streamId: Int) {
