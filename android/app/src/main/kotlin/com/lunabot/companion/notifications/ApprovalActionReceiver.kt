@@ -44,14 +44,13 @@ class ApprovalActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                app.session.connect()
-                // A cold start has to finish pairing and open the stream; past
-                // this the tap is old news and the notification still opens.
-                val live = withTimeoutOrNull(RECEIVER_CONNECT_BUDGET_MS) {
+                // The whole bring-up — dial, wait for Live, fetch the card and send the answer — fits inside the
+                // receiver budget; past it the tap is old news and the person finishes in the app instead.
+                val decided = withTimeoutOrNull(RECEIVER_CONNECT_BUDGET_MS) {
+                    app.session.connect()
                     app.session.status.first { it is Session.Status.Live }
-                }
-                val decided = live != null &&
                     app.session.decideApprovalFromNotification(threadId, allow)
+                } == true
                 if (!decided) {
                     handBackToApp(context, app)
                 }
