@@ -52,6 +52,35 @@ class SpokenReplyControllerTest {
     }
 
     @Test
+    fun credentialShapesAreRedactedBeforeTheyReachSpeechSynthesis() = runTest {
+        val speech = FakeSpeech()
+        val prepared = mutableListOf<String>()
+        val synthesized = mutableListOf<String>()
+        val controller = SpokenReplyController(
+            scope = backgroundScope,
+            cues = MutableSharedFlow(),
+            liveCalls = MutableSharedFlow(),
+            probeLiveCallActive = { false },
+            prepareSpeech = { text, _ ->
+                prepared += text
+                PreparedSpeech(ready = true, utterances = listOf(text))
+            },
+            synthesizeSpeech = { text, _ ->
+                synthesized += text
+                byteArrayOf(1)
+            },
+            speech = speech,
+        )
+        controller.start()
+
+        controller.enqueue(cue("m1", "api_key=abcd1234efgh"))
+        testScheduler.runCurrent()
+
+        assertEquals(listOf("api_key=«redacted 12 chars»"), prepared)
+        assertEquals(listOf("api_key=«redacted 12 chars»"), synthesized)
+    }
+
+    @Test
     fun repliesWaitInOrderRatherThanTalkingOverEachOther() = runTest {
         val cues = MutableSharedFlow<BotReplyCue>()
         val speech = FakeSpeech()

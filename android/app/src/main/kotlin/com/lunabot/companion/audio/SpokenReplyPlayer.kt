@@ -6,6 +6,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.lunabot.companion.core.BotReplyCue
+import com.lunabot.companion.core.redactSecretsForSpeech
 import com.lunabot.companion.core.Frame
 import com.lunabot.companion.core.PreparedSpeech
 import com.lunabot.companion.core.Session
@@ -110,7 +111,7 @@ class SpokenReplyController(
         if (muted()) return
         try {
             if (liveCallActiveSafely()) return
-            val prepared = prepareSpeech(cue.text, cue.voiceId)
+            val prepared = prepareSpeech(redactSecretsForSpeech(cue.text), cue.voiceId)
             if (!prepared.ready) return
             val clips = ArrayList<ByteArray>(prepared.utterances.size)
             for (utterance in prepared.utterances) {
