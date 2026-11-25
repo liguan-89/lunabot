@@ -26,6 +26,19 @@ class DecodingTest {
     }
 
     @Test
+    fun runtimeFramesKeepTurnIdentityAndTerminalOutcome() {
+        val frame = CompanionJson.decodeFromString<Frame>(
+            """
+            {"kind":"runtime","event":{"type":"turn.completed","threadId":"t1","turnId":"turn-1","ok":false}}
+            """,
+        )
+
+        val event = (frame as Frame.Runtime).event
+        assertEquals("turn-1", event.turnId)
+        assertEquals(false, event.ok)
+    }
+
+    @Test
     fun decodesTheFullFleetToo() {
         val fleet = decodeFixture<Fleet>("bots-full")
         assertTrue(fleet.bots.isNotEmpty())

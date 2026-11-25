@@ -1,6 +1,7 @@
 package com.lunabot.companion.audio
 
 import com.lunabot.companion.core.BotReplyCue
+import com.lunabot.companion.core.BotReplySpeechEvent
 import com.lunabot.companion.core.Frame
 import com.lunabot.companion.core.LiveCallState
 import com.lunabot.companion.core.PreparedSpeech
@@ -21,14 +22,14 @@ class SpokenReplyControllerTest {
 
     @Test
     fun aCompletedReplyIsPreparedSynthesizedAndPlayedInOrder() = runTest {
-        val cues = MutableSharedFlow<BotReplyCue>()
+        val cues = MutableSharedFlow<BotReplySpeechEvent>()
         val liveCalls = MutableSharedFlow<Frame.LiveCall>()
         val speech = FakeSpeech()
         val prepared = mutableListOf<Pair<String, String?>>()
         val synthesized = mutableListOf<Pair<String, String?>>()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = cues,
+            events = cues,
             liveCalls = liveCalls,
             probeLiveCallActive = { false },
             prepareSpeech = { text, voice ->
@@ -58,7 +59,7 @@ class SpokenReplyControllerTest {
         val synthesized = mutableListOf<String>()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = MutableSharedFlow(),
+            events = MutableSharedFlow(),
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { false },
             prepareSpeech = { text, _ ->
@@ -82,11 +83,11 @@ class SpokenReplyControllerTest {
 
     @Test
     fun repliesWaitInOrderRatherThanTalkingOverEachOther() = runTest {
-        val cues = MutableSharedFlow<BotReplyCue>()
+        val cues = MutableSharedFlow<BotReplySpeechEvent>()
         val speech = FakeSpeech()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = cues,
+            events = cues,
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { false },
             prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
@@ -105,11 +106,11 @@ class SpokenReplyControllerTest {
 
     @Test
     fun anActiveCallSuppressesNewRepliesAndStopsTheCurrentVoice() = runTest {
-        val cues = MutableSharedFlow<BotReplyCue>()
+        val cues = MutableSharedFlow<BotReplySpeechEvent>()
         val speech = FakeSpeech()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = cues,
+            events = cues,
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { false },
             prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
@@ -131,11 +132,11 @@ class SpokenReplyControllerTest {
 
     @Test
     fun backgroundSuppressesRepliesUntilTheAppReturns() = runTest {
-        val cues = MutableSharedFlow<BotReplyCue>()
+        val cues = MutableSharedFlow<BotReplySpeechEvent>()
         val speech = FakeSpeech()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = cues,
+            events = cues,
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { false },
             prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
@@ -160,7 +161,7 @@ class SpokenReplyControllerTest {
         val speech = FakeSpeech()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = MutableSharedFlow(),
+            events = MutableSharedFlow(),
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { false },
             prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
@@ -198,7 +199,7 @@ class SpokenReplyControllerTest {
         val speech = FakeSpeech()
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = MutableSharedFlow(),
+            events = MutableSharedFlow(),
             liveCalls = liveCalls,
             probeLiveCallActive = { false },
             prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
@@ -233,7 +234,7 @@ class SpokenReplyControllerTest {
         var prepareCalls = 0
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = MutableSharedFlow(),
+            events = MutableSharedFlow(),
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { false },
             prepareSpeech = { _, _ ->
@@ -260,7 +261,7 @@ class SpokenReplyControllerTest {
         var prepareCalls = 0
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = MutableSharedFlow(),
+            events = MutableSharedFlow(),
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { true },
             prepareSpeech = { _, _ ->
@@ -285,7 +286,7 @@ class SpokenReplyControllerTest {
         val probes = ArrayDeque(listOf(false, true))
         val controller = SpokenReplyController(
             scope = backgroundScope,
-            cues = MutableSharedFlow(),
+            events = MutableSharedFlow(),
             liveCalls = MutableSharedFlow(),
             probeLiveCallActive = { probes.removeFirst() },
             prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
@@ -298,6 +299,80 @@ class SpokenReplyControllerTest {
         testScheduler.runCurrent()
 
         assertEquals(0, speech.speakCalls)
+    }
+
+    @Test
+    fun aClosedStreamingSentenceStartsBeforeTheReplyCompletesWithoutDuplicatingIt() = runTest {
+        val events = MutableSharedFlow<BotReplySpeechEvent>(extraBufferCapacity = 8)
+        val speech = FakeSpeech()
+        val synthesized = mutableListOf<String>()
+        val first = "第一句。"
+        val second = "第二句。"
+        val controller = SpokenReplyController(
+            scope = backgroundScope,
+            events = events,
+            liveCalls = MutableSharedFlow(),
+            probeLiveCallActive = { false },
+            prepareSpeech = { text, _ ->
+                PreparedSpeech(
+                    ready = true,
+                    utterances = if (text == first + second) listOf(first, second) else listOf(first, "第二"),
+                )
+            },
+            synthesizeSpeech = { text, _ ->
+                synthesized += text
+                text.encodeToByteArray()
+            },
+            speech = speech,
+        )
+        controller.start()
+        testScheduler.runCurrent()
+
+        events.tryEmit(BotReplySpeechEvent.Delta("thread-1", "bot-1", "voice-7", "turn-1", first + "第二"))
+        testScheduler.runCurrent()
+        testScheduler.runCurrent()
+        assertEquals(listOf(first), speech.playedUtf8())
+
+        events.tryEmit(
+            BotReplySpeechEvent.Complete(
+                cue("m1", first + second).copy(turnId = "turn-1"),
+            ),
+        )
+        testScheduler.runCurrent()
+
+        assertEquals(listOf(first, second), synthesized)
+        assertEquals(listOf(first, second), speech.playedUtf8())
+    }
+
+    @Test
+    fun credentialShapedStreamingTextWaitsForTheAuthoritativeFrame() = runTest {
+        val events = MutableSharedFlow<BotReplySpeechEvent>(extraBufferCapacity = 8)
+        val speech = FakeSpeech()
+        val prepared = mutableListOf<String>()
+        val secretReply = "api_key=abcd1234efgh"
+        val controller = SpokenReplyController(
+            scope = backgroundScope,
+            events = events,
+            liveCalls = MutableSharedFlow(),
+            probeLiveCallActive = { false },
+            prepareSpeech = { text, _ ->
+                prepared += text
+                PreparedSpeech(ready = true, utterances = listOf(text))
+            },
+            synthesizeSpeech = { text, _ -> text.encodeToByteArray() },
+            speech = speech,
+        )
+        controller.start()
+        testScheduler.runCurrent()
+
+        events.tryEmit(BotReplySpeechEvent.Delta("thread-1", "bot-1", "voice-7", "turn-1", secretReply))
+        testScheduler.runCurrent()
+        assertEquals(emptyList(), prepared)
+
+        events.tryEmit(BotReplySpeechEvent.Complete(cue("m1", secretReply).copy(turnId = "turn-1")))
+        testScheduler.runCurrent()
+
+        assertEquals(listOf("api_key=«redacted 12 chars»"), prepared)
     }
 
     private class FakeSpeech : SpokenReplySpeech {

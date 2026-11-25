@@ -111,8 +111,8 @@ class SessionTest {
             events = { _, _ -> frames },
             hydrate = { Fleet(listOf(bot), emptyList()) },
         )
-        val cues = mutableListOf<BotReplyCue>()
-        val collector = backgroundScope.launch { session.botReplyCues.collect { cues += it } }
+        val speechEvents = mutableListOf<BotReplySpeechEvent>()
+        val collector = backgroundScope.launch { session.botReplySpeechEvents.collect { speechEvents += it } }
         session.awaitRestored()
         session.connect()
         runCurrent()
@@ -121,7 +121,23 @@ class SessionTest {
         frames.tryEmit(StreamFrame(Frame.Hello(cursor = "s:1", resumed = false), seq = 1))
         runCurrent()
         assertEquals(Session.Status.Live, session.status.value)
-        assertEquals(emptyList(), cues)
+        assertEquals(emptyList(), speechEvents)
+
+        frames.tryEmit(
+            StreamFrame(
+                Frame.Runtime(
+                    RuntimeEvent(
+                        type = "content.delta",
+                        threadId = "t1",
+                        delta = "新的",
+                        streamKind = "assistant_text",
+                        turnId = "turn-1",
+                    ),
+                ),
+                seq = 2,
+            ),
+        )
+        runCurrent()
 
         val live = Message(
             id = "m-live",
@@ -130,20 +146,22 @@ class SessionTest {
             at = 2.0,
             text = "新的完成回复",
         )
-        frames.tryEmit(StreamFrame(Frame.Message("t1", live), seq = 2))
+        frames.tryEmit(StreamFrame(Frame.Message("t1", live), seq = 3))
         runCurrent()
 
         assertEquals(
-            listOf(
-                BotReplyCue(
-                    threadId = "t1",
-                    messageId = "m-live",
-                    botId = "b1",
-                    voiceId = "voice-7",
-                    text = "新的完成回复",
-                ),
+            BotReplySpeechEvent.Delta("t1", "b1", "voice-7", "turn-1", "新的"),
+            speechEvents.first(),
+        )
+        assertEquals(
+            BotReplyCue(
+                threadId = "t1",
+                messageId = "m-live",
+                botId = "b1",
+                voiceId = "voice-7",
+                text = "新的完成回复",
             ),
-            cues,
+            assertIs<BotReplySpeechEvent.Complete>(speechEvents.last()).cue,
         )
         collector.cancel()
     }

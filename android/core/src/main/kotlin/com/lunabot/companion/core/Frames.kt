@@ -50,6 +50,8 @@ data class RuntimeEvent(
     val threadId: String,
     val delta: String? = null,
     val streamKind: String? = null,
+    val turnId: String? = null,
+    val ok: Boolean? = null,
 )
 
 @Serializable(with = FrameSerializer::class)
