@@ -2488,19 +2488,6 @@ class Session(
         }
     }
 
-    /** Save the ElevenLabs key on the computer. The server's reason when it refuses, null on success. */
-    suspend fun updateVoiceKey(key: String): String? {
-        val activeClient = client ?: return "此电脑当前离线。"
-        return try {
-            activeClient.updateVoiceKey(key)
-            null
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            voiceWriteFailure(error)
-        }
-    }
-
     suspend fun updateVoiceProvider(provider: String): String? {
         val activeClient = client ?: return "此电脑当前离线。"
         return try {
@@ -2514,9 +2501,8 @@ class Session(
     }
 
     /**
-     * A desktop from 0.1.104 refuses every `/api/config` write from a phone —
-     * the allowlist answers 403 with an English sentence meant for an API
-     * client. A person holding the phone needs to know where the setting went.
+     * 旧桌面拒绝手机的一切 `/api/config` 写入；新桌面也只接受窄口径语音引擎切换。
+     * 403 原文写给 API 调用者，这里换成持机人能执行的去处。
      */
     private fun voiceWriteFailure(error: Throwable): String =
         if ((error as? APIError)?.isForbidden == true) {

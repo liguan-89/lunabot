@@ -10,7 +10,6 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -72,37 +71,17 @@ class VoiceClientTest {
     }
 
     @Test
-    fun theKeyTravelsAsExactlyTheVoiceShapeTheCompanionForwards() = runBlocking {
+    fun theProviderTravelsAsExactlyTheVoiceShapeTheCompanionForwards() = runBlocking {
         server.enqueue(json("{}"))
-        client.updateVoiceKey("  sk_live_abc  ")
+        client.updateVoiceProvider("system")
         val request = server.takeRequest()
         assertEquals("PUT", request.method)
         assertEquals("/api/config", request.path)
         val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
         assertEquals(setOf("tts"), body.keys)
         val tts = body.getValue("tts").jsonObject
-        assertEquals(setOf("key"), tts.keys)
-        assertEquals("sk_live_abc", tts.getValue("key").jsonPrimitive.content)
-
-        server.enqueue(json("{}"))
-        client.updateVoiceProvider("system")
-        val provider = CompanionJson.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
-        assertEquals("system", provider.getValue("tts").jsonObject.getValue("provider").jsonPrimitive.content)
-    }
-
-    @Test
-    fun anEmptyKeyRemovesIt() = runBlocking {
-        server.enqueue(json("{}"))
-        client.updateVoiceKey("")
-        val tts = CompanionJson.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject.getValue("tts").jsonObject
-        assertEquals("", tts.getValue("key").jsonPrimitive.content)
-    }
-
-    @Test
-    fun somethingThatIsNotAKeyNeverLeavesThePhone() = runBlocking {
-        assertFailsWith<APIError.Transport> { client.updateVoiceKey("a\nb") }
-        assertFailsWith<APIError.Transport> { client.updateVoiceKey("k".repeat(513)) }
-        assertEquals(0, server.requestCount)
+        assertEquals(setOf("provider"), tts.keys)
+        assertEquals("system", tts.getValue("provider").jsonPrimitive.content)
     }
 
     @Test
@@ -116,13 +95,6 @@ class VoiceClientTest {
         assertEquals("audio/wav", request.headers["Content-Type"])
         assertContentEquals(wav, request.body.readByteArray())
         assertEquals("你好", text)
-    }
-
-    @Test
-    fun theServersRefusalReadsAsItsOwnSentence() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json").setBody("""{"error":"ElevenLabs rejected that key"}"""))
-        val error = assertFailsWith<APIError.Status> { client.updateVoiceKey("bad") }
-        assertEquals("ElevenLabs rejected that key", error.message)
     }
 
     private fun json(body: String): MockResponse =
