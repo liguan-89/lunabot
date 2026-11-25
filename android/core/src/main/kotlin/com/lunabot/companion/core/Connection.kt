@@ -413,10 +413,16 @@ data class Connection(
                     if (!rest.startsWith(":")) return null
                     parsedPort = rest.drop(1).toIntOrNull() ?: return null
                 }
-            } else if (trimmed.count { it == ':' } == 1) {
-                val colon = trimmed.lastIndexOf(':')
-                parsedHost = trimmed.substring(0, colon)
-                parsedPort = trimmed.substring(colon + 1).toIntOrNull() ?: return null
+            } else {
+                when (trimmed.count { it == ':' }) {
+                    0 -> Unit
+                    1 -> {
+                        val colon = trimmed.lastIndexOf(':')
+                        parsedHost = trimmed.substring(0, colon)
+                        parsedPort = trimmed.substring(colon + 1).toIntOrNull() ?: return null
+                    }
+                    else -> return null
+                }
             }
 
             if (parsedHost.isEmpty()) return null

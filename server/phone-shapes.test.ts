@@ -53,6 +53,23 @@ describe("shapeNotice", () => {
     expect(p.titleIsSpeaker).toBeUndefined();
   });
 
+
+  it("keeps the speaker when an OEM title drops the conversation name", () => {
+    const shaped = shapeNotice(record("k", {
+      packageName: "org.chat.any",
+      title: "张三: 你好",
+      text: "你好",
+      messages: [msg("张三", "你好")],
+      conversation: true,
+      group: true,
+      conversationTitle: "项目群",
+    }));
+
+    expect(shaped.title).toBe("项目群");
+    expect(shaped.sender).toBe("张三");
+    expect(shaped.group).toBe(true);
+  });
+
   it("splits the QQ 「群名(13条新消息)」 + 「某人: 那句话」 shape", () => {
     for (const title of ["三年2班家长群(13条新消息)", "三年2班家长群", "三年2班家长群 (99条以上新消息)"]) {
       const shaped = shapeNotice(record("k", { packageName: "com.tencent.mobileqq", title, text: "王老师: 明天下午三点开家长会" }));
