@@ -94,6 +94,7 @@ class SessionLingerController(
         // connect() finds streamJob != null when the window kept it, and opens
         // nothing; it only opens a stream when the window had already closed.
         session.connect()
+        session.reportPresence()
     }
 
     override fun onStop(owner: LifecycleOwner) {

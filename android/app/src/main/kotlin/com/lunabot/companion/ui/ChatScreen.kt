@@ -213,6 +213,13 @@ fun ChatScreen(
         ThreadResolution.Result.Gone -> LaunchedEffect(destination) { if (!embedded) onBack() }
         // The live chat record, so busy/unread stay current as frames land.
         is ThreadResolution.Result.Open -> {
+            // Presence: the open conversation rides every ping while this screen
+            // is composed, and clearing it on dispose keeps a backed-out chat
+            // from claiming it is still in front of the person.
+            DisposableEffect(resolution.chat.threadId) {
+                session.noteChatOpen(resolution.chat.threadId)
+                onDispose { session.noteChatOpen(null) }
+            }
             // Resolve the owner without changing the task named by the destination.
             val resolved = (destination as? Destination.Thread)?.let { resolution.chat.target }
             LaunchedEffect(resolved) { if (resolved != null) onResolved(resolved) }
@@ -315,8 +322,19 @@ private fun LoadedChat(
         {
             haptics.play(HapticCue.SELECT)
             dictation.stop()
-            steering = true
-            scope.launch { session.interrupt(target) }
+            val head = queuedSends.firstOrNull()
+            if (engineCanSteer) {
+                // True steer: the words join the running turn instead of
+                // interrupting it. A queue that already drained leaves
+                // nothing to steer, and the press is a no-op.
+                if (head != null) {
+                    steering = true
+                    scope.launch { session.steerQueued(head, chat) }
+                }
+            } else {
+                steering = true
+                scope.launch { session.interrupt(target) }
+            }
         }
     }
     var showingTasks by remember { mutableStateOf(false) }
