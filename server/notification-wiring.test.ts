@@ -13,7 +13,7 @@ import { workerPort } from "./testing/worker-port.ts";
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
 const PORT = workerPort(18800, 10_000);
-const WEBHOOK_PORT = workerPort(39000, 10_000);
+const WEBHOOK_PORT = workerPort(29_300, 3_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
 

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { forWorker, workerPort } from "./worker-port.ts";
+import { ephemeralFloor, forWorker, workerPort } from "./worker-port.ts";
 
 describe("a worker's ports", () => {
   it("never meet another worker's, the port above included, whatever range each picks from", () => {
@@ -31,6 +31,16 @@ describe("a worker's ports", () => {
       const port = workerPort(18_800, 10_000);
       expect(forWorker(port), "already this worker's").toBe(port);
     }
+  });
+
+  it("never picks at or above the ephemeral floor, whatever range it is given", () => {
+    for (const from of [18_800, 28_800, 30_000]) {
+      for (let i = 0; i < 200; i++) expect(workerPort(from, 10_000)).toBeLessThan(ephemeralFloor());
+    }
+  });
+
+  it("refuses a range that sits entirely inside the ephemeral range", () => {
+    expect(() => workerPort(ephemeralFloor() + 100, 1_000)).toThrow(/ephemeral/);
   });
 });
 

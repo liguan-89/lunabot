@@ -12,7 +12,7 @@ import { workerPort } from "./testing/worker-port.ts";
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
 const PORT = workerPort(18800, 10_000);
-const WEBHOOK_PORT = workerPort(39000, 10_000);
+const WEBHOOK_PORT = workerPort(29_300, 3_000);
 
 let home: string;
 let child: ChildProcess;
