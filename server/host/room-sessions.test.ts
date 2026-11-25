@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { MAX_WINDOW_MINUTES } from "../cache-keepwarm.ts";
 import type { RuntimeEvent } from "../contracts.ts";
 import { sessionIdlePolicy } from "../drivers/session-idle.ts";
 import { escapeNotes } from "../peer-provenance.ts";
@@ -19,9 +18,9 @@ const IDLE_MS = sessionIdlePolicy("CLAUDE").idleMs;
 const MIN = 60_000;
 /** How long a turn never seen to end is kept (ABANDONED_TURN_MS in the module). */
 const DAY = 24 * 60 * 60_000;
-/** How long a member's last reading is kept: the longer of an abandoned turn's life and keep-warm's longest
- * window, plus two idle lives, so that it outlives its record and any process the driver can still hold. */
-const READING_LIFE = Math.max(DAY, MAX_WINDOW_MINUTES * MIN) + 2 * IDLE_MS;
+/** How long a member's last reading is kept: an abandoned turn's life plus two idle lives, so that it
+ * outlives its record and any process the driver can still hold. */
+const READING_LIFE = DAY + 2 * IDLE_MS;
 
 const engine = (instanceId: string, driverKind = "claudeAgent", strictResume = true, compactionNotice?: "native"): RoomSessionEngine =>
   ({ instanceId, driverKind, adapter: { capabilities: { strictResume, ...(compactionNotice === "native" ? { compactionNotice } : {}) } } });
@@ -1591,8 +1590,8 @@ describe("room sessions: long turns, and turns in other rooms meanwhile", () => 
   });
 
   it("keeps a member's last reading past the idle life: a start that went on in a process kept warm has a reading to fall from", () => {
-    // Prompt-cache keep-warm (server/cache-keepwarm.ts) holds a member's
-    // Claude process for hours. The room still starts after ten quiet
+    // A hold (the person's presence, a long turn) keeps a member's
+    // process past its idle time. The room still starts after ten quiet
     // minutes, and the kept process takes that start, so it runs in the same
     // session. A compaction on it with the hook lost is seen only if the
     // reading kept for that session outlived the ten minutes.
@@ -1661,15 +1660,16 @@ describe("room sessions: long turns, and turns in other rooms meanwhile", () => 
     expect(after.result).toStrictEqual({ mode: "start", text: r.full(after), send: {} });
   });
 
-  it("keeps a reading past keep-warm's longest window plus the idle time a hold's end re-arms", () => {
-    // Keep-warm may hold a process for its maximum window, and when the hold
-    // ends the driver arms its idle timer for a full idle time, so a process
-    // can take a start that long after the member's last turn. The reading
-    // kept for its session must still be there to show a compaction on it.
+  it("keeps a reading past an abandoned turn's life plus the idle time", () => {
+    // A turn never seen to end keeps its process for up to a day, and the
+    // driver arms its idle timer for a full idle time when the process is
+    // finally given up, so a process can take a start that long after the
+    // member's last turn. The reading kept for its session must still be
+    // there to show a compaction on it.
     const { r } = ready();
     r.finish(r.dispatch("editor", reading(60_000)), "S1", { reply: "Trimmed." });
     const T0 = r.state.now;
-    r.state.now = T0 + MAX_WINDOW_MINUTES * MIN + IDLE_MS + MIN;
+    r.state.now = T0 + DAY + IDLE_MS + MIN;
     r.say("Tighten the outro.");
     const start = r.dispatch("editor", reading(120_000));
     expect(start.result).toStrictEqual({ mode: "start", text: r.full(start), send: {} });
@@ -1711,8 +1711,8 @@ describe("room sessions: long turns, and turns in other rooms meanwhile", () => 
 // turns and while a turn runs, sometimes longer than a quiet process is
 // kept, and turns are dispatched in another room meanwhile (every dispatch
 // prunes). The driver behaves one of two ways, chosen per seed: it closes a
-// quiet process at its idle time, or, as prompt-cache keep-warm makes it
-// (server/cache-keepwarm.ts), keeps it for hours, so that a start more than
+// quiet process at its idle time, or keeps it for hours (as a hold or a long
+// turn does), so that a start more than
 // ten quiet minutes after the member's last turn goes on in the same
 // session. The model keeps, per native session, every line that session was
 // shown, by a tag that changes when the line's text does, and how large the
@@ -1736,17 +1736,17 @@ describe("room sessions: randomized rooms", () => {
   const SEEDS = [1, 7, 42, 1337, 2024, 9001, 31337, 65537, ...Array.from({ length: 16 }, (_, n) => 1000 + n * 7919)];
   const STEPS = 400;
   /** What the seeds exercised between them, checked once at the end. */
-  const seen = { deltas: 0, starts: 0, fromDisk: 0, updates: 0, lostHooks: 0, elsewhere: 0, longTurns: 0, afterLongTurn: 0, keptWarm: 0 };
+  const seen = { deltas: 0, starts: 0, fromDisk: 0, updates: 0, lostHooks: 0, elsewhere: 0, longTurns: 0, afterLongTurn: 0, keptLong: 0 };
   /** How many seeds ran to the end: the check at the end means nothing without them. */
   let ran = 0;
 
   for (const [index, seed] of SEEDS.entries()) {
     // Every other seed, the driver keeps a quiet process for three hours
-    // (keep-warm's default window) instead of its idle time, and the gaps
+    // instead of its idle time, and the gaps
     // between turns straddle the idle life.
-    const keepWarm = index % 2 === 1;
-    const KEEP_MS = keepWarm ? 180 * MIN : IDLE_MS;
-    it(`seed ${seed}${keepWarm ? " (keep-warm)" : ""}: the window is always in the text or in the session, and a delta repeats nothing`, () => {
+    const keptLong = index % 2 === 1;
+    const KEPT_MS = keptLong ? 180 * MIN : IDLE_MS;
+    it(`seed ${seed}${keptLong ? " (kept)" : ""}: the window is always in the text or in the session, and a delta repeats nothing`, () => {
       const random = prng(seed);
       const pick = <T,>(items: readonly T[]) => items[Math.floor(random() * items.length)]!;
       const r = room();
@@ -1797,9 +1797,9 @@ describe("room sessions: randomized rooms", () => {
         for (let n = Math.floor(random() * 4); n > 0; n--) append();
         if (random() < 0.15) edit();
         r.state.now += random() < 0.03 ? IDLE_MS + 1
-          : pick(keepWarm ? [0, 30_000, 3 * MIN, 8 * MIN, 11 * MIN, 15 * MIN, 25 * MIN] : [0, 30_000, 3 * MIN, 6 * MIN, 8 * MIN, 9 * MIN]);
+          : pick(keptLong ? [0, 30_000, 3 * MIN, 8 * MIN, 11 * MIN, 15 * MIN, 25 * MIN] : [0, 30_000, 3 * MIN, 6 * MIN, 8 * MIN, 9 * MIN]);
         // The driver closes a process that has been quiet for as long as it keeps one.
-        for (const [id, slot] of warm) if (r.state.now - slot.endedAt > KEEP_MS) warm.delete(id);
+        for (const [id, slot] of warm) if (r.state.now - slot.endedAt > KEPT_MS) warm.delete(id);
         const botId = pick(members);
         const instance = instanceOf[botId]!;
         // A warm process crashes between turns; nothing tells the harness.
@@ -1848,7 +1848,7 @@ describe("room sessions: randomized rooms", () => {
           // The member's own kept process takes a start, whether it is kept
           // for the idle time or far past it: the session goes on.
           session = slot?.botId === botId ? slot.session : `N${sessionSerial++}`;
-          if (slot?.botId === botId && r.state.now - slot.endedAt > IDLE_MS) seen.keptWarm += 1;
+          if (slot?.botId === botId && r.state.now - slot.endedAt > IDLE_MS) seen.keptLong += 1;
         }
         expect(new Set(sentTags).size).toBe(sentTags.length);
         longTurnBy = undefined;

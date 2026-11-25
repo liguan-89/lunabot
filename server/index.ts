@@ -125,7 +125,6 @@ import { BOT_PAUSED_CODE } from "../shared/bot-limit.ts"; import { createStarter
 import { buildRecall, recallRooms, recallThreadIds, withRecalled } from "./recall.ts";
 import { hostTimeZone, takesTurnClock, turnClockLine, withTurnClock } from "./turn-clock.ts";
 import { createMemoryUpkeep, dreamConversations, upkeepEnabled } from "./memory-upkeep.ts";
-import { createCacheKeepWarm, type KeepWarmStatus, type KeepWarmTarget } from "./cache-keepwarm.ts";
 import { createSkillReview, turnToolSteps } from "./skill-review.ts";
 import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
 import { createChannels } from "./channels.ts";
@@ -165,7 +164,6 @@ import {
   localVmPreservesInstalledApps, localVmResources,
   roomTurnTimeoutMinutes,
   mcpCallTimeoutMinutes,
-  cacheKeepWarmSettings,
   threadEventLogMaxBytes,
   threadEventLogRetentionDays,
   saveConfig,
@@ -654,7 +652,7 @@ import { createWebhookRoutes } from "./routes/webhooks.ts";
 import { withScopeHint } from "./connector-scope-hint.ts";
 import { createConnectorCards } from "./host/connector-cards.ts";
 import { createLoginMailCodes } from "./host/login-mail-codes.ts";
-import { onThreadSeen, personAsks as personAskAt, sawThread } from "./thread-presence.ts"; import { createWarmSummaryHost, HARNESS_IDLE_FRACTION } from "./host/warm-summary-host.ts";
+import { onThreadSeen, personAsks as personAskAt, sawThread } from "./thread-presence.ts"; import { createWarmSummaryHost, HARNESS_IDLE_FRACTION } from "./host/warm-summary-host.ts"; import type { WarmSummaryTarget } from "./warm-summary.ts";
 
 const PORT = Number(process.env.LUNABOT_PORT || process.env.OGB_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.LUNABOT_WEBHOOK_PORT || PORT + 1);
@@ -2959,12 +2957,10 @@ try {
 }
 
 let threadsAwaitingTeammates = (): ReadonlySet<string> => new Set<string>();
-let cacheKeepWarmStatus = (_threadId: string): KeepWarmStatus | undefined => undefined;
 const wireTask = (task: TaskRecord, botModel: ModelSelection, awaiting = threadsAwaitingTeammates()): WireTask => {
   // Snoozes heal on read against the server clock; the 0 sentinel ("until new activity") survives reads.
   const { snoozedUntil, ...base } = toWireTask(task, botModel);
-  const keepWarm = cacheKeepWarmStatus(task.threadId);
-  const coordinated = { ...base, waitingForTeammates: awaiting.has(task.threadId) && !task.busy, ...(keepWarm ? { cacheKeepWarm: keepWarm } : {}), ...(teamHost.ownTurn(task.threadId) ? { private: true as const } : {}), ...teamMessages.inbox.wire(task.threadId), ...runOwners.askedBy(task) };
+  const coordinated = { ...base, waitingForTeammates: awaiting.has(task.threadId) && !task.busy, ...(teamHost.ownTurn(task.threadId) ? { private: true as const } : {}), ...teamMessages.inbox.wire(task.threadId), ...runOwners.askedBy(task) };
   const asleep = snoozedUntil === 0 || (snoozedUntil !== undefined && snoozedUntil > Date.now());
   return asleep ? { ...coordinated, snoozedUntil } : coordinated;
 };
@@ -3591,7 +3587,6 @@ type GroupTurnOperation = {
 const groupTurnOperations = new Map<string, Set<GroupTurnOperation>>();
 const groupSpeakers = new Map<string, { botId: string; name: string; color: string; since?: number }>();
 const roomMemberContexts = new RoomContextTracker({
-  heldUntil: (threadId) => cacheKeepWarmStatus(threadId)?.until,
   expired: (threadId) => { const room = store.groupByThread(threadId); if (room) broadcast({ kind: "group", group: publicGroupState(room) }); },
 });
 /** Holds a member for the thread it was handed to until that turn marks the bot busy. */
@@ -5242,71 +5237,27 @@ function captureTurnFor(threadId: string, turnId: string): CaptureTurn | null {
   };
 }
 
-// Prompt-cache keep-warm (server/cache-keepwarm.ts; design from Cache Tax,
-// MIT, Karan Bansal): an idle Claude thread with a big context gets one
-// forked, tool-less cache read per idle stretch while its window is open,
-// instead of a full re-write on the next message.
-const keepWarmTargets = new Map<string, KeepWarmTarget>();
-const keepWarmContext = new Map<string, number>();
-function keepWarmBotFor(threadId: string): BotRecord | null {
+const warmSummaryTargets = new Map<string, WarmSummaryTarget>();
+const warmSummaryContext = new Map<string, number>();
+function warmSummaryBotFor(threadId: string): BotRecord | null {
   return store.botByThread(threadId) ?? (groupSpeakers.get(threadId) ? store.bot(groupSpeakers.get(threadId)!.botId) : null);
 }
-/** A keep-warm ping's or a warm summary's own model call, booked to the bot. */
-function bookForkUsage({ threadId, botId, instanceId }: KeepWarmTarget, result: { input: number; cacheRead: number; cacheWrite: number; output: number; costUsd: number | null; model: string | null }) {
+/** A warm summary's own model call, booked to the bot. */
+function bookForkUsage({ threadId, botId, instanceId }: WarmSummaryTarget, result: { input: number; cacheRead: number; cacheWrite: number; output: number; costUsd: number | null; model: string | null }) {
   const bot = store.bot(botId), instance = registry.get(instanceId);
   if (bot && instance) bookTurnUsage({ botId: bot.id, botName: bot.name, threadId, instanceId, driverKind: instance.driverKind,
     model: result.model ?? store.taskByThread(bot.id, threadId)?.modelSelection?.model ?? bot.modelSelection.model,
     input: result.input + result.cacheRead + result.cacheWrite, output: result.output, cachedInput: result.cacheRead, costUsd: result.costUsd, trigger: { kind: "bot", botId: bot.id } });
 }
-const cacheKeepWarm = createCacheKeepWarm({
-  now: () => Date.now(),
-  after: (ms, fn) => {
-    const timer = setTimeout(fn, ms);
-    timer.unref?.();
-    return { cancel: () => clearTimeout(timer) };
-  },
-  windowMs: (botId) => {
-    const bot = store.bot(botId);
-    const workspace = cacheKeepWarmSettings(cfg);
-    const on = bot?.cacheKeepWarm ?? workspace.enabled;
-    return bot && on ? workspace.windowMinutes * 60_000 : null;
-  },
-  ineligible: ({ threadId, botId, instanceId }) => {
-    if (!store.bot(botId)) return "the bot was deleted";
-    if (!store.taskByThread(botId, threadId) && !store.groupByThread(threadId)) return "the thread was deleted";
-    const instance = registry.get(instanceId);
-    if (!instance?.adapter.cacheKeepWarm) return "this engine cannot keep its cache warm";
-    if (policyModelRefusal(instance)) return "this engine is not allowed here";
-    // A metered API key's cache lives five minutes: pinging it costs more than the re-write it saves.
-    if (registry.lastSnapshot(instanceId)?.billing !== "subscription") return "keep-warm runs only on a Claude subscription sign-in";
-    return null;
-  },
-  busy: ({ threadId, botId }) => threadBusy(botId, threadId) || botHasActiveTurn(botId) || Boolean(store.groupByThread(threadId)?.busyBotId),
-  overBudget: () => spendState(cfg, DATA_DIR)?.exceeded === true,
-  ping: async ({ threadId, instanceId }, signal) => {
-    const warm = registry.get(instanceId)?.adapter.cacheKeepWarm;
-    return warm ? warm.ping(threadId, { signal }) : { ok: false, reason: "this engine cannot keep its cache warm" };
-  },
-  hold: ({ threadId, instanceId }, until) => { registry.get(instanceId)?.adapter.cacheKeepWarm?.hold(threadId, until); },
-  book: bookForkUsage,
-  changed: ({ threadId }) => {
-    const bot = store.botByThread(threadId);
-    if (bot) broadcast({ kind: "bot", bot: wireBot(bot) });
-  },
-});
-cacheKeepWarmStatus = (threadId) => cacheKeepWarm.status(threadId);
 // Warm summaries (server/host/warm-summary-host.ts): a long conversation is summarized while it is idle, not at its next turn.
 const warmSummaries = createWarmSummaryHost({ store, instance: (id) => registry.get(id), queued: hasQueuedSteeredMessages, coordinator, waits: () => botWaits, routines: () => routines,
   enabled: () => cfg.context?.autoCompact !== false && process.env.LUNABOT_WARM_SUMMARY !== "0" && spendState(cfg, DATA_DIR)?.exceeded !== true, memoryShort: () => engineMemory.headroom() < 0.3,
   nativeCompactAt: (id) => { const instance = registry.get(id), at = instance ? nativeCompactTokens(instance) : undefined; return at && Number.isFinite(at) ? at : undefined; },
-  busy: (botId, threadId) => threadBusy(botId, threadId) || botHasActiveTurn(botId), keepWarmUntil: (threadId) => cacheKeepWarm.status(threadId)?.until, book: bookForkUsage, log: (line) => console.info(line), language: threadLanguage,
+  busy: (botId, threadId) => threadBusy(botId, threadId) || botHasActiveTurn(botId), book: bookForkUsage, log: (line) => console.info(line), language: threadLanguage,
   fold: async ({ botId, threadId, instanceId }, idle) => { const bot = store.projectBotForTask(botId, threadId), model = store.taskByThread(botId, threadId)?.lastContextModel, instance = registry.get(instanceId), before = latestCompaction(store.activePath(threadId))?.id;
     if (bot && instance && model?.startsWith(`${instanceId}:`)) await compactConversation({ bot, threadId, generation: `idle:${randomUUID()}`, instance, model: model.slice(instanceId.length + 1), excludedIds: new Set(), manual: false, idle });
     return latestCompaction(store.activePath(threadId))?.id !== before; } });
 onThreadSeen((threadId) => warmSummaries.sawThread(threadId));
-onConfigSaved((before, after) => {
-  if (JSON.stringify(before.cacheKeepWarm ?? null) !== JSON.stringify(after.cacheKeepWarm ?? null)) setImmediate(() => cacheKeepWarm.refresh());
-});
 
 const channels = createChannels({
   store, cfg, dataDir: DATA_DIR, bus, emailService,
@@ -5326,22 +5277,22 @@ bus.subscribe((event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
   try {
     if (event.type === "thread.token-usage.updated") {
-      if (event.contextTokens !== undefined) keepWarmContext.set(event.threadId, event.contextTokens);
+      if (event.contextTokens !== undefined) warmSummaryContext.set(event.threadId, event.contextTokens);
     } else if (event.type === "turn.started") {
-      keepWarmContext.delete(event.threadId);
-      const bot = keepWarmBotFor(event.threadId);
-      if (bot && event.providerInstanceId) keepWarmTargets.set(event.threadId, { threadId: event.threadId, botId: bot.id, instanceId: event.providerInstanceId });
-      cacheKeepWarm.noteTurnStarted(event.threadId); warmSummaries.turnStarted(event.threadId);
+      warmSummaryContext.delete(event.threadId);
+      const bot = warmSummaryBotFor(event.threadId);
+      if (bot && event.providerInstanceId) warmSummaryTargets.set(event.threadId, { threadId: event.threadId, botId: bot.id, instanceId: event.providerInstanceId });
+      warmSummaries.turnStarted(event.threadId);
     } else if (event.type === "turn.completed") {
-      const target = keepWarmTargets.get(event.threadId);
-      const contextTokens = keepWarmContext.get(event.threadId);
-      keepWarmTargets.delete(event.threadId);
-      keepWarmContext.delete(event.threadId);
+      const target = warmSummaryTargets.get(event.threadId);
+      const contextTokens = warmSummaryContext.get(event.threadId);
+      warmSummaryTargets.delete(event.threadId);
+      warmSummaryContext.delete(event.threadId);
       if (!target || routines?.runForThread(event.threadId)) return;
-      cacheKeepWarm.noteTurnCompleted(target, { ok: event.ok, stopReason: event.stopReason, contextTokens }); warmSummaries.turnCompleted(target, { ok: event.ok, contextTokens });
+      warmSummaries.turnCompleted(target, { ok: event.ok, contextTokens });
     }
   } catch (error) {
-    console.warn(`cache keep-warm: ${(error as Error).message}`);
+    console.warn(`warm summary: ${(error as Error).message}`);
   }
 });
 
@@ -9467,7 +9418,7 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
           memoryUpkeep.forgetBot(bot.id);
           calendarCalls!.removeBot(bot.id);
           browserLive.closeForBot(bot.id);
-          cacheKeepWarm.cancelBot(bot.id); warmSummaries.forgetBot(bot.id);
+          warmSummaries.forgetBot(bot.id);
           await forgetTemporaryBrowser(bot.id);
           dataSheets.delete(bot.id);
           if (dataEngine.unavailable() === null) await dataEngine.deleteBot(bot.id).catch((error) => console.warn(`data: could not delete ${bot.id}'s database`, error));
@@ -12162,7 +12113,6 @@ function configStatus() {
     rooms: { turnTimeoutMinutes: roomTurnTimeoutMinutes(cfg) },
     mcp: { callTimeoutMinutes: mcpCallTimeoutMinutes(cfg) },
     automaticRecovery: cfg.automaticRecovery ?? { enabled: false },
-    cacheKeepWarm: cacheKeepWarmSettings(cfg),
     newBots: cfg.newBots?.effort ? { effort: cfg.newBots.effort } : {},
     threads: {
       maxConcurrentPerBot: maxConcurrentBotThreads(cfg, botThreadsHost(cloudPlanTier.starter())),
@@ -12573,7 +12523,7 @@ ROUTES.push(createBotSettingsRoutes({
 }));
 ROUTES.push(createBotOrderRoutes({ store, visibleFor: (auth) => visibleTo(viewerFor(auth)), ...(botOrders ? { own: { person: botOrders.personOf, order: botOrders, told: (person, botIds) => broadcast({ kind: "bots.order", botIds }, { person }) } } : {}) }), createBotAccessRoutes({ team: CLOUD_TEAM, people: teamOwners.people, store, levelOf, wireBot, publicGroupState, broadcast, audienceChanged, record: (auth, row) => appendAdminAction(DATA_DIR, { ...row, actor: decisionActorFor(auth) }) }), accessRequests.routes);
 ROUTES.push(createBotPatchRoutes({
-  store, cfg, registry, sessions, browserRuntime, browserLive, memoryUpkeep, cacheKeepWarm, hostedModels, supportsApprovalMode,
+  store, cfg, registry, sessions, browserRuntime, browserLive, memoryUpkeep, hostedModels, supportsApprovalMode,
   routines: () => routines, activeVpsThreads,
   hostedWorkspace: HOSTED_WORKSPACE, hostedFullAccessRefusal: HOSTED_FULL_ACCESS_REFUSAL, desktopManaged: DESKTOP_MANAGED,
   broadcast, wireBot, publicGroupState, audienceChanged, storedAvatarExists, storedAvatarMediaExists, requestedTaskBot, threadBusy, activeGroupTurnForBot,
@@ -16032,7 +15982,7 @@ const gracefulShutdown = createGracefulShutdown({
       routines?.close(); void appTriggers.stop();
       calendarCalls?.stop(); botWaits.stop();
       memoryUpkeep.stop();
-      cacheKeepWarm.dispose(); warmSummaries.dispose();
+      warmSummaries.dispose();
       skillReview.stop();
       webhookIngress?.server.close(); webhookIngress?.socketServer?.close();
       tunnelListener?.close(); phoneRelay?.stop(); stopCloudHomeConnectedApps();

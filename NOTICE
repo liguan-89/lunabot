@@ -25,11 +25,6 @@ public-only SOCKS5 proxy for HTML previews and the Linux listener-ownership
 scan of its preview port scanner, Copyright 2026 T3 Tools Inc., used under the
 MIT License (third_party/t3-code/LICENSE).
 
-Prompt-cache keep-warm (server/cache-keepwarm.ts and
-server/drivers/claude-keepwarm.ts) ports the design of Cache Tax,
-https://github.com/karanb192/claude-code-mods, Copyright (c) 2026 Karan
-Bansal, used under the MIT License (third_party/cache-tax/LICENSE).
-
 Moving a Grok Bot (shared/grok-import.ts and server/grok-local.ts) adapts the
 export message, reader repairs, credential refusal and desktop cache reading of
 the agent-importers plugin in hermes-official-plugins,

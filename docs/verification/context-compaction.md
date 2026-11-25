@@ -44,7 +44,7 @@ the next turn starts small.
 - **Claude Code:** `/compact` with instructions to keep the person's latest
   requests and every open question (open question cards are named), on a
   fork of the session (`--resume <session> --fork-session`) launched with
-  the live process's exact contract, as the keep-warm ping is. It therefore
+  the live process's exact contract. It therefore
   reads the cached prompt start and keeps the conversation's tool list. No
   tool can run in it, and the engine hooks never hear it. When it finishes,
   the conversation moves to the fork: the old process is closed, and the
@@ -76,8 +76,7 @@ the next turn starts small.
   last activity.
 - **Turning it off:** `context.autoCompact: false` turns warm summaries off
   with the rest of automatic compaction; `LUNABOT_WARM_SUMMARY=0` turns off only
-  warm summaries. The summary's model call is booked to the bot like a
-  keep-warm ping.
+  warm summaries. The summary's model call is booked to the bot.
 
 ```sh
 pnpm exec vitest run server/warm-summary.e2e.test.ts
@@ -131,7 +130,7 @@ turns that off, but not the button. Either way the room shows an activity line.
 A reading lives only as long as the warm process it measures: it is dropped
 when another member's turn dispatches on the same engine in that thread (the
 driver replaces the thread's one warm process), and once it is older than the
-session idle window or the thread's keep-warm hold, whichever ends later.
+session idle window.
 
 ```sh
 pnpm exec vitest run server/room-context.e2e.test.ts server/room-context.test.ts src/lib/context-warning.test.ts
@@ -187,8 +186,8 @@ reading, its record and its place as last speaker are kept for as long as
 its turn runs, up to a day (a turn never seen to end is given up after
 that), whatever is dispatched in other rooms meanwhile; the record and the
 last speaker are kept for the idle time after the member's last turn was
-seen to end, the reading for the longer of a day and keep-warm's longest
-window, plus two idle times, counted from the same moment. With the hook
+seen to end, the reading for a day plus two idle times, counted from the
+same moment. With the hook
 delivered, no case is known that leaves a member without a line. What is
 still not caught is a compaction on a turn whose hook was lost and whose
 reading cannot show it, which is one of these:
@@ -221,17 +220,17 @@ complete ok, the 80% rule, the room's own reset, or a later compaction
 whose hook arrives or whose reading falls). On main the same warm session
 would be sent the last lines again on every turn.
 
-Prompt-cache keep-warm (`cacheKeepWarm`, off by default) holds a member's
-Claude process past the ten minutes, for its window (three hours by
-default, a day at most), and the end of a hold arms the driver's idle timer
-once more. It changes nothing about when a member is resumed: a turn more
-than ten minutes after the member's last turn ended is a start whatever the
-process did. It changes which session that start goes on in: the kept
-process takes it, so the session holds more than the record says (safe: a
-line sent twice at worst, as on main), and a compaction on that start with
-its hook lost is seen only by a reading that outlived the process, which is
-why a reading is kept for keep-warm's longest window plus two idle times,
-one idle time longer than the process can live after a turn seen to end.
+A turn can keep a member's process busy for up to a day (one never seen to
+end is given up after that), and the driver's idle timer arms only when the
+turn ends, so a process can live far past the ten minutes. It changes
+nothing about when a member is resumed: a turn more than ten minutes after
+the member's last turn ended is a start whatever the process did. It
+changes which session that start can go on in: the session holds more than
+the record says (safe: a line sent twice at worst, as on main), and a
+compaction on that start with its hook lost is seen only by a reading that
+outlived the process, which is why a reading is kept for a day plus two
+idle times, one idle time longer than the process can live after a turn
+seen to end.
 
 If Claude Code cannot reopen the session, the driver starts a new one from
 the whole turn and says so in the room, as it does in a 1:1 chat. Two things

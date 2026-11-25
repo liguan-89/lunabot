@@ -42,7 +42,7 @@ function engineStub() {
   const adapter = {
     provider: "claudeAgent",
     capabilities: { sessionModelSwitch: "unsupported" as const, queueing: true },
-    cacheKeepWarm: { ping: vi.fn(), hold: vi.fn(() => true) },
+    cacheKeepWarm: { hold: vi.fn(() => true) },
     sendTurn: vi.fn(async (): Promise<TurnStartResult> => ({ turnId: "never" })),
     interruptTurn: vi.fn(async () => {}),
     respondToRequest: vi.fn(async () => "rejected" as const),
