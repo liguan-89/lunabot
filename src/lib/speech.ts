@@ -12,11 +12,13 @@ export function speechBridge(): SpeechBridge | Window["ogb"] {
   return desktopCapabilitiesNow().dictation.engine === "fish-audio" ? fishSpeech : globalThis.window?.ogb;
 }
 
-export function fishListeningReady(config: ConfigStatus | null | undefined): boolean {
-  return savedState(keyEntry("fishAudio"), config).configured;
+export function serverListeningReady(config: ConfigStatus | null | undefined): boolean {
+  if (savedState(keyEntry("fishAudio"), config).configured) return true;
+  const provider = config?.tts?.provider;
+  return (provider === "volc" || provider === "qwen") && config?.tts?.configured === true;
 }
 
-/** Whether speech can be heard here: the engine is there and, through Fish Audio, so is a saved key. */
+/** 这里能否听见语音：识别引擎存在；走电脑转写时，还要有任一条服务端可用的识别凭据。 */
 export function listensHere(capabilities: DesktopCapabilities, config: ConfigStatus | null | undefined): boolean {
-  return capabilities.dictation.available && (capabilities.dictation.engine !== "fish-audio" || fishListeningReady(config));
+  return capabilities.dictation.available && (capabilities.dictation.engine !== "fish-audio" || serverListeningReady(config));
 }
