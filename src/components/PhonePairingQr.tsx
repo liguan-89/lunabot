@@ -29,13 +29,16 @@ export function PhonePairingQr({ c, signedIn }: { c: PhoneSetupController; signe
   const [storeOpen, setStoreOpen] = useState(false);
   const state = c.state;
   const renewing = Boolean(state?.pairing);
+  // NB: depend on the stable `act` — not the whole controller `c`, whose identity
+  // changes on every 1s poll and would otherwise clear this 100s timer each tick.
+  const { act } = c;
   useEffect(() => {
     if (!renewing) return;
     const timer = setInterval(() => {
-      void c.act((companion) => (companion.renewPairing ? companion.renewPairing() : companion.pairing(true)));
+      void act((companion) => (companion.renewPairing ? companion.renewPairing() : companion.pairing(true)));
     }, PAIRING_RENEW_MS);
     return () => clearInterval(timer);
-  }, [renewing, c]);
+  }, [renewing, act]);
   if (!state || !c.pairingLink) return null;
   const lan = state.lan ?? state.addresses?.[0] ?? null;
   const relay = state.e2e?.descriptor?.r?.length ? state.e2e.relay : null;
