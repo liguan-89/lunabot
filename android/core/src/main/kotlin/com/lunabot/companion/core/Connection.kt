@@ -74,7 +74,8 @@ data class Connection(
             endpoints?.let(::addAll)
         }
         val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED && access.allows(it) } ?: return null
-        return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+        // Bracketed when the host is an IPv6 literal: a bare `ws://fd00::1:8810/...` never parses.
+        return "ws://${urlHost(endpoint.host)}:${endpoint.port}/v1/e2e"
     }
 
     /** Whether the relay can carry the encrypted connection when none of this computer's own routes may be dialled. */
