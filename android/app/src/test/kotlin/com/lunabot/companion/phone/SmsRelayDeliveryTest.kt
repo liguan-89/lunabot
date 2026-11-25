@@ -134,4 +134,37 @@ class SmsRelayDeliveryTest {
         advanceUntilIdle()
         assertFalse(delivery.isCompleted, "the delivery belongs to the app, not to the broadcast")
     }
+
+    @Test
+    fun `a text whose post failed is not lost as a duplicate`() = runTest {
+        val unclaimed = mutableListOf<String>()
+
+        val delivered = deliverInboundSms(
+            events = listOf(text),
+            deliverWithinMs = SMS_DELIVER_WITHIN_MS,
+            connect = {},
+            live = {},
+            post = { false },
+            note = { _, _ -> true },
+            unclaim = { from, _ -> unclaimed += from },
+        )
+
+        assertEquals(0, delivered)
+        assertEquals(listOf("13800000000"), unclaimed)
+    }
+
+    @Test
+    fun `a withdrawn claim lets the next attempt deliver`() = runTest {
+        val delivered = deliverInboundSms(
+            events = listOf(text),
+            deliverWithinMs = SMS_DELIVER_WITHIN_MS,
+            connect = {},
+            live = {},
+            post = { false },
+        )
+
+        assertEquals(0, delivered)
+        assertTrue(SmsEventDedup.note(text.from, text.text), "a failed post must withdraw its claim")
+        SmsEventDedup.forget(text.from, text.text)
+    }
 }

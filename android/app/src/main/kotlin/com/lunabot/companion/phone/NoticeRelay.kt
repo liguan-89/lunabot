@@ -85,15 +85,23 @@ class NoticeRelay : NotificationListenerService() {
         if (sbn.packageName !in prefs.phoneNoticeApps.value) { Log.i(TAG, "drop: ${sbn.packageName} not ticked in ${prefs.phoneNoticeApps.value}"); return }
         val event = NoticeEvent.of(this, sbn) ?: run { Log.i(TAG, "drop: event null ${sbn.packageName}"); return }
         if (!NoticePostDedup.note(event)) { Log.i(TAG, "drop: dedup ${event.key}"); return }
-        val app = applicationContext as? OpenMausApp ?: return
+        val app = applicationContext as? OpenMausApp ?: run {
+            NoticePostDedup.forget(event)
+            return
+        }
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             app.session.connect()
             val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
                 app.session.status.first { it is Session.Status.Live }
-            } ?: run { Log.i(TAG, "drop: session not live"); return@launch }
+            } ?: run {
+                Log.i(TAG, "drop: session not live; claim withdrawn")
+                NoticePostDedup.forget(event)
+                return@launch
+            }
             Log.i(TAG, "posting pkg=${event.packageName}")
             if (!app.session.postPhoneNotice(event)) {
-                Log.i(TAG, "notice post failed pkg=${event.packageName}")
+                Log.i(TAG, "notice post failed pkg=${event.packageName}; claim withdrawn")
+                NoticePostDedup.forget(event)
             }
         }
     }
@@ -105,7 +113,7 @@ class NoticeRelay : NotificationListenerService() {
 
         @Synchronized
         fun note(event: com.lunabot.companion.core.PhoneNoticeEvent): Boolean {
-            val signature = "${event.key}　${event.title}　${event.text}　${event.messages.lastOrNull()?.text.orEmpty()}"
+            val signature = signatureOf(event)
             if (recent.remove(signature) != null) {
                 recent[signature] = true
                 return false
@@ -114,6 +122,15 @@ class NoticeRelay : NotificationListenerService() {
             if (recent.size > MAX_ENTRIES) recent.remove(recent.keys.first())
             return true
         }
+
+        /** Withdraws a claim [note] made: the post it guarded never landed, so the next repost still delivers. */
+        @Synchronized
+        fun forget(event: com.lunabot.companion.core.PhoneNoticeEvent) {
+            recent.remove(signatureOf(event))
+        }
+
+        private fun signatureOf(event: com.lunabot.companion.core.PhoneNoticeEvent): String =
+            "${event.key}　${event.title}　${event.text}　${event.messages.lastOrNull()?.text.orEmpty()}"
     }
 
     private companion object {

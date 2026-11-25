@@ -17,12 +17,22 @@ object SmsEventDedup {
     @Synchronized
     fun note(from: String, text: String): Boolean {
         val now = System.currentTimeMillis()
+        val key = keyOf(from, text)
         recent.entries.removeIf { now - it.value > WINDOW_MS }
-        // Digits-only sender so "+86 138-0000-0000" and "13800000000" dedupe to the same message.
-        val key = from.replace(Regex("[^0-9A-Za-z一-鿿]"), "") + "" + text
         if (recent.containsKey(key)) return false
         if (recent.size >= MAX_ENTRIES) recent.remove(recent.keys.first())
         recent[key] = now
         return true
     }
+
+    /** Withdraws a claim [note] made: the post it guarded never reached the computer, so a re-broadcast or a
+     * reposted notification may still deliver it. Anything already delivered stays delivered. */
+    @Synchronized
+    fun forget(from: String, text: String) {
+        recent.remove(keyOf(from, text))
+    }
+
+    // Digits-only sender so "+86 138-0000-0000" and "13800000000" dedupe to the same message.
+    private fun keyOf(from: String, text: String): String =
+        from.replace(Regex("[^0-9A-Za-z一-鿿]"), "") + "" + text
 }

@@ -46,9 +46,16 @@ class SmsNotificationRelay : NotificationListenerService() {
             app.session.connect()
             val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
                 app.session.status.first { it is Session.Status.Live }
-            } ?: return@launch
+            } ?: run {
+                Log.i(TAG, "drop: session not live; claim withdrawn")
+                SmsEventDedup.forget(from, text)
+                return@launch
+            }
             Log.i(TAG, "posting notification sms event from=$from title=$title")
-            Log.i(TAG, "post result=${app.session.postPhoneEvent(event)}")
+            if (!app.session.postPhoneEvent(event)) {
+                Log.i(TAG, "post failed; claim withdrawn so a repost still delivers")
+                SmsEventDedup.forget(from, text)
+            }
         }
     }
 

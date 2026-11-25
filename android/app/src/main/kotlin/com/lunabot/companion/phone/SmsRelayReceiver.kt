@@ -94,6 +94,7 @@ internal suspend fun deliverInboundSms(
     live: suspend () -> Unit,
     post: suspend (PhoneSmsEvent) -> Boolean,
     note: (from: String, text: String) -> Boolean = SmsEventDedup::note,
+    unclaim: (from: String, text: String) -> Unit = SmsEventDedup::forget,
 ): Int {
     var delivered = 0
     withTimeoutOrNull(deliverWithinMs) {
@@ -101,8 +102,18 @@ internal suspend fun deliverInboundSms(
             connect()
             live()
             if (!note(event.from, event.text)) continue
-            // A request already on its way is finished: cut off halfway, neither side could say whether it arrived.
-            if (withContext(NonCancellable) { post(event) }) delivered += 1
+            // The claim is withdrawn when the post never landed: a claimed-but-undelivered text would otherwise
+            // be dropped as a duplicate on every later attempt and the message would be lost.
+            try {
+                // A request already on its way is finished: cut off halfway, neither side could say whether it arrived.
+                if (withContext(NonCancellable) { post(event) }) delivered += 1
+                else unclaim(event.from, event.text)
+            } catch (cancellation: CancellationException) {
+                unclaim(event.from, event.text)
+                throw cancellation
+            } catch (_: Exception) {
+                unclaim(event.from, event.text)
+            }
         }
     }
     return delivered
