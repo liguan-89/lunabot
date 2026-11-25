@@ -169,6 +169,24 @@ object ProfileRules {
     private const val OPENAI_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 OpenAI 语音。"
 
+    // 豆包和千问的语音合成复用实时通话凭证，而不是独立 TTS 密钥；
+    // 因此修复指引指向通话设置，不提供本表单无法填写的密钥入口。
+    private const val VOLC_TTS_UNCONFIGURED: String = "豆包·火山语音尚未配置"
+
+    private const val VOLC_VOICE_UNCONFIGURED_FOOTER: String =
+        "语音合成复用实时通话线路的凭证。请在电脑端 Luna Bot 的「设置 → 通话」中把线路设为豆包·火山并保存凭证。"
+
+    private const val VOLC_VOICE_NO_DEFAULT_FOOTER: String =
+        "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的豆包·火山语音。"
+
+    private const val QWEN_TTS_UNCONFIGURED: String = "千问语音尚未配置"
+
+    private const val QWEN_VOICE_UNCONFIGURED_FOOTER: String =
+        "语音合成复用实时通话线路的凭证。请在电脑端 Luna Bot 的「设置 → 通话」中把线路设为千问并保存凭证。"
+
+    private const val QWEN_VOICE_NO_DEFAULT_FOOTER: String =
+        "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的千问语音。"
+
     // The two below name no engine and no credential. They are true word for
     // word under both providers, so they have no twin to choose between — and
     // that is exactly why they stay public: there is no wrong arm to draw.
@@ -274,6 +292,8 @@ object ProfileRules {
         VoiceProvider.XAI -> XAI_TTS_UNCONFIGURED
         VoiceProvider.GEMINI -> GEMINI_TTS_UNCONFIGURED
         VoiceProvider.OPENAI -> OPENAI_TTS_UNCONFIGURED
+        VoiceProvider.VOLC -> VOLC_TTS_UNCONFIGURED
+        VoiceProvider.QWEN -> QWEN_TTS_UNCONFIGURED
     }
 
     private fun voiceFooter(config: ConfigStatus?): String = when {
@@ -285,6 +305,8 @@ object ProfileRules {
             VoiceProvider.XAI -> XAI_VOICE_UNCONFIGURED_FOOTER
             VoiceProvider.GEMINI -> GEMINI_VOICE_UNCONFIGURED_FOOTER
             VoiceProvider.OPENAI -> OPENAI_VOICE_UNCONFIGURED_FOOTER
+            VoiceProvider.VOLC -> VOLC_VOICE_UNCONFIGURED_FOOTER
+            VoiceProvider.QWEN -> QWEN_VOICE_UNCONFIGURED_FOOTER
         }
         config?.hasWorkspaceDefaultVoice != true -> when (provider(config)) {
             VoiceProvider.ELEVENLABS -> VOICE_NO_DEFAULT_FOOTER
@@ -294,6 +316,8 @@ object ProfileRules {
             VoiceProvider.XAI -> XAI_VOICE_NO_DEFAULT_FOOTER
             VoiceProvider.GEMINI -> GEMINI_VOICE_NO_DEFAULT_FOOTER
             VoiceProvider.OPENAI -> OPENAI_VOICE_NO_DEFAULT_FOOTER
+            VoiceProvider.VOLC -> VOLC_VOICE_NO_DEFAULT_FOOTER
+            VoiceProvider.QWEN -> QWEN_VOICE_NO_DEFAULT_FOOTER
         }
         else -> VOICE_READY_FOOTER
     }
@@ -369,11 +393,13 @@ object ProfileRules {
     fun providerChoices(): List<VoiceChoice> = listOf(
         VoiceChoice(VoiceProvider.ELEVENLABS.wire, "ElevenLabs", null, enabled = true),
         VoiceChoice(VoiceProvider.FISH.wire, "Fish Audio", null, enabled = true),
-        VoiceChoice(VoiceProvider.SYSTEM.wire, "Mac 内置语音", null, enabled = true),
-        VoiceChoice(VoiceProvider.CHATTERBOX.wire, "Chatterbox（本地）", null, enabled = true),
+        VoiceChoice(VoiceProvider.OPENAI.wire, "OpenAI", null, enabled = true),
         VoiceChoice(VoiceProvider.XAI.wire, "xAI（Grok）", null, enabled = true),
         VoiceChoice(VoiceProvider.GEMINI.wire, "Gemini", null, enabled = true),
-        VoiceChoice(VoiceProvider.OPENAI.wire, "OpenAI", null, enabled = true),
+        VoiceChoice(VoiceProvider.VOLC.wire, "豆包·火山", null, enabled = true),
+        VoiceChoice(VoiceProvider.QWEN.wire, "千问", null, enabled = true),
+        VoiceChoice(VoiceProvider.SYSTEM.wire, "Mac 内置语音", null, enabled = true),
+        VoiceChoice(VoiceProvider.CHATTERBOX.wire, "Chatterbox（本地）", null, enabled = true),
     )
 
     /**

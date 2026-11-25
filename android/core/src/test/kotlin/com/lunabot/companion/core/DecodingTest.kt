@@ -467,6 +467,8 @@ class DecodingTest {
             VoiceProvider.CHATTERBOX,
             provider("""{"tts":{"configured":true,"provider":"chatterbox","baseUrl":"http://127.0.0.1:4123"}}"""),
         )
+        assertEquals(VoiceProvider.VOLC, provider("""{"tts":{"configured":true,"provider":"volc"}}"""))
+        assertEquals(VoiceProvider.QWEN, provider("""{"tts":{"configured":true,"provider":"qwen"}}"""))
         assertEquals(
             VoiceProvider.ELEVENLABS,
             provider("""{"tts":{"configured":true}}"""),

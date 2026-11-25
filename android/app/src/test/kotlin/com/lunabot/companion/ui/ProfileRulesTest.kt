@@ -374,16 +374,18 @@ class ProfileRulesTest {
             listOf(
                 "ElevenLabs",
                 "Fish Audio",
-                "Mac 内置语音",
-                "Chatterbox（本地）",
+                "OpenAI",
                 "xAI（Grok）",
                 "Gemini",
-                "OpenAI",
+                "豆包·火山",
+                "千问",
+                "Mac 内置语音",
+                "Chatterbox（本地）",
             ),
             choices.map { it.label },
         )
         assertEquals(
-            listOf("elevenlabs", "fish", "system", "chatterbox", "xai", "gemini", "openai"),
+            listOf("elevenlabs", "fish", "openai", "xai", "gemini", "volc", "qwen", "system", "chatterbox"),
             choices.map { it.id },
             "the ids are the wire strings, so the selection round-trips through the config write",
         )
@@ -392,11 +394,13 @@ class ProfileRulesTest {
 
     @Test
     fun `an engine newer than this build keeps its own name`() {
-        // Before these three existed, fromWire mapped them to ElevenLabs and
-        // the Voice section explained a key that was not the one on file.
+        // 补齐前，fromWire 会把这些引擎映射成 ElevenLabs，语音区于是解释
+        // 一个并不存在的凭证。
         assertEquals(VoiceProvider.XAI, VoiceProvider.fromWire("xai"))
         assertEquals(VoiceProvider.GEMINI, VoiceProvider.fromWire("gemini"))
         assertEquals(VoiceProvider.OPENAI, VoiceProvider.fromWire("openai"))
+        assertEquals(VoiceProvider.VOLC, VoiceProvider.fromWire("volc"))
+        assertEquals(VoiceProvider.QWEN, VoiceProvider.fromWire("qwen"))
         assertEquals(VoiceProvider.ELEVENLABS, VoiceProvider.fromWire("something-new"))
     }
 
@@ -437,6 +441,33 @@ class ProfileRulesTest {
             "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用 Chatterbox 服务器。",
             ProfileRules.voiceCopy(noDefault).footer,
         )
+    }
+
+    @Test
+    fun `volc and qwen point back to their live call credentials`() {
+        data class Case(val wire: String, val notice: String, val footer: String, val noDefault: String)
+
+        listOf(
+            Case(
+                wire = "volc",
+                notice = "豆包·火山语音尚未配置",
+                footer = "语音合成复用实时通话线路的凭证。请在电脑端 Luna Bot 的「设置 → 通话」中把线路设为豆包·火山并保存凭证。",
+                noDefault = "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的豆包·火山语音。",
+            ),
+            Case(
+                wire = "qwen",
+                notice = "千问语音尚未配置",
+                footer = "语音合成复用实时通话线路的凭证。请在电脑端 Luna Bot 的「设置 → 通话」中把线路设为千问并保存凭证。",
+                noDefault = "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的千问语音。",
+            ),
+        ).forEach { case ->
+            val unconfigured = ConfigStatus(tts = ConfigFlag(configured = false, provider = case.wire))
+            assertEquals(case.notice, ProfileRules.voiceCopy(unconfigured).unconfiguredNotice)
+            assertEquals(case.footer, ProfileRules.voiceCopy(unconfigured).footer)
+
+            val missingDefault = ConfigStatus(tts = ConfigFlag(configured = true, voice = "", provider = case.wire))
+            assertEquals(case.noDefault, ProfileRules.voiceCopy(missingDefault).footer)
+        }
     }
 
     @Test
