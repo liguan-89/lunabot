@@ -169,6 +169,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
   const [pairingRoutePinState, setPairingRoutePinState] =
     useState<OwnedCompanionPairingRoutePin | null>(null);
   const setupGeneration = useRef(0);
+  const accountBusyCount = useRef(0);
   const mounted = useRef(true);
   const companionMutationEpoch = useRef(0);
   const loadInFlight = useRef<Promise<void> | null>(null);
@@ -219,6 +220,21 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
     if (!emailEdited.current && profileEmail) setEmailState(profileEmail);
   }, [profileEmail]);
 
+  const accountBusyBegin = useCallback(() => {
+    accountBusyCount.current += 1;
+    setAccountBusy(true);
+  }, []);
+
+  const accountBusyEnd = useCallback(() => {
+    accountBusyCount.current = Math.max(0, accountBusyCount.current - 1);
+    if (mounted.current && accountBusyCount.current === 0) setAccountBusy(false);
+  }, []);
+
+  const accountBusyReset = useCallback(() => {
+    accountBusyCount.current = 0;
+    if (mounted.current) setAccountBusy(false);
+  }, []);
+
   const act = useCallback(async (call: (companion: CompanionBridge) => Promise<CompanionState>) => {
     const companion = companionBridge();
     if (!companion) return;
@@ -246,7 +262,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
     async (call: (remote: AccountBridge) => Promise<CompanionAccountState>) => {
       const remote = companionAccountBridge();
       if (!remote) return;
-      setAccountBusy(true);
+      accountBusyBegin();
       setAccountError(null);
       try {
         const next = await mutateCompanionBridgeState(
@@ -262,10 +278,10 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           t("phone.error.secureUpdate"),
         ));
       } finally {
-        if (mounted.current) setAccountBusy(false);
+        accountBusyEnd();
       }
     },
-    [load],
+    [accountBusyBegin, accountBusyEnd, load],
   );
 
   const runPairingAttempt = useCallback(
@@ -497,7 +513,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
     const normalized = email.trim().toLowerCase();
     if (!remote || !normalized) return;
     const generation = setupGeneration.current;
-    setAccountBusy(true);
+    accountBusyBegin();
     setAccountError(null);
     void remote
       .requestCode(normalized)
@@ -512,17 +528,15 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           normalizePhoneSetupActionError(cause, t("phone.error.sendCode")),
         );
       })
-      .finally(() => {
-        if (mounted.current && setupGeneration.current === generation) setAccountBusy(false);
-      });
-  }, [email]);
+      .finally(accountBusyEnd);
+  }, [accountBusyBegin, accountBusyEnd, email]);
 
   const verifyCode = useCallback(() => {
     const remote = companionAccountBridge();
     const normalized = email.trim().toLowerCase();
     if (!remote || code.length !== 8) return;
     const generation = setupGeneration.current;
-    setAccountBusy(true);
+    accountBusyBegin();
     setProvisioning(true);
     setSetupTimedOut(false);
     setAccountError(null);
@@ -544,10 +558,8 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           normalizePhoneSetupActionError(cause, t("phone.error.verifyCode")),
         );
       })
-      .finally(() => {
-        if (mounted.current && setupGeneration.current === generation) setAccountBusy(false);
-      });
-  }, [code, email, openPairing]);
+      .finally(accountBusyEnd);
+  }, [accountBusyBegin, accountBusyEnd, code, email, openPairing]);
 
   const retryAccount = useCallback(() => {
     const remote = companionAccountBridge();
@@ -555,7 +567,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
     const baseline = flow.active ? phoneSetupBaseline(state?.devices ?? null) : null;
     const generation = ++setupGeneration.current;
     if (baseline) dispatchFlow({ type: "start", deviceIds: baseline });
-    setAccountBusy(true);
+    accountBusyBegin();
     setProvisioning(true);
     setSetupTimedOut(false);
     setAccountError(null);
@@ -579,10 +591,8 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           normalizePhoneSetupActionError(cause, t("phone.error.restore")),
         );
       })
-      .finally(() => {
-        if (mounted.current && setupGeneration.current === generation) setAccountBusy(false);
-      });
-  }, [flow.active, load, openPairing, state?.devices]);
+      .finally(accountBusyEnd);
+  }, [accountBusyBegin, accountBusyEnd, flow.active, load, openPairing, state?.devices]);
 
   const phase = derivePhoneSetupPhase(flow, {
     accountStatus: account?.available ? account.status : "unavailable",
@@ -619,12 +629,12 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
       invalidatePhonePairingAttempt(pairingAttemptQueue.current, timedOutGeneration);
       releasePhonePairingAttempt(pairingUiOwner.current, timedOutGeneration);
       setPairingBusy(false);
-      setAccountBusy(false);
+      accountBusyReset();
       setProvisioning(false);
       setSetupTimedOut(true);
     }, PHONE_SETUP_PROVISIONING_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [flow, provisioning, setupTimedOut]);
+  }, [accountBusyReset, flow, provisioning, setupTimedOut]);
 
   useEffect(() => {
     const pin = pairingRoutePinState;
@@ -750,7 +760,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
       );
     }
     setProvisioning(false);
-    setAccountBusy(false);
+    accountBusyReset();
     setSetupTimedOut(false);
     setCodeSent(false);
     setCodeState("");
