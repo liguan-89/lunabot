@@ -43,6 +43,11 @@ if [ "$flag" = "-fsSI" ]; then
 fi
 cat "$f"`,
   );
+  // Windows resolves commands via PATHEXT: extensionless stubs are invisible,
+  // so each gets a .cmd that runs the same bash stub through Git's bash.exe.
+  for (const name of ["ssh", "rsync", "curl"]) {
+    writeFileSync(path.join(binDir, `${name}.cmd`), `@echo off\r\n"C:\\Program Files\\Git\\bin\\bash.exe" "%~dp0${name}" %*\r\n`);
+  }
 });
 
 function feedYml(files) {
@@ -85,16 +90,19 @@ function makeWorkspace() {
   const downloads = path.join(root, "data", "downloads");
   mkdirSync(path.join(downloads, "desktop"), { recursive: true });
   mkdirSync(assets, { recursive: true });
-  return { root, assets, downloads };
+  // Remote paths go through `eval` in the ssh stub: forward slashes so
+  // backslashes are not eaten as escapes (Windows paths otherwise mangle).
+  const data = `${root}/data`.replaceAll("\\", "/");
+  return { root, assets, downloads, data };
 }
 
 function runScript(workspace, args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
     env: {
       ...process.env,
-      PATH: `${binDir}:${process.env.PATH}`,
-      FAKE_ROOT: `${workspace.root}/data`,
-      LUNABOT_PUBLISH_DATA_DIR: `${workspace.root}/data`,
+      PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+      FAKE_ROOT: workspace.data,
+      LUNABOT_PUBLISH_DATA_DIR: workspace.data,
       LUNABOT_PUBLISH_HOST: "fakehost",
       LUNABOT_FEED_BASE: "https://feed.test",
     },
