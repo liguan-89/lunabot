@@ -24,6 +24,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -105,6 +106,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -121,8 +124,13 @@ import com.lunabot.companion.core.GroupGoalRunCardData
 import com.lunabot.companion.core.LiveCallRecord
 import com.lunabot.companion.core.RoutineRunCardData
 import com.lunabot.companion.core.SignInCardAction
+import com.lunabot.companion.core.PhoneSecretCrypto
+import com.lunabot.companion.core.PhoneSecretEntryBlocker
 import com.lunabot.companion.core.SecretCardAction
+import com.lunabot.companion.core.SecretCardProvideResult
 import com.lunabot.companion.core.SecretRequestCardData
+import com.lunabot.companion.core.phoneSecretEntryBlocker
+import com.lunabot.companion.core.sealPhoneSecret
 import com.lunabot.companion.core.AttachedMessageContent
 import com.lunabot.companion.core.fileAttachments
 import com.lunabot.companion.core.generatedImages
@@ -2256,8 +2264,14 @@ private fun SecretRequestCard(message: Message, botId: String?, threadId: String
     val data = message.secret ?: return
     val uriHandler = LocalUriHandler.current
     val session = LocalCompanion.current.session
+    val connection by session.transportConnection.collectAsState()
     val scope = rememberCoroutineScope()
-    var working by remember(message.id) { mutableStateOf(false) }
+    var working by remember(message.id, data.requestKey) { mutableStateOf(false) }
+    var secretValue by remember(message.id, data.requestKey) { mutableStateOf("") }
+    var sealedEnvelope by remember(message.id, data.requestKey) {
+        mutableStateOf<PhoneSecretCrypto.Envelope?>(null)
+    }
+    var submitError by remember(message.id, data.requestKey) { mutableStateOf<String?>(null) }
 
     fun act(action: SecretCardAction) {
         val bot = botId ?: return
@@ -2268,12 +2282,77 @@ private fun SecretRequestCard(message: Message, botId: String?, threadId: String
         }
     }
 
+    fun submit() {
+        val bot = botId ?: return
+        val target = data.target ?: return
+        val requestKey = data.requestKey ?: return
+        val activeConnection = connection ?: return
+        scope.launch {
+            working = true
+            submitError = null
+            val envelope = sealedEnvelope ?: run {
+                if (secretValue.isBlank()) {
+                    submitError = "请输入凭据。"
+                    working = false
+                    return@launch
+                }
+                if (secretValue.toByteArray(Charsets.UTF_8).size > PhoneSecretCrypto.MAX_VALUE_BYTES) {
+                    submitError = "凭据太长，最多 4096 字节。"
+                    working = false
+                    return@launch
+                }
+                val sealed = runCatching {
+                    activeConnection.sealPhoneSecret(
+                        botId = bot,
+                        threadId = threadId,
+                        messageId = message.id,
+                        target = target,
+                        requestKey = requestKey,
+                        plaintext = secretValue,
+                    )
+                }.getOrElse {
+                    submitError = "此连接不能安全提交凭据。请在电脑上填写。"
+                    working = false
+                    return@launch
+                }
+                sealedEnvelope = sealed
+                // The only plaintext copy this composable controls leaves the
+                // field before the network request starts.
+                secretValue = ""
+                sealed
+            }
+            when (val result = session.provideSecretCard(bot, message.id, envelope)) {
+                SecretCardProvideResult.Submitted -> {
+                    sealedEnvelope = null
+                    submitError = null
+                }
+                is SecretCardProvideResult.Rejected -> {
+                    sealedEnvelope = null
+                    submitError = result.message
+                }
+                is SecretCardProvideResult.Uncertain -> {
+                    submitError = result.message
+                }
+                is SecretCardProvideResult.Blocked -> {
+                    submitError = result.message
+                }
+                SecretCardProvideResult.Unavailable -> {
+                    sealedEnvelope = null
+                    submitError = "此电脑当前离线。请稍后重试。"
+                }
+            }
+            working = false
+        }
+    }
+
     val badgeText = when {
         data.superseded == true -> "已取代"
         data.provided == true -> "已保存"
         data.dismissed == true -> "已跳过"
         else -> "待填写"
     }
+    val blocker = connection?.phoneSecretEntryBlocker()
+    val missingSubmissionMetadata = data.target.isNullOrBlank() || data.requestKey.isNullOrBlank()
     RemoteCard(
         title = data.label?.takeIf { it.isNotBlank() } ?: "需要一个凭据",
         body = data.description ?: secretStatusLabel(data),
@@ -2285,34 +2364,65 @@ private fun SecretRequestCard(message: Message, botId: String?, threadId: String
             Text(it, fontSize = 13.sp, color = minisWarning)
         }
         if (data.isPending) {
-            Text(
-                "手机端暂不支持直接提交凭据，请在电脑上填写后保存。",
-                fontSize = 12.sp,
-                color = minisTertiary,
-            )
+            val explanation = when {
+                missingSubmissionMetadata -> "这张凭据卡缺少安全提交信息，请在电脑上填写。"
+                blocker == PhoneSecretEntryBlocker.NEEDS_RESCAN ->
+                    "此配对还没有绑定桌面安全密钥。请重新扫码配对后，才能在手机上填写。"
+                blocker == PhoneSecretEntryBlocker.NEEDS_PROTECTED_ROUTE ->
+                    "当前是本地明文路由。请改用 HTTPS 或 Tailscale 连接，或在电脑上填写。"
+                sealedEnvelope != null ->
+                    "凭据已在此手机本地加密。若网络结果不确定，重试会复用同一份加密信封。"
+                else ->
+                    "凭据只在此手机本地加密后提交；不会进入聊天，也不会保存在手机上。"
+            }
+            Text(explanation, fontSize = 12.sp, color = minisTertiary)
         }
         data.helpUrl?.takeIf { it.startsWith("https://") }?.let { url ->
             TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) {
                 Text("查看填写说明", fontSize = 13.sp, color = minisSecondary)
             }
         }
+        submitError?.takeIf { it.isNotBlank() }?.let {
+            Text(it, fontSize = 13.sp, color = minisWarning)
+        }
         if (botId != null && data.isPending) {
+            val canSubmit = connection != null && !missingSubmissionMetadata && blocker == null
+            if (canSubmit && sealedEnvelope == null) {
+                MinisSheetField(
+                    value = secretValue,
+                    onValueChange = {
+                        secretValue = it
+                        submitError = null
+                    },
+                    placeholder = data.placeholder?.takeIf { it.isNotBlank() } ?: "输入凭据",
+                    label = data.label ?: "凭据",
+                    enabled = !working,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+            }
             MuseCardDivider()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                MuseSecondaryPillButton(
-                    text = "跳过",
-                    onClick = { act(SecretCardAction.DISMISS) },
-                    enabled = !working,
-                    modifier = Modifier.weight(1f),
-                )
-                if (data.provided == true) {
-                    MusePrimaryPillButton(
-                        text = "已保存，继续",
-                        onClick = { act(SecretCardAction.RESUME) },
+                if (sealedEnvelope == null || !canSubmit) {
+                    MuseSecondaryPillButton(
+                        text = "跳过",
+                        onClick = { act(SecretCardAction.DISMISS) },
                         enabled = !working,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (canSubmit) {
+                    MusePrimaryPillButton(
+                        text = when {
+                            working && sealedEnvelope != null -> "正在提交…"
+                            sealedEnvelope != null -> "重试提交"
+                            else -> "加密并提交"
+                        },
+                        onClick = { submit() },
+                        enabled = !working && (sealedEnvelope != null || secretValue.isNotBlank()),
                         modifier = Modifier.weight(1f),
                     )
                 }

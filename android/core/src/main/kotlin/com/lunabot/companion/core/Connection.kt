@@ -57,6 +57,14 @@ data class Connection(
      * connection, which is what a computer without the relay still serves.
      */
     val e2e: String? = null,
+    /**
+     * The desktop's HPKE credential recipient public key, pinned by the camera
+     * scan as the QR's `secretKey`. Null means secure credential entry is not
+     * pinned for this pairing and must fail closed rather than fetching a key.
+     */
+    val secretPublicKey: String? = null,
+    /** The authenticated paired-device id returned when this pairing was redeemed. */
+    val companionDeviceId: String? = null,
 ) {
     val pairedWithServer: Boolean get() = serverEnvironmentId != null
 
@@ -223,26 +231,29 @@ data class Connection(
     val orderedEndpoints: List<CompanionEndpoint>
         get() {
             val candidates = if (endpoints.isNullOrEmpty()) {
-                orderedHosts.mapIndexedNotNull { index, candidate ->
+                val legacy = orderedHosts.mapIndexedNotNull { index, candidate ->
                     CompanionEndpoint.direct(candidate, port, priority = index)
                 }
+                activeEndpoint?.takeIf { active -> legacy.none { it.url == active.url } }?.let { active ->
+                    legacy + active
+                } ?: legacy
             } else {
-                val advertised = buildList {
+                buildList {
                     addAll(endpoints)
                     activeEndpoint?.takeIf { active -> endpoints.none { it.url == active.url } }?.let(::add)
                 }.withIndex()
                     .sortedWith(compareBy<IndexedValue<CompanionEndpoint>> { it.value.priority }.thenBy { it.index })
                     .map { it.value }
-                if (activeEndpoint?.protectsCredentials == true) {
-                    // A stable partition: both classes keep the advertised order they just got,
-                    // so this can only move cleartext down — never reorder protected routes.
-                    val (protectedRoutes, cleartextRoutes) = advertised.partition { it.protectsCredentials }
-                    protectedRoutes + cleartextRoutes
-                } else {
-                    advertised
-                }
             }
-            return endpointsAllowedByRoutePolicy(candidates).distinctBy { it.url }.take(MAX_ENDPOINTS)
+            val credentialOrdered = if (activeEndpoint?.protectsCredentials == true) {
+                // A stable partition: both classes keep the advertised order they just got,
+                // so this can only move cleartext down — never reorder protected routes.
+                val (protectedRoutes, cleartextRoutes) = candidates.partition { it.protectsCredentials }
+                protectedRoutes + cleartextRoutes
+            } else {
+                candidates
+            }
+            return endpointsAllowedByRoutePolicy(credentialOrdered).distinctBy { it.url }.take(MAX_ENDPOINTS)
         }
 
     val automaticEndpoints: List<CompanionEndpoint>
@@ -533,6 +544,13 @@ data class PairingInvite(val connection: Connection, val credential: String) {
                     it.kind != CompanionEndpointKind.BONJOUR && !isBonjourName(it.host)
                 } ?: endpoints.first()
                 connection = connection.copy(endpoints = endpoints).dialing(preferred)
+            }
+
+            values["secretKey"]?.let { key ->
+                // A bad key must not silently downgrade secure entry to an
+                // unpinned pairing: the invite is refused as a whole.
+                if (!PhoneSecretCrypto.validRecipientPublicKey(key)) return null
+                connection = connection.copy(secretPublicKey = key)
             }
 
             values["e2e"]?.let { raw ->

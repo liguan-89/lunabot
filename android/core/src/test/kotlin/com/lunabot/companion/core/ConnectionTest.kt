@@ -240,6 +240,76 @@ class ConnectionTest {
     }
 
     @Test
+    fun pairingInvitePinsTheSecretRecipientKey() {
+        val token = "omb_pair_" + "a".repeat(43)
+        val key = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU"
+        val invite = assertNotNull(PairingInvite.parse(
+            URI("lunabot://pair?address=macbook.tail1234.ts.net%3A8810&token=$token&secretKey=$key"),
+        ))
+
+        assertEquals(key, invite.connection.secretPublicKey)
+        assertNull(PairingInvite.parse(
+            URI("lunabot://pair?address=macbook.tail1234.ts.net%3A8810&token=$token&secretKey=not-a-key"),
+        ))
+    }
+
+    @Test
+    fun legacyHostWalkKeepsAProtectedActiveRouteAheadOfCleartext() {
+        val hosted = assertNotNull(
+            CompanionEndpoint.create("https://mac.example", CompanionEndpointKind.HOSTED, 0),
+        )
+        val connection = Connection(
+            name = "Mac",
+            host = "192.168.1.42",
+            port = 8810,
+            activeEndpoint = hosted,
+        )
+
+        assertEquals(hosted, connection.orderedEndpoints.first())
+    }
+
+    @Test
+    fun secretEntryRequiresPinnedKeyDeviceAndProtectedRoute() {
+        val key = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU"
+        val hosted = assertNotNull(
+            CompanionEndpoint.create("https://mac.example", CompanionEndpointKind.HOSTED, 0),
+        )
+        val ready = Connection(
+            name = "Mac",
+            host = "mac.example",
+            port = 443,
+            activeEndpoint = hosted,
+            secretPublicKey = key,
+            companionDeviceId = "device-1",
+        )
+        assertNull(ready.phoneSecretEntryBlocker())
+
+        assertEquals(
+            PhoneSecretEntryBlocker.NEEDS_RESCAN,
+            ready.copy(companionDeviceId = null).phoneSecretEntryBlocker(),
+        )
+        assertEquals(
+            PhoneSecretEntryBlocker.NEEDS_RESCAN,
+            ready.copy(secretPublicKey = null).phoneSecretEntryBlocker(),
+        )
+
+        val lan = assertNotNull(CompanionEndpoint.create("http://192.168.1.42:8810", CompanionEndpointKind.LAN, 0))
+        assertEquals(
+            PhoneSecretEntryBlocker.NEEDS_PROTECTED_ROUTE,
+            ready.copy(host = "192.168.1.42", port = 8810, activeEndpoint = lan).phoneSecretEntryBlocker(),
+        )
+
+        val tailnet = Connection(
+            name = "Mac",
+            host = "mac.tail1234.ts.net",
+            port = 8810,
+            secretPublicKey = key,
+            companionDeviceId = "device-1",
+        )
+        assertNull(tailnet.phoneSecretEntryBlocker())
+    }
+
+    @Test
     fun literalPlusInPairingInviteNameIsPreserved() {
         val invite = PairingInvite.parse(
             URI("openmausbot://pair?address=mac.local&code=004209&name=Ada%27s+Mac"),

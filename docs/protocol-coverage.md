@@ -101,8 +101,8 @@
 | `GET /api/connectors/catalog\|connected` | 连接器目录 / 已连 | ✅ |
 | `POST /api/connectors/:slug/authorize` | 发起 OAuth | ✅ |
 | `GET /api/connectors/tools`、`DELETE …/accounts/:aid` | 工具清单 / 解绑账号 | ✗ |
-| `POST /api/bots/:id/secret-cards/:mid/provide` | HPKE 提交凭据 | ✗（大缺口；卡片已显示，提交仍只在电脑端） |
-| `POST /api/bots/:id/secret-cards/:mid/resume\|dismiss` | 凭据卡推进 | ✗ |
+| `POST /api/bots/:id/secret-cards/:mid/provide` | HPKE 提交凭据 | ✅（QR pin + P-256 HPKE；仅受保护路由/e2e） |
+| `POST /api/bots/:id/secret-cards/:mid/resume\|dismiss` | 凭据卡推进 | ✅ |
 | `GET/POST /api/bots/:id/connector-cards/:mid/*` | 内联连接卡 | ✅ 卡片显示 + 发起 OAuth（1.6.1） |
 | `POST /api/bots/:id/computer/screenshot` | 云 / VM 单帧截图 | ✅ |
 | `POST /api/bots/:id/local-computer/screenshot` | 本地 VM 截图 | ▣ 调用，但白名单未放行 → 404 |
@@ -196,8 +196,7 @@
 1. **四类消息卡**：`connector`、`secret`、`routine.run`、`goal.run` 现在都有 `Message.Kind`
    和卡片渲染（1.6.1），不再落 `UNKNOWN` 后整行消失。
    - 连接器卡可直接在聊天里发起 OAuth；例程状态卡与团队目标收据显示状态、摘要和错误。
-   - 凭据卡仍缺 HPKE 信封（iOS 的 `PhoneSecret.swift` 是参考实现），
-     手机端只显示状态并提示在电脑上填写，属于剩余的大工程。
+   - 凭据卡已支持 HPKE 提交：扫码配对 pin 桌面 P-256 recipient key，AAD 绑定设备、bot、会话、卡片、target 与 requestKey；旧配对或 LAN/Bonjour 明文路由仍降级为在电脑上填写。
 2. **`expired` 已修**（见上）。
 3. **通知缺 bot 头像**：`avatarUrl` 未解码。需要后台按令牌拉图，成本中等。
 4. **机器人附的文档不可见**：`Message.attachments.kind == "file"` 没有渲染路径；
