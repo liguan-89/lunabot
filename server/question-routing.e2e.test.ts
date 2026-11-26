@@ -27,6 +27,7 @@ type Row = { id: string; role: string; kind: string; at: number; text?: string; 
 type Task = { threadId: string; title: string; inbox?: true; openedBy?: { botId: string } };
 type Bot = { id: string; name: string; threadId: string; busy?: boolean; activity?: string; tasks?: Task[] };
 type Note = { kind: string; botId: string; threadId: string; title: string; body: string; forPerson?: string };
+type JobNode = { botId: string; status: string };
 
 let fx: CloudSendFixture, team: CloudTeamFixture;
 let browserTools = "";
@@ -52,6 +53,7 @@ const idle = async () => (await bots()).every((bot) => !bot.busy && bot.activity
 const notes = async () => ((await team.as(marco, "GET", "/api/notifications")).body.notifications ?? []) as Note[];
 const needsYou = async () => ((await team.as(marco, "GET", "/api/needs-you")).body.items ?? []) as Array<{ kind: string; text?: string; threadId?: string }>;
 const inboxRows = async () => ((await team.as(marco, "GET", "/api/inbox")).body.rows ?? []) as Array<{ id: string; tab: string; card?: Card }>;
+const jobNodes = async (threadId: string) => ((await team.as(marco, "GET", `/api/threads/${threadId}/job?scope=job&since=0`)).body.nodes ?? []) as JobNode[];
 /** Dachs's work thread from Fuchs: every hand-off from Marco's inbox goes to this one. */
 const workThread = async () => ((await bots()).find((bot) => bot.id === dachs.id)!.tasks ?? []).find((task) => task.openedBy?.botId === fuchs.id)?.threadId;
 
@@ -152,6 +154,7 @@ describe("Just do it: nothing a bot can settle reaches the person", () => {
   }, hostTimeout(150_000));
 
   it("asks Marco only for the sign-in he alone can do, once, while Otter's part finishes and Fuchs carries on; his line in Dachs's chat carries Dachs on", async () => {
+    const releaseDachsAfterOtter = file("jd3-release-dachs-after-otter");
     script(fuchs.id,
       { key: "JD3-L", match: ["JD3-JOB"], steps: [
         { arguments: { bot_ids: [dachs.id], message: "JD3-BRIEF-B: Lade die Notion-Seite herunter." } },
@@ -160,11 +163,13 @@ describe("Just do it: nothing a bot can settle reaches the person", () => {
       done("JD3"));
     script(dachs.id,
       { key: "JD3-B2", match: ["JD3-BRIEF-B", "instead of pressing Done"], reply: "JD3-B2: Seite geladen." },
-      { key: "JD3-B", match: ["JD3-BRIEF-B"], delayMs: 2_000, steps: [{ tool: "request_sign_in", arguments: { site: "notion.so", reason: "Die Seite liegt hinter einer Anmeldung." } }],
+      { key: "JD3-B", match: ["JD3-BRIEF-B"], gateFile: releaseDachsAfterOtter, steps: [{ tool: "request_sign_in", arguments: { site: "notion.so", reason: "Die Seite liegt hinter einer Anmeldung." } }],
         reply: "JD3-B: Ich brauche deine Anmeldung bei Notion." });
     script(otter.id, { key: "JD3-O", match: ["JD3-BRIEF-O"], reply: "JD3-O: Zusammenfassung fertig." });
     const before = (await notes()).length;
     await say(fuchs, inbox, "JD3-JOB: Lass Dachs die Notion-Seite laden und Otter die Notizen zusammenfassen.");
+    await until(async () => (await jobNodes(inbox)).some((node) => node.botId === otter.id && node.status === "completed"), 90_000);
+    writeFileSync(releaseDachsAfterOtter, "ready");
     await until(() => keys(fuchs.id, "JD3").includes("JD3-L-MID"), 90_000);
 
     expect(told(fuchs.id, "JD3-L-MID"), "Fuchs carries on with Otter's result while the sign-in waits").toContain("JD3-O: Zusammenfassung fertig.");
