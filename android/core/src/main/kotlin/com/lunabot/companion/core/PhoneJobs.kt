@@ -171,6 +171,9 @@ enum class PhoneTool(
     CREATE_EVENT("PHONE_CREATE_EVENT", "calendar", true),
     UPDATE_EVENT("PHONE_UPDATE_EVENT", "calendar", true),
     DELETE_EVENT("PHONE_DELETE_EVENT", "calendar", true),
+    // The answer lands on the phone owner's own attendee row, not the event;
+    // it is still a write on the same calendar grant.
+    RESPOND_TO_INVITE("PHONE_RESPOND_TO_INVITE", "calendar", true),
     SEARCH_CONTACTS("PHONE_SEARCH_CONTACTS", "contacts", false),
     GET_CONTACT("PHONE_GET_CONTACT", "contacts", false),
     CREATE_CONTACT("PHONE_CREATE_CONTACT", "contacts", true),
