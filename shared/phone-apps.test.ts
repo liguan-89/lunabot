@@ -16,7 +16,7 @@ describe("phone tool vocabulary", () => {
     }
   });
   it("splits reads from writes by verb; observing, waiting, screenshots, OCR and clipboard reads are reads", () => {
-    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_UI_QUERY", "PHONE_LIST_APPS", "PHONE_CLIPBOARD_GET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
+    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_UI_QUERY", "PHONE_LIST_APPS", "PHONE_CLIPBOARD_GET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
   });
   it("is classed by the existing outbound rules with no special case", () => {
     expect(isOutboundTool("PHONE_SEND_MESSAGE")).toBe(true);
@@ -61,9 +61,9 @@ describe("phone tool vocabulary", () => {
     expect(normalizePhoneApps({ phoneUi: "write" })).toEqual({ phoneUi: "write" });
     expect(normalizePhoneApps("read")).toBeNull();
   });
-  it("the default grant keeps the six legacy apps and never the screen", () => {
+  it("the default grant keeps the legacy apps and never the screen", () => {
     expect(Object.keys(ALL_PHONE_APPS)).toEqual([...DEFAULT_PHONE_CAPABILITIES]);
-    expect(Object.keys(ALL_PHONE_APPS)).toEqual(["calendar", "reminders", "contacts", "location", "home", "messages"]);
+    expect(Object.keys(ALL_PHONE_APPS)).toEqual(["calendar", "reminders", "contacts", "location", "messages"]);
     expect(ALL_PHONE_APPS.phoneUi).toBeUndefined();
     expect(PHONE_CAPABILITIES).toContain("phoneUi");
   });

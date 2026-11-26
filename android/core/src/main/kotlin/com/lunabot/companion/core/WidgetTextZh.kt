@@ -121,8 +121,6 @@ internal val WIDGET_TEXT_ZH: Map<String, String> = mapOf(
     "chat.notice.phone.write.PHONE_DELETE_REMINDER" to "在 {phone} 上删除提醒",
     "chat.notice.phone.write.PHONE_CREATE_CONTACT" to "在 {phone} 上创建联系人",
     "chat.notice.phone.write.PHONE_UPDATE_CONTACT" to "在 {phone} 上更新联系人",
-    "chat.notice.phone.write.PHONE_SET_ACCESSORY" to "在 {phone} 上设置配件",
-    "chat.notice.phone.write.PHONE_RUN_SCENE" to "在 {phone} 上运行场景",
     "chat.notice.phone.write.PHONE_SEND_MESSAGE" to "在 {phone} 上发送消息",
     "chat.notice.phone.write.PHONE_SEND_WHATSAPP" to "在 {phone} 上发送 WhatsApp 消息",
     "chat.notice.phone.write.PHONE_UI_LAUNCH" to "在 {phone} 上打开应用",

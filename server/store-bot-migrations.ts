@@ -12,6 +12,15 @@ export function migrateBotRecords(bots: BotRecord[]): boolean {
     delete b.cacheKeepWarm;
     migrated = true;
   }
+  // The home capability never had an executor behind it and is gone; a grant
+  // left in a saved record would fail the strict normalizePhoneApps on the
+  // next patch, so it is scrubbed here instead.
+  for (const b of bots) {
+    if (b.phoneApps && "home" in b.phoneApps) {
+      delete b.phoneApps.home;
+      migrated = true;
+    }
+  }
   // Recover only app-issued provider-tool grants into bot defaults, never task/session grants such as shell commands.
   for (const b of bots) {
     const taskProviderGrants = (b.tasks ?? []).flatMap((task) =>
