@@ -113,8 +113,8 @@ class TranscriptPresentationTest {
         """))
         compose.onNodeWithText("The pasted notes stay visible.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("<pasted-text", substring = true).assertDoesNotExist()
-        compose.onNodeWithText("我自己手动更新").assertIsDisplayed()
-        compose.onNodeWithText("帮我更新 Claude").performClick()
+        compose.onNodeWithText("手动更新").assertIsDisplayed()
+        compose.onNodeWithText("自动更新").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Wait for the running Claude task.").fetchSemanticsNodes().isNotEmpty()
         }
