@@ -694,6 +694,8 @@ class CompanionClient(
             if (!turnId.isNullOrEmpty()) put("turnId", turnId)
         }))
         if (raw.code == 409) return false
+        // 旧电脑还没有仲裁接口：退回上一版行为，不能让新手机失声。
+        if (raw.code == 404) return true
         check(raw)
         return true
     }

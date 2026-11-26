@@ -2,7 +2,8 @@
 // coordination between the two clients, not playback state: a crashed client disappears at expiry instead of locking a turn.
 
 export const SPEECH_LISTENER_TTL_MS = 15_000;
-export const SPEECH_CLAIM_TTL_MS = 30_000;
+export const SPEECH_CLAIM_TTL_MS = 10 * 60_000;
+export const SPEECH_CLAIM_WITHOUT_TURN_TTL_MS = 30_000;
 
 export type SpeechClaimant = { kind: "desktop" } | { kind: "phone"; deviceId: string };
 
@@ -44,11 +45,12 @@ export class SpeechArbitration {
   claim(threadId: string, turnId: string | undefined, claimant: SpeechClaimant): { ok: true; key: string } | { ok: false; reason: "phone-listening" | "claimed" } {
     this.prune();
     const owner = ownerKey(claimant);
-    if (claimant.kind === "desktop" && this.listeners.size > 0) return { ok: false, reason: "phone-listening" };
     const key = `${threadId}\n${turnId ?? ""}`;
     const existing = this.claims.get(key);
     if (existing && existing.owner !== owner) return { ok: false, reason: "claimed" };
-    this.claims.set(key, { owner, expiresAt: this.now() + SPEECH_CLAIM_TTL_MS });
+    if (!existing && claimant.kind === "desktop" && this.listeners.size > 0) return { ok: false, reason: "phone-listening" };
+    const ttl = turnId === undefined ? SPEECH_CLAIM_WITHOUT_TURN_TTL_MS : SPEECH_CLAIM_TTL_MS;
+    this.claims.set(key, { owner, expiresAt: this.now() + ttl });
     return { ok: true, key };
   }
 

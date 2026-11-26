@@ -443,7 +443,10 @@ class SpokenReplyPlayer(
             override fun stop() = speaker.stop()
         },
         claimSpeech = session::claimReplySpeech,
-        speechAvailabilityChanged = { speechAvailable = it },
+        speechAvailabilityChanged = {
+            speechAvailable = it
+            if (!it) scope.launch { session.reportReplySpeechListener(false) }
+        },
     )
 
     @Volatile private var speechAvailable = true

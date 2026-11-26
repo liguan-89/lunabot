@@ -23,6 +23,26 @@ describe("speech arbitration", () => {
     expect(arbitration.claim("other", "turn", { kind: "desktop" })).toMatchObject({ ok: true });
   });
 
+  it("lets the desktop finish a turn it already owns when a phone appears", () => {
+    let now = 1_000;
+    const arbitration = new SpeechArbitration(() => now);
+    expect(arbitration.claim("thread", "turn", { kind: "desktop" })).toMatchObject({ ok: true });
+    arbitration.phoneListener("phone");
+    expect(arbitration.claim("thread", "turn", { kind: "desktop" })).toMatchObject({ ok: true });
+    expect(arbitration.claim("thread", "turn", { kind: "phone", deviceId: "phone" })).toEqual({ ok: false, reason: "claimed" });
+    now += 1;
+    expect(arbitration.claim("next", "next-turn", { kind: "desktop" })).toEqual({ ok: false, reason: "phone-listening" });
+  });
+
+  it("does not let a missing turn id hold a thread for the full claim ttl", () => {
+    let now = 1_000;
+    const arbitration = new SpeechArbitration(() => now);
+    expect(arbitration.claim("thread", undefined, { kind: "desktop" })).toMatchObject({ ok: true });
+    expect(arbitration.claim("thread", undefined, { kind: "phone", deviceId: "phone" })).toEqual({ ok: false, reason: "claimed" });
+    now += 31_000;
+    expect(arbitration.claim("thread", undefined, { kind: "phone", deviceId: "phone" })).toMatchObject({ ok: true });
+  });
+
   it("drops a listener when the phone reports inactive", () => {
     const arbitration = new SpeechArbitration(() => 1_000);
     arbitration.phoneListener("phone");
