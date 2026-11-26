@@ -518,6 +518,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             onBack = navigator::pop,
             onOpenComputer = { navigator.push(Destination.Computer(it)) },
             onOpenOverview = { navigator.push(Destination.Overview(it)) },
+            onOpenData = { botId, cardId -> navigator.push(Destination.BotData(botId, cardId)) },
             // Push Computer keeps the chat under the top; pop to roster does not.
             retainsDraft = navigator::retainsChatDraft,
             onOpenChat = navigator::open,
@@ -550,6 +551,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
         )
         is Destination.BotData -> BotDataScreen(
             botId = destination.botId,
+            initialCardId = destination.cardId,
             onBack = navigator::pop,
         )
         is Destination.TeamMemory -> TeamMemoryScreen(

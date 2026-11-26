@@ -68,7 +68,7 @@ sealed interface Destination {
     data class BotMcpServers(val botId: String) : Destination
 
     /** 一个智能体的 Data 只读页：sheet 卡片与表浏览。同样按 botId 寻址。 */
-    data class BotData(val botId: String) : Destination
+    data class BotData(val botId: String, val cardId: String? = null) : Destination
 
     /** 一个团队分区的共享记忆页。按分区名寻址，空串是 General。 */
     data class TeamMemory(val section: String) : Destination

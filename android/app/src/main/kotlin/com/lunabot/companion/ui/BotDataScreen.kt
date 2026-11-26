@@ -67,6 +67,7 @@ import kotlinx.serialization.json.jsonPrimitive
 @Composable
 fun BotDataScreen(
     botId: String,
+    initialCardId: String? = null,
     onBack: () -> Unit,
 ) {
     val environment = LocalCompanion.current
@@ -95,6 +96,12 @@ fun BotDataScreen(
         loading = true
         try {
             refresh()
+            // A data_show receipt's chip lands here on its exact card.
+            if (initialCardId != null && browsing == null) {
+                data?.sheet?.cards?.firstOrNull { it.id == initialCardId }?.let { card ->
+                    browsing = BotDataRules.BrowseTarget(table = null, cardId = card.id, title = card.title.ifBlank { card.id })
+                }
+            }
         } finally {
             loading = false
         }

@@ -185,6 +185,8 @@ fun ChatScreen(
     onBack: () -> Unit,
     onOpenComputer: (String) -> Unit,
     onOpenOverview: (String) -> Unit,
+    /** A data_show receipt's chip pushes the bot's Data viewer at that card. */
+    onOpenData: (botId: String, cardId: String) -> Unit = { _, _ -> },
     /**
      * True while this conversation is still on the navigator stack (including
      * under Computer). Used on dispose to keep the in-memory draft across a
@@ -273,6 +275,8 @@ private fun LoadedChat(
     onBack: () -> Unit,
     onOpenComputer: (String) -> Unit,
     onOpenOverview: (String) -> Unit,
+    /** A data_show receipt's chip pushes the bot's Data viewer at that card. */
+    onOpenData: (botId: String, cardId: String) -> Unit = { _, _ -> },
     retainsDraft: (chatId: String) -> Boolean,
     onSelectTask: (ChatTarget) -> Unit,
     onOpenChat: (Chat) -> Unit,
@@ -1306,6 +1310,7 @@ private fun LoadedChat(
                                         null
                                     },
                                     onQuote = ::quote,
+                                    onOpenData = onOpenData,
                                 )
                                 is TranscriptRow.ActivityRun -> ActivityRunChip(message.items, ::openThread)
                                 is TranscriptRow.AssistantTurn -> AssistantTurnChip(
