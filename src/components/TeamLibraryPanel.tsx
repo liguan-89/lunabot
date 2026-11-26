@@ -15,6 +15,7 @@ import { catalogCopy, catalogMatches, type TeamCatalog, type TeamCatalogEntry } 
 import { TEAM_GLYPHS, TeamImportDetails } from "./TeamImportDetails";
 import { ReadyBotGallery } from "./ReadyBotGallery";
 import { ShareTeamDialog } from "./ShareTeamDialog";
+import { MyTemplates } from "./TeamLibraryPanelMine";
 import { OrgLibraryTab } from "./TeamLibraryPanelOrg";
 import { MAX_TEAM_BACKUP_BYTES } from "../../shared/team-backup";
 import { takeImportName } from "../../shared/import-name";
@@ -29,7 +30,7 @@ export interface TeamImportResult {
   connections?: number;
 }
 
-type ImportSource = "library" | "file" | "github";
+type ImportSource = "library" | "file" | "github" | "template";
 type TeamTab = "org" | "explore" | "import" | "scout" | "share";
 
 interface ScoutResult {
@@ -663,6 +664,7 @@ export function TeamLibraryPanel({
               )}
               {tab === "explore" && (
                 <div>
+                  <MyTemplates onDialog={setNestedDialog} onPreview={(document) => previewManifest(teamImportPreview(document), "template")} />
                   <ReadyBotGallery search={search} onDialog={setNestedDialog} onAdded={onClose} />
                   <div className="mb-3 text-[12px] font-medium text-ink-secondary">
                     {search ? t("templates.searchResults") : t("templates.communityTemplates")}

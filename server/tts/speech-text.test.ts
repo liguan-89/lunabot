@@ -79,6 +79,15 @@ describe("toUtterances", () => {
     expect(out[2]).toBe("Want me to push it?");
   });
 
+  it("splits Chinese sentence punctuation without requiring whitespace", () => {
+    const out = toUtterances("第一句已经闭合，可以立刻开始朗读。第二句也已经闭合，应当接着播放！最后一句仍然完整保留，不会被丢掉？");
+    expect(out).toEqual([
+      "第一句已经闭合，可以立刻开始朗读。",
+      "第二句也已经闭合，应当接着播放！",
+      "最后一句仍然完整保留，不会被丢掉？",
+    ]);
+  });
+
   it("does not split inside a decimal or an abbreviation", () => {
     const out = toUtterances("It dropped to 11.7 seconds per step, i.e. about half of what it was before.");
     expect(out).toHaveLength(1);

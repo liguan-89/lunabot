@@ -401,6 +401,16 @@ describe("a sign-in app registered in advance", () => {
     expect(oauth.counts.refresh).toBe(0);
   });
 
+  it("can sign in again immediately after a pre-registered sign-in settles", async () => {
+    await setup({ noRegistration: true, preRegistered: { corp: null } });
+    registered = { clientId: "corp" };
+    expect((await signIn()).phase).toBe("succeeded");
+    const restarted = await manager.start("docs", mcp.url);
+    expect(restarted.phase).toBe("waiting");
+    await approve(restarted);
+    expect((await settled("docs", restarted.flowId)).phase).toBe("succeeded");
+  });
+
   it("explains a busy redirect port instead of moving to another one", async () => {
     await setup({ noRegistration: true, preRegistered: { corp: null } });
     registered = { clientId: "corp" };

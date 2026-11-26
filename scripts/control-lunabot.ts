@@ -242,6 +242,7 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   if (parentEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN) {
     childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN = parentEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN;
     childEnv.LUNABOT_DESKTOP_PARENT = "1";
+    if (parentEnv.LUNABOT_TEST_DESKTOP_COMPANION_TOKEN) childEnv.LUNABOT_TEST_DESKTOP_COMPANION_TOKEN = parentEnv.LUNABOT_TEST_DESKTOP_COMPANION_TOKEN;
     if (parentEnv.LUNABOT_TEST_DESKTOP_PAGES_ACCESS) childEnv.LUNABOT_TEST_DESKTOP_PAGES_ACCESS = parentEnv.LUNABOT_TEST_DESKTOP_PAGES_ACCESS;
   }
   // The driver record the app hands its own server: without it, no server may use this computer.
@@ -267,7 +268,7 @@ export function verificationServerArgs(childEnv: NodeJS.ProcessEnv): string[] {
   return [
     "--experimental-strip-types",
     ...(childEnv.LUNABOT_TEST_FAIL_AUDIO_APPEND_ONCE === "1" ? hook("fail-audio-append-once.mjs") : []),
-    ...(childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN || childEnv.LUNABOT_TEST_DESKTOP_CUA_CONNECTION ? hook("desktop-parent.mjs") : []),
+    ...(childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN || childEnv.LUNABOT_TEST_DESKTOP_COMPANION_TOKEN || childEnv.LUNABOT_TEST_DESKTOP_CUA_CONNECTION ? hook("desktop-parent.mjs") : []),
     ...(childEnv.LUNABOT_TEST_APPROVAL_CLOCK === "1" ? hook("approval-clock-hooks.mjs") : []),
     ...(childEnv.LUNABOT_TEST_STALL_CLOCK === "1" ? hook("stall-clock-hooks.mjs") : []),
     ...(childEnv.LUNABOT_TEST_RESUME_CLOCK === "1" ? hook("resume-clock-hooks.mjs") : []),
@@ -417,11 +418,12 @@ export async function launchVerificationServer(
   }
 
   // Pinned: the random starter name shares a pool with names e2e suites plan.
+  const ownerHeaders = childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN ? { "x-lunabot-desktop-owner": childEnv.LUNABOT_TEST_DESKTOP_OWNER_TOKEN } : {};
   try {
     // First-run filesystem work can exceed a second on Windows.
     const timeout = AbortSignal.timeout(Math.max(1, deadline - Date.now()));
     const list = await fetch(`${url}/api/bots`, {
-      headers: { origin: url },
+      headers: { origin: url, ...ownerHeaders },
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     });
     const body = list.ok ? await list.json() as { bots?: Array<{ id: string }> } : null;
@@ -432,7 +434,7 @@ export async function launchVerificationServer(
     const renameTimeout = AbortSignal.timeout(Math.max(1, deadline - Date.now()));
     const rename = await fetch(`${url}/api/bots/${seeded[0].id}/profile`, {
       method: "PATCH",
-      headers: { "content-type": "application/json", origin: url },
+      headers: { "content-type": "application/json", origin: url, ...ownerHeaders },
       body: JSON.stringify({ name: FIXTURE_STARTER_BOT_NAME }),
       signal: signal ? AbortSignal.any([signal, renameTimeout]) : renameTimeout,
     });

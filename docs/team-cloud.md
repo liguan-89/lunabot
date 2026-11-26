@@ -438,7 +438,7 @@ The engines keep each conversation's transcript and session files in their HOME 
 `engine-homes/<key>` in the data folder, keyed like its browser: `team`, `room-<hash>` or `member-<hash>` (16 hex
 characters of the room id's or person key's SHA-256). Every engine a turn starts runs with HOME set to its
 conversation's home (`server/engine-homes`): the drivers' spawns know their conversation (each adapter's `sendTurn` and
-keep-warm ping run inside it), and an engine folder the environment names (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+compaction fork run inside it), and an engine folder the environment names (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
 `GROK_HOME`, the XDG folders, a ChatGPT plan's or a hosted model's folder) moves into that home too. Engines that share
 one process between conversations (OpenCode) never share it across audiences.
 

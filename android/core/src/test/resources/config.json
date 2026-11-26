@@ -183,10 +183,6 @@
   "automaticRecovery": {
     "enabled": false
   },
-  "cacheKeepWarm": {
-    "enabled": false,
-    "windowMinutes": 180
-  },
   "newBots": {},
   "threads": {
     "maxConcurrentPerBot": 16

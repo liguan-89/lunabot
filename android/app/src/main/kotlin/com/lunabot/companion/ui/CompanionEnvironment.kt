@@ -2,6 +2,7 @@ package com.lunabot.companion.ui
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.lunabot.companion.audio.SpokenReplyPlayer
 import com.lunabot.companion.audio.VoicePreviewPlayer
 import com.lunabot.companion.audio.VoiceNotePlayer
 import com.lunabot.companion.account.CloudAccountController
@@ -122,6 +123,8 @@ class CompanionEnvironment(
     val voicePreview: VoicePreviewPlayer,
     /** One-at-a-time transcript voice notes; app-scoped, pauses in place. */
     val voiceNotes: VoiceNotePlayer,
+    /** 手机本地自动朗读队列；通话或后台时必须静音。 */
+    val spokenReplies: SpokenReplyPlayer,
     /** On-device ASR model files: Settings downloads, the voice sheet reads readiness. */
     val speechModels: ModelManager,
     /** Composer dictation; bind to the chat screen lifecycle. */

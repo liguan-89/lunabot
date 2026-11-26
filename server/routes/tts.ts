@@ -1,6 +1,7 @@
 // The voice routes: whether a voice is ready, the provider's voices (searched, or one pasted by ID or link), adding an
 // ElevenLabs Voice Library voice to My Voices, speaking a line, and hearing speech. Scopes are keyed by path in server/request-auth.ts.
 import type { AppConfig } from "../config.ts";
+import { SpeechArbitration } from "../tts/speech-arbitration.ts";
 import { redactSecretsInText } from "../redact.ts";
 import * as fish from "../tts/fish.ts";
 import * as qwen from "../tts/qwen.ts";
@@ -16,12 +17,34 @@ export const TRANSCRIBE_MAX_BYTES = 12 * 1024 * 1024;
 
 export interface TtsRouteDeps {
   config(): AppConfig;
+  arbitration?: SpeechArbitration;
 }
 
 export function createTtsRoutes(deps: TtsRouteDeps): RouteHandler {
-  return async ({ req, res, url, path, method, json, readBody }) => {
+  return async ({ req, res, url, path, method, auth, json, readBody }) => {
     if (!path.startsWith("/api/tts/")) return PASS;
     const cfg = deps.config();
+    if (method === "POST" && path === "/api/tts/reply-listener") {
+      const arbitration = deps.arbitration;
+      if (!arbitration) return json(res, 404, { error: "not found" });
+      const deviceId = auth.kind === "loopback" ? auth.companionDevice : undefined;
+      if (!deviceId) return json(res, 403, { error: "forbidden: only a paired phone reports reply speech presence" });
+      const body = await readBody(req, 1024);
+      arbitration.phoneListener(deviceId, body?.active !== false);
+      return json(res, 200, { ok: true });
+    }
+    if (method === "POST" && path === "/api/tts/reply-claim") {
+      const arbitration = deps.arbitration;
+      if (!arbitration) return json(res, 404, { error: "not found" });
+      const body = await readBody(req, 2048);
+      const threadId = typeof body?.threadId === "string" && /^[\w-]{1,100}$/.test(body.threadId) ? body.threadId : "";
+      const turnId = typeof body?.turnId === "string" && /^[\w-]{1,100}$/.test(body.turnId) ? body.turnId : undefined;
+      if (!threadId) return json(res, 400, { error: "threadId required" });
+      const deviceId = auth.kind === "loopback" ? auth.companionDevice : undefined;
+      const result = arbitration.claim(threadId, turnId, deviceId ? { kind: "phone", deviceId } : { kind: "desktop" });
+      if (!result.ok) return json(res, 409, { error: result.reason === "phone-listening" ? "phone reply speech is active" : "reply speech is already claimed" });
+      return json(res, 200, { ok: true });
+    }
     if (method === "POST" && path === "/api/tts/prepare") {
       const body = await readBody(req);
       // Replies speak while they are still being written, from text no stored message has scrubbed yet: held secrets

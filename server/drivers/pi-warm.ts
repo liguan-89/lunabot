@@ -20,7 +20,7 @@ export interface PiWarmDeps {
   idleMs: number;
 }
 
-/** Presence or a scheduled ping holds the warm child past its ordinary idle
+/** Presence holds the warm child past its ordinary idle
  * timeout; null releases the hold back to the ordinary one. */
 export const piWarmHold = (deps: PiWarmDeps, threadId: string, until: number | null): boolean => {
   const warm = deps.warmSessions.get(threadId);

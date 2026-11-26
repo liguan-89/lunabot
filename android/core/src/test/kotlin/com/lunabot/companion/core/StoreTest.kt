@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -73,6 +74,72 @@ class StoreTest {
         assertEquals(listOf("pinned-research"), state.pinnedBots.map(Bot::id))
         assertEquals(listOf("general-channel"), state.unsectionedChannels.map(Room::id))
         assertEquals(listOf("direct-chat"), state.botChats.map(Room::id))
+    }
+
+    @Test
+    fun spokenReplySpeechEventOnlyTakesAnEnabledBotsCompletedText() {
+        val base = fleet().bots.first()
+        val bot = base.copy(speakReplies = true, voice = "voice-7")
+        val state = CompanionState(bots = listOf(bot))
+        val reply = Message(
+            id = "m-new",
+            role = Message.Role.BOT,
+            kind = Message.Kind.TEXT,
+            at = 2.0,
+            text = "已经处理完了。",
+        )
+        val event = spokenReplySpeechEvent(state, Frame.Message(bot.threadId, reply))
+        assertEquals(
+            BotReplyCue(
+                threadId = bot.threadId,
+                messageId = "m-new",
+                botId = bot.id,
+                voiceId = "voice-7",
+                text = "已经处理完了。",
+            ),
+            assertIs<BotReplySpeechEvent.Complete>(event).cue,
+        )
+        assertNull(spokenReplySpeechEvent(state, Frame.Message(bot.threadId, reply.copy(role = Message.Role.USER))))
+        assertNull(spokenReplySpeechEvent(state, Frame.Message(bot.threadId, reply.copy(kind = Message.Kind.ACTIVITY))))
+        assertNull(spokenReplySpeechEvent(state, Frame.Message(bot.threadId, reply.copy(text = "  "))))
+        assertNull(spokenReplySpeechEvent(CompanionState(bots = listOf(bot.copy(speakReplies = false))), Frame.Message(bot.threadId, reply)))
+        assertNull(spokenReplySpeechEvent(state, Frame.MessagePatch(bot.threadId, reply)))
+    }
+
+    @Test
+    fun spokenReplySpeechEventTakesAssistantDeltasAndTurnTerminalStates() {
+        val bot = fleet().bots.first().copy(speakReplies = true, voice = "voice-7")
+        val state = CompanionState(bots = listOf(bot))
+
+        val delta = spokenReplySpeechEvent(
+            state,
+            Frame.Runtime(
+                RuntimeEvent(
+                    type = "content.delta",
+                    threadId = bot.threadId,
+                    delta = "第一句。",
+                    streamKind = "assistant_text",
+                    turnId = "turn-1",
+                ),
+            ),
+        )
+        assertEquals(
+            BotReplySpeechEvent.Delta(bot.threadId, bot.id, "voice-7", "turn-1", "第一句。"),
+            delta,
+        )
+        assertNull(
+            spokenReplySpeechEvent(
+                state,
+                Frame.Runtime(RuntimeEvent(type = "content.delta", threadId = bot.threadId, delta = "思考", streamKind = "reasoning_text")),
+            ),
+        )
+        assertEquals(
+            BotReplySpeechEvent.TurnFinished(bot.threadId, "turn-1", false),
+            spokenReplySpeechEvent(
+                state,
+                Frame.Runtime(RuntimeEvent(type = "turn.completed", threadId = bot.threadId, turnId = "turn-1", ok = false)),
+            ),
+        )
     }
 
     @Test

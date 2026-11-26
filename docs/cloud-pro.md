@@ -1234,7 +1234,7 @@ provider outage. So on a Cloud home (`server/engine-memory.ts`):
 - **The kernel's order** (`server/oom-score.ts`): everything a bot runs is
   born with `oom_score_adj` 1000: its engine and every tool and MCP server
   that engine starts, the MCP servers the server runs for it, the helper
-  engines (background text, keep-warm pings), and its browser (agent-browser,
+  engines (background text, warm summaries), and its browser (agent-browser,
   its daemon and Chrome, whose tabs Chrome then scores 200 and up). The
   server is -800 and Caddy -900, so the health check is the last to go, and
   the root supervisor that restarts them is -1000, never picked. When memory

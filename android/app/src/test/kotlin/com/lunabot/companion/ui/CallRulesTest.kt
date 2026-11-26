@@ -80,21 +80,17 @@ class CallRulesTest {
     }
 
     @Test
-    fun `voice settings offer the key only under ElevenLabs`() {
+    fun `voice settings keep credentials on the computer`() {
         val ready = ConfigStatus(tts = ConfigFlag(configured = true))
         val system = ConfigStatus(tts = ConfigFlag(configured = true, provider = "system"))
         assertEquals("已就绪", VoiceSettingsRules.statusText(ready))
         assertEquals("未设置", VoiceSettingsRules.statusText(ConfigStatus(tts = ConfigFlag(configured = false))))
         assertNull(VoiceSettingsRules.statusText(null))
-        assertTrue(VoiceSettingsRules.showsKeyField(ready))
-        assertTrue(VoiceSettingsRules.showsKeyField(null))
-        assertFalse(VoiceSettingsRules.showsKeyField(system))
-        assertEquals("替换密钥", VoiceSettingsRules.saveLabel(ready))
-        assertEquals("保存密钥", VoiceSettingsRules.saveLabel(null))
-        assertTrue(VoiceSettingsRules.canSave("sk", saving = false))
-        assertFalse(VoiceSettingsRules.canSave("  ", saving = false))
-        assertFalse(VoiceSettingsRules.canSave("sk", saving = true))
-        assertTrue(VoiceSettingsRules.canRemove(ready, saving = false))
-        assertFalse(VoiceSettingsRules.canRemove(null, saving = false))
+        assertTrue(VoiceSettingsRules.usesSystemVoices(system))
+        assertFalse(VoiceSettingsRules.usesSystemVoices(ready))
+        assertEquals(
+            "API 密钥、Chatterbox 服务器地址和实时通话凭证只能在电脑端 Luna Bot 中设置。手机不会读取或保存这些密钥。",
+            VoiceSettingsRules.CREDENTIALS_NOTE,
+        )
     }
 }

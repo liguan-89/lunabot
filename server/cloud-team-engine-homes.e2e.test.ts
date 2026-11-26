@@ -1,7 +1,7 @@
 // A real Team Cloud with the Owner, an Admin (Ben) and a Member (Bob). Engine homes (server/engine-homes/) give each
 // audience's engine a home of its own; the retired Claude fixture proved it by reading the transcripts a turn wrote there.
 // The only engine this build runs, pi, writes no transcript of its own and boots its child in `prewarm`, which runs
-// before the turn enters `engineHomes.within` (that wrapper covers sendTurn, keep-warm and compact only), so a team turn
+// before the turn enters `engineHomes.within` (that wrapper covers sendTurn and compact only), so a team turn
 // starts in the server's HOME and no audience home is made. What still holds, and is checked here, is that a Team Cloud
 // answers in every audience, that a member who leaves leaves no engine home behind, and that My Cloud keeps its single
 // home. No bot box runs here (it needs Linux bubblewrap: server/engine-homes/box.linux.test.ts proves the box side).

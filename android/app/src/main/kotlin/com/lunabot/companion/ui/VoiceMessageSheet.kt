@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lunabot.companion.R
+import com.lunabot.companion.core.PendingMessageAttachment
 import com.lunabot.companion.speech.SherpaTranscriber
 import com.lunabot.companion.storage.VoiceAsrMode
 import java.util.Locale
@@ -76,12 +77,37 @@ private const val VOICE_METER_BARS = 28
  * the release sends and the card is gone. Either way the recorder, the PCM
  * feed into sherpa, the level meter and the transcription fallback live here.
  */
+/** 一次录音完成后的发送材料与转写降级事实。 */
+internal data class VoiceCaptureResult(
+    val clip: VoiceClip,
+    val transcript: String,
+    val transcriptionUnavailable: Boolean,
+)
+
+/** 语音消息永远保留音频；识别出的文字作为消息文本随附。 */
+internal fun voiceMessagePayload(result: VoiceCaptureResult): Pair<String, List<PendingMessageAttachment>> =
+    result.transcript to listOf(
+        PendingMessageAttachment(
+            data = result.clip.data,
+            name = result.clip.name,
+            mime = "audio/wav",
+            kind = PendingMessageAttachment.Kind.FILE,
+        ),
+    )
+
+internal fun voiceTranscriptWarning(result: VoiceCaptureResult): String? =
+    if (result.transcriptionUnavailable && result.transcript.isEmpty()) {
+        "语音转文字暂不可用，已按语音消息发送。"
+    } else {
+        null
+    }
+
 internal class VoiceCapture(
     context: Context,
     private val environment: CompanionEnvironment,
     private val scope: CoroutineScope,
     private val haptics: Haptics,
-    private val onResult: (clip: VoiceClip, transcript: String) -> Unit,
+    private val onResult: (result: VoiceCaptureResult) -> Unit,
 ) {
     private val recorder = VoiceRecorder(context)
     // The phone-side recognizer: fed the same PCM the recorder writes, so it
@@ -205,15 +231,18 @@ internal class VoiceCapture(
             pcmChunks.getAndSet(null)?.close()
             pcmJob.getAndSet(null)?.join()
             var transcript = withContext(Dispatchers.Default) { sherpa.finish() }.trim()
+            var transcriptionUnavailable = false
             // One fallback covers every path that produced no words: online
             // mode, a device model that was not downloaded in time, or sherpa
             // hearing nothing. Off stays audio-only by definition.
             if (transcript.isEmpty() && asrMode != VoiceAsrMode.OFF) {
                 transcribing = true
-                transcript = environment.session.transcribeVoice(clip.data).orEmpty()
+                val remote = environment.session.transcribeVoice(clip.data)
+                transcript = remote.text.orEmpty()
+                transcriptionUnavailable = remote.unavailable
                 transcribing = false
             }
-            onResult(clip, transcript)
+            onResult(VoiceCaptureResult(clip, transcript, transcriptionUnavailable))
         }
     }
 
