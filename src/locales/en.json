@@ -219,6 +219,7 @@
   "server.moves.connectorStayedProgram": "{name} stayed on {computer} when your bots moved to My Cloud, so bots here can't use it. It needs {program}, which My Cloud doesn't have.",
   "server.moves.connectorStayedHere": "{name} stayed on {computer} when your bots moved to My Cloud, so bots here can't use it. It uses files or an address only {computer} has.",
   "server.moves.webhookMoved": "Now that I live on {place}, my webhook \"{name}\" has a new address. Open Automations, choose Copy address on \"{name}\", and paste it into the app that sends to it.",
+  "server.peerResend.failed": "Could not resend this to the backup AI: {detail}",
   "server.teammates.sameRequest": "Another teammate asked the same a moment ago, so this gets that answer instead of a second one.",
   "server.reports.sent": "Sent to the Luna Bot team (report {report}). Milind and Omkar get it by email.",
   "server.reports.sentReply": "Sent to the Luna Bot team (report {report}). Milind and Omkar get it by email and will reply to {contact}.",

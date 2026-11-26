@@ -223,6 +223,7 @@
   "server.moves.connectorStayedProgram": "你的机器人迁移到 My Cloud 时，{name} 留在了 {computer}，因此这里的机器人无法使用它。它需要 {program}，而 My Cloud 没有安装。",
   "server.moves.connectorStayedHere": "你的机器人迁移到 My Cloud 时，{name} 留在了 {computer}，因此这里的机器人无法使用它。它使用的文件或地址只有 {computer} 上才有。",
   "server.moves.webhookMoved": "我现在运行在 {place} 上，我的 Webhook「{name}」有了新地址。请打开「自动化」，在「{name}」上选择「复制地址」，再粘贴到向它发送数据的应用里。",
+  "server.peerResend.failed": "无法改用备用 AI 重发：{detail}",
   "server.teammates.sameRequest": "另一位队友刚刚问了同样的问题，所以这里会使用那个回答，而不是再生成一个。",
   "server.reports.sent": "已发送给 Luna Bot 团队（报告 {report}）。Milind 和 Omkar 会通过邮件收到。",
   "server.reports.sentReply": "已发送给 Luna Bot 团队（报告 {report}）。Milind 和 Omkar 会通过邮件收到，并回复到 {contact}。",
