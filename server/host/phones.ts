@@ -197,11 +197,26 @@ export function createPhones(deps: PhonesDeps) {
       noticeInboxes.set(ownerKey, sink);
       for (const stale of noticeInboxes.keys()) {
         if (noticeInboxes.size <= 16) break;
+        const evicted = noticeInboxes.get(stale);
+        evicted?.triage.stop();
+        evicted?.learn.stop();
         noticeInboxes.delete(stale);
       }
     }
     return sink;
   };
+  const purgeUntickedNoticeApps = (ownerKey: string): void => {
+    const sink = noticeInboxes.get(ownerKey);
+    if (!sink) return;
+    // "Unticked" means unticked on every phone the owner has: evidence may come
+    // from any of them, so the keep-list is their union, not this sender's.
+    const ownerAllow = new Set(registry.list(ownerKey, () => false).flatMap((phone) => phone.registration.noticeApps ?? []));
+    sink.inbox.removePackages((pkg) => ownerAllow.has(pkg));
+    sink.learn.purge((pkg) => ownerAllow.has(pkg));
+    for (const pkg of sink.msgApps) if (!ownerAllow.has(pkg)) sink.msgApps.delete(pkg);
+  };
+  registry.onRegister(purgeUntickedNoticeApps);
+
   /**
    * A pushed notification is learned only inside the package list the person ticked on the phone — the phone filters
    * before posting and the registration declares the same list, so this check is a second reading of the same consent.
@@ -213,13 +228,8 @@ export function createPhones(deps: PhonesDeps) {
     const record = shapeNotice(sanitizeNotice(noticeRecordOf(event)));
     if (shouldLearnPackage(record.packageName, policy) !== "keep") return;
     const sink = noticeSinkFor(phone.owner);
-    // An unticked package stops being learned and its kept records go with it.
-    // "Unticked" means unticked on every phone the owner has: evidence may come
-    // from any of them, so the keep-list is their union, not this sender's.
-    const ownerAllow = new Set(registry.list(phone.owner, () => false).flatMap((p) => p.registration.noticeApps ?? []));
-    sink.inbox.removePackages((pkg) => ownerAllow.has(pkg));
-    sink.learn.purge((pkg) => ownerAllow.has(pkg));
-    for (const pkg of sink.msgApps) if (!ownerAllow.has(pkg)) sink.msgApps.delete(pkg);
+    // Registration already purged newly unticked packages; this stays as the second reading of the same consent.
+    purgeUntickedNoticeApps(phone.owner);
     sink.inbox.noteReceived();
     if (shouldLearn(record, policy) !== "keep") return;
     const admitted = sink.dedup.admit(record);

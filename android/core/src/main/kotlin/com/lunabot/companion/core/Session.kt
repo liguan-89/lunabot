@@ -388,9 +388,6 @@ class Session(
             // The routes it advertises for this device, under the consent the QR already carried — the same rule the
             // plain pairing path applies. Without them a relay-only QR or a server pairing learns no direct route.
             stored = stored.applyingPairingAdvertisement(result.hosts, result.endpoints)
-            if (result.deviceId != null) {
-                stored = stored.copy(name = stored.name)
-            }
             return stored to result.token
         }
         val serverCode = PairingInvite.normalizedServerCode(credential)

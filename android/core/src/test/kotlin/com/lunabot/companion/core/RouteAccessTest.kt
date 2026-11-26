@@ -53,6 +53,20 @@ class RouteAccessTest {
     }
 
     @Test
+    fun theEncryptedDirectRouteSkipsNamesThisPlatformCannotResolve() {
+        val bonjour = endpoint("http://macbook.local:8810", CompanionEndpointKind.BONJOUR, 0)
+        val connection = connection(bonjour, lan, e2e = encrypted(listOf("cloud.dexai.vip")))
+        assertEquals("ws://192.168.1.20:8810/v1/e2e", connection.e2eDirectUrl(open))
+    }
+
+    @Test
+    fun theEncryptedDirectRouteBracketsAnIpv6Host() {
+        val v6 = endpoint("http://[fd00::1]:8810", CompanionEndpointKind.LAN, 0)
+        val connection = connection(v6, e2e = encrypted(listOf("cloud.dexai.vip")))
+        assertEquals("ws://[fd00::1]:8810/v1/e2e", connection.e2eDirectUrl(open))
+    }
+
+    @Test
     fun theTailnetRouteNeverWaitsForTheLocalNetwork() {
         val connection = connection(lan, tailnet, hosted)
         assertEquals(listOf(hosted, tailnet), connection.dialableEndpoints(closed))

@@ -366,13 +366,13 @@ describe("PhoneRoutes", () => {
     expect(allText(root)).not.toContain("493 812");
   });
 
-  it("refuses a run that showed a pairing-code field, even one with no digit in it", () => {
+  it.each(["配对码", "驗證碼", "認証コード", "인증번호"])("refuses a run that showed a %s field, even one with no digit in it", (label) => {
     const routes = new PhoneRoutes({ root, enabled: true });
     const current = turn({ goal: "确认配对" });
     const pairScreen: ScreenSnapshot = {
       packageName: "com.example.pair",
       elements: [
-        { text: "", description: "配对码", viewId: "id/pair", class: "android.widget.EditText", editable: true },
+        { text: "", description: label, viewId: "id/pair", class: "android.widget.EditText", editable: true },
         { text: "确认", viewId: "id/confirm", class: "android.widget.Button", bounds: [10, 400, 110, 460], clickable: true },
       ],
     };

@@ -44,9 +44,10 @@ export interface PairingWindow {
   attemptsLeft: number;
 }
 
-/** Lets the same request recover a lost response through another advertised
- * address. The token stays memory-only; a replay needs the original pairing
- * credential and the client's request id. */
+/** Lets the same plain pairing request recover a lost response through another
+ * advertised address. The token stays memory-only; a replay needs the original
+ * pairing credential and the client's request id. An e2e pairing cannot use it:
+ * redeeming consumes the window, so the retried handshake no longer has a psk. */
 interface PairingReplay {
   requestId: string;
   credentialHash: string;

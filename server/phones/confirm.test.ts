@@ -380,25 +380,35 @@ describe("the approved card as the person's approval", () => {
     })).toEqual({ result: "approved" });
   });
 
-  it("approves a send for the text that was typed, and only while the screen still holds it", () => {
+  it("approves a send for the draft visible on the screen, and only while it still holds it", () => {
     const confirms = confirmsWith(sendScreen);
     confirms.noteWrite(TURN, "typing", "晚上好");
     expect(confirms.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
     expect(confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" }))
       .toMatchObject({ result: "allowed", hit: { action: "send" } });
 
-    // A send whose typed text is not what a field holds grants nothing.
-    const other = confirmsWith(sendScreen);
-    other.noteWrite(TURN, "typing", "别的话");
-    expect(other.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
-    const refused = other.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" });
-    expect(refused.result).toBe("refused");
-    expect(refused.result === "refused" && refused.reason).toContain("the text to send is not exactly what was approved");
+    // The person approves the draft on the screen, not the stale text a previous PHONE_UI_TYPE call carried.
+    const edited = confirmsWith(sendScreen);
+    edited.noteWrite(TURN, "typing", "别的话");
+    expect(edited.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
+    expect(edited.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" }).result).toBe("allowed");
 
-    // Nothing typed this turn: no content was approved, so the send cannot run.
+    // Text typed with the phone's own输入法 never passes through noteWrite; the screen draft is still what the card binds.
     const silent = confirmsWith(sendScreen);
     expect(silent.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
-    expect(silent.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" }).result).toBe("refused");
+    expect(silent.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" }).result).toBe("allowed");
+
+    // After approval the draft changing is exactly the mismatch the grant exists to stop.
+    const changed = confirmsWith(sendScreen);
+    expect(changed.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" })).toEqual({ result: "approved" });
+    changed.noteScreen(PHONE, observed([
+      { ref: "e1", text: "张三", bounds: [0, 40, 400, 100] },
+      { ref: "e2", text: "别的话", editable: true, bounds: [0, 300, 400, 360] },
+      { ref: "e3", text: "发送", bounds: [0, 800, 400, 860] },
+    ]));
+    const refused = changed.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e3" });
+    expect(refused.result).toBe("refused");
+    expect(refused.result === "refused" && refused.reason).toContain("the text to send is not exactly what was approved");
   });
 
   it("leaves a call the word list does not name alone", () => {

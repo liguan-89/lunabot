@@ -468,6 +468,22 @@ describe("the per-turn evidence ledger", () => {
     expect(evidence[0]!.text).not.toContain("验证码");
   });
 
+  it("keeps traditional Chinese, Japanese and Korean secret fields out of the ledger's text", async () => {
+    const h = harness();
+    await see(h, {
+      topPackage: APP,
+      elements: [
+        { ref: "e1", text: "登录", bounds: [0, 0, 400, 100] },
+        { ref: "e2", text: "", description: "驗證碼", bounds: [0, 100, 400, 160], editable: true },
+        { ref: "e3", text: "", description: "認証コード", bounds: [0, 160, 400, 220], editable: true },
+        { ref: "e4", text: "", description: "인증번호", bounds: [0, 220, 400, 280], editable: true },
+      ],
+    });
+    const evidence = h.host.evidenceFor(TURN);
+    expect(evidence).toHaveLength(1);
+    expect(evidence[0]!.text).toBe("登录");
+  });
+
   it("records exactly one route for a clean turn, and none for a stopped or a failed one", async () => {
     const clean = harness({ routes: true });
     await see(clean, HOME);

@@ -197,6 +197,25 @@ class PhoneUiDoEachTest {
     }
 
     @Test
+    fun `a body that needs the person stops the whole walk with the same word`() = runBlocking {
+        val page = listOf(element("r1", text = "one"), element("r2", text = "two"))
+        val walker = loop(
+            snapshot = { PhoneUiSnapshot("s", 42, 1L, false, page) },
+            runBody = { _ -> PhoneToolOutcome.Success(buildJsonObject {
+                put("stopped", "needs_user")
+                put("error", "「com.android.intentresolver」在用户的屏幕上问要用哪个应用。")
+            }) },
+        )
+        val answer = assertIs<PhoneToolOutcome.Success>(walker.execute(buildJsonObject {
+            put("item", buildJsonObject { put("role", "TextView") })
+            put("body", JsonArray(listOf(buildJsonObject { put("op", "tap"); put("text", "@item") })))
+        })).result
+        assertEquals("needs_user", (answer["stopped"] as JsonPrimitive).content)
+        assertEquals("android.widget.TextView|one", (answer["stoppedAt"] as JsonPrimitive).content)
+        assertEquals("「com.android.intentresolver」在用户的屏幕上问要用哪个应用。", (answer["error"] as JsonPrimitive).content)
+    }
+
+    @Test
     fun `the item cap answers capped with the screen it ended on`() = runBlocking {
         val page = (1..30).map { index -> element("r$index", text = "row $index") }
         val walker = loop(
