@@ -32,6 +32,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import kotlinx.serialization.encodeToString
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 
@@ -204,7 +205,12 @@ class SessionTest {
         session.awaitRestored()
 
         session.pair(
-            Connection(name = "invite", host = "192.168.1.2", port = 8810),
+            Connection(
+                name = "invite",
+                host = "192.168.1.2",
+                port = 8810,
+                secretPublicKey = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU",
+            ),
             "omb_pair_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM",
         )
         advanceUntilIdle()
@@ -212,7 +218,84 @@ class SessionTest {
         assertEquals("omb_pair_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLM", pairedCredential)
         assertEquals("device-token-abc", tokens.saved[connections.saved!!.id])
         assertEquals("Ada's Mac", connections.saved!!.name)
+        assertEquals("d1", connections.saved!!.companionDeviceId)
+        assertEquals(
+            "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU",
+            connections.saved!!.secretPublicKey,
+        )
         assertTrue(tokens.saved.values.none { it.startsWith("omb_pair_") })
+    }
+
+    @Test
+    fun provideSecretCardSeparatesAuthoritativeRejectionFromUncertainTransport() = runTest {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val hosted = requireNotNull(
+                CompanionEndpoint.create("https://mac.example", CompanionEndpointKind.HOSTED, 0),
+            )
+            val connection = Connection(
+                id = "c1",
+                name = "Mac",
+                host = "mac.example",
+                port = 443,
+                activeEndpoint = hosted,
+                endpoints = listOf(hosted),
+                secretPublicKey = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU",
+                companionDeviceId = "d1",
+            )
+            val rewritingClient = OkHttpClient.Builder().addInterceptor { chain ->
+                val url = chain.request().url.newBuilder()
+                    .scheme("http")
+                    .host(server.hostName)
+                    .port(server.port)
+                    .build()
+                chain.proceed(chain.request().newBuilder().url(url).build())
+            }.build()
+            val session = session(
+                connectionStore = FakeConnectionStore(connection),
+                tokenStore = FakeTokenStore().apply { saved["c1"] = "device-token" },
+                events = { _, _ -> emptyFlow() },
+                clientFactory = { active, token -> CompanionClient(active, token, rewritingClient) },
+            )
+            session.awaitRestored()
+            assertEquals(connection, session.transportConnection.value)
+            val envelope = PhoneSecretCrypto.Envelope(
+                version = 1,
+                keyId = "taWSR_nZ7ojlH_0Z3tar6Q",
+                deviceId = "d1",
+                target = "ttsKey",
+                requestKey = "req-1",
+                encapsulatedKey = "BGsX0fLhLEJH-Lzm5WOkQPJ3A32BLeszoPShOUXYmMKWT-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
+                ciphertext = "QEmpd33hVh8SeifRTQ-N7r63Shw4h1pwMg7yqVaF3Xso",
+                threadId = "t1",
+            )
+
+            assertIs<SecretCardProvideResult.Blocked>(
+                session.provideSecretCard("b1", "m1", envelope.copy(deviceId = "another-device")),
+            )
+
+            server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"bad credential"}"""))
+            assertIs<SecretCardProvideResult.Rejected>(
+                session.provideSecretCard("b1", "m1", envelope),
+            )
+            server.takeRequest()
+
+            server.enqueue(MockResponse().setResponseCode(500).setBody("""{"error":"unknown"}"""))
+            assertIs<SecretCardProvideResult.Uncertain>(
+                session.provideSecretCard("b1", "m1", envelope),
+            )
+            server.takeRequest()
+
+            server.enqueue(MockResponse().setResponseCode(200).setBody("""{"provided":true,"resumed":true}"""))
+            assertEquals(
+                SecretCardProvideResult.Submitted,
+                session.provideSecretCard("b1", "m1", envelope),
+            )
+            server.takeRequest()
+        } finally {
+            server.shutdown()
+        }
     }
 
     @Test

@@ -33,6 +33,14 @@ data class VoiceTranscription(
     val unavailable: Boolean,
 )
 
+sealed interface SecretCardProvideResult {
+    data object Submitted : SecretCardProvideResult
+    data class Rejected(val message: String) : SecretCardProvideResult
+    data class Uncertain(val message: String) : SecretCardProvideResult
+    data class Blocked(val message: String) : SecretCardProvideResult
+    data object Unavailable : SecretCardProvideResult
+}
+
 /**
  * Stream lifecycle, pairing restore, and actions — port of `ios/App/Session.swift`.
  *
@@ -139,6 +147,13 @@ class Session(
     private val _connection = MutableStateFlow<Connection?>(null)
     val connection: StateFlow<Connection?> = _connection.asStateFlow()
 
+    /**
+     * The exact client connection carrying traffic now; unlike [connection],
+     * it follows route failover before promotion is persisted.
+     */
+    private val _transportConnection = MutableStateFlow<Connection?>(null)
+    val transportConnection: StateFlow<Connection?> = _transportConnection.asStateFlow()
+
     private val _connections = MutableStateFlow<List<Connection>>(emptyList())
     /** All locally paired computers. Only [connection] has an active runtime. */
     val connections: StateFlow<List<Connection>> = _connections.asStateFlow()
@@ -204,6 +219,7 @@ class Session(
             // client must not answer with the previous one's cache.
             if (field !== value) liveCallRelayCapable = null
             field = value
+            _transportConnection.value = value?.connection
         }
     private var token: String? = null
     private var rotation = CandidateRotation(emptyList())
@@ -386,6 +402,7 @@ class Session(
                 allowedLocalRouteURLs = invited.allowedLocalRouteURLs,
                 // The computer's own descriptor wins; the pinned QR value stays otherwise.
                 e2e = result.descriptor?.encode() ?: invited.e2e,
+                companionDeviceId = result.deviceId ?: invited.companionDeviceId,
             )
             // The routes it advertises for this device, under the consent the QR already carried — the same rule the
             // plain pairing path applies. Without them a relay-only QR or a server pairing learns no direct route.
@@ -422,6 +439,8 @@ class Session(
         var stored = outcome.connection.copy(
             allowedRouteKinds = invited.allowedRouteKinds,
             allowedLocalRouteURLs = invited.allowedLocalRouteURLs,
+            secretPublicKey = invited.secretPublicKey,
+            companionDeviceId = paired.device.id,
         )
         if (paired.serverName.isNotEmpty()) stored = stored.copy(name = paired.serverName)
         stored = stored.applyingPairingAdvertisement(paired.hosts, paired.endpoints)
@@ -2726,6 +2745,41 @@ class Session(
             if (error is kotlinx.coroutines.CancellationException) throw error
             _actionError.value = error.message
             false
+        }
+    }
+
+    /**
+     * Submit an already sealed credential envelope. 4xx answers are authoritative;
+     * transport/5xx uncertainty means the caller must retry the same envelope.
+     */
+    suspend fun provideSecretCard(
+        botId: String,
+        messageId: String,
+        envelope: PhoneSecretCrypto.Envelope,
+    ): SecretCardProvideResult {
+        val activeClient = client ?: return SecretCardProvideResult.Unavailable
+        val transport = activeClient.connection
+        val transportKeyId = transport.secretPublicKey?.let { key ->
+            runCatching { PhoneSecretCrypto.keyId(key) }.getOrNull()
+        }
+        if (
+            transport.phoneSecretEntryBlocker() != null ||
+            transportKeyId != envelope.keyId ||
+            transport.companionDeviceId != envelope.deviceId
+        ) {
+            return SecretCardProvideResult.Blocked("当前连接不能安全提交凭据。请改用受保护路由，或重新扫码配对。")
+        }
+        return try {
+            activeClient.provideSecretCard(botId, messageId, envelope)
+            SecretCardProvideResult.Submitted
+        } catch (error: Throwable) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            val status = error as? APIError.Status
+            if (status != null && status.code in listOf(400, 401, 403, 404, 409)) {
+                SecretCardProvideResult.Rejected(error.message ?: "电脑拒绝了这次凭据提交。")
+            } else {
+                SecretCardProvideResult.Uncertain(error.message ?: "凭据提交结果未知。请重试。")
+            }
         }
     }
 
