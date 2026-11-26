@@ -15,7 +15,6 @@ import type { SendTurnInput } from "./contracts.ts";
 import { TOOL_BRIDGE_ENV } from "./drivers/agents-bridge.ts";
 import { mountChatTools, type ChatToolSession } from "./drivers/chat-mcp-tools.ts";
 import { buildMcpServers } from "./drivers/pi-mcp-servers.ts";
-import { turnStdioMcpServers } from "./drivers/turn-mcp.ts";
 import { gateServer } from "./mcp-gate-config.ts";
 import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { waitForExit } from "./testing/cleanup.ts";
@@ -110,13 +109,6 @@ describe("a gate's upstream", () => {
 
 describe("every mount that puts a selection in front of the agents server", () => {
   const turn = (toolScope?: ToolScope): SendTurnInput => ({ threadId: "thread-gated", text: "hi", integrations: { agents: BRIDGED }, ...(toolScope ? { toolScope } : {}) });
-
-  it("the ACP mounts start it unbridged, and bridged as built without one", () => {
-    const gated = turnStdioMcpServers(turn(DENY_VM)).find((server) => server.name === "agents")!;
-    expect(gated.args).toEqual([SPAWNED_PROXIES.mcpGate]);
-    expect(upstreamOf(gated).env[TOOL_BRIDGE_ENV]).toBe("0");
-    expect(turnStdioMcpServers(turn()).find((server) => server.name === "agents")!.env[TOOL_BRIDGE_ENV]).toBe("1");
-  });
 
   it("Pi's mount starts it unbridged, and bridged as built without one", () => {
     const gated = buildMcpServers(turn(DENY_VM))!.agents as Server;

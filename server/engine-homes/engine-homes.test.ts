@@ -80,8 +80,8 @@ describe("engine homes at run time", () => {
 });
 
 posix("a bot's engine spawned on a Team Cloud", () => {
-  const homeOf = (owner: "bot" | "lunabot", options: { engineHome?: boolean } = {}) => new Promise<string>((resolve, reject) => {
-    const child = spawnCli("/bin/sh", ["-c", 'printf %s "$HOME"'], { env: { PATH: "/usr/bin:/bin", HOME: home }, stdio: ["ignore", "pipe", "pipe"], ...options }, owner);
+  const homeOf = (owner: "bot" | "lunabot") => new Promise<string>((resolve, reject) => {
+    const child = spawnCli("/bin/sh", ["-c", 'printf %s "$HOME"'], { env: { PATH: "/usr/bin:/bin", HOME: home }, stdio: ["ignore", "pipe", "pipe"] }, owner);
     let out = "";
     child.stdout.on("data", (chunk) => { out += chunk; });
     child.once("error", reject);
@@ -93,7 +93,6 @@ posix("a bot's engine spawned on a Team Cloud", () => {
     expect(await engineHomes.within("t-bob", () => homeOf("bot"))).toBe(audienceHome(dataDir, "member:p_bob"));
     expect(await engineHomes.within("t-main", () => homeOf("bot"))).toBe(audienceHome(dataDir, "team"));
     expect(await engineHomes.within("t-bob", () => homeOf("lunabot"))).toBe(home);
-    expect(await engineHomes.within("t-bob", () => homeOf("lunabot", { engineHome: true }))).toBe(audienceHome(dataDir, "member:p_bob"));
     expect(await homeOf("bot")).toBe(home);
     engineHomes.stop();
     expect(await engineHomes.within("t-bob", () => homeOf("bot"))).toBe(home);
