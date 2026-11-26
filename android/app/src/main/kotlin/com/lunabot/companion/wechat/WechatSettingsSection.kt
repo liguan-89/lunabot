@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -293,7 +294,10 @@ internal fun QrCodeCanvas(content: String, description: String, modifier: Modifi
         // Four modules of quiet zone, as the spec requires and as scanners expect.
         val quiet = 4
         val modules = matrix.size + quiet * 2
-        Canvas(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+        // fillMaxSize, not fillMaxWidth: a Canvas is a Spacer, which has no
+        // intrinsic height, so width-only fills measure zero high and every
+        // module below scales to nothing — the box shows a blank white square.
+        Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
             val module = size.minDimension / modules
             drawRect(Color.White)
             for (y in 0 until matrix.size) {
