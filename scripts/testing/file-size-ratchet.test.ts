@@ -16,10 +16,10 @@ const HARD_CAP = 2000;
 const LISTED_FROM = 1000;
 
 const LINES: Record<string, number> = {
-  "server/index.ts": 16086,
-  "src/state/store.tsx": 3383,
+  "server/index.ts": 16038,
+  "src/state/store.tsx": 3380,
   "electron/main.mjs": 3136,
-  "server/store.ts": 2277,
+  "server/store.ts": 2262,
   "server/routines.ts": 1571,
   "server/drivers/agents-call.ts": 1096,
   "server/drivers/agents-catalog.ts": 1096,
@@ -29,10 +29,10 @@ const LINES: Record<string, number> = {
   // the same secure-credential document and splitting it would mean passing
   // that document through three modules to keep one lock on it.
   "electron/companion-account-service.mjs": 1034,
-  "shared/wire.ts": 1016,
+  "shared/wire.ts": 1001,
   "src/components/ComputerPanel.tsx": 1781,
   "src/components/RoutineCalendarPage.tsx": 1623,
-  "server/config.ts": 1263,
+  "server/config.ts": 1250,
   "src/components/ChatView.tsx": 1291,
   "server/routine-requests.ts": 1496,
   "src/components/GroupView.tsx": 1225,
@@ -43,10 +43,10 @@ const LINES: Record<string, number> = {
   "server/vps-computer.ts": 1287,
   "scripts/mcp-server.ts": 1413,
   "server/boat.ts": 1258,
-  "server/drivers/pi.ts": 1193,
+  "server/drivers/pi.ts": 1188,
   "server/container-computer.ts": 1176,
   "src/components/ModelPicker.tsx": 1045,
-  "src/components/PhoneSetupFlow.tsx": 1072,
+  "src/components/PhoneSetupFlow.tsx": 1069,
   "server/cli.ts": 1041,
   "src/components/AttachmentPreview.tsx": 1034,
   "server/meetings/meetbot.ts": 1047,
