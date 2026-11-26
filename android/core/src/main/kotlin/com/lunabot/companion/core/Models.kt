@@ -102,10 +102,22 @@ data class OptionCard(
      * question card would read "answer" instead of the reply.
      */
     val answeredText: String? = null,
+    /** The card takes only its fixed choices, never a typed reply of the person's own. */
+    val fixedOptions: Boolean? = null,
 ) {
     val isPending: Boolean get() = requestId != null && answered == null &&
         dismissed != true && expired != true
     val isPermission: Boolean get() = tool != null
+
+    /**
+     * A card of choices that is not a live request: an onboarding quiz, an
+     * offer to switch engines, a routine or profile question. The desktop
+     * answers it by patching the card and posting the choice as an ordinary
+     * message (`src/state/store.tsx` answerCard), and hides the row once it is
+     * settled or any later user text exists. Live approval cards carry a
+     * `requestId` and never take this path.
+     */
+    val isOpenQuestion: Boolean get() = requestId == null && answered == null && dismissed != true
 
     /**
      * A structured ask draws its own card: the model posed real questions with
@@ -322,6 +334,31 @@ data class AppCardData(
     val doc: String = "",
 )
 
+/**
+ * A temporary permission the bot proposes for the person to grant or refuse
+ * (`server/permission-grants.ts`). The card is the only place a grant starts;
+ * `expiresAt` is epoch milliseconds, when the grant would stop covering.
+ */
+@Serializable
+data class GrantProposalData(
+    val id: String,
+    val text: String,
+    val expiresAt: Double,
+    /** granted | refused | expired; absent while the person has not answered. */
+    val answer: String? = null,
+)
+
+/**
+ * A setup suggestion the device renders in its own words
+ * (`server/host/helper-suggestion.ts`). The only kind so far is `helperKey`;
+ * `answer` is `notNow` once the person declined it.
+ */
+@Serializable
+data class SetupSuggestionData(
+    val kind: String,
+    val answer: String? = null,
+)
+
 @Serializable
 data class Message(
     val id: String,
@@ -375,6 +412,10 @@ data class Message(
     val serverCard: Boolean? = null,
     /** `kind == APP`: a bot page or MCP app. */
     val app: AppCardData? = null,
+    /** A temporary permission proposal the person answers on this card. */
+    val grantProposal: GrantProposalData? = null,
+    /** The proactive helper-key suggestion; rendered instead of the text bubble. */
+    val setupSuggestion: SetupSuggestionData? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {

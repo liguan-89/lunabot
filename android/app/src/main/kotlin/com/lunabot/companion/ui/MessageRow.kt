@@ -588,11 +588,17 @@ private fun MessageContent(
     openComputer: (() -> Unit)?,
 ) {
     when (message.kind) {
-        Message.Kind.TEXT -> TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
+        Message.Kind.TEXT -> when {
+            message.grantProposal != null -> GrantProposalCard(chat.threadId, message)
+            message.setupSuggestion != null -> HelperSuggestionCard(chat.threadId, message)
+            else -> TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
+        }
         // A structured ask draws its own card: its answers are the model's
         // questions, not an allow/deny a tap could stand for.
         Message.Kind.OPTIONS -> if (QuestionCardRules.drawsQuestionCard(message)) {
             QuestionCardView(chat, message, haptics)
+        } else if (message.card?.requestId == null) {
+            OpenQuestionCard(chat, message, haptics)
         } else {
             CardView(chat, message, haptics)
         }

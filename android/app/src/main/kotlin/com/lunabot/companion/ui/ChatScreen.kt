@@ -547,7 +547,11 @@ private fun LoadedChat(
     // pagination. Only the rendered rows fold activity according to the local
     // preference, so changing the choice never mutates server state.
     val transcript = remember(rawTranscript, activityDetail) {
-        transcriptRows(collapseRepeatedReceipts(rawTranscript), activityDetail)
+        // Settled or implicitly answered open-question cards leave no row, the
+        // same rule the desktop's shouldHideOnboardingCard applies.
+        val hidden = OpenQuestionVisibility.hiddenIds(rawTranscript)
+        val visible = if (hidden.isEmpty()) rawTranscript else rawTranscript.filter { it.id !in hidden }
+        transcriptRows(collapseRepeatedReceipts(visible), activityDetail)
     }
     var expandedTurns by remember(threadId) { mutableStateOf(emptySet<String>()) }
     var revealedTurnMessageId by remember(threadId) { mutableStateOf<String?>(null) }

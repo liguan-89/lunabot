@@ -311,6 +311,13 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/secret-cards\/[\w-]+\/(?:resume|dismiss)$/ },
   // Nothing secret crosses this route, only "done" or "cancel".
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/sign-in-cards\/[\w-]+\/(?:done|cancel)$/ },
+  // A temporary-permission answer starts or refuses the grant; the harness
+  // accepts owner/admin sessions only, so a member's phone gets the same 403
+  // the desktop would.
+  { method: "POST", path: /^\/api\/grants\/answer$/ },
+  // "Not now" on the helper-key suggestion ends it; adding the key itself
+  // stays on the computer, whose settings own the decision-model keys.
+  { method: "POST", path: /^\/api\/helpers\/suggestion\/not-now$/ },
 ];
 
 /** Sent by the companion itself, never a device: not in ALLOWED, so a phone is
