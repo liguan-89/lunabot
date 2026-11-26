@@ -27,6 +27,14 @@ is "The call id and the call row" in
   by call id and reads the whole transcript, so a record lists only its own
   call's work, also the steps that land after the row.
 
+## Transport and phone support
+
+OpenAI and Azure use WebRTC. Qwen and Doubao use the harness's WebSocket PCM
+relay. The desktop implements both transports. The Android app implements only
+the socket relay, so a Live call there is currently limited to Qwen or Doubao;
+with OpenAI or Azure selected it falls back to a take-turns call. This recipe's
+fake covers the OpenAI control flow, not Android audio.
+
 ## Anyone may call, with their own OpenAI key
 
 Live calls need no plan, from any client: the desktop app, a web browser, or a

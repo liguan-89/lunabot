@@ -90,6 +90,83 @@ class SessionTest {
     }
 
     @Test
+    fun liveCompletedBotTextEmitsOneSpokenReplyCueWithoutReplayingHistory() = runTest {
+        val connection = Connection(id = "c1", name = "Mac", host = "192.168.1.2", port = 8810)
+        val historical = Message(
+            id = "m-old",
+            role = Message.Role.BOT,
+            kind = Message.Kind.TEXT,
+            at = 1.0,
+            text = "历史回复",
+        )
+        val bot = sampleBot("b1", "t1").copy(
+            speakReplies = true,
+            voice = "voice-7",
+            messages = listOf(historical),
+        )
+        val frames = MutableSharedFlow<StreamFrame>(extraBufferCapacity = 4)
+        val session = session(
+            connectionStore = FakeConnectionStore(connection),
+            tokenStore = FakeTokenStore().apply { saved["c1"] = "device-token" },
+            events = { _, _ -> frames },
+            hydrate = { Fleet(listOf(bot), emptyList()) },
+        )
+        val speechEvents = mutableListOf<BotReplySpeechEvent>()
+        val collector = backgroundScope.launch { session.botReplySpeechEvents.collect { speechEvents += it } }
+        session.awaitRestored()
+        session.connect()
+        runCurrent()
+        assertEquals(1, frames.subscriptionCount.value)
+
+        frames.tryEmit(StreamFrame(Frame.Hello(cursor = "s:1", resumed = false), seq = 1))
+        runCurrent()
+        assertEquals(Session.Status.Live, session.status.value)
+        assertEquals(emptyList(), speechEvents)
+
+        frames.tryEmit(
+            StreamFrame(
+                Frame.Runtime(
+                    RuntimeEvent(
+                        type = "content.delta",
+                        threadId = "t1",
+                        delta = "新的",
+                        streamKind = "assistant_text",
+                        turnId = "turn-1",
+                    ),
+                ),
+                seq = 2,
+            ),
+        )
+        runCurrent()
+
+        val live = Message(
+            id = "m-live",
+            role = Message.Role.BOT,
+            kind = Message.Kind.TEXT,
+            at = 2.0,
+            text = "新的完成回复",
+        )
+        frames.tryEmit(StreamFrame(Frame.Message("t1", live), seq = 3))
+        runCurrent()
+
+        assertEquals(
+            BotReplySpeechEvent.Delta("t1", "b1", "voice-7", "turn-1", "新的"),
+            speechEvents.first(),
+        )
+        assertEquals(
+            BotReplyCue(
+                threadId = "t1",
+                messageId = "m-live",
+                botId = "b1",
+                voiceId = "voice-7",
+                text = "新的完成回复",
+            ),
+            assertIs<BotReplySpeechEvent.Complete>(speechEvents.last()).cue,
+        )
+        collector.cancel()
+    }
+
+    @Test
     fun restoredTokenIsReady() = runTest {
         val connection = Connection(id = "c1", name = "Mac", host = "192.168.1.2", port = 8810)
         val session = session(
@@ -1437,6 +1514,43 @@ class SessionTest {
         assertEquals(Session.Status.Unpaired, session.status.value)
         assertNull(connections.saved)
         assertTrue(tokens.saved.isEmpty())
+    }
+
+    @Test
+    fun voiceTranscriptionSeparatesNoWordsFromAnUnavailableComputer() = runTest {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val connection = requireNotNull(Connection.parse(server.url("/").toString()))
+            val session = session(
+                connectionStore = FakeConnectionStore(connection),
+                tokenStore = FakeTokenStore().apply { saved[connection.id] = "tok" },
+            )
+            session.awaitRestored()
+
+            server.enqueue(MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"text":" 你好 "}"""))
+            val heard = session.transcribeVoice(byteArrayOf(1, 2, 3))
+            assertEquals("你好", heard.text)
+            assertFalse(heard.unavailable)
+
+            server.enqueue(MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"text":" "}"""))
+            val silent = session.transcribeVoice(byteArrayOf(1, 2, 3))
+            assertNull(silent.text)
+            assertFalse(silent.unavailable)
+
+            server.enqueue(MockResponse().setResponseCode(503))
+            val failed = session.transcribeVoice(byteArrayOf(1, 2, 3))
+            assertNull(failed.text)
+            assertTrue(failed.unavailable)
+        } finally {
+            server.shutdown()
+        }
     }
 
     @Test

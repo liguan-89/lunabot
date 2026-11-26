@@ -49,10 +49,8 @@ export interface WarmSummaryHostDeps {
   routines(): { listRoutines(): Routine[]; listRuns(): RoutineRun[] } | null;
   /** Luna Bot's fold, now: true when it wrote a summary, false when the conversation does not need one yet. */
   fold(target: WarmSummaryTarget, signal: AbortSignal): Promise<boolean>;
-  /** The summary call's usage, booked like a keep-warm ping. */
+  /** The summary call's usage, booked to the bot. */
   book(target: WarmSummaryTarget, result: Extract<IdleCompactResult, { ok: true }>): void;
-  /** Until when keep-warm already holds this conversation's process. */
-  keepWarmUntil(threadId: string): number | undefined;
   /** The language the conversation's person reads its lines in (server/server-lines.ts); undefined reads as English. */
   language?(threadId: string): string | undefined;
   now?(): number;
@@ -159,7 +157,7 @@ export function createWarmSummaryHost(deps: WarmSummaryHostDeps) {
       const bot = store.botByThread(threadId);
       const instanceId = bot ? store.taskByThread(bot.id, threadId)?.lastInstanceId : undefined;
       const hold = instanceId ? deps.instance(instanceId)?.adapter.cacheKeepWarm?.hold : undefined;
-      if (hold) hold(threadId, Math.max(now() + PRESENCE_HOLD_MS, deps.keepWarmUntil(threadId) ?? 0));
+      if (hold) hold(threadId, now() + PRESENCE_HOLD_MS);
     },
   };
 }

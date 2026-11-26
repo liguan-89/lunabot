@@ -129,7 +129,7 @@ describe("what a move-in may write", () => {
     approvalMode: "full", autoApprove: true, alwaysAllow: ["Bash(*)"], chiefOfStaff: true, managedSections: ["Ops"], computer: "local", cwd: "/",
     cloudBackend: "vps", composio: true, browser: true, browserProfile: "guest", mcpServers: ["github"],
     toolScope: { allow: ["native:*"] }, connectorTools: {}, connectorScopes: {}, outbound: {}, xResearch: true, phoneApps: [], section: "Finance",
-    visibility: { audience: "members" }, recordBrowserSteps: true, cacheKeepWarm: true,
+    visibility: { audience: "members" }, recordBrowserSteps: true,
   };
 
   it("leaves what the bot may do, and being a Chief of Staff, to the team's admins", async () => {
