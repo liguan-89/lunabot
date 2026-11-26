@@ -126,11 +126,9 @@ class ConnectionTest {
     }
 
     @Test
-    fun parsesIpv6WithAndWithoutAnExplicitPort() {
-        val bare = Connection.parse("2001:db8::1")
-        assertEquals("[2001:db8::1]", bare?.host)
-        assertEquals(8810, bare?.port)
-        assertEquals("http://[2001:db8::1]:8810", bare?.baseUrl.toString())
+    fun parsesBracketedIpv6WithAndWithoutAnExplicitPort() {
+        assertNull(Connection.parse("2001:db8::1"))
+        assertNull(Connection.parse("fd00::1:8810"), "未加括号时无法区分 IPv6 尾段和端口")
         val explicit = Connection.parse("[2001:db8::1]:9910")
         assertEquals("[2001:db8::1]", explicit?.host)
         assertEquals(9910, explicit?.port)

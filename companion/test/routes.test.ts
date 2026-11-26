@@ -33,6 +33,7 @@ describe("what the app may do", () => {
     ["POST", "/api/phones/self/jobs/j1/result"],
     ["POST", "/api/phones/self/events"],
     ["GET", "/api/config"],
+    ["PUT", "/api/config"],
     ["GET", "/api/events"],
     ["GET", "/api/instances"],
     ["POST", "/api/instances/claude/claude-update"],
@@ -159,7 +160,6 @@ describe("what it may not", () => {
 
   it("refuses host configuration, and says where it happens", () => {
     for (const [method, path] of [
-      ["PUT", "/api/config"],
       ["PATCH", "/api/config"],
       ["GET", "/api/devices"],
       ["GET", "/api/companion"],
@@ -331,7 +331,7 @@ describe("what it may not", () => {
     expect(allowed("GET", "/api/sidebar-sections")).toBe(false);
     expect(allowed("PATCH", "/api/sidebar-sections")).toBe(false);
     expect(allowed("POST", "/api/sidebar-sections/extra")).toBe(false);
-    expect(allowed("PUT", "/api/config")).toBe(false);
+    expect(allowed("PUT", "/api/config")).toBe(true);
     expect(allowed("GET", "/api/attachments/../config.json")).toBe(false);
     expect(allowed("GET", "/api/files")).toBe(false);
     expect(allowed("POST", "/api/files/anything")).toBe(false);
@@ -365,7 +365,6 @@ describe("what it may not", () => {
 
   it("allows only the four Live call routes, never the key", () => {
     expect(ask("POST", "/api/live/summary")?.status).toBe(404);
-    expect(ask("PUT", "/api/config")?.status).toBe(403);
     expect(allowed("PUT", "/api/live/settings")).toBe(false);
     expect(allowed("GET", "/api/live/settings")).toBe(false);
     expect(allowed("GET", "/api/live/session")).toBe(false);

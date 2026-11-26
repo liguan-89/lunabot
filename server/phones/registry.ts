@@ -51,6 +51,7 @@ export class PhoneRegistry {
   private phones = new Map<string, PhoneRecord>();
   private written = new Map<string, number>();
   private removalPending = false;
+  private readonly registrationListeners = new Set<(owner: string) => void>();
   /** Removed on the computer: such a key never registers again; pairing the phone again gives it a new one. */
   private removed = new Set<string>();
 
@@ -67,6 +68,16 @@ export class PhoneRegistry {
       this.phones = new Map();
       this.removed = new Set();
       console.warn("phones: the record of paired phones could not be read; starting a new one");
+    }
+  }
+
+  onRegister(listener: (owner: string) => void): void {
+    this.registrationListeners.add(listener);
+  }
+
+  private notifyRegistration(...owners: Array<string | undefined>): void {
+    for (const owner of new Set(owners.filter((owner): owner is string => typeof owner === "string"))) {
+      for (const listener of this.registrationListeners) listener(owner);
     }
   }
 
@@ -94,6 +105,7 @@ export class PhoneRegistry {
     this.phones.set(key, record);
     this.written.set(key, at);
     this.save();
+    this.notifyRegistration(record.owner, previous?.owner);
     return record;
   }
 
@@ -121,6 +133,7 @@ export class PhoneRegistry {
   /** `block`: removed on the computer, so the key stays refused (persisted) until the phone pairs again; the phone
    * removing itself does not block. */
   remove(key: string, options: { block?: boolean } = {}): boolean {
+    const existing = this.phones.get(key);
     const removed = this.phones.delete(key);
     if (removed) this.written.delete(key);
     const blocking = options.block === true && !this.removed.has(key) && KEY.safeParse(key).success;
@@ -130,6 +143,7 @@ export class PhoneRegistry {
     }
     if (removed || blocking) this.removalPending = true;
     if (this.removalPending) this.save(true);
+    if (existing) this.notifyRegistration(existing.owner);
     return removed;
   }
 

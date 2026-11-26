@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,59 +29,39 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lunabot.companion.core.ConfigStatus
 import com.lunabot.companion.core.VoiceProvider
 import kotlinx.coroutines.launch
 
-/** What Settings → Voice says and offers — the decisions of `ios/App/VoiceSettingsView.swift`. */
+/** 「设置 → 语音」展示什么、允许什么；凭证写入口明确留在电脑端。 */
 object VoiceSettingsRules {
     const val HEADER: String = "通话与语音回复"
     const val HEADER_FOOTER: String = "通话使用你在电脑上设置的语音。每个智能体的语音均在其个人资料中选择。"
-    const val SYSTEM_NOTE: String = "此电脑正在使用内置系统语音。切换到 ElevenLabs 后即可在此配置密钥。"
-    const val KEY_FOOTER: String =
-        "密钥将在你的电脑上进行验证和存储，绝不会保存在此手机上。请前往 elevenlabs.io → Settings → API Keys 获取密钥。"
-    const val SAVED: String = "密钥已保存，通话功能已就绪。"
-    const val REMOVED: String = "密钥已移除。"
+    const val SYSTEM_NOTE: String = "此电脑正在使用内置系统语音。可切换到 ElevenLabs；密钥请在电脑端配置。"
+    const val CREDENTIALS_NOTE: String =
+        "API 密钥、Chatterbox 服务器地址和实时通话凭证只能在电脑端 Luna Bot 中设置。手机不会读取或保存这些密钥。"
 
     fun statusText(status: ConfigStatus?): String? = status?.let { if (it.isTTSConfigured) "已就绪" else "未设置" }
 
     fun usesSystemVoices(status: ConfigStatus?): Boolean = status?.voiceProvider == VoiceProvider.SYSTEM
-
-    /** The key section is drawn only under ElevenLabs; the built-in engine has no key to enter. */
-    fun showsKeyField(status: ConfigStatus?): Boolean = !usesSystemVoices(status)
-
-    fun saveLabel(status: ConfigStatus?): String = if (status?.isTTSConfigured == true) "替换密钥" else "保存密钥"
-
-    fun canSave(key: String, saving: Boolean): Boolean = !saving && key.isNotBlank()
-
-    fun canRemove(status: ConfigStatus?, saving: Boolean): Boolean = !saving && status?.isTTSConfigured == true
 }
 
-/**
- * Voice: the key that lets a bot talk, set from the phone — styled in Muse
- * pure-white gallery canvas + borderless warm-gray grouped cards.
- */
+/** 语音状态页：手机查看状态、切换已配置引擎；密钥只在电脑端管理。 */
 @Composable
 fun VoiceSettingsScreen(onBack: () -> Unit) {
     val session = LocalCompanion.current.session
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<ConfigStatus?>(null) }
     var loadFailed by remember { mutableStateOf(false) }
-    var key by rememberSaveable { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var messageIsError by remember { mutableStateOf(false) }
@@ -256,126 +234,38 @@ fun VoiceSettingsScreen(onBack: () -> Unit) {
                 )
             }
 
-            if (VoiceSettingsRules.showsKeyField(status)) {
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(
+                    text = "语音凭证",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = minisSecondary,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(cardFill)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     Text(
-                        text = "ElevenLabs",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = VoiceSettingsRules.CREDENTIALS_NOTE,
+                        fontSize = 13.5.sp,
+                        lineHeight = 19.sp,
                         color = minisSecondary,
-                        modifier = Modifier.padding(horizontal = 6.dp),
                     )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(cardFill)
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(minisCard)
-                                .padding(horizontal = 14.dp, vertical = 13.dp),
-                        ) {
-                            if (key.isEmpty()) {
-                                Text("ElevenLabs API 密钥", fontSize = 15.sp, color = minisTertiary)
-                            }
-                            BasicTextField(
-                                value = key,
-                                onValueChange = { key = it },
-                                singleLine = true,
-                                textStyle = TextStyle(fontSize = 15.sp, color = minisInk),
-                                cursorBrush = SolidColor(minisInk),
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            val canSave = VoiceSettingsRules.canSave(key, saving)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 44.dp)
-                                    .clip(CircleShape)
-                                    .background(if (canSave) minisInk else minisCard)
-                                    .clickable(enabled = canSave, role = Role.Button) {
-                                        val entered = key
-                                        run(
-                                            {
-                                                val error = session.updateVoiceKey(entered)
-                                                if (error == null) key = ""
-                                                error
-                                            },
-                                            success = VoiceSettingsRules.SAVED,
-                                        )
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (saving) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = if (canSave) minisCanvas else minisTertiary,
-                                    )
-                                } else {
-                                    Text(
-                                        text = VoiceSettingsRules.saveLabel(status),
-                                        fontSize = 14.5.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = if (canSave) minisCanvas else minisTertiary,
-                                    )
-                                }
-                            }
-                            if (VoiceSettingsRules.canRemove(status, saving = false)) {
-                                Box(
-                                    modifier = Modifier
-                                        .heightIn(min = 44.dp)
-                                        .clip(CircleShape)
-                                        .background(minisCard)
-                                        .clickable(enabled = !saving, role = Role.Button) {
-                                            run({ session.updateVoiceKey("") }, success = VoiceSettingsRules.REMOVED)
-                                        }
-                                        .padding(horizontal = 16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text("移除", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MinisTokens.Danger)
-                                }
-                            }
-                        }
-                        message?.let {
-                            Text(
-                                text = it,
-                                fontSize = 13.sp,
-                                color = if (messageIsError) MinisTokens.Danger else minisSuccess,
-                            )
-                        }
+                    message?.let {
+                        Text(
+                            text = it,
+                            fontSize = 13.sp,
+                            color = if (messageIsError) MinisTokens.Danger else minisSuccess,
+                        )
                     }
-                    Text(
-                        text = VoiceSettingsRules.KEY_FOOTER,
-                        fontSize = 12.5.sp,
-                        lineHeight = 17.sp,
-                        color = minisSecondary,
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                    )
-                }
-            } else {
-                message?.let {
-                    Text(
-                        text = it,
-                        fontSize = 13.sp,
-                        color = MinisTokens.Danger,
-                        modifier = Modifier.padding(horizontal = 6.dp),
-                    )
                 }
             }
+
             Spacer(Modifier.size(8.dp))
         }
     }

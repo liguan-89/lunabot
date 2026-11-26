@@ -153,6 +153,7 @@ object AttachmentImport {
                 kind = PendingMessageAttachment.Kind.IMAGE,
             )
         }
+        if (raw != null && raw.isEmpty()) throw AttachmentImportException(AttachmentImportRules.unreadable(label))
         val jpeg = transcodeJpeg(resolver, uri)
             ?: throw AttachmentImportException(AttachmentImportRules.unsupported(label))
         if (jpeg.size > limit) throw AttachmentImportException(AttachmentImportRules.tooLarge(label, limit))

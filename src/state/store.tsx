@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import type { BotMovedTo, BotVisibility, CardAnswerer, CloudBackend, ConnectorToolGrant, EffortLevel, InstalledPackageMetadata, LiveCallState, ServerFrame, GroupThreadUsage, ResolvedSender, SteerQueueReason, WireBot, WireGroup, WireTask, OptionCardData as WireOptionCard } from "../../shared/wire"; import type { InstanceEndpointInfo } from "../../shared/claude-endpoint";
+import type { BotMovedTo, BotVisibility, CardAnswerer, CloudBackend, ConnectorToolGrant, EffortLevel, InstalledPackageMetadata, LiveCallState, ServerFrame, GroupThreadUsage, ResolvedSender, SteerQueueReason, WireBot, WireGroup, WireTask, OptionCardData as WireOptionCard } from "../../shared/wire";
 import { movesThreadToTop } from "../../shared/wire"; import type { DefaultBotFields } from "../../shared/default-bot";
 import { reorderStable } from "../../shared/bot-order";
 import { withOneChief } from "../../shared/bot-owner";
@@ -229,7 +229,6 @@ export interface Task extends Pick<WireTask, "private" | "setupRequest" | "inbox
   updatedAt?: number;
   lastThreadOrderAt?: number;
   usage?: TaskUsage;
-  cacheKeepWarm?: import("../../shared/wire").CacheKeepWarmStatus;
   cwd?: string | null;
   modelSelection?: ModelSelection;
   followsBotModel?: boolean;
@@ -331,7 +330,6 @@ export interface Bot extends DefaultBotFields, Pick<WireBot, "mascotFaceColor" |
   browser?: boolean;
   recordBrowserSteps?: boolean;
   memoryUpkeep?: boolean;
-  cacheKeepWarm?: boolean | null;
   helperModel?: boolean;
   mcpServers?: string[] | null;
   browserProfile?: string | null;
@@ -412,7 +410,7 @@ export type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicyS
 // A section left out here is wiped from state.config whenever a config frame lands.
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "tk1688" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "seedance" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
+  "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "tk1688" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "seedance" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
   | "computerName" | "newBots" | "cloudStarter" | "waitingForRoom" | "planTurns" | "botLimit"
 >;
 
@@ -446,7 +444,6 @@ export function configStatusFromFrame(frame: ConfigStatusFrame, held?: ConfigSta
     mcp: frame.mcp,
     threads: frame.threads,
     automaticRecovery: frame.automaticRecovery,
-    cacheKeepWarm: frame.cacheKeepWarm,
     localVm: frame.localVm,
     opencodeGo: frame.opencodeGo,
     tts: frame.tts,
@@ -470,7 +467,7 @@ export function configStatusFromFrame(frame: ConfigStatusFrame, held?: ConfigSta
 
 export type { EngineInstall } from "./engine-install";
 
-export interface InstanceInfo extends InstanceEndpointInfo {
+export interface InstanceInfo {
   instanceId: string;
   driverKind: string;
   displayName: string;

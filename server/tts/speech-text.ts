@@ -96,6 +96,7 @@ export function speakable(input: string): string {
 export const VOICE_FIRST_BLOCK_MAX_CHARS = 90;
 
 const BOUNDARY = /(?<!\b(?:e\.g|i\.e|etc|vs|Dr|Mr|Mrs|Ms|No|approx))(?<![.\d])([.!?])(["')\]]*)\s+/g;
+const CJK_BOUNDARY = /([。！？])(["”’»」』）】)]*)/g;
 const WORD_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "word" });
 const GRAPHEME_SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
@@ -113,6 +114,7 @@ export function toUtterances(
   // A sentinel, not " ": the boundary match consumes the trailing space.
   const MARK = "\u0000";
   const rough = text
+    .replace(CJK_BOUNDARY, `$1$2${MARK}`)
     .replace(BOUNDARY, `$1$2${MARK}`)
     .split(MARK)
     .map((s) => s.trim())

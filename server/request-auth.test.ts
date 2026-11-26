@@ -171,6 +171,7 @@ describe("scopes", () => {
       ["POST", "/api/routine-runs/seen-all"],
       ["GET", "/api/bots"], ["GET", "/api/threads/t/messages"], ["GET", "/api/search"], ["GET", "/api/events"],
       ["GET", "/api/config"], ["GET", "/api/webhooks"], ["POST", "/api/tts/speak"],
+      ["POST", "/api/tts/reply-listener"], ["POST", "/api/tts/reply-claim"],
       ["GET", "/api/auth/session"], ["POST", "/api/auth/stream-ticket"], ["POST", "/api/auth/logout"],
       ["GET", "/api/bots/x/slack-management"],
       ["POST", "/api/bots/x/sign-in-cards/m/done"], ["POST", "/api/bots/x/sign-in-cards/m/cancel"], ["POST", "/api/bots/x/sign-in-cards/m/save-login"],
@@ -298,7 +299,7 @@ describe("resolveRequestAuth", () => {
       ["POST", "/api/bots"], ["POST", "/api/bots/b/messages"],
       ["POST", "/api/bots/b/read"], ["POST", "/api/bots/b/respond"],
       ["POST", "/api/bots/b/secret-cards/card/provide"],
-      ["GET", "/api/events"], ["PATCH", "/api/bots/b/profile"],
+      ["GET", "/api/events"], ["PATCH", "/api/bots/b/profile"], ["PUT", "/api/config"],
       ["GET", "/api/bots/b/browser/live"], ["POST", "/api/bots/b/browser/action"],
     ]) expect(check(method, path).auth?.kind, path).toBe("loopback");
     expect(check("GET", "/api/phones/self/jobs").auth).toEqual({ kind: "loopback", scopes: ["admin", "client"], companionDevice: "phone-1" });
@@ -323,7 +324,7 @@ describe("resolveRequestAuth", () => {
     for (const overrides of forged) expect(check("POST", "/api/bots/b/read", overrides).auth).toBeNull();
     expect(check("POST", "/api/bots/b/read", {}, "").auth).toBeNull();
     for (const [method, path] of [
-      ["PUT", "/api/config"], ["POST", "/api/auth/pairing"],
+      ["PATCH", "/api/config"], ["POST", "/api/auth/pairing"],
       ["POST", "/api/internal/anything"], ["GET", "/api/auth/sessions"],
       ["POST", "/api/not-yet-supported"],
     ]) expect(check(method, path).auth, path).toBeNull();

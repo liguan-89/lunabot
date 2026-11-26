@@ -73,8 +73,16 @@ data class Connection(
             activeEndpoint?.let(::add)
             endpoints?.let(::addAll)
         }
-        val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED && access.allows(it) } ?: return null
-        return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+        // Android cannot resolve `.local` at all: a Bonjour name here would eat a DNS timeout on every dial
+        // before the walk ever reaches the relay.
+        val endpoint = candidates.firstOrNull {
+            it.kind != CompanionEndpointKind.HOSTED &&
+                it.kind != CompanionEndpointKind.BONJOUR &&
+                !isBonjourName(it.host) &&
+                access.allows(it)
+        } ?: return null
+        // Bracketed when the host is an IPv6 literal: a bare `ws://fd00::1:8810/...` never parses.
+        return "ws://${urlHost(endpoint.host)}:${endpoint.port}/v1/e2e"
     }
 
     /** Whether the relay can carry the encrypted connection when none of this computer's own routes may be dialled. */
@@ -405,10 +413,16 @@ data class Connection(
                     if (!rest.startsWith(":")) return null
                     parsedPort = rest.drop(1).toIntOrNull() ?: return null
                 }
-            } else if (trimmed.count { it == ':' } == 1) {
-                val colon = trimmed.lastIndexOf(':')
-                parsedHost = trimmed.substring(0, colon)
-                parsedPort = trimmed.substring(colon + 1).toIntOrNull() ?: return null
+            } else {
+                when (trimmed.count { it == ':' }) {
+                    0 -> Unit
+                    1 -> {
+                        val colon = trimmed.lastIndexOf(':')
+                        parsedHost = trimmed.substring(0, colon)
+                        parsedPort = trimmed.substring(colon + 1).toIntOrNull() ?: return null
+                    }
+                    else -> return null
+                }
             }
 
             if (parsedHost.isEmpty()) return null

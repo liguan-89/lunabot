@@ -9,7 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-/** The shade event's key set: ticked packages only, never this app, and the just-removed key excluded. */
+/** The shade event's key set: ticked packages only, never this app, and the just-removed keys excluded. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class NoticeShadeTest {
@@ -37,7 +37,7 @@ class NoticeShadeTest {
             arrayOf(ticked, other, mine, removed),
             setOf("com.chat.app"),
             "com.lunabot.companion",
-            removed.key,
+            setOf(removed.key),
         )
         assertEquals(listOf(ticked.key), keys)
     }
@@ -50,8 +50,33 @@ class NoticeShadeTest {
             arrayOf(staying, going),
             setOf("com.chat.app"),
             "com.lunabot.companion",
-            going.key,
+            setOf(going.key),
         )
         assertEquals(listOf(staying.key), keys)
+    }
+
+    @Test
+    fun `every removal a cancelled debounce had not read is left out`() {
+        val staying = sbnOf("com.chat.app", 1)
+        val first = sbnOf("com.chat.app", 2)
+        val second = sbnOf("com.chat.app", 3)
+        val keys = shadeKeys(
+            arrayOf(staying, first, second),
+            setOf("com.chat.app"),
+            "com.lunabot.companion",
+            setOf(first.key, second.key),
+        )
+        assertEquals(listOf(staying.key), keys)
+    }
+
+    @Test
+    fun `removal keys survive a cancelled debounce and drain once the shade is read`() {
+        val tracker = ShadeRemovalTracker()
+        tracker.add("first")
+        tracker.add("second")
+        assertEquals(setOf("first", "second"), tracker.drain())
+        assertEquals(emptySet(), tracker.drain())
+        tracker.add(null)
+        assertEquals(emptySet(), tracker.drain())
     }
 }

@@ -7,11 +7,11 @@ import { VOICE_FIRST_BLOCK_MAX_CHARS } from "../tts/speech-text.ts";
 import { PASS } from "./table.ts";
 import { createTtsRoutes, TRANSCRIBE_MAX_BYTES } from "./tts.ts";
 
-async function call(method: string, path: string, body: unknown = {}, cfg = {} as AppConfig, req = {} as never) {
+async function call(method: string, path: string, body: unknown = {}, cfg = {} as AppConfig, req = {} as never, extras: { arbitration?: import("../tts/speech-arbitration.ts").SpeechArbitration; auth?: never } = {}) {
   const answers: Array<[number, unknown]> = [];
-  const out = await createTtsRoutes({ config: () => cfg })({
+  const out = await createTtsRoutes({ config: () => cfg, ...(extras.arbitration ? { arbitration: extras.arbitration } : {}) })({
     req, res: {} as never, url: new URL(`http://x${path}`), path: new URL(`http://x${path}`).pathname, method,
-    auth: { kind: "loopback", scopes: ["admin", "client"] },
+    auth: extras.auth ?? { kind: "loopback", scopes: ["admin", "client"] },
     json: ((_res: unknown, status: number, value: unknown) => { answers.push([status, value]); }) as never, readBody: (async () => body) as never,
   });
   return { out, answers };
@@ -54,6 +54,26 @@ describe("voice routes", () => {
     expect(answers).toHaveLength(1);
     expect(answers[0]![0]).toBe(200);
     expect((answers[0]![1] as { voices: unknown[] }).voices).toEqual([]);
+  });
+});
+
+describe("reply speech arbitration routes", () => {
+  it("accepts listener heartbeats only from paired phones", async () => {
+    const { SpeechArbitration } = await import("../tts/speech-arbitration.ts");
+    const arbitration = new SpeechArbitration();
+    expect((await call("POST", "/api/tts/reply-listener", {}, {} as AppConfig, {} as never, { arbitration })).answers[0]![0]).toBe(403);
+    const auth = { kind: "loopback", scopes: ["admin", "client"], companionDevice: "phone-1" } as never;
+    expect((await call("POST", "/api/tts/reply-listener", {}, {} as AppConfig, {} as never, { arbitration, auth })).answers).toEqual([[200, { ok: true }]]);
+    expect(arbitration.phoneListening()).toBe(true);
+  });
+
+  it("refuses a desktop claim while a fresh phone listener exists", async () => {
+    const { SpeechArbitration } = await import("../tts/speech-arbitration.ts");
+    const arbitration = new SpeechArbitration();
+    arbitration.phoneListener("phone-1");
+    expect((await call("POST", "/api/tts/reply-claim", { threadId: "thread", turnId: "turn" }, {} as AppConfig, {} as never, { arbitration })).answers[0]![0]).toBe(409);
+    const auth = { kind: "loopback", scopes: ["admin", "client"], companionDevice: "phone-1" } as never;
+    expect((await call("POST", "/api/tts/reply-claim", { threadId: "thread", turnId: "turn" }, {} as AppConfig, {} as never, { arbitration, auth })).answers).toEqual([[200, { ok: true }]]);
   });
 });
 

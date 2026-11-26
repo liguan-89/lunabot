@@ -41,7 +41,6 @@ import { commandSummary, toolDetailPreview } from "../tool-summary.ts";
 import { extractMcpImages } from "../mcp-tool-images.ts";
 
 import type {
-  CacheWarmPingResult,
   DriverCreateInput,
   ModelCatalog,
   PrewarmInput,
@@ -1167,10 +1166,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         },
         hasSession: (threadId) => active.has(threadId),
         cacheKeepWarm: {
-          // pi is BYOK: a keep-warm ping spends the person's own tokens to save a
-          // cache write of the same size — never worth it. The scheduler also
-          // refuses non-subscription billing before it would call this.
-          ping: async (): Promise<CacheWarmPingResult> => ({ ok: false, reason: "pi runs on the person's own provider key — a keep-warm ping would spend it" }),
           hold: (threadId, until) => piWarmHold(warmDeps, threadId, until),
           compact: (threadId, options) => piWarmCompact(warmDeps, threadId, options),
         },

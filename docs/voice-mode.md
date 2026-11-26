@@ -97,13 +97,16 @@ hand real work to specialists with `coordinate_bots` — no new machinery requir
 - **Take-turns calls listen differently off the Mac.** On macOS the dictation
   helper listens on-device. On Windows and Linux the page records the mic
   (`src/lib/fish-speech.ts`) and `POST /api/tts/transcribe` sends each turn's
-  clip, silence trimmed, to Fish Audio speech-to-text with the saved Fish key.
-  Without that key Take turns is off. The voice half works everywhere. Live
-  calls (GPT-Live, `server/live-call.ts`) need no dictation, so they work in
-  the desktop app on any computer and on the phones, with the person's own
-  OpenAI key. Fish Audio has no talking model, so Live stays OpenAI or Azure. A Cloud's page, in a web browser
-  or the desktop app, runs the same code, but no Live call has been made end
-  to end on a real Cloud yet.
+  clip, silence trimmed, to the configured Doubao or Qwen voice credential when
+  one is selected, otherwise to Fish Audio speech-to-text with the saved Fish
+  key. Without one of those credentials Take turns is off. The voice half works
+  everywhere.
+- **Live transports are platform-specific.** OpenAI and Azure use WebRTC;
+  Qwen and Doubao use the harness's WebSocket PCM relay. The desktop implements
+  both. The Android app implements only the socket relay, so Live is available
+  there with Qwen or Doubao, while OpenAI or Azure falls back to Take turns. A
+  Cloud's page, in a web browser or the desktop app, runs the desktop code, but
+  no Live call has been made end to end on a real Cloud yet.
 - **Rooms don't speak yet**, though per-bot voices already exist (`bot.voice`).
 - **No spend meter.** ElevenLabs bills per character. Auto-speak is off by
   default partly for that reason, but the app should eventually show usage.

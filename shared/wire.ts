@@ -212,24 +212,12 @@ export interface WireTask extends InboxTask {
    * Derived at projection, never stored. */
   surfaceAuto?: true;
   usage?: TaskUsage;
-  /** Prompt-cache keep-warm status for this thread, derived at projection;
-   * absent when no window is open. */
-  cacheKeepWarm?: CacheKeepWarmStatus;
   /** the folder this task's turns run in, pinned on its first turn; one in its own folder moves to its bot's working folder. */
   cwd?: string | null;
   /** Set me up was pressed here (server/setup-request.ts): the person's next line in this conversation runs as a
    * setup request. Server-owned; a client only shows it. `by`: who pressed, where several people share the place (their
    * reactor key); only their next line takes it, and only they see its chip. */
   setupRequest?: { at: number; by?: string };
-}
-
-/** One thread's keep-warm window as a client shows it. Times are epoch ms. */
-export interface CacheKeepWarmStatus {
-  state: "warm" | "stopped";
-  until?: number;
-  nextPingAt?: number;
-  last?: { at: number; read: number; write: number; costUsd: number | null };
-  stopped?: string;
 }
 
 /** A lightweight organizational label within one bot. */
@@ -411,9 +399,6 @@ export interface WireBot extends DefaultBotFields, BotAccessFields {
    * MEMORY.md and topic files, adds facts about the person to About me and
    * tidies nightly. On unless explicitly false. */
   memoryUpkeep?: boolean;
-  /** Prompt-cache keep-warm for this bot's Claude threads: true or false
-   * overrides the workspace setting; absent follows it. */
-  cacheKeepWarm?: boolean;
   /** false: the workspace's helper model never writes this bot's background texts. Absent or true: allowed. */
   helperModel?: boolean;
   /** Which of the app-wide MCP servers this bot mounts, by name. */

@@ -223,8 +223,13 @@ export function PairDeviceDialog({ c, state, onClose, secureAddress = false }: {
   const anyOn = needed.some((route) => state.routes?.[route]?.on) || state.routes?.tailscale?.on === true;
   const [step, setStep] = useState<PairStep>(anyOn || secureAddress ? "pairing" : "consent");
   const { start } = c;
+  // `start` identity churns on every 1s poll (deps: account/state) — run once per
+  // dialog instance so the HTTPS Set up flow isn't restarted every tick.
+  const secureStarted = useRef(false);
   useEffect(() => {
-    if (secureAddress) start();
+    if (!secureAddress || secureStarted.current) return;
+    secureStarted.current = true;
+    start();
   }, [secureAddress, start]);
   const chosen = needed.filter((route) => picked[route]);
   const begin = async () => {

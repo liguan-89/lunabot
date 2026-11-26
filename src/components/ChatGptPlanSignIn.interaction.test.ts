@@ -21,7 +21,6 @@ vi.mock("@/state/store", async (original) => ({
 }));
 vi.mock("@/lib/analytics", () => ({ track: fixture.track }));
 const { DeviceSignIn } = await import("./DeviceSignIn");
-const { AddAccount } = await import("./EngineAccounts");
 
 type Node = ReactElement<{ children?: ReactNode; onClick?: () => Promise<void> }>;
 function nodes(tree: ReactNode): Node[] {
@@ -78,26 +77,4 @@ it("cancels the same flow and never opens an untrusted authorization URL", async
   expect(fixture.values[0]).toMatchObject({ phase: "cancelled", flowId: null });
   expect(fixture.refreshModels).not.toHaveBeenCalled();
   expect(fixture.track).not.toHaveBeenCalled();
-});
-
-it.each([undefined, "google-original"])("adds a named account, then hands its id back so its sign-in can start (%s)", async (antigravityInstanceId) => {
-  const accounts = [{ instanceId: "chatgpt-second", displayName: "Work" }];
-  const onAdded = vi.fn();
-  const props = { label: "Add", endpoint: `/api/instances/${antigravityInstanceId ? "antigravity" : "chatgpt"}-accounts`, onAdded,
-    ...(antigravityInstanceId ? { extra: { sourceInstanceId: antigravityInstanceId } } : {}) };
-  fixture.api.mockResolvedValueOnce({ instanceId: "chatgpt-second", instances: accounts });
-  fixture.index = 0;
-  nodes(AddAccount(props)).find((node) => node.type === "button")!.props.onClick!();
-  fixture.index = 0;
-  const input = nodes(AddAccount(props)).find((node) => node.type === "input") as ReactElement<{ onChange: (event: { target: { value: string } }) => void }>;
-  input.props.onChange({ target: { value: " Work " } });
-  fixture.index = 0;
-  const form = nodes(AddAccount(props)).find((node) => node.type === "form") as ReactElement<{ onSubmit: (event: { preventDefault: () => void }) => void }>;
-  form.props.onSubmit({ preventDefault: () => {} });
-  await flush();
-  expect(fixture.api).toHaveBeenCalledWith(`/api/instances/${antigravityInstanceId ? "antigravity" : "chatgpt"}-accounts`, { method: "POST", body: JSON.stringify({ displayName: "Work", ...(antigravityInstanceId ? { sourceInstanceId: antigravityInstanceId } : {}) }) });
-  expect(fixture.api).toHaveBeenCalledOnce();
-  expect(fixture.dispatch).toHaveBeenCalledWith({ type: "instances", instances: accounts });
-  expect(onAdded).toHaveBeenCalledWith("chatgpt-second");
-  expect(fixture.openExternal).not.toHaveBeenCalled();
 });

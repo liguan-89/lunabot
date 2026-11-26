@@ -44,7 +44,7 @@ class SmsRelayReceiver : BroadcastReceiver() {
         }
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
         val app = context.applicationContext as? OpenMausApp ?: return
-        val events = inboundSmsEvents(parts)
+        val events = inboundSmsEvents(parts, inboundSmsAssembly)
         if (events.isEmpty()) return
         val pending = goAsync()
         // The delivery is the app's, not the broadcast's: a computer that takes longer to reach than a receiver
@@ -94,6 +94,7 @@ internal suspend fun deliverInboundSms(
     live: suspend () -> Unit,
     post: suspend (PhoneSmsEvent) -> Boolean,
     note: (from: String, text: String) -> Boolean = SmsEventDedup::note,
+    unclaim: (from: String, text: String) -> Unit = SmsEventDedup::forget,
 ): Int {
     var delivered = 0
     withTimeoutOrNull(deliverWithinMs) {
@@ -101,24 +102,34 @@ internal suspend fun deliverInboundSms(
             connect()
             live()
             if (!note(event.from, event.text)) continue
-            // A request already on its way is finished: cut off halfway, neither side could say whether it arrived.
-            if (withContext(NonCancellable) { post(event) }) delivered += 1
+            // The claim is withdrawn when the post never landed: a claimed-but-undelivered text would otherwise
+            // be dropped as a duplicate on every later attempt and the message would be lost.
+            try {
+                // A request already on its way is finished: cut off halfway, neither side could say whether it arrived.
+                if (withContext(NonCancellable) { post(event) }) delivered += 1
+                else unclaim(event.from, event.text)
+            } catch (cancellation: CancellationException) {
+                unclaim(event.from, event.text)
+                throw cancellation
+            } catch (_: Exception) {
+                unclaim(event.from, event.text)
+            }
         }
     }
     return delivered
 }
 
-/**
- * PDUs → channel events: parts of one text share a sender and a service-centre
- * timestamp, so grouping on `(from, timestamp)` reassembles a multipart SMS and
- * `sendId` dedupes a re-broadcast of the same message on the server side.
- */
-internal fun inboundSmsEvents(parts: Array<SmsMessage>): List<PhoneSmsEvent> =
-    parts.groupBy { (it.originatingAddress ?: "") to it.timestampMillis }
-        .mapNotNull { (key, group) ->
-            val (from, at) = key
-            if (from.isBlank()) return@mapNotNull null
-            val text = group.joinToString("") { it.messageBody.orEmpty() }.trim()
-            if (text.isEmpty()) return@mapNotNull null
-            PhoneSmsEvent(sendId = "$from:$at".take(120), from = from.take(64), text = text.take(4000))
-        }
+/** PDUs → channel events；拼接头齐全的片段可跨广播重组，普通短信仍按原来的 `(from, timestamp)` 语义即时通过。 */
+internal fun inboundSmsEvents(parts: Array<SmsMessage>, assembly: InboundSmsAssembly): List<PhoneSmsEvent> =
+    assembly.add(parts.mapNotNull { message ->
+        val from = message.originatingAddress ?: return@mapNotNull null
+        val header = concatenatedSmsHeader(message.pdu)
+        InboundSmsPart(
+            from = from,
+            at = message.timestampMillis,
+            text = message.messageBody.orEmpty(),
+            reference = header?.reference,
+            total = header?.total,
+            sequence = header?.sequence,
+        )
+    })

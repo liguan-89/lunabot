@@ -67,20 +67,15 @@ describe("room context", () => {
     expect(rooms.forThread("room")?.editor3).toEqual({ tokens: 190_000, window: 200_000 });
   });
 
-  it("forgets a reading once its process has idled out, unless a keep-warm hold keeps it", () => {
+  it("forgets a reading once its process has idled out", () => {
     vi.useFakeTimers({ now: 1_000_000 });
-    let heldUntil: number | undefined;
     const expired: string[] = [];
-    const rooms = new RoomContextTracker({ idleMs: IDLE_MS, heldUntil: () => heldUntil, expired: (threadId) => expired.push(threadId) });
+    const rooms = new RoomContextTracker({ idleMs: IDLE_MS, expired: (threadId) => expired.push(threadId) });
     rooms.record("room", "editor1", { tokens: 162_000, window: 200_000 }, undefined);
     rooms.request("room", "editor1");
     vi.advanceTimersByTime(IDLE_MS - 1);
     expect(rooms.forThread("room")?.editor1?.compactRequested).toBe(true);
-    heldUntil = Date.now() + 5 * 60_000;
     vi.advanceTimersByTime(1);
-    expect(expired).toEqual([]);
-    expect(rooms.forThread("room")?.editor1).toBeDefined();
-    vi.advanceTimersByTime(5 * 60_000);
     expect(expired).toEqual(["room"]);
     expect(rooms.forThread("room")).toBeUndefined();
     expect(rooms.request("room", "editor1")).toBe(false);
@@ -88,7 +83,6 @@ describe("room context", () => {
 
     rooms.record("room", "editor1", { tokens: 190_000, window: 200_000 }, undefined);
     expect(rooms.takeReset("room", "editor1", undefined)).toEqual({ reason: "threshold", percent: 95 });
-    heldUntil = undefined;
     vi.advanceTimersByTime(IDLE_MS);
     expect(expired).toEqual(["room"]);
   });

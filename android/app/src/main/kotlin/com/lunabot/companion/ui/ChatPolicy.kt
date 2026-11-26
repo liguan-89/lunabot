@@ -247,7 +247,7 @@ object ChatActions {
         out += ChatAction(
             id = ChatActionId.VOICE,
             title = "语音消息",
-            subtitle = "按住说话，松开发送",
+            subtitle = "按住说话，能识别时附带文字",
         )
         if (bot != null) {
             out += ChatAction(

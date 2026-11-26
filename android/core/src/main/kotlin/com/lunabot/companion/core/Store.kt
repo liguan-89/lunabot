@@ -31,6 +31,78 @@ data class PendingEdit(
     val placeholderId: String get() = "pending-edit-$sourceId"
 }
 
+/** 一条可自动朗读的完成回复。只由实时 stream 的权威消息帧产生，不由历史 hydrate 回放。 */
+data class BotReplyCue(
+    val threadId: String,
+    val messageId: String,
+    val botId: String,
+    val voiceId: String?,
+    val text: String,
+    val turnId: String? = null,
+)
+
+/** 自动朗读的实时输入。完成文本只出现一次；流式增量负责尽早分句，turn 终态负责收口或取消。 */
+sealed interface BotReplySpeechEvent {
+    data class TurnStarted(val threadId: String, val turnId: String?) : BotReplySpeechEvent
+    data class Delta(
+        val threadId: String,
+        val botId: String,
+        val voiceId: String?,
+        val turnId: String?,
+        val delta: String,
+    ) : BotReplySpeechEvent
+    data class Complete(val cue: BotReplyCue) : BotReplySpeechEvent
+    data class TurnFinished(val threadId: String, val turnId: String?, val ok: Boolean) : BotReplySpeechEvent
+}
+
+private fun spokenReplyBot(state: CompanionState, threadId: String): Bot? =
+    state.botForThread(threadId)?.takeIf { it.speakReplies == true }
+
+/** 开启「语音朗读回复」的 bot 的实时语音事件才成为候选；patch、活动和房间消息都不读。 */
+internal fun spokenReplySpeechEvent(state: CompanionState, frame: Frame): BotReplySpeechEvent? {
+    return when (frame) {
+        is Frame.Message -> {
+            val message = frame.message
+            val text = message.text?.takeIf { it.isNotBlank() } ?: return null
+            if (message.role != Message.Role.BOT || message.kind != Message.Kind.TEXT) return null
+            val bot = spokenReplyBot(state, frame.threadId) ?: return null
+            BotReplySpeechEvent.Complete(
+                BotReplyCue(
+                    threadId = frame.threadId,
+                    messageId = message.id,
+                    botId = bot.id,
+                    voiceId = bot.voice,
+                    text = text,
+                    turnId = message.turnId,
+                ),
+            )
+        }
+        is Frame.Runtime -> when (frame.event.type) {
+            "turn.started" -> BotReplySpeechEvent.TurnStarted(frame.event.threadId, frame.event.turnId)
+            "content.delta" -> {
+                val delta = frame.event.delta?.takeIf {
+                    frame.event.streamKind == "assistant_text" && it.isNotEmpty()
+                } ?: return null
+                val bot = spokenReplyBot(state, frame.event.threadId) ?: return null
+                BotReplySpeechEvent.Delta(
+                    threadId = frame.event.threadId,
+                    botId = bot.id,
+                    voiceId = bot.voice,
+                    turnId = frame.event.turnId,
+                    delta = delta,
+                )
+            }
+            "turn.completed" -> BotReplySpeechEvent.TurnFinished(
+                frame.event.threadId,
+                frame.event.turnId,
+                frame.event.ok == true,
+            )
+            else -> null
+        }
+        else -> null
+    }
+}
+
 data class CompanionState(
     val bots: List<Bot> = emptyList(),
     val rooms: List<Room> = emptyList(),

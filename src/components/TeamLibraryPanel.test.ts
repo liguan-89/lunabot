@@ -10,4 +10,10 @@ describe("TeamLibraryPanel", () => {
     expect(overlay).toContain("bg-black/55");
     expect(source).not.toMatch(/backdrop-blur|backdrop-filter|backdropFilter/);
   });
+
+  it("leads Explore with the saved templates, installed through the same preview as the catalog", () => {
+    expect(source.indexOf("<MyTemplates")).toBeGreaterThan(-1);
+    expect(source.indexOf("<MyTemplates")).toBeLessThan(source.indexOf("<ReadyBotGallery"));
+    expect(source).toContain('previewManifest(teamImportPreview(document), "template")');
+  });
 });
