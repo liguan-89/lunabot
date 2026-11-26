@@ -699,4 +699,40 @@ class ClientTest {
         "unread":false,
         "createdAt":3
     }""".trimIndent()
+
+    @Test
+    fun patchCardSettlesAnOpenQuestion() = runBlocking {
+        server.enqueue(json("""{"ok":true}"""))
+        client.patchCard("b1", "m1", "t1", answered = "好的", dismissed = true)
+        server.takeRequest().let { request ->
+            assertEquals("PATCH", request.method)
+            assertEquals("/api/bots/b1/cards/m1", request.path)
+            assertEquals(
+                mapOf("threadId" to "t1", "answered" to "好的", "dismissed" to "true"),
+                stringBody(request.body.readUtf8()),
+            )
+        }
+    }
+
+    @Test
+    fun answerGrantPostsTheAnswerShape() = runBlocking {
+        server.enqueue(json("""{"ok":true}"""))
+        client.answerGrant("t1", "m1", "granted")
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/grants/answer", request.path)
+            assertEquals(mapOf("threadId" to "t1", "messageId" to "m1", "answer" to "granted"), stringBody(request.body.readUtf8()))
+        }
+    }
+
+    @Test
+    fun dismissHelperSuggestionPostsToNotNow() = runBlocking {
+        server.enqueue(json("""{"ok":true}"""))
+        client.dismissHelperSuggestion("t1", "m1")
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/helpers/suggestion/not-now", request.path)
+            assertEquals(mapOf("threadId" to "t1", "messageId" to "m1"), stringBody(request.body.readUtf8()))
+        }
+    }
 }

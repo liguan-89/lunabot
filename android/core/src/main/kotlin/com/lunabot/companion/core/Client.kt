@@ -1201,6 +1201,61 @@ class CompanionClient(
     }
 
     /**
+     * Settle a card of choices that is not a live request: an onboarding quiz,
+     * an engine-switch offer, a routine or profile question. Live approval
+     * cards carry a request id and are answered through [respond] instead —
+     * the harness refuses this route for them with a 409.
+     *
+     * `answered` is the choice's own words; `dismissed` is the skip. The patch
+     * itself carries no message for the bot: the caller posts the answer as an
+     * ordinary message afterwards, exactly like the desktop does.
+     */
+    suspend fun patchCard(
+        botId: String,
+        messageId: String,
+        threadId: String,
+        answered: String? = null,
+        dismissed: Boolean? = null,
+    ) {
+        sendUnit(makeRequest(
+            "PATCH",
+            "/api/bots/${segment(botId)}/cards/${segment(messageId)}",
+            body = buildJsonObject {
+                put("threadId", threadId)
+                answered?.let { put("answered", it) }
+                dismissed?.let { put("dismissed", it) }
+            },
+        ))
+    }
+
+    /**
+     * Answer a temporary-permission proposal (`server/permission-grants.ts`):
+     * granted starts the grant until its deadline, refused ends it. The
+     * harness accepts only an owner or admin session; a member's phone gets a
+     * 403, same as the desktop.
+     */
+    suspend fun answerGrant(threadId: String, messageId: String, answer: String) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/grants/answer",
+            body = jsonBody("threadId" to threadId, "messageId" to messageId, "answer" to answer),
+        ))
+    }
+
+    /**
+     * "Not now" on the proactive add-a-helper-key suggestion. Adding the key
+     * itself stays on the computer — the phone has no decision-model key
+     * settings — but declining is the person's own answer and travels here.
+     */
+    suspend fun dismissHelperSuggestion(threadId: String, messageId: String) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/helpers/suggestion/not-now",
+            body = jsonBody("threadId" to threadId, "messageId" to messageId),
+        ))
+    }
+
+    /**
      * Fork the conversation at a user message. Returns the computer's new
      * message when the response carries one. [sendId] makes a retry of the same
      * edit answer with the existing fork instead of forking twice.

@@ -146,6 +146,8 @@ describe("what the app may do", () => {
     ["POST", "/api/bots/bot_123/secret-cards/msg_2/save"],
     ["POST", "/api/bots/bot_123/sign-in-cards/msg_3/done"],
     ["POST", "/api/bots/bot_123/sign-in-cards/msg_3/cancel"],
+    ["POST", "/api/grants/answer"],
+    ["POST", "/api/helpers/suggestion/not-now"],
   ];
 
   for (const [method, path] of calls) {

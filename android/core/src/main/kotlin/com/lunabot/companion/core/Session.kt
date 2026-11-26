@@ -1966,6 +1966,41 @@ class Session(
     }
 
     /**
+     * Answer a card of choices that is not a live request — an onboarding
+     * quiz, an engine-switch offer, a routine or profile question. The words
+     * go as an ordinary message first, because that is what the bot acts on;
+     * the card's own patch only settles the row. If the patch fails, the row
+     * still disappears under the same rule the desktop hides it by: a later
+     * user text now exists. Rooms never take this path, same as the desktop.
+     */
+    suspend fun answerOpenQuestion(chat: Chat.BotChat, messageId: String, choice: String): Boolean {
+        val destination = MessageDestination.Bot(chat.bot.id, chat.threadId)
+        return perform {
+            it.send(choice, destination, UUID.randomUUID().toString())
+            it.patchCard(chat.bot.id, messageId, chat.threadId, answered = choice, dismissed = true)
+        }
+    }
+
+    /** The x on an open question card: settled without an answer, no message sent. */
+    suspend fun dismissOpenQuestion(chat: Chat.BotChat, messageId: String): Boolean =
+        perform { it.patchCard(chat.bot.id, messageId, chat.threadId, dismissed = true) }
+
+    /**
+     * Answer a temporary-permission proposal: granted starts the grant until
+     * its deadline, refused ends it. The harness refuses non-owner sessions,
+     * exactly like the desktop — the error surfaces through actionError.
+     */
+    suspend fun answerGrant(threadId: String, messageId: String, granted: Boolean): Boolean =
+        perform { it.answerGrant(threadId, messageId, if (granted) "granted" else "refused") }
+
+    /**
+     * "Not now" on the proactive add-a-helper-key suggestion. Adding the key
+     * itself stays on the computer, whose settings own the decision-model keys.
+     */
+    suspend fun dismissHelperSuggestion(threadId: String, messageId: String): Boolean =
+        perform { it.dismissHelperSuggestion(threadId, messageId) }
+
+    /**
      * The two buttons on an approval notification, resolved against the newest
      * pending card on [threadId].
      *
