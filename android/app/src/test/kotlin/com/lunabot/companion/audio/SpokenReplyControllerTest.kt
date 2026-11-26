@@ -375,6 +375,60 @@ class SpokenReplyControllerTest {
         assertEquals(listOf("api_key=«redacted 12 chars»"), prepared)
     }
 
+    @Test
+    fun aRefusedSpeechClaimNeverReachesPrepareOrPlayback() = runTest {
+        val speech = FakeSpeech()
+        var prepareCalls = 0
+        val claims = mutableListOf<Pair<String, String?>>()
+        val controller = SpokenReplyController(
+            scope = backgroundScope,
+            events = MutableSharedFlow(),
+            liveCalls = MutableSharedFlow(),
+            probeLiveCallActive = { false },
+            prepareSpeech = { _, _ ->
+                prepareCalls += 1
+                PreparedSpeech(ready = true, utterances = listOf("u"))
+            },
+            synthesizeSpeech = { text, _ -> text.encodeToByteArray() },
+            speech = speech,
+            claimSpeech = { threadId, turnId ->
+                claims += threadId to turnId
+                false
+            },
+        )
+        controller.start()
+
+        controller.enqueue(cue("m1").copy(turnId = "turn-1"))
+        testScheduler.runCurrent()
+
+        assertEquals(listOf<Pair<String, String?>>("thread-1" to "turn-1"), claims)
+        assertEquals(0, prepareCalls)
+        assertEquals(0, speech.speakCalls)
+    }
+
+    @Test
+    fun muteGatesDriveTheReplySpeechAvailabilityCallback() = runTest {
+        val availability = mutableListOf<Boolean>()
+        val controller = SpokenReplyController(
+            scope = backgroundScope,
+            events = MutableSharedFlow(),
+            liveCalls = MutableSharedFlow(),
+            probeLiveCallActive = { false },
+            prepareSpeech = { _, _ -> PreparedSpeech(ready = true, utterances = listOf("u")) },
+            synthesizeSpeech = { text, _ -> text.encodeToByteArray() },
+            speech = FakeSpeech(),
+            speechAvailabilityChanged = { availability += it },
+        )
+        controller.start()
+
+        controller.setRecordingActive(true)
+        controller.setVoiceNoteActive(true)
+        controller.setRecordingActive(false)
+        controller.setVoiceNoteActive(false)
+
+        assertEquals(listOf(false, true), availability)
+    }
+
     private class FakeSpeech : SpokenReplySpeech {
         val played = mutableListOf<ByteArray>()
         var speakCalls = 0

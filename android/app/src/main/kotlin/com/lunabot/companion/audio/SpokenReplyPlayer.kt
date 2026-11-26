@@ -14,6 +14,7 @@ import com.lunabot.companion.core.holdsPotentialCredential
 import com.lunabot.companion.core.redactSecretsForSpeech
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
@@ -71,6 +72,8 @@ class SpokenReplyController(
     private val prepareSpeech: suspend (String, String?) -> PreparedSpeech,
     private val synthesizeSpeech: suspend (String, String?) -> ByteArray,
     private val speech: SpokenReplySpeech,
+    private val claimSpeech: suspend (String, String?) -> Boolean = { _, _ -> true },
+    private val speechAvailabilityChanged: (Boolean) -> Unit = {},
 ) {
     private val utterances = Channel<PendingUtterance>(Channel.UNLIMITED)
     private val lock = Any()
@@ -117,12 +120,14 @@ class SpokenReplyController(
     private fun setLiveCallActive(active: Boolean) = setGate(MuteGate.LIVE_CALL, active)
 
     private fun setGate(gate: MuteGate, active: Boolean) {
-        val silence = synchronized(lock) {
+        val transition = synchronized(lock) {
             val wasMuted = muteGates.isNotEmpty()
             if (active) muteGates += gate else muteGates -= gate
-            !wasMuted && muteGates.isNotEmpty()
-        }
-        if (silence) silence()
+            val nowMuted = muteGates.isNotEmpty()
+            if (wasMuted == nowMuted) null else !nowMuted
+        } ?: return
+        speechAvailabilityChanged(transition)
+        if (!transition) silence()
     }
 
     private fun muted(): Boolean = synchronized(lock) { muteGates.isNotEmpty() }
@@ -256,6 +261,11 @@ class SpokenReplyController(
                         }
                     }
                     if (shouldProbePrepare && liveCallActiveSafely()) {
+                        cancelTurn(turn)
+                        break
+                    }
+
+                    if (!claimSpeech(turn.threadId, turn.turnId)) {
                         cancelTurn(turn)
                         break
                     }
@@ -415,8 +425,8 @@ class SpokenReplyController(
 /** 应用级自动朗读播放器：进程前台才出声，通话和语音条共用系统音频焦点。 */
 class SpokenReplyPlayer(
     context: Context,
-    session: Session,
-    scope: CoroutineScope,
+    private val session: Session,
+    private val scope: CoroutineScope,
     processLifecycle: Lifecycle = ProcessLifecycleOwner.get().lifecycle,
 ) : DefaultLifecycleObserver {
     private val speaker = CallSpeaker(context)
@@ -432,16 +442,32 @@ class SpokenReplyPlayer(
                 speaker.speak(clips, shouldStart)
             override fun stop() = speaker.stop()
         },
+        claimSpeech = session::claimReplySpeech,
+        speechAvailabilityChanged = {
+            speechAvailable = it
+            if (!it) scope.launch { session.reportReplySpeechListener(false) }
+        },
     )
+
+    @Volatile private var speechAvailable = true
+    @Volatile private var foreground = processLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
     init {
         processLifecycle.addObserver(this)
-        if (!processLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+        if (!foreground) {
             controller.onAppBackgrounded()
         }
     }
 
-    fun start() = controller.start()
+    fun start() {
+        controller.start()
+        scope.launch {
+            while (true) {
+                if (foreground && speechAvailable) session.reportReplySpeechListener(true)
+                delay(8_000)
+            }
+        }
+    }
 
     fun setCallActive(active: Boolean) = controller.setCallActive(active)
 
@@ -451,7 +477,15 @@ class SpokenReplyPlayer(
 
     fun setVoicePreviewActive(active: Boolean) = controller.setVoicePreviewActive(active)
 
-    override fun onStart(owner: LifecycleOwner) = controller.onAppForegrounded()
+    override fun onStart(owner: LifecycleOwner) {
+        foreground = true
+        controller.onAppForegrounded()
+        scope.launch { session.reportReplySpeechListener(speechAvailable) }
+    }
 
-    override fun onStop(owner: LifecycleOwner) = controller.onAppBackgrounded()
+    override fun onStop(owner: LifecycleOwner) {
+        foreground = false
+        controller.onAppBackgrounded()
+        scope.launch { session.reportReplySpeechListener(false) }
+    }
 }

@@ -272,6 +272,8 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
 
   // The harness records only the owner's activation; a guest's is answered and
   // dropped.
+  { method: "POST", path: /^\/api\/tts\/reply-listener$/ },
+  { method: "POST", path: /^\/api\/tts\/reply-claim$/ },
   { method: "POST", path: /^\/api\/presence\/active$/ },
 
   // Webhook management stays denied below.
