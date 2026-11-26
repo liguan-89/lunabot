@@ -130,6 +130,23 @@ afterEach(async () => {
 });
 
 describe("DataPanel", () => {
+  it("is read-only over the companion connection: no edit, no run, a note instead", async () => {
+    vi.stubGlobal("ogb", { remoteClient: { active: true } });
+    fixture.sheets.pepper = sheet([card("orders", {})]);
+    render();
+    await settle();
+    expect(host.textContent).toContain("read-only");
+    expect(editorView().state.readOnly).toBe(true);
+    expect(editorView().state.facet(EditorView.editable)).toBe(false);
+    // Even if a change reaches the editor somehow, the panel swallows it:
+    // no run request ever leaves for the host.
+    type("select dropped");
+    await pause(LIVE_RUN_DELAY_MS + 10);
+    await settle();
+    expect(runRequests()).toEqual([]);
+    expect(cancelButton()).toBeUndefined();
+  });
+
   it("shares only the mounted selection and its unsaved draft with chat", async () => {
     fixture.sheets.pepper = sheet([card("old", {}), card("orders", {})]);
     render();

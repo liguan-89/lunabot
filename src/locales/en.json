@@ -7114,7 +7114,7 @@
   "data.history": "History",
   "data.latest": "Latest result",
   "data.openResult": "Open in Data",
-  "data.openInWorkspace": "Open this result in the desktop app. Data viewing is not yet available over the companion connection.",
+  "data.remoteReadOnly": "Data is read-only over the companion connection. Run SQL and export on the host computer.",
   "data.resultUnavailable": "This result is no longer available. Choose another result from History.",
   "data.view.chart": "Chart",
   "data.view.table": "Table",

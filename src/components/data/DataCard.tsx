@@ -67,6 +67,7 @@ export function ExportMenu({ formats, busy, onExport, onCopyMarkdown }: { format
     csv: t("data.card.exportCsv"), parquet: t("data.card.exportParquet"), xlsx: t("data.card.exportXlsx"), png: t("data.card.exportPng"), svg: "SVG",
   };
   const close = (event: ReactMouseEvent<HTMLElement>) => event.currentTarget.closest("details")?.removeAttribute("open");
+  if (formats.length === 0 && !onCopyMarkdown) return null;
   return (
     <details className="relative">
       <summary role="button" className={cn(action, "list-none cursor-pointer [&::-webkit-details-marker]:hidden")} aria-label={t("data.card.export")} title={t("data.card.export")}>
@@ -83,6 +84,9 @@ export function ExportMenu({ formats, busy, onExport, onCopyMarkdown }: { format
 }
 
 export function DataCard({ bot, card, theme, controls, running, onCancel }: DataCardProps) {
+  // Over the companion connection a query cannot be cancelled and an export
+  // cannot be written on the host; copying rows is the viewer's own clipboard.
+  const remote = window.ogb?.remoteClient?.active === true;
   const grid = useRef<DataGridHandle | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
   const target = useMemo(() => ({ cardId: card.id }), [card.id]);
@@ -97,7 +101,8 @@ export function DataCard({ bot, card, theme, controls, running, onCancel }: Data
     : null;
 
   const actions = <>
-    {(card.status === "running" || running) && <RunningStatus onCancel={onCancel} />}
+    {!remote && (card.status === "running" || running) && <RunningStatus onCancel={onCancel} />}
+    {remote && (card.status === "running" || running) && <span className="flex items-center gap-2 text-[12px] text-ink-secondary" role="status"><Loader2 size={13} className="animate-spin" aria-hidden="true" />{t("data.card.running")}</span>}
     {card.status === "ready" && card.kind === "chart" && card.vegaLite && (
       <div className="flex items-center rounded-lg border border-hairline/50 p-0.5">
         {(["chart", "table"] as const).map((mode) => (
@@ -107,7 +112,7 @@ export function DataCard({ bot, card, theme, controls, running, onCancel }: Data
     )}
     {card.status === "ready" && card.kind !== "text" && (
       <ExportMenu busy={exporter.busy} onExport={(format) => void exporter.exportAs(format)}
-        formats={card.kind === "chart" ? ["png", "svg", "csv"] : ["csv", "parquet", "xlsx"]}
+        formats={remote ? [] : card.kind === "chart" ? ["png", "svg", "csv"] : ["csv", "parquet", "xlsx"]}
         onCopyMarkdown={card.kind === "table" || view === "table" ? () => void exporter.copyMarkdown() : undefined} />
     )}
     {exporter.notice && <span role={exporter.notice.kind} className={cn("absolute inset-x-0 bottom-full z-10 truncate border-t border-hairline/40 bg-card px-3 py-1 text-[11px]", exporter.notice.kind === "alert" ? "text-danger" : "text-ink-secondary")} title={exporter.notice.text}>{exporter.notice.text}</span>}
