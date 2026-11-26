@@ -89,7 +89,6 @@ function setup(overrides: Partial<WarmSummaryHostDeps> = {}, options: { tokens?:
     routines: () => ({ listRoutines: () => [], listRuns: () => [] }),
     fold,
     book,
-    keepWarmUntil: () => undefined,
     now: () => now,
     after: (ms, fn) => {
       const timer = { at: now + ms, fn, cancelled: false };
@@ -214,14 +213,11 @@ describe("warm summaries for a Claude conversation", () => {
   });
 
   it("keeps the conversation's process alive while the person has it open, and starts a summary the next turn needs", async () => {
-    const f = setup({ keepWarmUntil: () => 5_000_000 + 3 * 60 * 60_000 }, { tokens: 170_000 });
+    const f = setup({}, { tokens: 170_000 });
     f.finishTurn();
     f.host.sawThread("t1");
     await f.advance(0);
     expect(f.compactCalls).toHaveLength(1);
-    expect(f.holds).toEqual([{ threadId: "t1", until: 5_000_000 + 3 * 60 * 60_000 }]);
-    const g = setup();
-    g.host.sawThread("t1");
-    expect(g.holds).toEqual([{ threadId: "t1", until: g.now() + PRESENCE_HOLD_MS }]);
+    expect(f.holds).toEqual([{ threadId: "t1", until: f.now() + PRESENCE_HOLD_MS }]);
   });
 });

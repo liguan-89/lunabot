@@ -60,19 +60,19 @@ describe("engine homes at run time", () => {
     expect(existsSync(join(dataDir, "engine-homes", ".migrated"))).toBe(true);
   });
 
-  it("wrap every turn, keep-warm ping and warm summary in its conversation", async () => {
+  it("wrap every turn and warm summary in its conversation", async () => {
     const homes = new EngineHomes();
     homes.start(setup());
     const seen: Array<string | null> = [];
     const instance = withEngineHomes({ adapter: {
       sendTurn: async () => { await new Promise((resolve) => setTimeout(resolve, 1)); seen.push(homes.scope()); return { turnId: "x" }; },
       cacheKeepWarm: {
-        ping: async () => { seen.push(homes.scope()); return { ok: false, reason: "test" }; }, hold: () => false,
+        hold: () => false,
         compact: async () => { seen.push(homes.scope()); return { ok: false, reason: "test" }; },
       },
     } } as unknown as ProviderInstance, homes);
     await instance.adapter.sendTurn({ threadId: "t-bob", text: "hi" });
-    await instance.adapter.cacheKeepWarm!.ping("t-main");
+    await instance.adapter.sendTurn({ threadId: "t-main", text: "hi" });
     await instance.adapter.cacheKeepWarm!.compact!("t-owner", { instructions: "" });
     expect(seen).toEqual([expect.stringMatching(/^member-[0-9a-f]{16}$/), "team", expect.stringMatching(/^member-[0-9a-f]{16}$/)]);
     expect(seen[2]).not.toBe(seen[0]);
@@ -80,8 +80,8 @@ describe("engine homes at run time", () => {
 });
 
 posix("a bot's engine spawned on a Team Cloud", () => {
-  const homeOf = (owner: "bot" | "lunabot", options: { engineHome?: boolean } = {}) => new Promise<string>((resolve, reject) => {
-    const child = spawnCli("/bin/sh", ["-c", 'printf %s "$HOME"'], { env: { PATH: "/usr/bin:/bin", HOME: home }, stdio: ["ignore", "pipe", "pipe"], ...options }, owner);
+  const homeOf = (owner: "bot" | "lunabot") => new Promise<string>((resolve, reject) => {
+    const child = spawnCli("/bin/sh", ["-c", 'printf %s "$HOME"'], { env: { PATH: "/usr/bin:/bin", HOME: home }, stdio: ["ignore", "pipe", "pipe"] }, owner);
     let out = "";
     child.stdout.on("data", (chunk) => { out += chunk; });
     child.once("error", reject);
@@ -93,7 +93,6 @@ posix("a bot's engine spawned on a Team Cloud", () => {
     expect(await engineHomes.within("t-bob", () => homeOf("bot"))).toBe(audienceHome(dataDir, "member:p_bob"));
     expect(await engineHomes.within("t-main", () => homeOf("bot"))).toBe(audienceHome(dataDir, "team"));
     expect(await engineHomes.within("t-bob", () => homeOf("lunabot"))).toBe(home);
-    expect(await engineHomes.within("t-bob", () => homeOf("lunabot", { engineHome: true }))).toBe(audienceHome(dataDir, "member:p_bob"));
     expect(await homeOf("bot")).toBe(home);
     engineHomes.stop();
     expect(await engineHomes.within("t-bob", () => homeOf("bot"))).toBe(home);

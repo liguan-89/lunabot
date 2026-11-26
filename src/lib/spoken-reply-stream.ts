@@ -40,6 +40,22 @@ export function speechOwner(state: SpeechGateState, threadId: string): SpokenRep
   return { botId: owner.id, voiceId: owner.voice };
 }
 
+/** Claims this device as the one automatic reply speaker for a turn. Network failure is fail-open: arbitration must not silence the only working client. */
+export async function claimReplySpeech(threadId: string, turnId: string | undefined): Promise<boolean> {
+  try {
+    const res = await fetch("/api/tts/reply-claim", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ threadId, turnId }),
+    });
+    return res.ok;
+  } catch {
+    return true;
+  }
+}
+
+export type ReplySpeechClaim = (threadId: string, turnId: string | undefined) => Promise<boolean>;
+
 /** The Speaker surface this stream drives. */
 export interface ReplySpeechSink {
   begin(opts: { botId?: string; voiceId?: string; messageId?: string }): SpeechStream;
@@ -79,7 +95,7 @@ const sameTurn = (turn: TurnSpeech, turnId: string | undefined): boolean =>
 export class SpokenReplyStream {
   private readonly turns = new Map<string, TurnSpeech>();
 
-  constructor(private readonly speech: ReplySpeechSink) {}
+  constructor(private readonly speech: ReplySpeechSink, private readonly claim: ReplySpeechClaim = async () => true) {}
 
   onRuntimeEvent(event: RuntimeEvent, owner: SpokenReplyOwner | null): void {
     if (event.type === "turn.started") {
@@ -192,6 +208,14 @@ export class SpokenReplyStream {
     this.pump(current);
   }
 
+  private withdraw(turn: TurnSpeech): void {
+    if (this.turns.get(turn.threadId) === turn) this.turns.delete(turn.threadId);
+    turn.ended = true;
+    turn.authoritative = null;
+    turn.dirty = false;
+    turn.stream.cancel();
+  }
+
   /** One sequential loop per turn: prepares and pushes stay in arrival order. */
   private pump(turn: TurnSpeech): void {
     if (turn.pumping) {
@@ -213,6 +237,10 @@ export class SpokenReplyStream {
             turn.buffer = turn.buffer.slice(turn.authoritativeCut);
             turn.authoritativeCut = 0;
             if (turn.buffer) turn.dirty = true;
+            if (!await this.claim(turn.threadId, turn.turnId)) {
+              this.withdraw(turn);
+              break;
+            }
             const blocks = await turn.stream.prepare(speakableStreamText(text));
             let resume = 0;
             while (resume < spoken.length && resume < blocks.length && spoken[resume] === blocks[resume]) resume += 1;
@@ -224,6 +252,10 @@ export class SpokenReplyStream {
           }
           if (turn.dirty && !turn.ended) {
             turn.dirty = false;
+            if (!await this.claim(turn.threadId, turn.turnId)) {
+              this.withdraw(turn);
+              break;
+            }
             const blocks = await turn.stream.prepare(speakableStreamText(turn.buffer));
             const closed = blocks.slice(0, -1);
             for (const block of closed.slice(turn.spoken.length)) turn.stream.push(block);
@@ -246,4 +278,4 @@ export class SpokenReplyStream {
   }
 }
 
-export const spokenReplyStream = new SpokenReplyStream(speaker);
+export const spokenReplyStream = new SpokenReplyStream(speaker, claimReplySpeech);

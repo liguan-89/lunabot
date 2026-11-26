@@ -209,7 +209,7 @@ export class E2ERegistry {
     this.#devices.markE2E(deviceId);
   }
 
-  /** Removal: the phone hears 4001 ("removed from your computer"). A narrowed route closes only relay sessions. */
+  /** Removal: the phone hears GoAway(3) inside the tunnel, then the 4001 close. A narrowed route closes only relay sessions. */
   closeDevice(deviceId: string, code: number = CLOSE.rejected, onlyRoute?: LiveRoute): void {
     for (const live of this.#live) {
       if (live.context.peer.kind !== "device" || live.context.peer.id !== deviceId) continue;

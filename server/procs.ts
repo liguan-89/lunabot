@@ -216,8 +216,6 @@ export type CliOwner = "bot" | "lunabot";
  * paths or the host's network, and `false` keeps a spawn out of it. */
 export interface BoxSpawnOptions {
   box?: boolean | Pick<BoxRequest, "rw" | "ro" | "net" | "botId" | "botThreads" | "allowEnv" | "relay" | "configured">;
-  /** On a Team Cloud, runs in its conversation's engine home though it is not a bot's engine (a keep-warm ping). */
-  engineHome?: boolean;
   /** A bot's own work that is not its engine (its browser, a helper engine): memory runs out on it first, as on a `bot`
    * spawn (oom-score.ts), with no box and no engine tracking. */
   botWork?: boolean;
@@ -258,10 +256,10 @@ export function spawnCli(
 ): ChildProcessByStdio<Writable, Readable, Readable> {
   const resolved = resolveCli(cli, args);
   assertSafeCliArgv(resolved);
-  const homed = owner === "bot" || opts.engineHome ? engineHomes.forSpawn(opts.env ?? process.env) : null;
+  const homed = owner === "bot" ? engineHomes.forSpawn(opts.env ?? process.env) : null;
   const options: CliSpawnOptions = homed ? { ...opts, env: homed.env } : opts;
   const boxed = boxedSpawn(resolved, options, owner, homed);
-  const { box: _box, engineHome: _engineHome, botWork, ...spawnOpts } = boxed ? options : outsideBoxOptions(resolved.command, options);
+  const { box: _box, botWork, ...spawnOpts } = boxed ? options : outsideBoxOptions(resolved.command, options);
   // The box's extra descriptors (its seccomp filter) follow stdio; only a plain three-entry stdio can take them.
   const stdio = boxed?.extraFds.length && Array.isArray(spawnOpts.stdio) && spawnOpts.stdio.length === 3 ? [...spawnOpts.stdio, ...boxed.extraFds] : spawnOpts.stdio;
   const start = () => spawn(boxed?.command ?? resolved.command, boxed?.args ?? resolved.args, {
@@ -384,30 +382,6 @@ export function execCli(
 
 function cutOffError(cli: string, timeout: number | undefined): Error {
   return Object.assign(new Error(`${cli} timed out after ${timeout} ms`), { killed: true, code: null, signal: null });
-}
-
-export const CLI_VERSION_TIMEOUT_MS = 30_000;
-
-export function cliVersionReader(cli: string): (err: Error | null, stdout: string) => { version: string } | { reason: string } {
-  let last: string | null = null;
-  return (err, stdout) => {
-    const version = err ? "" : stdout.trim();
-    if (version) return { version: (last = version) };
-    const failure = err as (NodeJS.ErrnoException & { killed?: boolean }) | null;
-    const timedOut = failure?.killed === true && typeof failure.code !== "string";
-    if (failure?.code === "ENOENT") {
-      last = null;
-      return { reason: `\`${cli}\` CLI not found` };
-    }
-    if (failure?.code === "EACCES" || failure?.code === "EPERM") {
-      last = null;
-      return { reason: `\`${cli}\` could not run --version. Check its file permissions.` };
-    }
-    if (last && (timedOut || !err || typeof failure?.code === "number")) return { version: last };
-    return { reason: timedOut
-      ? `\`${cli}\` took longer than ${CLI_VERSION_TIMEOUT_MS / 1000} seconds to answer --version. The machine may be busy; check again.`
-      : !err ? `\`${cli}\` returned no version. Check again.` : `\`${cli}\` could not report its version. Check that it starts in a terminal, then check again.` };
-  };
 }
 
 /** Node reports a missing cwd as the CLI's own ENOENT, so pass `cwd` to tell a moved folder from a missing CLI. */

@@ -15,6 +15,9 @@ class OkHttpE2eConnectorTest {
             "ws://172.31.255.254:8810/v1/e2e",
             "ws://127.0.0.1:8810/v1/e2e",
             "ws://169.254.10.20:8810/v1/e2e",
+            "ws://[fd7a:115c:a1e0::1]:8810/v1/e2e",
+            "ws://[::1]:8810/v1/e2e",
+            "ws://[fe80::1]:8810/v1/e2e",
         )) {
             assertTrue(OkHttpE2eConnector.isLanDial(url), url)
         }
@@ -22,7 +25,7 @@ class OkHttpE2eConnectorTest {
         for (url in listOf(
             "wss://cloud.dexai.vip/v1/phone",
             "ws://mac.tail1234.ts.net:8810/v1/e2e",
-            "ws://[fd7a:115c:a1e0::1]:8810/v1/e2e",
+            "ws://[2606:4700:4700::1111]:8810/v1/e2e",
             "ws://172.32.0.1:8810/v1/e2e",
             "ws://192.169.1.42:8810/v1/e2e",
             "ws://192.168.1.999:8810/v1/e2e",

@@ -11,6 +11,10 @@ import { browserFixture } from "./testing/fake-browser-fixture.ts";
 // three-digit code would stay in a careless reply's transcript.
 const PAN = "4242424242424242";
 const CVC = "9876";
+// Timestamps in the asserted JSON are 13-digit runs that can embed any four digits by
+// coincidence (epoch 1795630598763 contains this CVC). A real leak surfaces the CVC as a
+// complete value, never flanked by more digits.
+const CVC_LEAK = new RegExp(`(?<![0-9])${CVC}(?![0-9])`);
 const CHECKOUT = `
   <form action="/pay" method="post">
     <label>Card number <input id="num" name="cardNumber" autocomplete="cc-number"></label>
@@ -33,7 +37,7 @@ it.skipIf(process.platform === "win32")("fill_payment waits on the spend card, t
     const added = await api("POST", "/api/payment-cards", { name: "Smoke Visa", pan: PAN, expiry: "12/2030", cvc: CVC, holder: "Ada Lovelace" });
     expect(added).toMatchObject({ status: 200, body: { card: { name: "Smoke Visa", last4: "4242", brand: "visa" } } });
     expect(added.text).not.toContain(PAN);
-    expect(added.text).not.toContain(CVC);
+    expect(added.text).not.toMatch(CVC_LEAK);
 
     writeFileSync(browser.planPath, JSON.stringify({ [bot.id]: { turns: [
       { steps: [{ tool: "fill_payment", arguments: {}, expectError: true }], reply: "You said no, so I paid nothing." },
@@ -51,7 +55,7 @@ it.skipIf(process.platform === "win32")("fill_payment waits on the spend card, t
     expect(deny.card.subtitle).toContain("Smoke Visa ····4242");
     expect(deny.card.subtitle).toContain("shop.example.com");
     expect(JSON.stringify(deny.card)).not.toContain(PAN);
-    expect(JSON.stringify(deny.card)).not.toContain(CVC);
+    expect(JSON.stringify(deny.card)).not.toMatch(CVC_LEAK);
 
     const refused = await api("POST", `/api/bots/${bot.id}/respond`, { threadId: bot.threadId, requestId: deny.card.requestId, behavior: "deny" });
     expect(refused.status).toBe(200);
@@ -78,19 +82,19 @@ it.skipIf(process.platform === "win32")("fill_payment waits on the spend card, t
 
     // The secrets went through the input relay only: no engine command, plan evidence, card or transcript carries them.
     expect(JSON.stringify(browser.engineArgs)).not.toContain(PAN);
-    expect(JSON.stringify(browser.engineArgs)).not.toContain(CVC);
+    expect(JSON.stringify(browser.engineArgs)).not.toMatch(CVC_LEAK);
     expect(JSON.stringify(evidence())).not.toContain(PAN);
-    expect(JSON.stringify(evidence())).not.toContain(CVC);
+    expect(JSON.stringify(evidence())).not.toMatch(CVC_LEAK);
     const transcript = JSON.stringify(await messages());
     expect(transcript).not.toContain(PAN);
-    expect(transcript).not.toContain(CVC);
+    expect(transcript).not.toMatch(CVC_LEAK);
     const reply = (await messages()).find((message) => message.role === "bot" && String(message.text).startsWith("Filled."));
     expect(reply.text).toBe("Filled. The card was •••••• ••••••.");
     expect(readFileSync(join(browser.fixture.info.dataDir, "payment-cards.json.enc")).includes(Buffer.from(PAN))).toBe(false);
     const cards = await api("GET", "/api/payment-cards");
     expect(cards.body.cards).toEqual([expect.objectContaining({ name: "Smoke Visa", last4: "4242" })]);
     expect(cards.text).not.toContain(PAN);
-    expect(cards.text).not.toContain(CVC);
+    expect(cards.text).not.toMatch(CVC_LEAK);
   } finally {
     await browser.close();
   }

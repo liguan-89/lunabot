@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConfigStatus } from "@/state/store";
 import { cacheDesktopCapabilities, initialDesktopCapabilities } from "./desktop";
 import { createEndpointer, fishSpeech } from "./fish-speech";
-import { CALL_ENDPOINT_MS, fishListeningReady, listensHere, speechBridge } from "./speech";
+import { CALL_ENDPOINT_MS, listensHere, serverListeningReady, speechBridge } from "./speech";
 
 const withDictation = (dictation: DesktopCapabilities["dictation"]): DesktopCapabilities =>
   ({ ...initialDesktopCapabilities(), dictation });
@@ -37,10 +37,22 @@ describe("speechBridge", () => {
 
 describe("listening readiness", () => {
   it("needs a saved Fish Audio key to listen through Fish Audio", () => {
-    expect(fishListeningReady(savedFish)).toBe(true);
-    expect(fishListeningReady(null)).toBe(false);
+    expect(serverListeningReady(savedFish)).toBe(true);
+    expect(serverListeningReady(null)).toBe(false);
     expect(listensHere(withDictation(FISH), savedFish)).toBe(true);
     expect(listensHere(withDictation(FISH), null)).toBe(false);
+  });
+
+  it("also listens through the active Volc or Qwen voice engine's shared live credential", () => {
+    const volc = { tts: { configured: true, ready: true, voice: "voice", provider: "volc" } } as unknown as ConfigStatus;
+    const qwen = { tts: { configured: true, ready: true, voice: "voice", provider: "qwen" } } as unknown as ConfigStatus;
+    const missing = { tts: { configured: false, ready: false, voice: "", provider: "qwen" } } as unknown as ConfigStatus;
+
+    expect(serverListeningReady(volc)).toBe(true);
+    expect(serverListeningReady(qwen)).toBe(true);
+    expect(serverListeningReady(missing)).toBe(false);
+    expect(listensHere(withDictation(FISH), volc)).toBe(true);
+    expect(listensHere(withDictation(FISH), missing)).toBe(false);
   });
 
   it("needs no key for the Mac's own recognizer, and nothing where dictation is unavailable", () => {

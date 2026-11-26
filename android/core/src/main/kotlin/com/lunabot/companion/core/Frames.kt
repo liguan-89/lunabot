@@ -50,6 +50,8 @@ data class RuntimeEvent(
     val threadId: String,
     val delta: String? = null,
     val streamKind: String? = null,
+    val turnId: String? = null,
+    val ok: Boolean? = null,
 )
 
 @Serializable(with = FrameSerializer::class)
@@ -78,7 +80,7 @@ sealed interface Frame {
     data class LiveCall(
         val botId: String,
         val threadId: String,
-        val call: com.lunabot.companion.core.LiveCallRecord?,
+        val call: com.lunabot.companion.core.LiveCallState?,
     ) : Frame
     /** The computer lease changed, possibly from another device. */
     data class ComputerControl(val botId: String, val held: Boolean, val helpReason: String?) : Frame
@@ -183,7 +185,7 @@ object FrameSerializer : KSerializer<Frame> {
                 threadId = objectValue["threadId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
                 call = objectValue["call"]?.let { element ->
                     runCatching {
-                        input.json.decodeFromJsonElement(LiveCallRecord.serializer(), element)
+                        input.json.decodeFromJsonElement(LiveCallState.serializer(), element)
                     }.getOrNull()
                 },
             )
@@ -358,7 +360,7 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
             put("kind", "live.call")
             put("botId", botId)
             put("threadId", threadId)
-            call?.let { put("call", output.json.encodeToJsonElement(LiveCallRecord.serializer(), it)) }
+            call?.let { put("call", output.json.encodeToJsonElement(LiveCallState.serializer(), it)) }
         }
         is Frame.ComputerControl -> {
             put("kind", "computer-control")

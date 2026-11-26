@@ -703,6 +703,24 @@ class CompanionClient(
         return raw.data
     }
 
+    /** 手机前台可朗读时在电脑登记；失败静默，因为这只是双端仲裁心跳。 */
+    suspend fun reportReplySpeechListener(active: Boolean) {
+        sendUnit(makeRequest("POST", "/api/tts/reply-listener", body = buildJsonObject { put("active", active) }))
+    }
+
+    /** 自动朗读一个 turn 前认领它；409 表示另一端已经负责，其他错误照常抛出。 */
+    suspend fun claimReplySpeech(threadId: String, turnId: String?): Boolean {
+        val raw = perform(makeRequest("POST", "/api/tts/reply-claim", body = buildJsonObject {
+            put("threadId", threadId)
+            if (!turnId.isNullOrEmpty()) put("turnId", turnId)
+        }))
+        if (raw.code == 409) return false
+        // 旧电脑还没有仲裁接口：退回上一版行为，不能让新手机失声。
+        if (raw.code == 404) return true
+        check(raw)
+        return true
+    }
+
     /**
      * One voice clip heard by the computer's ASR provider: the raw WAV goes
      * up as the body, `{text}` comes back. The upload client because a minute
@@ -737,23 +755,15 @@ class CompanionClient(
         ),
     )
 
-    /**
-     * Store (or, with an empty string, remove) the workspace's ElevenLabs key.
-     * The companion forwards only this shape, and the server checks a
-     * non-empty key against the provider before saving it; the key itself
-     * never comes back in any response.
-     */
-    suspend fun updateVoiceKey(key: String) {
-        val trimmed = key.trim()
-        if (trimmed.toByteArray().size > 512 || trimmed.any(Char::isISOControl)) {
-            throw APIError.Transport("这看起来不像有效的 API 密钥。")
-        }
-        sendUnit(makeRequest("PUT", "/api/config", body = buildJsonObject {
-            put("tts", buildJsonObject { put("key", trimmed) })
-        }))
-    }
+    @Serializable
+    private data class LiveCallResponse(val call: LiveCallState? = null)
 
-    /** Pick the voice engine: "elevenlabs" or "system". */
+    /** 电脑当前是否有 Live 通话；只读状态，不含语音内容或密钥。 */
+    suspend fun liveCall(): LiveCallState? = send<LiveCallResponse>(
+        makeRequest("GET", "/api/live/call"),
+    ).call
+
+    /** 切换语音引擎；请求体必须正好是 companion 窄写口允许的形状。 */
     suspend fun updateVoiceProvider(provider: String) {
         sendUnit(makeRequest("PUT", "/api/config", body = buildJsonObject {
             put("tts", buildJsonObject { put("provider", provider) })

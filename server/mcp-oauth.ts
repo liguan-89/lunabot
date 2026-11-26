@@ -68,6 +68,7 @@ interface Flow {
   client: ClientAuth;
   meta: McpAuthMetadata;
   server: Server | null;
+  closing: Promise<void> | null;
   consumed: boolean;
   expiry: ReturnType<typeof setTimeout>;
 }
@@ -531,7 +532,12 @@ export class McpOAuthManager {
 
   private async begin(name: string, url: string, starting: StartingFlow, wwwAuthenticate?: string | null): Promise<McpSignInStatus> {
     const previous = this.flows.get(name);
-    if (previous) this.finish(previous, "cancelled", "Sign-in cancelled.");
+    if (previous) {
+      const cancelling = previous.status.phase === "waiting";
+      this.finish(previous, "cancelled", "Sign-in cancelled.");
+      if (cancelling) previous.server?.closeAllConnections();
+      await previous.closing;
+    }
     const meta = await discoverMcpAuth(url, wwwAuthenticate ?? await this.challenge(url));
     if (!meta) throw new McpOAuthError("not-oauth", "This server does not offer an OAuth sign-in. Add its token as a header instead.");
     const registered = this.clients(name, url);
@@ -598,7 +604,7 @@ export class McpOAuthManager {
       ...(server && starting.browser.remote ? { pasteBack: true } : {}),
     };
     const flow: Flow = {
-      owner: starting.owner, name, url, status, state, verifier, redirectUri, client, meta, server, consumed: false,
+      owner: starting.owner, name, url, status, state, verifier, redirectUri, client, meta, server, closing: null, consumed: false,
       expiry: setTimeout(() => this.finish(flow, "expired", "Sign-in expired. Start again."), this.lifetimeMs),
     };
     flow.expiry.unref();
@@ -707,8 +713,11 @@ export class McpOAuthManager {
   private finish(flow: Flow, phase: McpSignInPhase, message?: string): void {
     if (flow.status.phase !== "waiting") return;
     clearTimeout(flow.expiry);
-    flow.server?.close();
-    flow.server?.closeIdleConnections();
+    if (flow.server && !flow.closing) {
+      const server = flow.server;
+      flow.closing = new Promise((resolve) => server.close(() => resolve()));
+      server.closeIdleConnections();
+    }
     flow.status = { ...flow.status, phase, authorizationUrl: null, ...(message ? { message } : {}) };
     if (this.disposed) return;
     // A listener's fault must neither escape the expiry timer nor turn a sign-in already stored into a failed callback.

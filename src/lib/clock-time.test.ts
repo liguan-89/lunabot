@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clockOptions, formatTime, namesLocale } from "./clock-time";
-import { formatTime as legacyFormatTime } from "./format-time";
 import { setLocale } from "./i18n";
 import { niceTime } from "./schedule-label";
 
@@ -13,8 +12,7 @@ afterEach(() => {
 });
 
 describe("a time of day", () => {
-  it("shares the active clock with the legacy import and follows language changes", () => {
-    expect(legacyFormatTime).toBe(formatTime);
+  it("follows language changes", () => {
     vi.stubGlobal("navigator", { language: "en-US" });
     const english = new Date(at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     expect(formatTime(at)).toBe(english);

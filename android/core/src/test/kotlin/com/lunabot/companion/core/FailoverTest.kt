@@ -226,6 +226,32 @@ class FailoverTest {
     }
 
     @Test
+    fun tunnelRefusalsNameTheComputerInsteadOfLeakingWireCodes() {
+        val refused = mapOf(
+            "direct_rejected" to "手机访问未响应",
+            "relay_rejected" to "手机访问未响应",
+            "relay_no_data_socket" to "手机访问未响应",
+            "relay_busy" to "无法连接到",
+            "relay_restarting" to "无法连接到",
+            "asleep" to "休眠或离线",
+            "handshake_deadline" to "无法路由到",
+            "no_route" to "无法路由到",
+            "closed_4000" to "无法路由到",
+            "payload2" to "手机访问未响应",
+        )
+        for ((reason, words) in refused) {
+            val message = ConnectionAdvice.message(
+                com.lunabot.companion.core.e2e.NoiseException(reason),
+                "192.168.1.42",
+                8810,
+            )
+            assertTrue(words in message, reason)
+            assertFalse("e2e:" in message, reason)
+            assertFalse(reason in message, reason)
+        }
+    }
+
+    @Test
     fun refusedConnectionPointsAtThePhoneSection() {
         val message = ConnectionAdvice.message(
             ConnectionFailure.CANNOT_CONNECT_TO_HOST,

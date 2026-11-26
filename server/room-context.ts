@@ -18,7 +18,6 @@ type Measured = RoomMemberContext & { instanceId?: string; at: number };
 
 export type RoomContextClock = {
   idleMs?: number;
-  heldUntil?: (threadId: string) => number | undefined;
   now?: () => number;
   expired?: (threadId: string) => void;
 };
@@ -120,8 +119,8 @@ export class RoomContextTracker {
     return this.clock.now?.() ?? Date.now();
   }
 
-  private warmUntil(threadId: string, reading: Measured): number {
-    return Math.max(reading.at + this.idleMs, this.clock.heldUntil?.(threadId) ?? 0);
+  private warmUntil(reading: Measured): number {
+    return reading.at + this.idleMs;
   }
 
   private watch(threadId: string, botId: string, reading: Measured): void {
@@ -129,21 +128,21 @@ export class RoomContextTracker {
     if (!expired) return;
     const check = () => {
       if (this.threads.get(threadId)?.get(botId) !== reading) return;
-      if (this.live(threadId, botId)) return arm(this.warmUntil(threadId, reading) - this.now());
+      if (this.live(threadId, botId)) return arm(this.warmUntil(reading) - this.now());
       expired(threadId);
     };
     const arm = (ms: number) => {
       const timer = setTimeout(check, Math.min(2_147_483_647, Math.max(0, ms)));
       timer.unref?.();
     };
-    arm(this.warmUntil(threadId, reading) - this.now());
+    arm(this.warmUntil(reading) - this.now());
   }
 
   private live(threadId: string, botId: string): Measured | undefined {
     const members = this.threads.get(threadId);
     const current = members?.get(botId);
     if (!members || !current) return undefined;
-    if (this.now() < this.warmUntil(threadId, current)) return current;
+    if (this.now() < this.warmUntil(current)) return current;
     members.delete(botId);
     if (!members.size) this.threads.delete(threadId);
     return undefined;

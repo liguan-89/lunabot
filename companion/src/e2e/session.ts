@@ -237,8 +237,9 @@ export class E2ESession<Id> {
     return this.#mux;
   }
 
-  /** The phone side: the computer said, inside the encryption, that this device was removed. Only this, or a 4001 on
-   * a direct route, means "pair again"; a bare 4001 through the relay may be the relay's own and means "keep trying". */
+  /** The phone side: the computer said, inside the encryption, that this device was removed. Only this GoAway(3)
+   * means "pair again"; a bare 4001 on any route is transient (sidecar busy / pairing window lapsed) and means
+   * "keep trying" (a bare 4001 through the relay may be the relay's own). */
   get removed(): boolean {
     return this.#removed;
   }

@@ -34,6 +34,7 @@ import com.lunabot.companion.ui.CompanionEnvironment
 import com.lunabot.companion.ui.MicPermissionController
 import com.lunabot.companion.ui.NotificationPermissionController
 import com.lunabot.companion.ui.PermissionPreferences
+import com.lunabot.companion.audio.SpokenReplyPlayer
 import com.lunabot.companion.audio.VoicePreviewPlayer
 import com.lunabot.companion.audio.VoiceNotePlayer
 import java.util.concurrent.atomic.AtomicInteger
@@ -165,6 +166,7 @@ class OnboardingScene(
         avatars = AvatarImageStore(fetch = { null }),
         voicePreview = VoicePreviewPlayer(context),
         voiceNotes = VoiceNotePlayer(context),
+        spokenReplies = SpokenReplyPlayer(context, session, scope),
         speechModels = ModelManager(context),
         dictation = SpeechDictation(
             context = context,

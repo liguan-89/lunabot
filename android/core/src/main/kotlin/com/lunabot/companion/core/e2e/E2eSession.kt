@@ -214,10 +214,11 @@ class E2eSession(
         close(0)
     }
 
-    /** What a close code means before any record can flow: a relay refusal is "try the next route", and only a
-     * direct route's 4001 is the owner removing this phone (a relay may write any code it likes). */
+    /** What a close code means before any record can flow: every refusal is "try the next route". Only GoAway(3)
+     * inside the tunnel means the owner removed this phone (see `goAway` above): the sidecar also writes a bare
+     * 4001 when it is busy, its pairing window lapsed, or the handshake never started — all transient. */
     private fun refusalFor(code: Int): String = when {
-        target is E2eTarget.Direct && code == IF_REJECTED -> "removed"
+        target is E2eTarget.Direct && code == IF_REJECTED -> "direct_rejected"
         code == 4404 -> "asleep"
         code == 4408 -> "relay_no_data_socket"
         code == 4429 -> "relay_busy"
@@ -283,7 +284,7 @@ class E2eSession(
         }
 
         override fun ended(streamId: Int) {
-            streams[streamId]?.remoteEnd()
+            streams.remove(streamId)?.remoteEnd()
         }
 
         override fun reset(streamId: Int) {

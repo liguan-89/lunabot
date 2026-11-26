@@ -5,6 +5,7 @@ import android.content.Context
 import com.lunabot.companion.account.CloudAccountApi
 import com.lunabot.companion.account.CloudAccountController
 import com.lunabot.companion.account.CloudAccountStore
+import com.lunabot.companion.audio.SpokenReplyPlayer
 import com.lunabot.companion.audio.VoicePreviewPlayer
 import com.lunabot.companion.audio.VoiceNotePlayer
 import com.lunabot.companion.avatar.AvatarImageStore
@@ -126,6 +127,7 @@ internal class WiringScene(
         avatars = AvatarImageStore(fetch = { null }),
         voicePreview = VoicePreviewPlayer(context),
         voiceNotes = voiceNotes ?: VoiceNotePlayer(context),
+        spokenReplies = SpokenReplyPlayer(context, session, scope),
         speechModels = ModelManager(context),
         dictation = SpeechDictation(
             context = context,

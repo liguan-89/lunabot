@@ -23,11 +23,8 @@
 //   FAKE_CLAUDE_TEXT_FILE  path of the one-shot text reply; missing or exactly __FAIL__ fails the call
 //   FAKE_CLAUDE_TEXT_ROUTES  path of {"marker": "reply"}: the first marker a one-shot prompt contains picks the reply
 //   FAKE_CLAUDE_CACHE_READ_TOKENS  cache_read_input_tokens per model call (default 2)
-//   FAKE_CLAUDE_PING_DUMP  path for a keep-warm ping's {argv, env, prompt, mcpConfig, settings, systemPrompt}
-//   FAKE_CLAUDE_PING_USAGE  JSON usage for a keep-warm ping's result (default: warm read 150000, write 40)
 //   FAKE_CLAUDE_STARTS_MCP  comma list of --mcp-config command servers a fork (`--fork-session`) starts as it launches,
 //     before it answers and whatever its hooks say, as Claude Code 2.1.321 starts every listed one; each runs to its exit
-//   FAKE_CLAUDE_PING_RESULT  raw json result for a keep-warm ping
 //   FAKE_CLAUDE_TEXT_DUMP  FAKE_CLAUDE_DUMP for one-shot text runs
 //   FAKE_CLAUDE_TEXT_LOG  JSON-lines file every one-shot prompt is appended to
 //   FAKE_CLAUDE_TEXT_HANG  set: the one-shot text mode never replies
@@ -437,28 +434,6 @@ if (["text", "json"].includes(argAfter("--output-format") ?? "")) {
       type: "result", subtype: "success", is_error: false, result: "", session_id: forked,
       usage: { input_tokens: 4, cache_read_input_tokens: read, cache_creation_input_tokens: 40, output_tokens: 2400 },
       total_cost_usd: 0.2, modelUsage: { [forkModel]: { inputTokens: 4, cacheReadInputTokens: read, cacheCreationInputTokens: 40, outputTokens: 2400, costUSD: 0.2 } },
-    }));
-    process.exit(0);
-  }
-  if (argv.includes("--fork-session")) {
-    const read = (flag: string) => {
-      const path = argAfter(flag);
-      if (!path) return null;
-      try { return readFileSync(path, "utf8"); } catch { return null; }
-    };
-    if (process.env.FAKE_CLAUDE_PING_DUMP) {
-      writeDumpAtomic(process.env.FAKE_CLAUDE_PING_DUMP, JSON.stringify({
-        pid: process.pid, argv, env: process.env, prompt, cwd: process.cwd(),
-        mcpConfig: JSON.parse(read("--mcp-config") ?? "null"),
-        settings: JSON.parse(read("--settings") ?? "null"),
-        systemPrompt: read("--append-system-prompt-file"),
-      }, null, 2));
-    }
-    const pingModel = argAfter("--model") ?? "claude-fake";
-    const usage = JSON.parse(process.env.FAKE_CLAUDE_PING_USAGE ?? '{"input_tokens":4,"cache_read_input_tokens":150000,"cache_creation_input_tokens":40,"output_tokens":3}');
-    process.stdout.write(process.env.FAKE_CLAUDE_PING_RESULT ?? JSON.stringify({
-      type: "result", is_error: false, result: "warm", session_id: "fake-fork", usage, total_cost_usd: 0.05,
-      modelUsage: { [pingModel]: { costUSD: 0.05 } },
     }));
     process.exit(0);
   }

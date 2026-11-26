@@ -32,10 +32,11 @@ class CallSpeaker internal constructor(
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
-    /** Speak every clip in order. Returns false when stopped early. */
-    suspend fun speak(clips: List<ByteArray>): Boolean {
+    /** 按顺序播放每个片段；被提前打断或启动门闩拒绝时返回 false。 */
+    suspend fun speak(clips: List<ByteArray>, shouldStart: () -> Boolean = { true }): Boolean {
         val mine = synchronized(lock) {
             stopLocked()
+            if (!shouldStart()) return false
             generation += 1
             _isSpeaking.value = true
             generation

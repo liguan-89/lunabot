@@ -1,11 +1,13 @@
 package com.lunabot.companion.core.e2e
 
+import com.lunabot.companion.core.PairingRouteError
 import java.security.SecureRandom
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** Pairing over the encrypted connection: request on a stream, JSON answer back. */
@@ -15,6 +17,12 @@ class E2ePairingTest {
     private val credential = "omb_pair_" + "B".repeat(43)
     private val psk = E2eCredentials.psk(credential, E2eCredentials.keyId(transportKey.publicKey))
     private val hostId = E2eCrypto.randomBytes(16, random)
+
+    private fun descriptor() = E2eDescriptor(
+        k = E2eBase64.encode(transportKey.publicKey),
+        h = E2eBase64.encode(hostId),
+        relays = listOf("relay1.openmausbot.com"),
+    )
 
     @Test
     fun `pairs through the relay and parses the answer`() {
@@ -58,15 +66,97 @@ class E2ePairingTest {
         assertTrue(computer.sawRelayHello)
     }
 
+    @Test
+    fun `an authoritative refusal stops the walk with the original error`() {
+        val dials = ArrayList<String>()
+        val computers = mutableMapOf<String, PairingResponder>()
+        val connector = E2eSocketConnector { url, _, opened ->
+            dials += url
+            val computer = PairingResponder(
+                transportKey, psk,
+                if (url.startsWith("ws://")) Noise.TRANSPORT_DIRECT else Noise.TRANSPORT_RELAY,
+                random, status = 410,
+            )
+            computers[url] = computer
+            Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+            object : E2eSocket {
+                override val bufferedBytes: Long = 0
+                override val isOpen: Boolean = true
+                override fun sendBinary(bytes: ByteArray) {
+                    for (reply in computer.receive(bytes)) opened.onBinary(reply)
+                }
+                override fun sendText(text: String) {
+                    for (reply in computer.receiveText(text)) opened.onText(reply)
+                }
+                override fun close(code: Int) = Unit
+            }
+        }
+        val error = assertFailsWith<E2eHttpException> {
+            E2ePairing.pair(
+                connector = connector,
+                descriptor = descriptor(),
+                credential = credential,
+                deviceName = "Pixel",
+                app = "lunabot-test",
+                directWsUrl = "ws://192.168.1.42:8810/v1/e2e",
+                pairRequestId = "req-2",
+            )
+        }
+        assertEquals(410, error.status)
+        // The computer answered on the direct route: the relay is never tried and nothing is swallowed.
+        assertEquals(listOf("ws://192.168.1.42:8810/v1/e2e"), dials)
+        assertEquals(1, computers.values.sumOf { it.pairRequests })
+    }
+
+    @Test
+    fun `a pure route failure keeps the credential retryable`() {
+        val dials = ArrayList<String>()
+        val connector = E2eSocketConnector { url, _, opened ->
+            dials += url
+            Thread {
+                Thread.sleep(5)
+                opened.onOpen()
+                Thread.sleep(5)
+                opened.onClosed(4001)
+            }.apply { isDaemon = true; start() }
+            object : E2eSocket {
+                override val bufferedBytes: Long = 0
+                override val isOpen: Boolean = true
+                override fun sendBinary(bytes: ByteArray) = Unit
+                override fun sendText(text: String) = Unit
+                override fun close(code: Int) = Unit
+            }
+        }
+        val error = assertFailsWith<PairingRouteError> {
+            E2ePairing.pair(
+                connector = connector,
+                descriptor = descriptor(),
+                credential = credential,
+                deviceName = "Pixel",
+                app = "lunabot-test",
+                directWsUrl = "ws://192.168.1.42:8810/v1/e2e",
+                pairRequestId = "req-3",
+            )
+        }
+        assertEquals(
+            listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.openmausbot.com/v1/phone"),
+            dials,
+        )
+        assertEquals(2, error.attemptedRoutes.size)
+    }
+
     private class PairingResponder(
         private val keyPair: P256.KeyPair,
         private val psk: ByteArray,
         private val transport: Byte,
         private val random: SecureRandom,
+        private val status: Int = 200,
     ) {
         var sawRelayHello = false
             private set
         var sawPairRequest = false
+            private set
+        var pairRequests = 0
             private set
         private var send: RecordCipher? = null
         private var receive: RecordCipher? = null
@@ -121,10 +211,12 @@ class E2ePairingTest {
                 override fun data(streamId: Int, data: ByteArray) {
                     request.append(String(data))
                     val text = request.toString()
-                    if (text.contains("POST /api/pair") && text.endsWith("\r\n\r\n") || text.contains("}\r\n") || text.endsWith("}")) {
-                        val body = """{"token":"omb_device_token","device":{"id":"d1","name":"Pixel"},"serverName":"Mac mini","hosts":["192.168.1.42"],"endpoints":[{"url":"http://192.168.1.42:8810","kind":"lan","priority":200},{"url":"http://unknown:1","kind":"future-kind","priority":1}]}"""
-                        val response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n$body"
+                    if (!sawPairRequest && (text.contains("POST /api/pair") && text.endsWith("\r\n\r\n") || text.contains("}\r\n") || text.endsWith("}"))) {
+                        val body = if (status == 200) """{"token":"omb_device_token","device":{"id":"d1","name":"Pixel"},"serverName":"Mac mini","hosts":["192.168.1.42"],"endpoints":[{"url":"http://192.168.1.42:8810","kind":"lan","priority":200},{"url":"http://unknown:1","kind":"future-kind","priority":1}]}""" else """{"error":"code expired"}"""
+                        val reason = if (status == 200) "OK" else "Gone"
+                        val response = "HTTP/1.1 $status $reason\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n$body"
                         sawPairRequest = true
+                        pairRequests += 1
                         mux!!.write(streamId, response.toByteArray())
                         mux!!.finish(streamId)
                     }

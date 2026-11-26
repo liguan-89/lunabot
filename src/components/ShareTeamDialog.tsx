@@ -139,6 +139,8 @@ export function ShareTeamDialog({ team, onClose }: { team: string; onClose: () =
   const setError = (message: string) => setView((current) => ({ ...current, error: message }));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<ShareResponse | null>(null);
+  const [storing, setStoring] = useState(false);
+  const [stored, setStored] = useState(false);
   const request = useRef(0);
 
   useEffect(() => {
@@ -217,6 +219,24 @@ export function ShareTeamDialog({ team, onClose }: { team: string; onClose: () =
     }
   };
 
+  // Storing is the same export as Save file — one document, two destinations: the version the person
+  // sees in the dialog is the one the library keeps, and the team's package keys stay pinned either way.
+  const storeTemplate = async () => {
+    if (storing) return;
+    setStoring(true);
+    setStored(false);
+    setError("");
+    try {
+      const result = await api<ShareResponse>("/api/teams/export", { method: "POST", body: JSON.stringify(shareRequestBody(choices(false))) });
+      await api("/api/templates", { method: "POST", body: JSON.stringify({ document: result.document }) });
+      setStored(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setStoring(false);
+    }
+  };
+
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialogRef.current?.focus();
@@ -230,16 +250,17 @@ export function ShareTeamDialog({ team, onClose }: { team: string; onClose: () =
     else next.add(skill);
     setSkillChoice(next);
   };
+  const busy = saving || storing;
   const field = "mt-1 w-full rounded-lg border border-hairline/50 bg-inset px-3 py-2 text-[14px] text-ink disabled:opacity-60";
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/55 p-4" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !saving) onClose();
+      if (event.target === event.currentTarget && !busy) onClose();
     }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="share-team-title" tabIndex={-1}
         className="flex max-h-[90vh] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl border border-hairline/50 bg-panel text-ink shadow-2xl outline-none"
         onKeyDown={(event) => {
-          if (event.key === "Escape" && !saving) { event.stopPropagation(); onClose(); }
+          if (event.key === "Escape" && !busy) { event.stopPropagation(); onClose(); }
           if (event.key === "Tab") {
             const controls = dialogRef.current?.querySelectorAll<HTMLElement>("input:enabled, textarea:enabled, button:enabled");
             if (!controls?.length) return;
@@ -253,7 +274,7 @@ export function ShareTeamDialog({ team, onClose }: { team: string; onClose: () =
             <h2 id="share-team-title" className="text-[17px] font-semibold">{t("teamShare.title", { name: team || t("teamLibrary.general") })}</h2>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-secondary">{t("teamShare.intro")}</p>
           </div>
-          <button aria-label={t("teamShare.close")} disabled={saving} onClick={onClose} className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised"><X size={18} /></button>
+          <button aria-label={t("teamShare.close")} disabled={busy} onClick={onClose} className="rounded-lg p-1.5 text-ink-secondary hover:bg-raised"><X size={18} /></button>
         </header>
 
         {saved ? (
@@ -270,7 +291,7 @@ export function ShareTeamDialog({ team, onClose }: { team: string; onClose: () =
               ? <ShareTeamContents preview={preview} includeMemory={includeMemory} localSkips={includePictures ? pictures?.skipped ?? [] : []} />
               : !error && <div className="flex items-center gap-2 py-6 text-[13px] text-ink-secondary"><Loader2 size={15} className="animate-spin" />{t("teamShare.preparing")}</div>}
 
-            <fieldset className="mt-4 space-y-2 text-[13px]" disabled={saving}>
+            <fieldset className="mt-4 space-y-2 text-[13px]" disabled={busy}>
               <label className="flex items-center gap-2">
                 <input type="checkbox" className="size-4 accent-accent" checked={includePictures} onChange={(event) => setIncludePictures(event.target.checked)} />
                 {t("teamShare.includePictures")}
@@ -290,33 +311,39 @@ export function ShareTeamDialog({ team, onClose }: { team: string; onClose: () =
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block text-[13px] text-ink-secondary">{t("teamShare.name")}
-                <input value={name} maxLength={100} disabled={saving} onChange={(event) => setName(event.target.value)} className={field} />
+                <input value={name} maxLength={100} disabled={busy} onChange={(event) => setName(event.target.value)} className={field} />
               </label>
               <label className="block text-[13px] text-ink-secondary">{t("teamShare.release")}
-                <input value={release} maxLength={20} disabled={saving} placeholder="1.0.0" onChange={(event) => setRelease(event.target.value)} className={field} />
+                <input value={release} maxLength={20} disabled={busy} placeholder="1.0.0" onChange={(event) => setRelease(event.target.value)} className={field} />
               </label>
             </div>
             <p className="mt-1 text-[12px] text-ink-secondary">{t("teamShare.releaseHint")}</p>
             <label className="mt-3 block text-[13px] text-ink-secondary">{t("teamShare.notes")}
-              <textarea value={notes} maxLength={4000} rows={2} disabled={saving} onChange={(event) => setNotes(event.target.value)} className={field} />
+              <textarea value={notes} maxLength={4000} rows={2} disabled={busy} onChange={(event) => setNotes(event.target.value)} className={field} />
             </label>
             <label className="mt-3 block text-[13px] text-ink-secondary">{t("teamShare.tagline")}
-              <input value={tagline} maxLength={160} disabled={saving} onChange={(event) => setTagline(event.target.value)} className={field} />
+              <input value={tagline} maxLength={160} disabled={busy} onChange={(event) => setTagline(event.target.value)} className={field} />
             </label>
             <label className="mt-3 block text-[13px] text-ink-secondary">{t("teamShare.summary")}
-              <textarea value={summary} maxLength={2000} rows={2} disabled={saving} onChange={(event) => setSummary(event.target.value)} className={field} />
+              <textarea value={summary} maxLength={2000} rows={2} disabled={busy} onChange={(event) => setSummary(event.target.value)} className={field} />
             </label>
           </div>
         )}
 
         {error && <p role="alert" className="mx-6 mb-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{error}</p>}
+        {stored && !error && <p role="status" className="mx-6 mb-2 flex items-center gap-2 rounded-lg bg-raised/60 px-3 py-2 text-[13px] text-ink-secondary"><Check size={14} className="shrink-0 text-success" />{t("teamShare.storedTemplate")}</p>}
         <footer className="flex justify-end gap-2 border-t border-hairline/35 px-6 py-3">
           {saved ? (
             <button onClick={onClose} className="rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white">{t("teamShare.done")}</button>
           ) : (
             <>
-              <button disabled={saving} onClick={onClose} className="rounded-lg px-3 py-2 text-[13px] text-ink-secondary hover:bg-raised">{t("common.cancel")}</button>
-              <button disabled={saving || !preview || !name.trim()} onClick={() => void save()}
+              <button disabled={busy} onClick={onClose} className="rounded-lg px-3 py-2 text-[13px] text-ink-secondary hover:bg-raised">{t("common.cancel")}</button>
+              <button disabled={busy || !preview || !name.trim()} onClick={() => void storeTemplate()}
+                className="flex items-center gap-2 rounded-lg bg-raised px-4 py-2 text-[13px] font-medium text-ink hover:bg-raised-hover disabled:opacity-40">
+                {storing && <Loader2 size={14} className="animate-spin" />}
+                {storing ? t("teamShare.saving") : t("teamShare.storeTemplate")}
+              </button>
+              <button disabled={busy || !preview || !name.trim()} onClick={() => void save()}
                 className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white disabled:opacity-40">
                 {saving && <Loader2 size={14} className="animate-spin" />}
                 {saving ? t("teamShare.saving") : t("teamShare.save")}

@@ -1527,12 +1527,6 @@ describe("PiDriver cacheKeepWarm (fake CLI)", () => {
   const sessionFileOf = (turnId: string) =>
     (recorder.events.find((e) => e.type === "session.started" && e.turnId === turnId) as { sessionId: string } | undefined)?.sessionId;
 
-  it("advertises the capability and refuses keep-warm pings on BYOK", async () => {
-    await create();
-    expect(instance.adapter.cacheKeepWarm).toBeDefined();
-    await expect(instance.adapter.cacheKeepWarm!.ping!("t-nothing", {} as never)).resolves.toEqual({ ok: false, reason: expect.stringMatching(/provider key/) });
-  });
-
   it("refuses to summarize a thread with no live warm session", async () => {
     await create();
     await expect(instance.adapter.cacheKeepWarm!.compact!("t-cold", { instructions: "summarize" })).resolves.toMatchObject({ ok: false });
