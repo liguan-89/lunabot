@@ -496,6 +496,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             onOpenRoutines = { navigator.push(Destination.Routines) },
             onOpenConnectedApps = { navigator.push(Destination.ConnectedApps) },
             onOpenVoice = { navigator.push(Destination.Voice) },
+            onOpenNotifications = { navigator.push(Destination.Notifications) },
         )
         Destination.Routines -> TasksRoutinesScreen(
             onBack = navigator::pop,
@@ -505,6 +506,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
         )
         Destination.ConnectedApps -> ConnectedAppsScreen(onBack = navigator::pop)
         Destination.Voice -> VoiceSettingsScreen(onBack = navigator::pop)
+        Destination.Notifications -> NotificationsScreen(onBack = navigator::pop)
         // One branch for both shapes of chat address, so a notification's thread
         // becoming an addressed chat re-reads the same screen instead of
         // rebuilding it.
@@ -536,12 +538,17 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             onOpenBrowser = { navigator.push(Destination.Browser(it)) },
             onOpenActivity = { navigator.push(Destination.BotActivity(it)) },
             onOpenMcpServers = { navigator.push(Destination.BotMcpServers(it)) },
+            onOpenData = { navigator.push(Destination.BotData(it)) },
         )
         is Destination.BotActivity -> BotActivityScreen(
             botId = destination.botId,
             onBack = navigator::pop,
         )
         is Destination.BotMcpServers -> BotMcpServersScreen(
+            botId = destination.botId,
+            onBack = navigator::pop,
+        )
+        is Destination.BotData -> BotDataScreen(
             botId = destination.botId,
             onBack = navigator::pop,
         )

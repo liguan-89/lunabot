@@ -1785,6 +1785,134 @@ data class BotActivityRow(
 @Serializable
 data class BotActivityResponse(val rows: List<BotActivityRow> = emptyList())
 
+/**
+ * `GET /api/notifications` 的一条通知日志（`shared/notification.ts`）：电脑认为
+ * 值得打扰人的每一件事，新的在前。[at] 是毫秒时间戳；[kind] 保持字符串不枚举，
+ * 新种类出现在更新的电脑上时行仍在，只是归类到「其他」。
+ */
+@Serializable
+data class NotificationLogRow(
+    val id: String,
+    val at: Long,
+    val kind: String,
+    val botId: String = "",
+    val botName: String = "",
+    val threadId: String = "",
+    val title: String = "",
+    val body: String = "",
+    val groupId: String? = null,
+    val read: Boolean = false,
+)
+
+@Serializable
+data class NotificationLogResponse(val notifications: List<NotificationLogRow> = emptyList())
+
+/** `InboxRow.from` / `via` / `workingFor` 的共同形状：谁来的、经谁转手。 */
+@Serializable
+data class InboxParty(
+    val name: String,
+    val botId: String? = null,
+)
+
+/** 收件箱一行来自哪个会话；手机只用它标注来源，不做跳转。 */
+@Serializable
+data class InboxOrigin(
+    val botId: String = "",
+    val threadId: String = "",
+    val title: String = "",
+    val groupId: String? = null,
+)
+
+/**
+ * `GET /api/inbox` 的一行（`shared/inbox.ts`）。只解码手机要画的字段——
+ * `card`/`secret`/`signIn`/`connector` 是桌面端在此回答卡片用的，手机的回答
+ * 在会话里的卡片上做，这里一行也不展开。[kind] 与 [tab] 保持字符串不枚举。
+ */
+@Serializable
+data class InboxRowLine(
+    val id: String,
+    val kind: String,
+    val tab: String,
+    val from: InboxParty,
+    val text: String = "",
+    val at: Long,
+    val unread: Boolean = false,
+    val via: InboxParty? = null,
+    val workingFor: InboxParty? = null,
+    val origin: InboxOrigin? = null,
+)
+
+@Serializable
+data class InboxViewResponse(
+    val botId: String? = null,
+    val threadId: String? = null,
+    val rows: List<InboxRowLine> = emptyList(),
+    val anchor: String? = null,
+)
+
+@Serializable
+data class InboxCountResponse(val count: Int = 0)
+
+/**
+ * `GET /api/bots/:id/data` 的只读形状（`shared/data-surface.ts`）：sheet 上的卡片、
+ * 加载过的来源与数据库里的表。只读是有意的——跑 SQL、改卡片、导出都不对手机开放。
+ */
+@Serializable
+data class DataColumnEntry(
+    val name: String,
+    val type: String = "",
+)
+
+@Serializable
+data class DataTableEntry(
+    val name: String,
+    val rowCount: Long = 0,
+    val columns: List<DataColumnEntry> = emptyList(),
+)
+
+/** sheet 上的一张卡片。图表卡的图走 `data/cards/<id>/image` 单取，这里没有图。 */
+@Serializable
+data class DataCardEntry(
+    val id: String,
+    val kind: String,
+    val title: String = "",
+    val rowCount: Long? = null,
+    val truncated: Boolean? = null,
+    val text: String? = null,
+    val status: String = "ready",
+)
+
+@Serializable
+data class DataSourceEntry(
+    val name: String,
+    val kind: String = "",
+    val rowCount: Long = 0,
+)
+
+@Serializable
+data class DataSheetEntry(
+    val cards: List<DataCardEntry> = emptyList(),
+    val sources: List<DataSourceEntry> = emptyList(),
+)
+
+@Serializable
+data class BotDataResponse(
+    val sheet: DataSheetEntry = DataSheetEntry(),
+    val tables: List<DataTableEntry> = emptyList(),
+)
+
+/**
+ * `POST data/page` 的一页行。单元格原样保留 JSON——DuckDB 的 bigint 与 decimal
+ * 到站就是字符串，画成文本时一视同仁。
+ */
+@Serializable
+data class DataPageResponse(
+    val columns: List<DataColumnEntry> = emptyList(),
+    val rows: List<List<kotlinx.serialization.json.JsonElement>> = emptyList(),
+    val rowCount: Long = 0,
+    val offset: Int = 0,
+)
+
 /** Native server sessions returned by POST /api/auth/pair. */
 @Serializable
 data class ServerPairResponse(

@@ -497,6 +497,74 @@ class CompanionClient(
         ))
     }
 
+    /**
+     * 这台电脑的通知日志，新的在前。路由不分页——服务端自己截断在最近 500 条，
+     * 手机拿到多少画多少。
+     */
+    suspend fun notifications(): NotificationLogResponse =
+        send(makeRequest("GET", "/api/notifications"))
+
+    /** 一条通知已读。幂等：服务端对不存在的 id 答 404，调用方当静默失败处理。 */
+    suspend fun markNotificationRead(id: String) {
+        sendUnit(makeRequest("POST", "/api/notifications/${segment(id)}/read"))
+    }
+
+    /** 全部通知已读。服务端对空集也是 200，重复点安全。 */
+    suspend fun markAllNotificationsRead() {
+        sendUnit(makeRequest("POST", "/api/notifications/read-all"))
+    }
+
+    /**
+     * 这个人的收件箱。404 不是错误——团队云上没有收件箱的人答
+     * `serverError.inbox.missing`，没有这条路由的旧电脑答 `no route`，
+     * 两者同码不可区分，含义都是「这里没有收件箱」，由会话层折叠。
+     */
+    suspend fun inbox(): InboxViewResponse = send(makeRequest("GET", "/api/inbox"))
+
+    /** 等待这个人处理的行数（needs-you 加未读 info），供入口徽章用。 */
+    suspend fun inboxCount(): Int = send<InboxCountResponse>(makeRequest("GET", "/api/inbox/count")).count
+
+    /**
+     * 收件箱一行已读或办结。服务端答的是整个收件箱的最新视图——不是回执——
+     * 调用方直接换列表，不用再读一遍。对等待回答的 ask 行点办结服务端答 409，
+     * 手机本就不给 ask 行办结入口，撞上了由会话层折叠成静默失败。
+     */
+    suspend fun markInboxRow(id: String, done: Boolean): InboxViewResponse = send(
+        makeRequest("POST", "/api/inbox/${segment(id)}/${if (done) "done" else "read"}"),
+    )
+
+    /** 这个智能体的 Data：sheet 上的卡片与数据库里的表，全只读。 */
+    suspend fun botData(botId: String): BotDataResponse =
+        send(makeRequest("GET", "/api/bots/${segment(botId)}/data"))
+
+    /**
+     * 表或卡片结果的一页行。table 与 cardId 有且只能有一个——服务端对两个都给
+     * 或都不给答 400。offset 分页，limit 上限 1024。
+     */
+    suspend fun botDataPage(botId: String, table: String?, cardId: String?, offset: Int, limit: Int): DataPageResponse =
+        send(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/data/page",
+            body = buildJsonObject {
+                table?.let { put("table", it) }
+                cardId?.let { put("cardId", it) }
+                put("offset", offset)
+                put("limit", limit)
+            },
+        ))
+
+    /** 图表卡的服务端渲染 PNG。与 avatar 一样拿原始字节，由页面自己解码成位图。 */
+    suspend fun botDataCardImage(botId: String, cardId: String, width: Int, scale: Int, dark: Boolean): ByteArray {
+        val query = buildList {
+            add("width" to width.toString())
+            add("scale" to scale.toString())
+            if (dark) add("theme" to "dark")
+        }
+        val raw = perform(makeRequest("GET", "/api/bots/${segment(botId)}/data/cards/${segment(cardId)}/image", query))
+        check(raw)
+        return raw.data
+    }
+
     suspend fun createBot(): Bot = send<CreatedBot>(makeRequest("POST", "/api/bots")).bot
 
     /**
