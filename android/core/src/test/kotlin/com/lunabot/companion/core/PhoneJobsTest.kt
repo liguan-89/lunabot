@@ -209,8 +209,26 @@ class PhoneJobsTest {
     }
 
     @Test
+    fun `the invite response is a calendar write on the wire the server sends`() {
+        assertEquals("PHONE_RESPOND_TO_INVITE", PhoneTool.RESPOND_TO_INVITE.wire)
+        assertEquals("calendar", PhoneTool.RESPOND_TO_INVITE.capability)
+        assertTrue(PhoneTool.RESPOND_TO_INVITE.writes)
+        assertEquals(PhoneTool.RESPOND_TO_INVITE, PhoneTool.fromWire("PHONE_RESPOND_TO_INVITE"))
+        assertEquals("calendar", PhoneToolCatalog.capabilityOf("PHONE_RESPOND_TO_INVITE"))
+        // The answer travels as sent: the executor reads the event id and the
+        // accept/decline/tentative word itself.
+        val arguments = JsonObject(
+            mapOf("id" to JsonPrimitive("42"), "response" to JsonPrimitive("tentative")),
+        )
+        val job = PhoneJob(id = "job-5", tool = PhoneTool.RESPOND_TO_INVITE.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_RESPOND_TO_INVITE", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(50, PhoneTool.entries.size)
+        assertEquals(51, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")
