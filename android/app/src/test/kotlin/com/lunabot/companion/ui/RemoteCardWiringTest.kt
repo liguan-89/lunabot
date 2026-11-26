@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.lunabot.companion.core.Chat
 import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.CompanionEndpoint
+import com.lunabot.companion.core.CompanionEndpointKind
 import com.lunabot.companion.core.ConnectorCardData
 import com.lunabot.companion.core.Fleet
 import com.lunabot.companion.core.Frame
@@ -21,6 +23,7 @@ import com.lunabot.companion.core.SecretRequestCardData
 import com.lunabot.companion.core.StreamFrame
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -68,7 +71,7 @@ class RemoteCardWiringTest {
             Message(
                 "secret", Message.Role.BOT, Message.Kind.SECRET, 2.0,
                 secret = SecretRequestCardData(
-                    target = "elevenlabs",
+                    target = "ttsKey",
                     label = "ElevenLabs API key",
                     description = "用于语音回复",
                     requestKey = "request-1",
@@ -112,7 +115,7 @@ class RemoteCardWiringTest {
         compose.onNodeWithText("Slack").assertIsDisplayed()
         compose.onNodeWithText("智能体需要你连接这个应用。").assertIsDisplayed()
         compose.onNodeWithText("ElevenLabs API key").assertIsDisplayed()
-        compose.onNodeWithText("手机端暂不支持直接提交凭据，请在电脑上填写后保存。").assertIsDisplayed()
+        compose.onNodeWithText("此配对还没有绑定桌面安全密钥。请重新扫码配对后，才能在手机上填写。").assertIsDisplayed()
         // The routine card sits below the fold of this fixture now that the
         // earlier cards' translated copy takes more room; being composed is
         // the property under test — the row is no longer dropped.
@@ -126,5 +129,85 @@ class RemoteCardWiringTest {
         compose.onNodeWithText("Ship the release").assertExists()
         compose.onNodeWithText("已完成").assertExists()
         compose.onNodeWithText("协调者：Scout · 3/8 轮").assertExists()
+    }
+
+    @Test
+    fun protectedPairingOffersSecureCredentialEntry() {
+        val fixture = bot().copy(threadId = "first", messages = emptyList())
+        val hosted = requireNotNull(
+            CompanionEndpoint.create("https://mac.example", CompanionEndpointKind.HOSTED, 0),
+        )
+        val wiring = WiringScene(
+            connection = Connection(
+                id = "secret-fixture",
+                name = "Fixture",
+                host = "mac.example",
+                port = 443,
+                activeEndpoint = hosted,
+                secretPublicKey = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU",
+                companionDeviceId = "device-1",
+            ),
+            fleet = Fleet(listOf(fixture), emptyList()),
+        ) { flow { emit(StreamFrame(Frame.Hello(cursor = "fixture:1", resumed = false), seq = 1)); awaitCancellation() } }
+        scene = wiring
+        runBlocking { wiring.session.awaitRestored() }
+        val message = Message(
+            "secret", Message.Role.BOT, Message.Kind.SECRET, 1.0,
+            secret = SecretRequestCardData(
+                target = "ttsKey",
+                label = "ElevenLabs API key",
+                description = "用于语音回复",
+                placeholder = "Paste your ElevenLabs API key",
+                requestKey = "request-1",
+            ),
+        )
+
+        compose.setContent {
+            CompositionLocalProvider(LocalCompanion provides wiring.environment) {
+                CompanionTheme(darkTheme = false) {
+                    MessageRow(chat = Chat.BotChat(fixture), message = message)
+                }
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("凭据只在此手机本地加密后提交；不会进入聊天，也不会保存在手机上。").assertExists()
+        compose.onNodeWithText("Paste your ElevenLabs API key").assertExists()
+        compose.onNodeWithText("加密并提交").assertExists()
+        compose.onNodeWithText("跳过").assertExists()
+    }
+
+    @Test
+    fun unpinnedPairingExplainsSecureEntryNeedsANewScan() {
+        val fixture = bot().copy(threadId = "first", messages = emptyList())
+        val wiring = WiringScene(
+            connection = Connection(id = "unpinned-secret-fixture", name = "Fixture", host = "127.0.0.1", port = 1),
+            fleet = Fleet(listOf(fixture), emptyList()),
+        ) { flow { emit(StreamFrame(Frame.Hello(cursor = "fixture:1", resumed = false), seq = 1)); awaitCancellation() } }
+        scene = wiring
+        runBlocking { wiring.session.awaitRestored() }
+        val message = Message(
+            "secret", Message.Role.BOT, Message.Kind.SECRET, 1.0,
+            secret = SecretRequestCardData(
+                target = "ttsKey",
+                label = "ElevenLabs API key",
+                description = "用于语音回复",
+                placeholder = "Paste your ElevenLabs API key",
+                requestKey = "request-1",
+            ),
+        )
+
+        compose.setContent {
+            CompositionLocalProvider(LocalCompanion provides wiring.environment) {
+                CompanionTheme(darkTheme = false) {
+                    MessageRow(chat = Chat.BotChat(fixture), message = message)
+                }
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("此配对还没有绑定桌面安全密钥。请重新扫码配对后，才能在手机上填写。").assertExists()
+        compose.onNodeWithText("Paste your ElevenLabs API key").assertDoesNotExist()
+        compose.onNodeWithText("跳过").assertExists()
     }
 }

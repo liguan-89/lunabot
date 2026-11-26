@@ -49,6 +49,37 @@ class ClientTest {
     }
 
     @Test
+    fun provideSecretCardPostsOnlyTheSealedEnvelope() = runBlocking {
+        server.enqueue(json("""{"provided":true,"resumed":true}"""))
+        val envelope = PhoneSecretCrypto.Envelope(
+            version = 1,
+            keyId = "taWSR_nZ7ojlH_0Z3tar6Q",
+            deviceId = "paired-device-1",
+            target = "ttsKey",
+            requestKey = "credential-request-1",
+            encapsulatedKey = "BGsX0fLhLEJH-Lzm5WOkQPJ3A32BLeszoPShOUXYmMKWT-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
+            ciphertext = "QEmpd33hVh8SeifRTQ-N7r63Shw4h1pwMg7yqVaF3Xso",
+            threadId = "thread-1",
+        )
+
+        client.provideSecretCard("bot-1", "message-1", envelope)
+
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/bots/bot-1/secret-cards/message-1/provide", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals(
+                setOf("version", "threadId", "keyId", "deviceId", "target", "requestKey", "encapsulatedKey", "ciphertext"),
+                body.keys,
+            )
+            assertEquals(1, body.getValue("version").jsonPrimitive.content.toInt())
+            assertEquals("thread-1", body.getValue("threadId").jsonPrimitive.content)
+            assertEquals("paired-device-1", body.getValue("deviceId").jsonPrimitive.content)
+            assertEquals(envelope.ciphertext, body.getValue("ciphertext").jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun mcpServersDecodeNamesAndSwitchesOnly() = runBlocking {
         server.enqueue(
             json(

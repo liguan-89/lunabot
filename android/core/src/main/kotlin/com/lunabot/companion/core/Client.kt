@@ -277,6 +277,20 @@ class CompanionClient(
         .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * The desktop may wait up to 90 seconds for its OS-backed credential save;
+     * the sidecar gives this route 105 seconds, so the phone deadline sits between them.
+     */
+    private val phoneSecretClient = transportClient.newBuilder()
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
+        .dns(endpoint?.dns ?: transportClient.dns)
+        .callTimeout(PHONE_SECRET_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(PHONE_SECRET_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+
     private val avatarGenerationClient = transportClient.newBuilder()
         .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
@@ -1146,6 +1160,28 @@ class CompanionClient(
         ))
     }
 
+    /** Submit a phone-sealed credential envelope; the plaintext is not representable in this API. */
+    suspend fun provideSecretCard(
+        botId: String,
+        messageId: String,
+        envelope: PhoneSecretCrypto.Envelope,
+    ) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/secret-cards/${segment(messageId)}/provide",
+            body = buildJsonObject {
+                put("version", envelope.version)
+                put("threadId", envelope.threadId)
+                put("keyId", envelope.keyId)
+                put("deviceId", envelope.deviceId)
+                put("target", envelope.target)
+                put("requestKey", envelope.requestKey)
+                put("encapsulatedKey", envelope.encapsulatedKey)
+                put("ciphertext", envelope.ciphertext)
+            },
+        ), phoneSecretClient)
+    }
+
     /**
      * Answer a sign-in request: the person signed in themselves, or gave up.
      * No credential passes through here — the body carries the thread, and the
@@ -1718,6 +1754,7 @@ class CompanionClient(
         /** The server holds a job poll for 20 s; this leaves it room to answer. */
         private const val PHONE_JOB_TIMEOUT_SECONDS = 35L
         private const val PHONE_RESULT_TIMEOUT_SECONDS = 10L
+        private const val PHONE_SECRET_TIMEOUT_SECONDS = 100L
         private const val AVATAR_GENERATION_TIMEOUT_SECONDS = 150L
         private const val VIDEO_AVATAR_GENERATION_TIMEOUT_SECONDS = 1_560L
         /** The harness allows the updater three minutes; leave room to hear back. */

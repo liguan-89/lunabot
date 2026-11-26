@@ -297,7 +297,7 @@ Each submission uses RFC 9180 base-mode HPKE with P-256/HKDF-SHA256/AES-GCM-256
 and authenticates this exact newline-separated context:
 
 ```text
-lunabot-phone-credential-v1
+lunabot-phone-credential-v2
 <key id>
 <authenticated companion device id>
 <bot id>
