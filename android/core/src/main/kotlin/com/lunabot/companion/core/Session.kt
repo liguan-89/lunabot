@@ -99,6 +99,8 @@ class Session(
      * cache is an amenity, never a precondition for a pairing.
      */
     private val rosterSnapshotStore: RosterSnapshotStore = InMemoryRosterSnapshotStore(),
+    /** Test seam: the presence throttle reads its clock from here. */
+    private val nowFn: () -> Long = { System.currentTimeMillis() },
 ) {
     sealed interface Status {
         data object Unpaired : Status
@@ -1508,6 +1510,83 @@ class Session(
             if (error.isUnauthorized) _status.value = Status.Unauthorized
             _actionError.value = error.message
             return false
+        }
+    }
+
+    /**
+     * Steer a held message into the turn it waits behind. The queue frame is
+     * the authority on the row either way — the harness answers 200 whether
+     * the words joined the turn or admission kept them waiting — so this only
+     * surfaces a failure to act, never mutates queue state itself.
+     */
+    suspend fun steerQueued(send: QueuedSend, chat: Chat): Boolean {
+        val activeClient = client ?: return false
+        val destination = when (chat) {
+            is Chat.BotChat -> MessageDestination.Bot(chat.bot.id, chat.threadId)
+            is Chat.RoomChat -> MessageDestination.Room(chat.room.id, chat.threadId)
+        }
+        try {
+            val steered = activeClient.steerQueued(send.queueId, destination)
+            if (client !== activeClient) return false
+            return steered
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (client !== activeClient) return false
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            _actionError.value = error.message
+            return false
+        }
+    }
+
+    /**
+     * The conversation on screen, if any — presence reports carry it as the
+     * chat the person is looking at. Set by the chat screen while it is
+     * composed; leaving the screen clears it. Opening a chat is itself a
+     * moment of use, so it reports right away.
+     */
+    @Volatile private var openThreadId: String? = null
+
+    private val presenceLock = Any()
+    // Seeded one repeat-window in the past, so the first ping of a process is never throttled.
+    private var presenceReportedAt = -PRESENCE_REPEAT_MS
+    private var presenceReportedThread: String? = null
+
+    fun noteChatOpen(threadId: String?) {
+        openThreadId = threadId
+        if (threadId != null) reportPresence()
+    }
+
+    /**
+     * The person is using the app: tell the computer, so the arrival brief and
+     * the presence context work when the phone is the device in hand. Quiet by
+     * design — this is a ping, and a failed one is never an action error.
+     * Throttled: the same conversation is not re-reported inside a minute, and
+     * nothing is reported twice inside five seconds, so an app switch or a
+     * quick thread hop cannot turn into a stream of posts.
+     */
+    fun reportPresence() {
+        val activeClient = client ?: return
+        val threadId = openThreadId
+        synchronized(presenceLock) {
+            val now = nowFn()
+            if (now - presenceReportedAt < PRESENCE_FLOOR_MS) return
+            if (threadId == presenceReportedThread && now - presenceReportedAt < PRESENCE_REPEAT_MS) return
+            presenceReportedAt = now
+            presenceReportedThread = threadId
+        }
+        scope.launch {
+            try {
+                activeClient.reportPresence(
+                    threadId,
+                    java.util.TimeZone.getDefault().id,
+                    java.util.Locale.getDefault().toLanguageTag(),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // A ping that never arrived is indistinguishable from the app not being used; say nothing.
+            }
         }
     }
 
@@ -3070,6 +3149,8 @@ class Session(
     }
 
     companion object {
+        private const val PRESENCE_FLOOR_MS = 5_000L
+        private const val PRESENCE_REPEAT_MS = 60_000L
         const val STORAGE_UNAVAILABLE_MESSAGE =
             "此手机刚才无法读取已保存的连接信息。"
         const val SPENT_QR_MESSAGE =

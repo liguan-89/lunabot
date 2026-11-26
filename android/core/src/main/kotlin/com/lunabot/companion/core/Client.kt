@@ -845,6 +845,49 @@ class CompanionClient(
         }
     }
 
+    /**
+     * The person is using the app. The computer counts an owner's (or team
+     * member's) arrival for the brief it writes when they come back, and the
+     * open conversation for its sense of what is in front of them. The answer
+     * body may carry an open target for that brief; the phone leaves opening
+     * it to the person, so the response is not read here.
+     */
+    suspend fun reportPresence(threadId: String?, timeZone: String, language: String) {
+        sendUnit(makeRequest("POST", "/api/presence/active", body = buildJsonObject {
+            put("source", "phone")
+            put("timeZone", timeZone)
+            put("language", language)
+            if (threadId != null && isSafeRouteId(threadId)) put("threadId", threadId)
+        }))
+    }
+
+    /**
+     * Steer a held message into the turn it waits behind, without interrupting
+     * it. The harness answers 200 both when the words join the turn and when
+     * admission keeps them queued (an engine without live steer, or images it
+     * cannot take mid-turn), so the queue frame stays the authority on the row;
+     * this only reports whether the entry itself still exists. `false` means
+     * it is already gone — drained or cancelled a moment ago.
+     */
+    suspend fun steerQueued(queueId: String, to: MessageDestination): Boolean {
+        if (!isSafeRouteId(queueId)) throw APIError.BadUrl
+        val route = when (to) {
+            is MessageDestination.Bot -> "/api/bots/${safeRouteId(to.id)}/queue/$queueId/steer"
+            is MessageDestination.Room -> "/api/groups/${safeRouteId(to.id)}/queue/$queueId/steer"
+        }
+        try {
+            sendUnit(makeRequest("POST", route, body = jsonBody("threadId" to to.threadId)))
+            return true
+        } catch (error: APIError.Status) {
+            if (error.code != 404) throw error
+            if (error.serverMessage?.contains(ALREADY_DRAINED, ignoreCase = true) == true) return false
+            throw APIError.Status(
+                404,
+                "此电脑版本过旧，无法把排队中的消息插进当前回合。请在电脑上更新 Luna Bot。",
+            )
+        }
+    }
+
     /** Retry-safe send: [threadId] is fixed at destination selection, never inferred on retry. */
     suspend fun send(text: String, to: MessageDestination, sendId: String): SendReceipt {
         val route = when (to) {
