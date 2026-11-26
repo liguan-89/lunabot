@@ -63,6 +63,7 @@ internal class PhoneJobRunner(
     private val calendar = PhoneCalendar(context)
     private val contacts = PhoneContacts(context)
     private val location = PhoneLocation(context)
+    private val places = PhonePlaces(location::read) { request -> session.findNearbyPlaces(request) }
     private val messages = PhoneMessages(context)
     private val reminderStore = ReminderStore(java.io.File(context.filesDir, "phone-reminders.json"))
     private val reminderAlarms = ReminderAlarms(context)
@@ -341,7 +342,11 @@ internal class PhoneJobRunner(
             JobTarget.CALENDAR -> calendar.execute(tool, job.arguments)
             JobTarget.CONTACTS -> contacts.execute(tool, job.arguments)
             JobTarget.REMINDERS -> reminders.execute(tool, job.arguments)
-            JobTarget.LOCATION -> location.current()
+            JobTarget.LOCATION -> when (tool) {
+                PhoneTool.GET_LOCATION -> location.current()
+                PhoneTool.FIND_PLACES_NEARBY -> places.execute(job.arguments)
+                else -> PhoneToolOutcome.Failure("这个定位工具还不支持。", "unsupported")
+            }
             JobTarget.MESSAGES -> messages.execute(tool, job.arguments)
             JobTarget.UI -> {
                 // A locked phone cannot show anything to the person and

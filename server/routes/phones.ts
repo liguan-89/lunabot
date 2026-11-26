@@ -2,6 +2,7 @@ import { userError } from "../user-errors.ts";
 // /api/phones: a paired phone offering its own apps (calendar, contacts, ...) to this server's bots. The phone is known by
 // what authenticated it (a Cloud session, or the companion sidecar's device header), never by anything in the body.
 import { phoneJobOutcome, type PhoneJobs } from "../phones/jobs.ts";
+import { nearbyPlacesRequest, type PlacesProvider } from "../places.ts";
 import { phoneRegistration, type PhoneRegistry } from "../phones/registry.ts";
 import { phoneEvent, type PhoneEvent } from "../sms-relay.ts";
 import type { RequestAuth } from "../request-auth.ts";
@@ -37,6 +38,8 @@ export interface PhoneRouteDeps {
   live: (auth: RequestAuth) => boolean;
   /** A registered phone pushed an inbound event (e.g. an SMS it received); absent off a relay build. */
   onEvent?: (key: string, event: PhoneEvent) => void;
+  /** The computer-side places search proxy; absent when the owner has not configured a provider key. */
+  places?: PlacesProvider | null;
 }
 
 export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
@@ -74,6 +77,22 @@ export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
         if (method === "DELETE") {
           const removed = removePhone(key);
           return json(res, 200, { removed });
+        }
+      }
+      if (path === "/api/phones/self/places" && method === "POST") {
+        if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) return json(res, 415, { error: "JSON required" });
+        const parsed = nearbyPlacesRequest.safeParse(await readBody(req, 4_096));
+        if (!deps.live(auth)) return json(res, 401, { error: "Session expired" });
+        if (!parsed.success) return json(res, 400, { error: "Invalid places search" });
+        const phone = registry.get(key);
+        if (!phone) return json(res, 404, { error: "Register this phone first" });
+        if (!phone.registration.capabilities.location) return json(res, 403, { error: "location is not allowed on this phone" });
+        if (!deps.places) return json(res, 503, { error: "Places search is not configured on this computer" });
+        try {
+          return json(res, 200, await deps.places.nearby(parsed.data));
+        } catch (error) {
+          const failure = error as Error & { status?: number };
+          return json(res, failure.status ?? 502, { error: failure.message || "Places search failed" });
         }
       }
       if (path === "/api/phones/self/jobs" && method === "GET") {

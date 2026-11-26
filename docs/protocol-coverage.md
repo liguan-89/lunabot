@@ -123,7 +123,16 @@
 | `GET /api/section-context` | 团队简报 | ✗ |
 | `PATCH/PUT/DELETE /api/sidebar-sections` | 分组管理 | ✗（仅 POST 指派） |
 
-### 1.7 白名单明确拒绝（不要做）
+### 1.7 手机自身工具
+
+| 端点 | 用途 | Android |
+|---|---|---|
+| `PUT/GET/DELETE /api/phones/self` | 手机注册/查询/注销本机能力 | ▣ `PhoneJobRunner` |
+| `GET /api/phones/self/jobs`、`POST …/jobs/:id/lease|result` | 长轮询、租约、提交手机工具结果 | ▣ |
+| `POST /api/phones/self/events` | 短信/微信/通知/通知栏事件上报 | ▣ |
+| `POST /api/phones/self/places` | 附近地点搜索的服务端代理；坐标只发到已配对电脑，provider key 不下发 | ▣ `PHONE_FIND_PLACES_NEARBY` |
+
+### 1.8 白名单明确拒绝（不要做）
 
 | 家族 | 理由（routes.ts 原文意译） |
 |---|---|

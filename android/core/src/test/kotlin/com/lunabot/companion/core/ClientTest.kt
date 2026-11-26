@@ -131,6 +131,27 @@ class ClientTest {
     }
 
     @Test
+    fun nearbyPlacesPostThePhoneFixToTheSelfRoute() = runBlocking {
+        server.enqueue(json("""{"provider":"google","query":"coffee","radiusMeters":5000,"origin":{"latitude":31.2,"longitude":121.5},"places":[{"name":"Cafe","address":"1 Road","latitude":31.201,"longitude":121.501,"distanceMeters":120,"types":["cafe"],"rating":4.5,"openNow":true}]}"""))
+        val answer = client.findNearbyPlaces(
+            PhonePlacesRequest(query = "coffee", radiusMeters = 5_000, latitude = 31.2, longitude = 121.5),
+        )
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/phones/self/places", request.path)
+            assertEquals(
+                mapOf("query" to "coffee", "radiusMeters" to "5000", "latitude" to "31.2", "longitude" to "121.5"),
+                stringBody(request.body.readUtf8()),
+            )
+        }
+        assertEquals("google", answer.provider)
+        assertEquals(1, answer.places.size)
+        assertEquals("Cafe", answer.places[0].name)
+        assertEquals(120, answer.places[0].distanceMeters)
+        assertEquals(true, answer.places[0].openNow)
+    }
+
+    @Test
     fun anInboundTextPostsTheSmsEventToTheSelfRoute() = runBlocking {
         server.enqueue(json("""{"ok":true}"""))
         client.postPhoneEvent(

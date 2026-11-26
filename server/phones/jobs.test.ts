@@ -267,6 +267,9 @@ describe("phone jobs", () => {
     expect(unknownCode.data).toMatchObject({ ok: false, error: "Needs the new thing." });
     expect((unknownCode.data as { code?: string }).code).toBeUndefined();
     expect(phoneJobOutcome.safeParse({ ok: false, error: "No access.", code: "denied", retryAfter: 5 }).data).toEqual({ ok: false, error: "No access.", code: "denied" });
+    // The places proxy failures stay structured so a client can tell a missing key from an upstream outage.
+    expect(phoneJobOutcome.safeParse({ ok: false, error: "Not configured.", code: "unconfigured" }).data).toMatchObject({ code: "unconfigured" });
+    expect(phoneJobOutcome.safeParse({ ok: false, error: "Upstream failed.", code: "upstream" }).data).toMatchObject({ code: "upstream" });
     expect(phoneJobOutcome.safeParse({ ok: true, result: { events: [] }, elapsedMs: 40 }).data).toEqual({ ok: true, result: { events: [] } });
     expect(phoneJobOutcome.safeParse({ ok: false, error: "Plain." }).data).toEqual({ ok: false, error: "Plain." });
     expect(phoneJobOutcome.safeParse({ bad: true }).success).toBe(false);

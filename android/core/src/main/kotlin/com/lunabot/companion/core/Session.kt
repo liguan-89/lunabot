@@ -3142,6 +3142,27 @@ class Session(
     var lastPhonePollError: String? = null
         private set
 
+    /** The computer's places search, with transport and provider failures kept distinct for the job answer. */
+    suspend fun findNearbyPlaces(request: PhonePlacesRequest): PhonePlacesLookup {
+        val active = client ?: return PhonePlacesLookup.Failure("尚未连接到这台电脑。", "offline")
+        return try {
+            PhonePlacesLookup.Success(active.findNearbyPlaces(request))
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError.Status) {
+            val code = when (error.code) {
+                503 -> "unconfigured"
+                502 -> "upstream"
+                403 -> "denied"
+                404 -> "unsupported"
+                else -> null
+            }
+            PhonePlacesLookup.Failure(error.serverMessage ?: error.message ?: "电脑上的地点搜索失败。", code)
+        } catch (_: Throwable) {
+            PhonePlacesLookup.Failure("无法连接电脑搜索附近地点。", "offline")
+        }
+    }
+
     suspend fun leasePhoneJob(jobId: String): Boolean =
         guardPhone { client?.leasePhoneJob(jobId) } ?: false
 
