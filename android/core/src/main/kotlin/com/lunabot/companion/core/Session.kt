@@ -2817,6 +2817,139 @@ class Session(
         }
     }
 
+    // MARK: - 通知与收件箱
+    //
+    // 与 loadMcpServers 同一个纪律：拒答、旧电脑、够不到都不是错误横幅，
+    // 折叠成屏幕要画的一种状态。
+
+    /** 这台电脑的通知日志，或 null——电脑拒答、太旧或够不到。 */
+    suspend fun loadNotifications(): List<NotificationLogRow>? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val rows = activeClient.notifications().notifications
+            currentCoroutineContext().ensureActive()
+            rows.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /** 一条通知已读；false 静默——下一次刷新会带回真实状态。 */
+    suspend fun markNotificationRead(id: String): Boolean {
+        val activeClient = client ?: return false
+        return try {
+            activeClient.markNotificationRead(id)
+            true
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            false
+        }
+    }
+
+    /** 全部通知已读；false 静默。 */
+    suspend fun markAllNotificationsRead(): Boolean {
+        val activeClient = client ?: return false
+        return try {
+            activeClient.markAllNotificationsRead()
+            true
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            false
+        }
+    }
+
+    /**
+     * 这个人的收件箱，三态分开是因为屏幕要画三种样子：[InboxResult.Loaded]
+     * 画列表；[InboxResult.Missing] 画「这里没有收件箱」的说明（不是错误——
+     * 团队云上没有收件箱的人、或没有这条路由的旧电脑，两者同码不可区分）；
+     * [InboxResult.Unreachable] 是够不到电脑或电脑出错。
+     */
+    suspend fun loadInbox(): InboxResult {
+        val activeClient = client ?: return InboxResult.Unreachable
+        val connectionId = _connection.value?.id
+        return try {
+            val view = activeClient.inbox()
+            currentCoroutineContext().ensureActive()
+            if (_connection.value?.id == connectionId) InboxResult.Loaded(view) else InboxResult.Unreachable
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error is APIError.Status && error.code == 404) InboxResult.Missing else InboxResult.Unreachable
+        }
+    }
+
+    /** 等待处理的行数，供入口行的徽章；任何失败都是 null——徽章静默缺席。 */
+    suspend fun loadInboxCount(): Int? {
+        val activeClient = client ?: return null
+        return try {
+            activeClient.inboxCount()
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /**
+     * 收件箱一行已读（[done] 为 false）或办结（true），成功时答回服务端的
+     * 最新整个视图，调用方直接换列表。任何失败都是 null——行保持原样，
+     * 下一次刷新带回真实状态；409（ask 必须回答不能办结）也走这条路。
+     */
+    suspend fun markInboxRow(id: String, done: Boolean): InboxViewResponse? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val view = activeClient.markInboxRow(id, done)
+            currentCoroutineContext().ensureActive()
+            view.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    // MARK: - Data 只读
+
+    /** 这个智能体的 Data（sheet 与表目录），或 null——拒答、太旧、够不到或数据引擎不可用。 */
+    suspend fun loadBotData(botId: String): BotDataResponse? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val data = activeClient.botData(botId)
+            currentCoroutineContext().ensureActive()
+            data.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /** 表或卡片结果的一页行，或 null——同上。 */
+    suspend fun loadBotDataPage(botId: String, table: String?, cardId: String?, offset: Int, limit: Int): DataPageResponse? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val page = activeClient.botDataPage(botId, table, cardId, offset, limit)
+            currentCoroutineContext().ensureActive()
+            page.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /** 图表卡的 PNG 字节，或 null——失败的图表干脆不画图，列表其余部分不受影响。 */
+    suspend fun loadBotDataCardImage(botId: String, cardId: String, width: Int, scale: Int, dark: Boolean): ByteArray? {
+        val activeClient = client ?: return null
+        return try {
+            activeClient.botDataCardImage(botId, cardId, width, scale, dark)
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
     // MARK: - Phone apps as bot tools
     //
     // These run in the background and must not paint the UI red: a refused
@@ -3212,4 +3345,15 @@ sealed interface LimitResetContinueResult {
     data object Unavailable : LimitResetContinueResult
 
     data class Failed(val message: String) : LimitResetContinueResult
+}
+
+/** 收件箱的读取结果，三态各是屏幕要画的一种样子。 */
+sealed interface InboxResult {
+    data class Loaded(val view: InboxViewResponse) : InboxResult
+
+    /** 这里没有收件箱（团队云上没有的人，或太旧的电脑）——画一行说明，不是错误。 */
+    data object Missing : InboxResult
+
+    /** 够不到电脑或电脑出错——与 Missing 分开，因为这台电脑明明该有。 */
+    data object Unreachable : InboxResult
 }

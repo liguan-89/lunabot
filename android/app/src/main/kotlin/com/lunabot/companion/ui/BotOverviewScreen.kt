@@ -81,6 +81,7 @@ fun BotOverviewScreen(
     onOpenBrowser: (String) -> Unit = {},
     onOpenActivity: (String) -> Unit = {},
     onOpenMcpServers: (String) -> Unit = {},
+    onOpenData: (String) -> Unit = {},
 ) {
     val environment = LocalCompanion.current
     val session = environment.session
@@ -224,6 +225,13 @@ fun BotOverviewScreen(
                             title = "MCP 服务器",
                             detail = "可启用的工具服务器",
                             onClick = { onOpenMcpServers(botId) },
+                        )
+                        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.22f))
+                        OverviewActionRow(
+                            icon = R.drawable.ic_grid,
+                            title = "数据",
+                            detail = "卡片与表，只读",
+                            onClick = { onOpenData(botId) },
                         )
                     }
                 }

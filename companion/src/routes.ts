@@ -231,6 +231,13 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/notifications\/read-all$/ },
   { method: "POST", path: /^\/api\/notifications\/[\w-]+\/read$/ },
 
+  // The person's own inbox, read-only plus its read/done marks: the harness
+  // scopes the rows to the session's person and answers 404 where the
+  // deployment has no inbox. Answering an ask stays on its own card routes.
+  { method: "GET", path: /^\/api\/inbox$/ },
+  { method: "GET", path: /^\/api\/inbox\/count$/ },
+  { method: "POST", path: /^\/api\/inbox\/[\w-]+\/(?:read|done)$/ },
+
   // Never expose or mutate the workspace ElevenLabs key.
   { method: "GET", path: /^\/api\/tts\/voices$/ },
   { method: "POST", path: /^\/api\/tts\/prepare$/ },
