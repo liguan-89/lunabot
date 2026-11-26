@@ -134,10 +134,14 @@ describe("Data result receipt", () => {
       expect(container.querySelector("canvas,table,iframe")).toBeNull();
       flushSync(() => root.render(createElement(DataResultChip, { message: { ...message, dataResult: { ...message.dataResult!, botId: "deleted" } } })));
       expect(container.querySelector("button")!.disabled).toBe(true);
+      // The companion connection opens the same read-only viewer the phone
+      // carries: the sheet, its pages and the chart pictures cross the
+      // whitelist; only running SQL and exporting stay on the host.
       vi.stubGlobal("ogb", { remoteClient: { active: true } });
       flushSync(() => root.render(createElement(DataResultChip, { message })));
-      expect(container.querySelector("button")!.disabled).toBe(true);
-      expect(container.querySelector("button")!.title).toContain("companion");
+      expect(container.querySelector("button")!.disabled).toBe(false);
+      container.querySelector("button")!.click();
+      expect(dispatch).toHaveBeenCalledWith({ type: "openDataResult", botId: "bot", cardId: "c_1" });
     } finally { root.unmount(); vi.unstubAllGlobals(); }
   });
 

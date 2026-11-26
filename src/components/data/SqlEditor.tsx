@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { EditorView, minimalSetup } from "codemirror";
-import { Annotation, Compartment } from "@codemirror/state";
+import { Annotation, Compartment, EditorState } from "@codemirror/state";
 import { PostgreSQL, SQLDialect, sql as sqlLanguage } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
@@ -29,11 +29,13 @@ const appearance = (scheme: ColorScheme) => [
   }, { dark: scheme === "dark" }),
 ];
 
-/** Local query echoes preserve the draft; a completed bot edit is authoritative. */
-export function SqlEditor({ sql, externalRevision, onChange }: { sql: string; externalRevision?: string; onChange: (sql: string) => void }) {
+/** Local query echoes preserve the draft; a completed bot edit is authoritative. `readOnly` is the remote
+ * companion view: running SQL stays on the host, so the text is for reading, not editing. */
+export function SqlEditor({ sql, externalRevision, readOnly, onChange }: { sql: string; externalRevision?: string; readOnly?: boolean; onChange: (sql: string) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const configuration = useRef(new Compartment());
+  const editability = useRef(new Compartment());
   const callback = useRef(onChange);
   callback.current = onChange;
   const scheme = useColorScheme();
@@ -45,6 +47,7 @@ export function SqlEditor({ sql, externalRevision, onChange }: { sql: string; ex
       extensions: [
         minimalSetup, sqlLanguage({ dialect: duckdb }), EditorView.lineWrapping,
         configuration.current.of([]),
+        editability.current.of(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && !update.transactions.some((transaction) => transaction.annotation(fromBot))) {
             callback.current(update.state.doc.toString());
@@ -61,6 +64,9 @@ export function SqlEditor({ sql, externalRevision, onChange }: { sql: string; ex
       EditorView.contentAttributes.of({ "aria-label": t("data.editor.label"), "aria-multiline": "true", spellcheck: "false" }),
     ]) });
   }, [scheme]);
+  useEffect(() => {
+    view.current?.dispatch({ effects: editability.current.reconfigure(readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []) });
+  }, [readOnly]);
   useEffect(() => {
     if (externalRevision === undefined || externalRevision === lastExternalRevision.current) return;
     lastExternalRevision.current = externalRevision;

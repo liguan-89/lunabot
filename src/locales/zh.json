@@ -7055,7 +7055,7 @@
   "data.history": "历史记录",
   "data.latest": "最新结果",
   "data.openResult": "在「数据」中打开",
-  "data.openInWorkspace": "请在桌面应用中打开此结果。通过伴侣连接时暂不支持查看数据。",
+  "data.remoteReadOnly": "远程连接时数据为只读：运行 SQL 与导出请在主机上操作。",
   "data.resultUnavailable": "此结果已不可用。请从历史记录中选择其他结果。",
   "data.view.chart": "图表",
   "data.view.table": "表格",

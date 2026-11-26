@@ -28,6 +28,9 @@ export function DataPanel({ bot, requestedCard }: { bot: Bot; requestedCard?: { 
 
 function BotDataPanel({ bot, requestedCard }: { bot: Bot; requestedCard?: { id: string; requestId: number } }) {
   const { state, dispatch } = useStore();
+  // The companion whitelist carries the sheet, its pages and chart pictures, but
+  // no SQL run, cancel or export: over a remote connection Data is read-only.
+  const remote = window.ogb?.remoteClient?.active === true;
   const sheet = state.dataSheets[bot.id];
   const theme = useColorScheme();
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -141,6 +144,7 @@ function BotDataPanel({ bot, requestedCard }: { bot: Bot; requestedCard?: { id: 
     }
   };
   const edit = (sql: string) => {
+    if (remote) return;
     typed.current = sql;
     const target = targetRef.current;
     if (target) dispatch({ type: "dataView", view: { botId: bot.id, threadId: bot.threadId, cardId: target.id, ...(sql !== target.sql ? { draftSql: sql } : {}) } });
@@ -276,7 +280,8 @@ function BotDataPanel({ bot, requestedCard }: { bot: Bot; requestedCard?: { id: 
       </div>
       <div ref={query} id={queryId} style={{ height: queryHeight ?? undefined }} className="flex min-h-0 shrink-0 flex-col overflow-hidden px-3 py-2" data-testid="data-query">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <SqlEditor sql={shown.sql} externalRevision={String(shown.revision)} onChange={edit} />
+          <SqlEditor sql={shown.sql} externalRevision={String(shown.revision)} readOnly={remote} onChange={edit} />
+          {remote && <p className="mt-1 shrink-0 text-[12px] text-ink-secondary">{t("data.remoteReadOnly")}</p>}
           <p role={queryError ? "alert" : undefined} title={queryError ?? undefined} className="mt-1 h-4 shrink-0 truncate text-[12px] text-danger" data-testid="data-query-error">{queryError}</p>
         </div>
         <div className="shrink-0"><SourcesStrip sources={tables} /></div>
