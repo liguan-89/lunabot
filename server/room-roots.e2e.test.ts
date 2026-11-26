@@ -655,6 +655,7 @@ it("R9 does not rerun a one-on-one goal step after a restart: its goal run ended
   f.script(f.clive.id, { key: "C-STEP", match: ["R9R-GOAL"], readyFile: f.ready("step"), gateFile: f.gate("step"), reply: "never" });
   expect((await sendGoal(f, clive, "R9R-GOAL: publish the export page.")).status).toBe(202);
   await expect.poll(() => existsSync(f.ready("step")), { timeout: 30_000 }).toBe(true);
+  rmSync(f.ready("step"));
   const card = (await f.messages(clive.threadId)).find((message: any) => message.kind === "goal.run");
   await expect.poll(() => f.db().assignments.find((row: any) => !row.parentId)?.status, { timeout: 15_000 }).toBe("running");
   const step = f.db().assignments.find((row: any) => !row.parentId);
@@ -664,7 +665,7 @@ it("R9 does not rerun a one-on-one goal step after a restart: its goal run ended
   await expect.poll(() => f.db().assignments.find((row: any) => row.id === step.id)?.status, { timeout: 30_000 }).toBe("failed");
   expect(f.db().assignments.find((row: any) => row.id === step.id)).toMatchObject({ restarts: 1, result: GOAL_RUN_ENDED });
   await f.settle(1_500);
-  expect(f.turns(f.clive.id).map((record: any) => record.planKey)).toEqual([]);
+  expect(existsSync(f.ready("step"))).toBe(false);
   expect(await f.chips(clive.threadId, RERUN_CHIP)).toHaveLength(0);
   await expect.poll(() => nothingLive(f), { timeout: 15_000 }).toEqual([]);
 }), hostTimeout(90_000));
