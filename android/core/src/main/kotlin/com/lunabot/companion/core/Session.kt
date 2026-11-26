@@ -2790,6 +2790,48 @@ class Session(
         }
     }
 
+    /**
+     * 这个智能体的活动记录行，或 null——电脑拒答（团队成员会话没有 admin 范围）、
+     * 版本太旧没有这条路由、或够不到电脑。与 [loadMcpServers] 同一个先例：
+     * null 是屏幕要画的一种状态，不是错误横幅。
+     */
+    suspend fun loadBotActivity(botId: String, limit: Int = 300): List<BotActivityRow>? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val rows = activeClient.botActivity(botId, limit).rows
+            currentCoroutineContext().ensureActive()
+            rows.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /**
+     * 给被额度限制停住的回合安排「到点继续」。
+     *
+     * 404 与 403 都折成 [LimitResetContinueResult.Unavailable]：404 是旧版电脑
+     * 没有这条路由（旁车对未放行的路由也答 404，两者本就不可区分）或会话已被
+     * 删掉，403 是没有权限的会话——两种情形下按钮都该安静消失，而不是报错。
+     */
+    suspend fun continueAtLimitReset(botId: String, threadId: String): LimitResetContinueResult {
+        val activeClient = client ?: return LimitResetContinueResult.Failed("此电脑当前离线。")
+        return try {
+            activeClient.continueAtLimitReset(botId, threadId)
+            LimitResetContinueResult.Set
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            if (error is APIError.Status && (error.code == 404 || error.code == 403)) {
+                LimitResetContinueResult.Unavailable
+            } else {
+                LimitResetContinueResult.Failed(error.message ?: "无法安排到点继续。")
+            }
+        }
+    }
+
     // MARK: - Phone apps as bot tools
     //
     // These run in the background and must not paint the UI red: a refused
@@ -3174,4 +3216,15 @@ class SpentPairingCredentialException : IllegalStateException(Session.SPENT_QR_M
 sealed interface ClaudeUpdateResult {
     data class Updated(val version: String) : ClaudeUpdateResult
     data class Failed(val message: String) : ClaudeUpdateResult
+}
+
+/** 「到点继续」安排的结果。 */
+sealed interface LimitResetContinueResult {
+    /** 安排好了：新建的（201）或早已存在的（200）都算，两者是同一个终态。 */
+    data object Set : LimitResetContinueResult
+
+    /** 这台电脑没有这个能力或不允许这个会话用——按钮安静消失，不报错。 */
+    data object Unavailable : LimitResetContinueResult
+
+    data class Failed(val message: String) : LimitResetContinueResult
 }

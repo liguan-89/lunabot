@@ -598,6 +598,19 @@ private fun MessageContent(
             if (message.tool?.claudeUpdate == true && claudeInstance != null) {
                 ClaudeUpdateCard(messageId = message.id, instanceId = claudeInstance)
             }
+            // 额度限制停住的回合：提供「到点继续」。与桌面端同一条边界——房间
+            // 没有单一 botId，continue 路由又按 botId+threadId 点名会话，所以
+            // 只有一对一会话提供。
+            val limitBotId = (chat as? Chat.BotChat)?.bot?.id
+            val limitResetsAt = message.tool?.limitResetsAt
+            if (limitResetsAt != null && limitBotId != null) {
+                LimitResetContinueRow(
+                    messageId = message.id,
+                    botId = limitBotId,
+                    threadId = chat.threadId,
+                    resetsAt = limitResetsAt,
+                )
+            }
         }
         Message.Kind.COMPACTION -> ReceiptChip(
             label = message.compaction?.chipText ?: message.text.orEmpty(),

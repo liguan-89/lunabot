@@ -126,6 +126,8 @@ class NavigationTest {
             Destination.Thread("thread:with:colons"),
             Destination.Computer("bot:with:colons"),
             Destination.Overview("bot:with:colons"),
+            Destination.BotActivity("bot:with:colons"),
+            Destination.BotMcpServers("bot:with:colons"),
             Destination.Chat(ChatTarget.Bot("bot:1:x", "thread:1:y")),
             Destination.Chat(ChatTarget.Room("room::9", "")),
         )
@@ -209,12 +211,14 @@ class NavigationTest {
     }
 
     @Test
-    fun `the five addressable destinations do not collide in saved state`() {
+    fun `the addressable destinations do not collide in saved state`() {
         val encoded = CompanionNavigator.encode(
             listOf(
                 Destination.Thread("x"),
                 Destination.Computer("x"),
                 Destination.Overview("x"),
+                Destination.BotActivity("x"),
+                Destination.BotMcpServers("x"),
                 Destination.Chat(ChatTarget.Bot("x", "x")),
                 Destination.Chat(ChatTarget.Room("x", "x")),
             ),

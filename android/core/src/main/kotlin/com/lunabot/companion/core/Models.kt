@@ -168,6 +168,12 @@ data class ToolActivity(
      * payload is what says whether the notice still has something to ask.
      */
     val rescue: FirstReplyRescue? = null,
+    /**
+     * 仅失败行：停住这一回合的额度限制何时重置，纪元毫秒，引擎原话上报
+     * （`shared/failed-turn.ts`）。这个字段在场才提供「到点继续」按钮；
+     * 旧版电脑不带它，也就不提供。
+     */
+    val limitResetsAt: Double? = null,
 )
 
 /**
@@ -1756,6 +1762,28 @@ data class McpServerEntry(
 
 @Serializable
 data class McpServersResponse(val servers: List<McpServerEntry> = emptyList())
+
+/**
+ * `GET /api/bots/:id/activity` 的一行：这个智能体用过的一件工具或求过的一次批准
+ * （`shared/activity.ts`）。只解码手机要画的字段——`labelKey`/`summaryParams`
+ * 是桌面端用自己的语言重述文案用的，手机直接画 `label` 与 `summary` 原文。
+ *
+ * [at] 是 ISO-8601 字符串；[outcome] 保持字符串不枚举，新结局类型出现在更新的
+ * 电脑上时行仍在，只是没有对应的中文徽标词。
+ */
+@Serializable
+data class BotActivityRow(
+    val at: String,
+    val threadId: String,
+    val tool: String,
+    val app: String? = null,
+    val label: String = "",
+    val summary: String? = null,
+    val outcome: String = "ran",
+)
+
+@Serializable
+data class BotActivityResponse(val rows: List<BotActivityRow> = emptyList())
 
 /** Native server sessions returned by POST /api/auth/pair. */
 @Serializable

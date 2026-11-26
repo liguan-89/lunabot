@@ -58,6 +58,12 @@ sealed interface Destination {
      */
     data class Overview(val botId: String) : Destination
 
+    /** 一个智能体的活动记录只读页：用过的工具与求过的批准。同样按 botId 寻址。 */
+    data class BotActivity(val botId: String) : Destination
+
+    /** 一个智能体可启用的 MCP 服务器只读页。同样按 botId 寻址。 */
+    data class BotMcpServers(val botId: String) : Destination
+
     /**
      * A conversation, in one of the two ways something can name one.
      *
@@ -181,6 +187,8 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
         private const val COMPUTER = "computer:"
         private const val BROWSER = "browser:"
         private const val OVERVIEW = "overview:"
+        private const val BOT_ACTIVITY = "botactivity:"
+        private const val BOT_MCP = "botmcp:"
         private const val BOT_CHAT = "botchat:"
         private const val ROOM_CHAT = "roomchat:"
 
@@ -196,6 +204,8 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 is Destination.Computer -> COMPUTER + it.botId
                 is Destination.Browser -> BROWSER + it.botId
                 is Destination.Overview -> OVERVIEW + it.botId
+                is Destination.BotActivity -> BOT_ACTIVITY + it.botId
+                is Destination.BotMcpServers -> BOT_MCP + it.botId
                 is Destination.Chat -> when (val target = it.target) {
                     is ChatTarget.Bot -> BOT_CHAT + join(target.botId, target.threadId)
                     is ChatTarget.Room -> ROOM_CHAT + join(target.roomId, target.threadId)
@@ -216,6 +226,8 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 it.startsWith(COMPUTER) -> Destination.Computer(it.removePrefix(COMPUTER))
                 it.startsWith(BROWSER) -> Destination.Browser(it.removePrefix(BROWSER))
                 it.startsWith(OVERVIEW) -> Destination.Overview(it.removePrefix(OVERVIEW))
+                it.startsWith(BOT_ACTIVITY) -> Destination.BotActivity(it.removePrefix(BOT_ACTIVITY))
+                it.startsWith(BOT_MCP) -> Destination.BotMcpServers(it.removePrefix(BOT_MCP))
                 it.startsWith(BOT_CHAT) -> split(it.removePrefix(BOT_CHAT))
                     ?.let { (owner, thread) -> Destination.Chat(ChatTarget.Bot(owner, thread)) }
                 it.startsWith(ROOM_CHAT) -> split(it.removePrefix(ROOM_CHAT))
