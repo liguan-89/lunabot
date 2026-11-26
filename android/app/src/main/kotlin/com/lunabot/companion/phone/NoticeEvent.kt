@@ -47,10 +47,11 @@ internal object NoticeEvent {
             )
         }
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
-        val text = (
-            extras.getCharSequence(Notification.EXTRA_TEXT)
-                ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
-            )?.toString()?.trim().orEmpty()
+        // A long post's TEXT is the truncated preview; the full body is in BIG_TEXT. The longer one wins.
+        val text = fullerText(
+            extras.getCharSequence(Notification.EXTRA_TEXT),
+            extras.getCharSequence(Notification.EXTRA_BIG_TEXT),
+        )
         if (title.isEmpty() && text.isEmpty() && messages.isEmpty()) return null
 
         return PhoneNoticeEvent(
@@ -76,6 +77,14 @@ internal object NoticeEvent {
         runCatching {
             NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
         }.getOrNull()
+
+    /** The fuller of a notification's collapsed preview and its expanded body: long posts keep TEXT as the
+     * truncated preview and carry the full body only in BIG_TEXT. */
+    internal fun fullerText(preview: CharSequence?, expanded: CharSequence?): String {
+        val short = preview?.toString()?.trim().orEmpty()
+        val long = expanded?.toString()?.trim().orEmpty()
+        return if (long.length > short.length) long else short
+    }
 
     /** A line's speaker; null for the person's own messages and for lines the app did not attribute. */
     private fun senderOf(

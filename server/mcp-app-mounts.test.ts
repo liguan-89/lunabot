@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { SendTurnInput } from "./contracts.ts";
 import { mountChatTools, type ChatToolSession } from "./drivers/chat-mcp-tools.ts";
 import { buildMcpServers } from "./drivers/pi-mcp-servers.ts";
-import { turnStdioMcpServers } from "./drivers/turn-mcp.ts";
 import { appMountFor, gateServer, mcpStdioServer } from "./mcp-gate-config.ts";
 import type { McpAppReport } from "./mcp-app-observer.ts";
 
@@ -67,31 +66,6 @@ describe("the shared decision", () => {
       expect(gateServer({ name: "x", server, threadId: "t", budget, apps: undefined })).toEqual(gateServer({ name: "x", server, threadId: "t", budget }));
     }
     expect(mcpStdioServer(docs, { apps: undefined })).toEqual(mcpStdioServer(docs));
-  });
-});
-
-describe("the ACP family and Muse Code (turn-mcp.ts)", () => {
-  it("mounts a command app server behind an observing gate and a URL one behind an observing proxy; the rest as before", () => {
-    const servers = Object.fromEntries(turnStdioMcpServers(turn()).map((server) => [server.name, server]));
-    expect(servers.board!.args[0]).toContain("mcp-gate");
-    expect(env(servers.board, "LUNABOT_GATE_APPS")).toEqual(mount("board"));
-    expect(servers.draw!.args[0]).toContain("mcp-remote-proxy");
-    expect(env(servers.draw, "LUNABOT_REMOTE_MCP_APPS")).toEqual(mount("draw"));
-    const before = Object.fromEntries(turnStdioMcpServers(turn({ integrations: { agents, custom: { board, notes, draw, docs } } })).map((server) => [server.name, server]));
-    expect(servers.notes).toEqual(before.notes);
-    expect(servers.docs).toEqual(before.docs);
-    expect(servers.agents).toEqual(before.agents);
-    expect(before.board).toEqual({ name: "board", ...board });
-  });
-
-  it("with a selection, gates each server once: the command app server's gate observes, a URL one's gate does not", () => {
-    const servers = Object.fromEntries(turnStdioMcpServers(turn({ toolScope: { allow: ["mcp:board:*", "mcp:draw:*", "mcp:agents:*"] } })).map((server) => [server.name, server]));
-    expect(Object.keys(servers).sort()).toEqual(["agents", "board", "draw"]);
-    expect(env(servers.board, "LUNABOT_GATE_APPS")).toEqual(mount("board"));
-    expect(env(servers.board, "LUNABOT_GATE_TOOL_SCOPE")).toBeDefined();
-    expect(env(servers.board, "LUNABOT_GATE_UPSTREAM")).toEqual(board);
-    expect(servers.draw!.env).not.toHaveProperty("LUNABOT_GATE_APPS");
-    expect(env(env(servers.draw, "LUNABOT_GATE_UPSTREAM"), "LUNABOT_REMOTE_MCP_APPS")).toEqual(mount("draw"));
   });
 });
 

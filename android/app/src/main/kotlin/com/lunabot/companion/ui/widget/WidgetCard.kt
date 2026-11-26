@@ -54,7 +54,9 @@ import com.lunabot.companion.ui.minisTertiary
 import com.lunabot.companion.ui.musePaperCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -63,6 +65,11 @@ import kotlinx.serialization.json.put
 import java.util.UUID
 
 private const val SENT_MS = 1_600L
+
+private fun settledText(value: JsonElement): String = when (value) {
+    is JsonPrimitive -> value.booleanOrNull?.toString() ?: value.contentOrNull ?: ""
+    else -> value.toString().take(200)
+}
 
 /** 桌面 WidgetForm context 的手机对应物：卡片范围内共享的表单状态。 */
 class WidgetFormState(
@@ -189,8 +196,8 @@ private fun WidgetCard(
             fields = widgetFields(root).associateBy { it.name },
             labelled = labelledFields(root),
             initial = widgetInitialValues(root),
-            settledValues = settled?.values?.mapValues { (_, v) -> v.jsonPrimitive.booleanOrNull ?: v.jsonPrimitive.contentOrNull ?: "" } ?: emptyMap(),
-            settledOther = settled?.other?.mapValues { (_, v) -> v.jsonPrimitive.contentOrNull ?: "" } ?: emptyMap(),
+            settledValues = settled?.values?.mapValues { (_, v) -> settledText(v) } ?: emptyMap(),
+            settledOther = settled?.other?.mapValues { (_, v) -> settledText(v) } ?: emptyMap(),
             isSettled = settled != null,
             onAllowImages = { imagesAllowed = true },
         )

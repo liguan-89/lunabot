@@ -304,13 +304,14 @@ describe("pushed notices", () => {
     expect(inbox?.received).toBe(2);
   });
 
-  it("an unticked package loses its kept records on the next event", async () => {
+  it("an unticked package loses its kept records as soon as the registration lands", async () => {
     const { phones } = world();
     await enroll(phones, ["com.chat.app", "com.other.app"]);
     await call(phones, "POST", "/api/phones/self/events", notice());
     await call(phones, "POST", "/api/phones/self/events", notice({ key: "n2", packageName: "com.other.app", text: "ping" }));
     expect(phones.noticeInbox("owner")?.kept).toBe(2);
     await enroll(phones, ["com.chat.app"]);
+    expect(phones.noticeInbox("owner")?.records.map((record) => record.packageName)).toEqual(["com.chat.app"]);
     expect((await call(phones, "POST", "/api/phones/self/events", notice({ key: "n3", text: "again" }))).status).toBe(202);
     const left = phones.noticeInbox("owner")?.records.map((record) => record.packageName) ?? [];
     expect(left).toHaveLength(2);

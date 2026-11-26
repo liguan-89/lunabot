@@ -105,7 +105,7 @@ internal class PhoneUiDoEach(
                         done += next.item.contentKey
                         justScrolled = false
                     } else {
-                        return answer(rounds, "failed", next.item.contentKey, round.error, current)
+                        return answer(rounds, round.stopped ?: STOP_FAILED, next.item.contentKey, round.error, current)
                     }
                 }
                 is Step.Scroll -> {
@@ -164,7 +164,8 @@ internal class PhoneUiDoEach(
         return when (val outcome = runBody(body)) {
             is PhoneToolOutcome.Success -> {
                 val stopped = (outcome.result["stopped"] as? JsonPrimitive)?.contentOrNull ?: STOP_DONE
-                Round(item.contentKey, stopped == STOP_DONE, stopped.takeIf { it != STOP_DONE }, null)
+                val error = (outcome.result["error"] as? JsonPrimitive)?.contentOrNull
+                Round(item.contentKey, stopped == STOP_DONE, stopped.takeIf { it != STOP_DONE }, error)
             }
             is PhoneToolOutcome.Failure -> Round(item.contentKey, false, STOP_FAILED, outcome.error)
         }

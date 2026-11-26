@@ -68,6 +68,11 @@ class AndroidThreadNavigationTest {
     private lateinit var server: MockWebServer
     private lateinit var scene: WiringScene
     private val requests = ConcurrentLinkedQueue<RecordedRequest>()
+
+    /** Passive phone state reports are not thread mutations; the assertions below
+     * are proving that picker navigation itself does not write the server. */
+    private fun RecordedRequest.isPassivePhoneReport(): Boolean =
+        method == "POST" && (path == "/api/tts/reply-listener" || path?.startsWith("/api/presence/") == true)
     private var answerAction: (RecordedRequest) -> MockResponse = { MockResponse().setResponseCode(503) }
     private var answerHistory: () -> MockResponse = { json("""{"messages":[],"hasMore":false}""") }
     private val unavailable = "电脑返回了错误 (503)。"
@@ -175,7 +180,7 @@ class AndroidThreadNavigationTest {
         compose.onNodeWithText(fixture.name).performClick()
         compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "second" }
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
-        assertTrue(requests.none { it.method == "POST" })
+        assertTrue(requests.none { it.method == "POST" && !it.isPassivePhoneReport() })
     }
 
     @Test
@@ -225,7 +230,7 @@ class AndroidThreadNavigationTest {
         assertEquals(ChatTarget.Bot(fixture.id, "second"), selected)
         assertEquals(1, dismissed)
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
-        assertTrue(requests.none { it.method == "POST" })
+        assertTrue(requests.none { it.method == "POST" && !it.isPassivePhoneReport() })
     }
 
     @Test

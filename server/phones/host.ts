@@ -80,12 +80,12 @@ const recordOf = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
 /**
- * A field or line whose own wording says it holds a secret: a password box, a one-time code or a pairing code, in either
- * language the interface may be in. This mirrors the rule server/phone-routes.ts keeps private to the recorder (its
+ * A field or line whose own wording says it holds a secret: a password box, a one-time code or a pairing code, in the
+ * languages a phone screen may be in. This mirrors the rule server/phone-routes.ts keeps private to the recorder (its
  * `SECRET_FIELD` is not exported, and nothing was added there), so the ledger and the recorder agree on what a secret
  * looks like. `hit()` from shared/sensitive.ts covers the rest: a typed password, a code with its keyword.
  */
-const SECRET_LINE = /(password|passcode|pass[-_ ]?code|otp|one[-_ ]?time|verification code|pairing code|\bpin\b|密码|口令|验证码|校验码|动态码|配对码)/i;
+const SECRET_LINE = /(password|passcode|pass[-_ ]?code|otp|one[-_ ]?time|verification code|pairing code|\bpin\b|密码|口令|验证码|校验码|动态码|配对码|密碼|驗證碼|校驗碼|動態碼|配對碼|認証コード|確認コード|認証番号|暗証番号|セキュリティコード|ワンタイムパスワード|パスワード|パスコード|인증번호|인증 ?코드|보안 ?코드|확인 ?코드|비밀번호)/i;
 
 /**
  * The lines one screen reads as for the ledger. An editable element's `text` is what was typed into it rather than a

@@ -217,6 +217,7 @@ This uses the yamux wire format (`hashicorp/yamux` spec): a 12-byte header of `v
     - Anything else is closed without opening a stream.
     - `CompanionClient` adds that header on every request for an E2E connection, including `viewerSocketRequest` and `BrowserLiveClient`.
   - **Android:** an in-process `javax.net.SocketFactory` that returns a `java.net.Socket` subclass backed by one stream. There is no port.
+  - A response that never finishes (SSE, a hanging download) has no per-stream idle deadline. Application heartbeats prove only that the server wrote, not that the phone read; the yamux ping proves the session, not this stream. The origin therefore reclaims streams before the request and during body upload, but a response-side stall remains open until the response finishes, the peer resets it, or the session ends. This is a known limit rather than a timeout: no signal on the wire distinguishes a live idle stream from a dead reader.
     - The companion `OkHttpClient` uses it together with a `Dns` that maps `h-<hostIdHex>.e2e.invalid` to a placeholder address.
     - `setSoTimeout` MUST be honoured, so OkHttp's existing read timeouts (90 s for SSE) keep working.
     - The outer WebSocket client is a separate `OkHttpClient` that uses the normal socket factory.

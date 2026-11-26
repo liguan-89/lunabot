@@ -453,6 +453,27 @@ private fun WidgetLayout(node: WidgetNode, form: WidgetFormState, press: (String
 
 /** 桌面 flex 行的对应物：先按固有宽排，挤不下按 CSS flex-shrink 等比收缩（min-w-0 可到 0），
  *  `flex` 子项按比例吃剩余空间；富余宽度交给 justify 分布。 */
+/** 行宽分配：flex 只吃非弹性子项剩下的空间；非弹性子项自身超宽时也等比压缩。 */
+internal fun shrinkRowWidths(intrinsic: IntArray, flexes: List<Float>, avail: Int): IntArray {
+    val widths = intrinsic.copyOf()
+    val flexSum = flexes.sumOf { it.coerceAtLeast(0f).toDouble() }.toFloat()
+    if (flexSum > 0f) {
+        val fixedTotal = widths.filterIndexed { i, _ -> flexes[i] <= 0f }.sum()
+        if (fixedTotal > avail) {
+            for (i in widths.indices) {
+                widths[i] = if (flexes[i] > 0f) 0 else (avail.toLong() * widths[i] / fixedTotal).toInt()
+            }
+        } else {
+            val room = avail - fixedTotal
+            for (i in widths.indices) if (flexes[i] > 0f) widths[i] = (room * flexes[i] / flexSum).toInt()
+        }
+    } else if (widths.sum() > avail) {
+        val total = widths.sum()
+        for (i in widths.indices) widths[i] = (avail.toLong() * widths[i] / total).toInt()
+    }
+    return widths
+}
+
 @Composable
 private fun ShrinkRow(
     modifier: Modifier,
@@ -473,18 +494,11 @@ private fun ShrinkRow(
         val avail = (constraints.maxWidth - gapPx * (n - 1)).coerceAtLeast(0)
         // measure() 对每个 Measurable 只能调一次：固有宽与 stretch 行高都走
         // intrinsic 预估，最终尺寸在唯一一次 measure 里以固定宽约束下发。
-        val widths = IntArray(n) { measurables[it].maxIntrinsicWidth(Constraints.Infinity) }
-        val flexSum = flexes.sumOf { it.coerceAtLeast(0f).toDouble() }.toFloat()
-        when {
-            flexSum > 0f -> {
-                val room = (avail - widths.filterIndexed { i, _ -> flexes[i] <= 0f }.sum()).coerceAtLeast(0)
-                for (i in 0 until n) if (flexes[i] > 0f) widths[i] = (room * flexes[i] / flexSum).toInt()
-            }
-            widths.sum() > avail -> {
-                val total = widths.sum()
-                for (i in 0 until n) widths[i] = (avail.toLong() * widths[i] / total).toInt()
-            }
-        }
+        val widths = shrinkRowWidths(
+            intrinsic = IntArray(n) { measurables[it].maxIntrinsicWidth(Constraints.Infinity) },
+            flexes = flexes,
+            avail = avail,
+        )
         val height = if (stretch) {
             maxOf(
                 measurables.indices.maxOf { measurables[it].maxIntrinsicHeight(widths[it]) },

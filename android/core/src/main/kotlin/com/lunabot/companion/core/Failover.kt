@@ -97,6 +97,8 @@ enum class ConnectionFailure {
     NOT_CONNECTED_TO_INTERNET,
     CANCELLED,
     NETWORK_CONNECTION_LOST,
+    /** The relay answered for a computer that is asleep or offline. */
+    COMPUTER_ASLEEP,
     OTHER,
 }
 
@@ -193,6 +195,9 @@ object ConnectionAdvice {
             }
         }
         val detail = chain.joinToString(" ") { it.message.orEmpty() }.lowercase()
+        // The tunnel speaks for the computer: every refusal below arrived, so it names a fact about the computer,
+        // never a wire code for the banner to print raw (spec §12 what the phone shows).
+        if ("e2e: " in detail) return classifyE2e(detail)
         return when {
             "unable to resolve host" in detail || "unknown host" in detail ->
                 ConnectionFailure.CANNOT_FIND_HOST
@@ -206,6 +211,18 @@ object ConnectionAdvice {
                 ConnectionFailure.NOT_CONNECTED_TO_INTERNET
             else -> ConnectionFailure.OTHER
         }
+    }
+
+    /** What an encrypted tunnel's refusal means: a 4001/4404/44xx close code is the computer (or its relay)
+     * answering, so the banner words the computer's state instead of printing `e2e: <reason>` raw. */
+    private fun classifyE2e(detail: String): ConnectionFailure = when {
+        "asleep" in detail -> ConnectionFailure.COMPUTER_ASLEEP
+        "direct_rejected" in detail || "relay_rejected" in detail || "relay_no_data_socket" in detail ->
+            ConnectionFailure.CANNOT_CONNECT_TO_HOST
+        "relay_busy" in detail || "relay_restarting" in detail -> ConnectionFailure.NETWORK_CONNECTION_LOST
+        // Removed/wrong-computer never reaches the banner (Unauthorized / pairing text), but never raw either.
+        "removed" in detail || "payload2" in detail -> ConnectionFailure.CANNOT_CONNECT_TO_HOST
+        else -> ConnectionFailure.TIMED_OUT
     }
 
     fun message(
@@ -222,6 +239,7 @@ object ConnectionAdvice {
             ConnectionFailure.TIMED_OUT ->
                 "无法路由到位于 $host 的电脑——可能处于不同网络或被防火墙拦截。"
             ConnectionFailure.NOT_CONNECTED_TO_INTERNET -> "当前处于离线状态。"
+            ConnectionFailure.COMPUTER_ASLEEP -> "电脑可能已休眠或离线。"
             else -> "无法连接到 $host。"
         }
         return advice + fallbackAdvice(tryingNext)

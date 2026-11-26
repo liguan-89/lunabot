@@ -45,7 +45,10 @@ function shapeStyled(record: NoticeRecord): NoticeRecord {
   if (name === "") return record.group === true ? { ...record, titleIsSpeaker: true } : record;
   const trimmed = record.title.trim();
   const rest = (trimmed.startsWith(name) ? trimmed.slice(name.length) : trimmed).trimStart();
-  const speaker = rest.startsWith(":") || rest.startsWith("：") ? rest.slice(1).trim() : "";
+  const styledSender = record.messages?.at(-1)?.sender?.trim() ?? "";
+  const titlePrefix = /^([^:：]{1,40})[:：]\s*.+$/.exec(trimmed)?.[1]?.trim() ?? "";
+  const parsed = rest.startsWith(":") || rest.startsWith("：") ? rest.slice(1).trim() : "";
+  const speaker = parsed !== "" ? parsed : styledSender !== "" ? styledSender : titlePrefix;
   return {
     ...record,
     title: name,

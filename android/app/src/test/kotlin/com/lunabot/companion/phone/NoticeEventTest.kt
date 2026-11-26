@@ -108,6 +108,29 @@ class NoticeEventTest {
     }
 
     @Test
+    fun `a long post keeps its full body instead of the truncated preview`() {
+        val full = "今晚开会要讨论的内容很多，包括预算、排期和人员安排，请大家准时参加并提前准备材料。"
+        val notification = builder()
+            .setContentTitle("群聊")
+            .setContentText(full.take(10) + "…")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(full))
+            .build()
+        val event = NoticeEvent.of(context, sbnOf(notification))!!
+        assertEquals(full, event.text)
+    }
+
+    @Test
+    fun `a short post without an expanded body keeps its text`() {
+        val notification = builder()
+            .setContentTitle("Alex")
+            .setContentText("到了吗")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("到了吗"))
+            .build()
+        val event = NoticeEvent.of(context, sbnOf(notification))!!
+        assertEquals("到了吗", event.text)
+    }
+
+    @Test
     fun `a low-importance channel reads as silent`() {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(

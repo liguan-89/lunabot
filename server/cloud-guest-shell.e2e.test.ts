@@ -213,8 +213,18 @@ it("no engine a bot runs finds the Cloud's secrets: not in its own environment, 
   rmSync(probeOf(), { force: true });
   const mine = await ownThread(bot);
   expect((await say(owner, bot, "Hello.", mine)).status).toBe(202);
-  await expect.poll(() => existsSync(probeOf()), { timeout: hostTimeout(15_000) }).toBe(true);
-  const probe = JSON.parse(readFileSync(probeOf(), "utf8")) as { parent: string; own: string };
+  // writeFileSync creates the file before its content lands: under a loaded CI host the
+  // reader can win that gap, so poll for the parse, not the existence.
+  let probe: { parent: string; own: string } | undefined;
+  await expect.poll(() => {
+    try {
+      probe = JSON.parse(readFileSync(probeOf(), "utf8")) as { parent: string; own: string };
+      return true;
+    } catch {
+      return false;
+    }
+  }, { timeout: hostTimeout(15_000) }).toBe(true);
+  probe = probe!;
   if (process.platform !== "win32") expect(probe.parent).toContain("LUNABOT_CLOUD_MACHINE_ID=3f9c2a4e");
   for (const where of [probe.parent, probe.own]) {
     expect(where).not.toContain(secret);

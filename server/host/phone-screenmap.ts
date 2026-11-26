@@ -137,9 +137,10 @@ export function createPhoneScreenmaps(deps: StoreDeps): PhoneScreenmaps {
         const nodes = Object.keys(graph.nodes ?? {}).length;
         if (nodes === 0) continue;
         const text = renderMap(graph, null);
-        if (total + text.length > REFERENCE_CHARS || sections.length >= 3) break;
-        sections.push(`App ${graph.app}:\n${text.slice(0, PAGE_CHARS)}`);
-        total += text.length;
+        const clipped = text.slice(0, PAGE_CHARS);
+        if (total + clipped.length > REFERENCE_CHARS || sections.length >= 3) break;
+        sections.push(`App ${graph.app}:\n${clipped}`);
+        total += clipped.length;
       }
       return sections.length === 0 ? "" : `Screens this phone has seen before (a reference, not a promise):\n${sections.join("\n")}`;
     } catch {
