@@ -219,7 +219,9 @@ describe("CI concurrency", () => {
   });
 
   it.each(requiredRuntimeJobs)("accepts %s skipped only when static left it out", (job) => {
-    const others = SELECTABLE_JOBS.filter((name) => name !== job);
+    // electron-smokes also runs when only android-tests is selected, so its
+    // skipped-acceptance fixture cannot have android-tests in the selection.
+    const others = SELECTABLE_JOBS.filter((name) => name !== job && (job !== "electron-smokes" || name !== "android-tests"));
     expect(runGate(gateNeeds(others)).status).toBe(0);
     for (const result of ["success", "failure", "cancelled"]) {
       expect(runGate({ ...gateNeeds(others), [job]: { result } }).status).toBe(1);
@@ -290,11 +292,17 @@ describe("CI concurrency", () => {
         continue;
       }
       expect(job.needs).toBe("static");
-      expect(job.if).toBe(`contains(needs.static.outputs.jobs, '"${name}"')`);
+      // The one macOS job also runs when only the phone app's tests are selected:
+      // two macOS jobs would each pay the scarce runner's queue wait.
+      if (name === "electron-smokes") {
+        expect(job.if).toBe(`contains(needs.static.outputs.jobs, '"electron-smokes"') || contains(needs.static.outputs.jobs, '"android-tests"')`);
+      } else {
+        expect(job.if).toBe(`contains(needs.static.outputs.jobs, '"${name}"')`);
+      }
     }
     // ci-scope selects exactly the jobs the workflow has.
     expect(Object.keys(workflow.jobs).filter((name) => !["static", "gate", "deploy-composio-broker"].includes(name)).sort())
-      .toEqual([...SELECTABLE_JOBS].sort());
+      .toEqual(SELECTABLE_JOBS.filter((name) => name !== "android-tests").sort());
   });
 
   it("pins every external action to a full commit SHA", () => {

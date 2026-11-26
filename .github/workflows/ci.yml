@@ -330,7 +330,7 @@ jobs:
 
   electron-smokes:
     needs: static
-    if: contains(needs.static.outputs.jobs, '"electron-smokes"')
+    if: contains(needs.static.outputs.jobs, '"electron-smokes"') || contains(needs.static.outputs.jobs, '"android-tests"')
     # Real Electron utility processes against disposable homes and fake CLIs.
     # Never the live app. Each script prints its own evidence lines. Every
     # PR's, push's and merge group's macOS checks live in this one job: macOS
@@ -348,23 +348,46 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Prepare Electron test runtime
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         run: node --input-type=commonjs -e "require('electron')"
       - name: Packaged server smoke (macOS)
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         # Builds dist-server/ and runs a copy of it outside the repo; the
         # phone-relay smoke below forks the same dist-server/index.js.
         run: pnpm test:packaged-server
       - name: Verify native approval mode transitions
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         run: pnpm exec electron scripts/smoke-approval-modes.cjs
       - name: Verify app permissions and guarded display capture
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         run: node scripts/smoke-app-permissions.mjs
       - name: Verify chat app frames stay sealed
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         run: node scripts/smoke-app-frames.mjs --engagement
       - name: Verify paired phone authorization against packaged harness
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         # Forks dist-server/index.js, built by the packaged server step.
         run: pnpm build:companion && pnpm exec electron scripts/smoke-phone-relay-auth.cjs
       - name: Verify Send to My Cloud's login handoff over the real utility port
+        if: contains(needs.static.outputs.jobs, '"electron-smokes"')
         # Forks dist-server/index.js, built by the packaged server step.
         run: pnpm exec electron scripts/smoke-login-handoff.cjs
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: contains(needs.static.outputs.jobs, '"android-tests"')
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        if: contains(needs.static.outputs.jobs, '"android-tests"')
+      - name: Phone app unit tests (Robolectric)
+        # JVM tests, no emulator: the runner image carries the Android SDK the
+        # Gradle plugins resolve. macOS because that is the host these tests
+        # are written and green on — Robolectric's native graphics measures
+        # text with the host's fonts, a Linux runner would lay the same cards
+        # out by different metrics.
+        if: contains(needs.static.outputs.jobs, '"android-tests"')
+        working-directory: android
+        run: ./gradlew :core:test :app:testDebugUnitTest
 
   gate:
     # One aggregation, not three queued runners doing the same check.
@@ -388,7 +411,9 @@ jobs:
             try { selected = JSON.parse(needs.static.outputs.jobs); } catch { selected = null; }
             if (!Array.isArray(selected) || !selected.every((job) => typeof job === "string")) throw new Error("Missing CI selection");
             const bad = Object.entries(needs).filter(([job, { result }]) => {
-              const expected = job === "static" || selected.includes(job) ? "success" : "skipped";
+              // electron-smokes is the one macOS job: it also runs when only android-tests is selected.
+              const ran = job === "static" || selected.includes(job) || (job === "electron-smokes" && selected.includes("android-tests"));
+              const expected = ran ? "success" : "skipped";
               return result !== expected;
             });
             if (bad.length) { console.error(`\n${bad.length} required job(s) did not pass: ${bad.map(([job]) => job).join(", ")}`); process.exit(1); }

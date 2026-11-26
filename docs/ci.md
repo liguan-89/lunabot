@@ -21,6 +21,7 @@ too) into areas, and runs only the jobs some area can affect:
 | server | `server/`, `shared/`, `enterprise/`, `companion/`, `evals/`, `skills/`, `deploy/`, the composio broker, the Dockerfile, and the renderer files the server or a smoke loads | the build, Linux shards (and Windows', see Windows), behavior evals, packaged server, open-source edition, the macOS smokes, renderer smoke, browser identity, browser driver, Linux package |
 | Windows computer control | the `electron/` modules that start computer control and lend a PC's screen: `cua`, `cua-failure`, `cua-connection`, `capabilities`, `screen-status`, `shared-cua-connection`, `shared-computer-access`, `lent-screen-tools`, `lent-screen-failures`, `paced-typing` | the same as server, and Windows CUA |
 | desktop | the rest of `electron/`, `build/`, `electron-builder.yml`, `index.html` | the same as server |
+| android | `android/` | the phone app's JVM unit tests (Robolectric) in the macOS smokes job |
 | everything | anything else: `.github/` workflows, `package.json`, the lockfile and workspace, tsconfig, vite and vitest config, `third_party/`, `scripts/` code, unknown paths | every job |
 
 The build is the `build` job: typecheck, Electron syntax check and UI build,
@@ -32,7 +33,12 @@ run the union of their jobs. Why the mapping is what it is:
   the renderer smoke, and those renderer files count as server.
   `scripts/ci-scope.test.ts` holds the list equal to the import graph.
 - The macOS smokes run the packaged server inside Electron (approval modes,
-  app frames, phone relay, login handoff), so a server change runs them.
+  app frames, phone relay, login handoff), so a server change runs them. The
+  phone app's unit tests fold into the same job when `android-tests` is
+  selected: macOS runners are the scarce ones, and a second macOS job would
+  pay its own queue wait and install. They run on macOS because that is the
+  host they are written and green on — Robolectric's native graphics measures
+  text with the host's fonts.
 - A renderer change runs no Windows or macOS shard: the renderer's tests read
   the platform from the desktop bridge, never the host. The full lane still
   runs both.
@@ -54,7 +60,7 @@ sets (`laneOf` in `scripts/ci-scope.mjs`):
 | Event | Lane | What runs |
 | --- | --- | --- |
 | `pull_request` | its areas | the table above, with Linux shards, and Windows jobs only for a change that can break Windows (Windows below) |
-| `push` to main, `merge_group` | main | static (lint and the CI checks), the build, the eight Linux and eight Windows shards with the Electron node tests, the macOS smokes job, behavior evals, the Linux and Windows packaged server smokes, the open-source edition, the renderer smoke and Linux and Windows browser identity |
+| `push` to main, `merge_group` | main | static (lint and the CI checks), the build, the eight Linux and eight Windows shards with the Electron node tests, the macOS smokes job (with the phone app's unit tests), behavior evals, the Linux and Windows packaged server smokes, the open-source edition, the renderer smoke and Linux and Windows browser identity |
 | `schedule` (nightly, 21:17 UTC), `workflow_dispatch` (manual runs, the release branch's CI that `prepare-release.yml` starts, and the release lane) | full | every job on every platform: also the Windows and macOS shards, the Windows packaged server and Windows CUA smokes, Windows and macOS browser identity, the browser driver on all three, the Linux package and the Linux ARM64 installer |
 
 The main lane runs Linux, Windows and one macOS job. The macOS shards, the
