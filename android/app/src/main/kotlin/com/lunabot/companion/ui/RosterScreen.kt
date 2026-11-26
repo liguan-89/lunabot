@@ -406,6 +406,10 @@ fun RosterScreen(navigator: CompanionNavigator) {
                     drawerOpen = false
                     navigator.push(Destination.Settings)
                 },
+                onOpenGeneralMemory = {
+                    drawerOpen = false
+                    navigator.push(Destination.TeamMemory(""))
+                },
                 onOpenSearch = {
                     drawerOpen = false
                     activeTab = 1
@@ -636,6 +640,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
                                                         collapsedSections + section.id
                                                     }
                                                 },
+                                                onOpenMemory = { navigator.push(Destination.TeamMemory(section.name)) },
                                             )
                                         }
                                         if (!sectionCollapsed) {
@@ -1608,42 +1613,59 @@ private fun CollapsibleSectionHeader(
     count: Int,
     collapsed: Boolean,
     onToggle: () -> Unit,
+    onOpenMemory: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp, bottom = 2.dp)
-            .clickable(role = Role.Button, onClick = onToggle)
-            .semantics(mergeDescendants = true) {
-                contentDescription = "$title 分组"
-                stateDescription = if (collapsed) "已折叠，$count 项" else "已展开"
-            }
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .height(44.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Icon(
-            imageVector = if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
-            contentDescription = null,
-            tint = minisSecondary,
-            modifier = Modifier.size(15.dp),
-        )
-        Text(
-            text = RosterLayout.sectionLabel(title),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 0.2.sp,
-            color = minisSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (collapsed && count > 0) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clickable(role = Role.Button, onClick = onToggle)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "$title 分组"
+                    stateDescription = if (collapsed) "已折叠，$count 项" else "已展开"
+                }
+                .padding(start = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(
+                imageVector = if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = minisSecondary,
+                modifier = Modifier.size(15.dp),
+            )
             Text(
-                text = "$count",
+                text = RosterLayout.sectionLabel(title),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.2.sp,
+                color = minisSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (collapsed && count > 0) {
+                Text(
+                    text = "$count",
+                    fontSize = 12.sp,
+                    color = minisTertiary,
+                )
+            }
+        }
+        TouchTarget(onClick = onOpenMemory, contentDescription = "$title 团队记忆") {
+            Text(
+                text = "记忆",
                 fontSize = 12.sp,
-                color = minisTertiary,
+                color = minisAccent,
             )
         }
+        Spacer(Modifier.width(12.dp))
     }
 }
 
@@ -2566,6 +2588,7 @@ private fun MuseDrawerContent(
     onSelectTab: (Int) -> Unit,
     onOpenCompanion: (ChatSummary) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenGeneralMemory: () -> Unit,
     onOpenSearch: () -> Unit,
     onCreateBot: () -> Unit,
     onCreateGroup: () -> Unit,
@@ -2767,6 +2790,19 @@ private fun MuseDrawerContent(
             ) {
                 Icon(painterResource(R.drawable.ic_muse_chat_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
                 Text("新建群组", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(role = Role.Button, onClick = onOpenGeneralMemory)
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Star, null, tint = minisInk, modifier = Modifier.size(19.dp))
+                Text("通用记忆", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
             }
 
             Spacer(Modifier.height(8.dp))

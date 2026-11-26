@@ -1854,6 +1854,53 @@ data class InboxViewResponse(
 data class InboxCountResponse(val count: Int = 0)
 
 /**
+ * `/api/team-memory` 的一条共享记忆。kind/status 保持字符串：更新的电脑
+ * 增加种类时，手机仍画出原文而不是丢掉整条记忆。
+ */
+@Serializable
+data class TeamMemorySource(
+    val botId: String = "",
+    val botName: String = "",
+    val threadId: String = "",
+    val at: Long = 0,
+    val quote: String? = null,
+)
+
+@Serializable
+data class TeamMemoryHistoryEntry(val name: String, val detail: String, val at: Long)
+
+@Serializable
+data class TeamMemoryEntry(
+    val id: String,
+    val kind: String,
+    val name: String,
+    val detail: String,
+    val aliases: List<String> = emptyList(),
+    val status: String,
+    val source: TeamMemorySource = TeamMemorySource(),
+    val updatedAt: Long = 0,
+    val revision: String = "",
+    val pinned: Boolean? = null,
+    val key: String? = null,
+    val history: List<TeamMemoryHistoryEntry>? = null,
+)
+
+@Serializable
+data class TeamMemoryResponse(
+    val section: String,
+    val label: String,
+    val entries: List<TeamMemoryEntry> = emptyList(),
+    val loadedIds: List<String> = emptyList(),
+)
+
+/** 团队记忆写操作的响应：服务端只回最新的条目与加载选择，不重复分区名。 */
+@Serializable
+data class TeamMemoryMutationResponse(
+    val entries: List<TeamMemoryEntry> = emptyList(),
+    val loadedIds: List<String> = emptyList(),
+)
+
+/**
  * `GET /api/bots/:id/data` 的只读形状（`shared/data-surface.ts`）：sheet 上的卡片、
  * 加载过的来源与数据库里的表。只读是有意的——跑 SQL、改卡片、导出都不对手机开放。
  */

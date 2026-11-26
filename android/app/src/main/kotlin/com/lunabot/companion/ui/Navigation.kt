@@ -70,6 +70,9 @@ sealed interface Destination {
     /** 一个智能体的 Data 只读页：sheet 卡片与表浏览。同样按 botId 寻址。 */
     data class BotData(val botId: String) : Destination
 
+    /** 一个团队分区的共享记忆页。按分区名寻址，空串是 General。 */
+    data class TeamMemory(val section: String) : Destination
+
     /**
      * A conversation, in one of the two ways something can name one.
      *
@@ -197,6 +200,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
         private const val BOT_ACTIVITY = "botactivity:"
         private const val BOT_MCP = "botmcp:"
         private const val BOT_DATA = "botdata:"
+        private const val TEAM_MEMORY = "teammemory:"
         private const val BOT_CHAT = "botchat:"
         private const val ROOM_CHAT = "roomchat:"
 
@@ -216,6 +220,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 is Destination.BotActivity -> BOT_ACTIVITY + it.botId
                 is Destination.BotMcpServers -> BOT_MCP + it.botId
                 is Destination.BotData -> BOT_DATA + it.botId
+                is Destination.TeamMemory -> TEAM_MEMORY + it.section
                 is Destination.Chat -> when (val target = it.target) {
                     is ChatTarget.Bot -> BOT_CHAT + join(target.botId, target.threadId)
                     is ChatTarget.Room -> ROOM_CHAT + join(target.roomId, target.threadId)
@@ -240,6 +245,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 it.startsWith(BOT_ACTIVITY) -> Destination.BotActivity(it.removePrefix(BOT_ACTIVITY))
                 it.startsWith(BOT_MCP) -> Destination.BotMcpServers(it.removePrefix(BOT_MCP))
                 it.startsWith(BOT_DATA) -> Destination.BotData(it.removePrefix(BOT_DATA))
+                it.startsWith(TEAM_MEMORY) -> Destination.TeamMemory(it.removePrefix(TEAM_MEMORY))
                 it.startsWith(BOT_CHAT) -> split(it.removePrefix(BOT_CHAT))
                     ?.let { (owner, thread) -> Destination.Chat(ChatTarget.Bot(owner, thread)) }
                 it.startsWith(ROOM_CHAT) -> split(it.removePrefix(ROOM_CHAT))
