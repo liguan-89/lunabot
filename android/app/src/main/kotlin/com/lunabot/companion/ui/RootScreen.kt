@@ -552,6 +552,10 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             botId = destination.botId,
             onBack = navigator::pop,
         )
+        is Destination.TeamMemory -> TeamMemoryScreen(
+            section = destination.section,
+            onBack = navigator::pop,
+        )
         is Destination.BotRoutines -> TasksRoutinesScreen(
             onBack = navigator::pop,
             onOpenChat = navigator::open,

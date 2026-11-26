@@ -130,6 +130,8 @@ class NavigationTest {
             Destination.BotActivity("bot:with:colons"),
             Destination.BotMcpServers("bot:with:colons"),
             Destination.BotData("bot:with:colons"),
+            Destination.TeamMemory(""),
+            Destination.TeamMemory("团队: with spaces"),
             Destination.Chat(ChatTarget.Bot("bot:1:x", "thread:1:y")),
             Destination.Chat(ChatTarget.Room("room::9", "")),
         )
@@ -222,6 +224,7 @@ class NavigationTest {
                 Destination.BotActivity("x"),
                 Destination.BotMcpServers("x"),
                 Destination.BotData("x"),
+                Destination.TeamMemory("x"),
                 Destination.Chat(ChatTarget.Bot("x", "x")),
                 Destination.Chat(ChatTarget.Room("x", "x")),
             ),

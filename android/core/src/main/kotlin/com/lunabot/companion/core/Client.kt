@@ -533,6 +533,53 @@ class CompanionClient(
         makeRequest("POST", "/api/inbox/${segment(id)}/${if (done) "done" else "read"}"),
     )
 
+    /** 一个团队分区的共享记忆。section 必须带上，空串是 General。 */
+    suspend fun teamMemory(section: String): TeamMemoryResponse =
+        send(makeRequest("GET", "/api/team-memory", listOf("section" to section)))
+
+    /** 人手动添加一条共享记忆；服务端会直接采纳人提交的条目。 */
+    suspend fun addTeamMemory(section: String, kind: String, name: String, detail: String): TeamMemoryMutationResponse = send(
+        makeRequest(
+            "POST",
+            "/api/team-memory",
+            listOf("section" to section),
+            body = jsonBody("kind" to kind, "name" to name, "detail" to detail),
+        ),
+    )
+
+    /** 采纳、修改或置顶一条共享记忆；expectedRevision 是服务端防覆盖的版本票。 */
+    suspend fun patchTeamMemory(
+        section: String,
+        entryId: String,
+        expectedRevision: String,
+        accept: Boolean? = null,
+        name: String? = null,
+        detail: String? = null,
+        pinned: Boolean? = null,
+    ): TeamMemoryMutationResponse = send(
+        makeRequest(
+            "PATCH",
+            "/api/team-memory/${segment(entryId)}",
+            listOf("section" to section),
+            body = buildJsonObject {
+                put("expectedRevision", expectedRevision)
+                accept?.let { put("accept", it) }
+                name?.let { put("name", it) }
+                detail?.let { put("detail", it) }
+                pinned?.let { put("pinned", it) }
+            },
+        ),
+    )
+
+    /** 删除或跳过一条共享记忆；revision 通过 query 传递，与服务端路由一致。 */
+    suspend fun deleteTeamMemory(section: String, entryId: String, revision: String): TeamMemoryMutationResponse = send(
+        makeRequest(
+            "DELETE",
+            "/api/team-memory/${segment(entryId)}",
+            listOf("section" to section, "revision" to revision),
+        ),
+    )
+
     /** 这个智能体的 Data：sheet 上的卡片与数据库里的表，全只读。 */
     suspend fun botData(botId: String): BotDataResponse =
         send(makeRequest("GET", "/api/bots/${segment(botId)}/data"))

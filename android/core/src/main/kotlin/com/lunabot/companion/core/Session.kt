@@ -2924,6 +2924,56 @@ class Session(
         }
     }
 
+    // MARK: - 团队记忆
+
+    /** 一个团队分区的共享记忆，或 null——拒答、旧电脑、够不到或分区已不存在。 */
+    suspend fun loadTeamMemory(section: String): TeamMemoryResponse? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val view = activeClient.teamMemory(section)
+            currentCoroutineContext().ensureActive()
+            view.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    /** 共享记忆写入的统一折叠：409/428 是版本已被别处改走，其余失败都是不可用。 */
+    private suspend fun writeTeamMemory(call: suspend (CompanionClient) -> TeamMemoryMutationResponse): TeamMemoryWriteResult {
+        val activeClient = client ?: return TeamMemoryWriteResult.Unavailable
+        val connectionId = _connection.value?.id
+        return try {
+            val view = call(activeClient)
+            currentCoroutineContext().ensureActive()
+            if (_connection.value?.id == connectionId) TeamMemoryWriteResult.Saved(view) else TeamMemoryWriteResult.Unavailable
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error is APIError.Status && (error.code == 409 || error.code == 428)) {
+                TeamMemoryWriteResult.Changed
+            } else {
+                TeamMemoryWriteResult.Unavailable
+            }
+        }
+    }
+
+    suspend fun addTeamMemory(section: String, kind: String, name: String, detail: String): TeamMemoryWriteResult =
+        writeTeamMemory { it.addTeamMemory(section, kind, name, detail) }
+
+    suspend fun acceptTeamMemory(section: String, entry: TeamMemoryEntry): TeamMemoryWriteResult =
+        writeTeamMemory { it.patchTeamMemory(section, entry.id, entry.revision, accept = true) }
+
+    suspend fun editTeamMemory(section: String, entry: TeamMemoryEntry, name: String, detail: String): TeamMemoryWriteResult =
+        writeTeamMemory { it.patchTeamMemory(section, entry.id, entry.revision, name = name, detail = detail) }
+
+    suspend fun pinTeamMemory(section: String, entry: TeamMemoryEntry, pinned: Boolean): TeamMemoryWriteResult =
+        writeTeamMemory { it.patchTeamMemory(section, entry.id, entry.revision, pinned = pinned) }
+
+    suspend fun removeTeamMemory(section: String, entry: TeamMemoryEntry): TeamMemoryWriteResult =
+        writeTeamMemory { it.deleteTeamMemory(section, entry.id, entry.revision) }
+
     // MARK: - Data 只读
 
     /** 这个智能体的 Data（sheet 与表目录），或 null——拒答、太旧、够不到或数据引擎不可用。 */
@@ -3360,6 +3410,12 @@ sealed interface LimitResetContinueResult {
     data object Unavailable : LimitResetContinueResult
 
     data class Failed(val message: String) : LimitResetContinueResult
+}
+
+sealed interface TeamMemoryWriteResult {
+    data class Saved(val mutation: TeamMemoryMutationResponse) : TeamMemoryWriteResult
+    data object Changed : TeamMemoryWriteResult
+    data object Unavailable : TeamMemoryWriteResult
 }
 
 /** 收件箱的读取结果，三态各是屏幕要画的一种样子。 */
