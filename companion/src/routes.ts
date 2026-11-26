@@ -274,6 +274,8 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "GET", path: /^\/api\/phones\/self$/ },
   { method: "DELETE", path: /^\/api\/phones\/self$/ },
   { method: "GET", path: /^\/api\/phones\/self\/jobs$/ },
+  // Location goes to the paired computer only; the places provider key never reaches the phone.
+  { method: "POST", path: /^\/api\/phones\/self\/places$/ },
   { method: "POST", path: /^\/api\/phones\/self\/jobs\/[\w-]+\/(?:lease|result)$/ },
   { method: "POST", path: /^\/api\/phones\/self\/events$/ },
 

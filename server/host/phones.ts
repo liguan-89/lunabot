@@ -23,6 +23,7 @@ import { createPhoneScreenmaps } from "./phone-screenmap.ts";
 import { PHONE_SEND_TIMEOUT_MS, PhoneJobs } from "../phones/jobs.ts";
 import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from "../phones/owner.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
+import type { PlacesProvider } from "../places.ts";
 import { createPhoneSends } from "../phones/sends.ts";
 import { PhoneSteer } from "../phones/steer.ts";
 import { PhoneRoutes, ownerDirectoryName } from "../phone-routes.ts";
@@ -72,6 +73,8 @@ export interface PhonesDeps {
   cloudOwnerSession(auth: RequestAuth): boolean;
   /** Numbers whose SMS turns count as the owner's (cfg.sms.owners); caller-ID is the whole claim. */
   smsOwners(): string[];
+  /** The computer-side places search proxy; absent when no provider key is configured. */
+  places?: PlacesProvider | null;
   /** The lent-Mac test on a Cloud home: null when the turn may use the owner's things. */
   cloudLendingRefusal(turn: Turn): string | null;
   cloudLendingTurn(turn: Turn): CloudLendingTurn;
@@ -522,7 +525,7 @@ export function createPhones(deps: PhonesDeps) {
       void verifyPhoneTurn({ dataDir: deps.dataDir, threadId: turn.threadId, mode, goal, reply: input.reply, evidence: ended.evidence, complete: async (messages) => complete(verifyPrompt(messages)) }).catch(() => {});
     },
 
-    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
+    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), places: deps.places ?? null, onEvent: (key, event) => {
       if (event.kind === "notice") noticeFor(key, event);
       else if (event.kind === "notice-shade") shadeFor(key, event);
       else if (event.kind === "sms") smsHandler?.(key, event);

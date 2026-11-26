@@ -299,6 +299,7 @@ function wrapContact(value: unknown): unknown {
  * | contact reads/writes    | contacts[].name, contact.* (names, notes, phones[], emails[]) |
  * | reminder reads/writes   | reminders[].title/.notes/.list, reminder.*                    |
  * | PHONE_GET_LOCATION      | place                                                         |
+ * | PHONE_FIND_PLACES_NEARBY | places[].name, places[].address                               |
  *
  * Refs, bounds, view ids, class names, counts, package names, urls, mime types, ids, base64 images and every value in
  * structuredContent are machine data and stay raw. So do our own note and error, a screen's size, and the query an
@@ -329,6 +330,7 @@ function untrustedContent(record: Record<string, unknown>): Record<string, unkno
   if (Array.isArray(shown.reminders)) shown.reminders = shown.reminders.map((reminder) => wrapFields(reminder, REMINDER_TEXT));
   if (shown.reminder) shown.reminder = wrapFields(shown.reminder, REMINDER_TEXT);
   if (typeof shown.place === "string") shown.place = wrapUntrusted(shown.place);
+  if (Array.isArray(shown.places)) shown.places = shown.places.map((place) => wrapFields(place, ["name", "address"]));
   return shown;
 }
 

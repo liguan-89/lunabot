@@ -25,6 +25,20 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+/** The phone's own fix, before any place name or nearby search uses it. */
+internal sealed interface PhoneLocationReading {
+    data class Fix(
+        val latitude: Double,
+        val longitude: Double,
+        val accuracyMeters: Double,
+        val provider: String,
+        val at: Long,
+        val mock: Boolean,
+    ) : PhoneLocationReading
+
+    data class Unavailable(val error: String, val code: String) : PhoneLocationReading
+}
+
 /**
  * Where the phone is, read only.
  *
@@ -53,27 +67,49 @@ internal class PhoneLocation(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission") // access() checked above; lint cannot follow it.
-    suspend fun current(): PhoneToolOutcome = withContext(Dispatchers.IO) {
+    suspend fun read(): PhoneLocationReading = withContext(Dispatchers.IO) {
         if (!access().canRead) {
-            return@withContext PhoneToolOutcome.Failure(
+            return@withContext PhoneLocationReading.Unavailable(
                 "没有位置权限，请在设置里允许定位。",
                 "unsupported",
             )
         }
         val manager = context.getSystemService(LocationManager::class.java)
-            ?: return@withContext PhoneToolOutcome.Failure("这台手机没有定位服务。", "unsupported")
+            ?: return@withContext PhoneLocationReading.Unavailable("这台手机没有定位服务。", "unsupported")
         val location = try {
             withTimeoutOrNull(FRESH_FIX_TIMEOUT_MILLIS) { freshFix(manager) }
                 ?: lastKnown(manager)
         } catch (_: SecurityException) {
-            return@withContext PhoneToolOutcome.Failure(
+            return@withContext PhoneLocationReading.Unavailable(
                 "系统拒绝了位置读取，请重新允许定位权限。",
                 "unsupported",
             )
-        } ?: return@withContext PhoneToolOutcome.Failure(
+        } ?: return@withContext PhoneLocationReading.Unavailable(
             "读不到位置：请确认系统定位已打开，并稍后再试。",
             "unsupported",
         )
+
+        @Suppress("DEPRECATION")
+        PhoneLocationReading.Fix(
+            latitude = location.latitude,
+            longitude = location.longitude,
+            accuracyMeters = location.accuracy.toDouble(),
+            provider = location.provider.orEmpty(),
+            at = if (location.time > 0) location.time else System.currentTimeMillis(),
+            mock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                location.isMock
+            } else {
+                location.isFromMockProvider
+            },
+        )
+    }
+
+    suspend fun current(): PhoneToolOutcome {
+        val reading = read()
+        if (reading is PhoneLocationReading.Unavailable) {
+            return PhoneToolOutcome.Failure(reading.error, reading.code)
+        }
+        val location = reading as PhoneLocationReading.Fix
 
         // Geocoder's synchronous lookup blocks on a backend that may be unreachable.
         // A blocking call ignores coroutine cancellation, so it runs on its own
@@ -91,19 +127,14 @@ internal class PhoneLocation(private val context: Context) {
         }
         val place = runCatching { withTimeoutOrNull(GEOCODE_TIMEOUT_MILLIS) { lookup.await() } }.getOrNull()
 
-        PhoneToolOutcome.Success(
+        return PhoneToolOutcome.Success(
             buildJsonObject {
                 put("latitude", location.latitude)
                 put("longitude", location.longitude)
-                put("accuracyMeters", location.accuracy.toDouble())
-                put("provider", location.provider.orEmpty())
-                put("at", if (location.time > 0) location.time else System.currentTimeMillis())
-                @Suppress("DEPRECATION")
-                put("mock", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    location.isMock
-                } else {
-                    location.isFromMockProvider
-                })
+                put("accuracyMeters", location.accuracyMeters)
+                put("provider", location.provider)
+                put("at", location.at)
+                put("mock", location.mock)
                 place?.takeIf { it.isNotBlank() }?.let { put("place", it) }
             },
         )

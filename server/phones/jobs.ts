@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { isPhoneWrite } from "../../shared/phone-apps.ts";
 
-export const PHONE_JOB_CODES = ["denied", "foreground_required", "not_found", "too_large", "unsupported", "offline", "timeout", "turn_ended"] as const;
+export const PHONE_JOB_CODES = ["denied", "foreground_required", "not_found", "too_large", "unsupported", "offline", "timeout", "turn_ended", "unconfigured", "upstream"] as const;
 export type PhoneJobCode = (typeof PHONE_JOB_CODES)[number];
 export type PhoneJobOutcome = { ok: true; result: unknown } | { ok: false; error: string; code?: PhoneJobCode };
 const KNOWN_CODES: readonly unknown[] = PHONE_JOB_CODES;

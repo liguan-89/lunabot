@@ -227,8 +227,16 @@ class PhoneJobsTest {
     }
 
     @Test
+    fun `nearby places are a location read on the wire the server sends`() {
+        assertEquals("PHONE_FIND_PLACES_NEARBY", PhoneTool.FIND_PLACES_NEARBY.wire)
+        assertEquals("location", PhoneTool.FIND_PLACES_NEARBY.capability)
+        assertFalse(PhoneTool.FIND_PLACES_NEARBY.writes)
+        assertEquals("location", PhoneToolCatalog.capabilityOf("PHONE_FIND_PLACES_NEARBY"))
+    }
+
+    @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(51, PhoneTool.entries.size)
+        assertEquals(52, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")
@@ -238,11 +246,12 @@ class PhoneJobsTest {
         assertEquals(PhoneTool.UPDATE_CONTACT, PhoneTool.fromWire("PHONE_UPDATE_CONTACT"))
         assertEquals(PhoneTool.COMPLETE_REMINDER, PhoneTool.fromWire("PHONE_COMPLETE_REMINDER"))
         assertEquals(PhoneTool.GET_LOCATION, PhoneTool.fromWire("PHONE_GET_LOCATION"))
+        assertEquals(PhoneTool.FIND_PLACES_NEARBY, PhoneTool.fromWire("PHONE_FIND_PLACES_NEARBY"))
         assertEquals(PhoneTool.SEND_MESSAGE, PhoneTool.fromWire("PHONE_SEND_MESSAGE"))
         assertEquals(PhoneTool.SEND_WHATSAPP, PhoneTool.fromWire("PHONE_SEND_WHATSAPP"))
         assertEquals(PhoneTool.REPLY_SMS, PhoneTool.fromWire("PHONE_REPLY_SMS"))
         assertEquals(PhoneTool.REPLY_WECHAT, PhoneTool.fromWire("PHONE_REPLY_WECHAT"))
-        // Home and nearby places need a vendor SDK this build does not carry.
+        // Home needs a vendor SDK this build does not carry; nearby places use the computer-side provider.
         assertNull(PhoneTool.fromWire("PHONE_RUN_SCENE"))
     }
 

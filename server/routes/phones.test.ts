@@ -9,6 +9,7 @@ import * as atomic from "../atomic.ts";
 import { json, readBody } from "../harness/http.ts";
 import { PhoneJobs } from "../phones/jobs.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
+import type { PlacesProvider } from "../places.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { createPhoneRoutes } from "./phones.ts";
@@ -33,14 +34,14 @@ const registration = {
 };
 const fromPhone = (device = "d1") => ({ "x-lunabot-companion": "1", "x-lunabot-companion-device": device });
 
-async function setup(options: { auth?: RequestAuth; owner?: () => string | null; live?: () => boolean; afterBody?: () => void; onEvent?: (key: string, event: unknown) => void } = {}) {
+async function setup(options: { auth?: RequestAuth; owner?: () => string | null; live?: () => boolean; afterBody?: () => void; onEvent?: (key: string, event: unknown) => void; places?: PlacesProvider | null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "phones-routes-"));
   dirs.push(dir);
   const registry = new PhoneRegistry(join(dir, "phones.json"));
   const jobs = new PhoneJobs();
   const auth = options.auth ?? ADMIN;
   const routes = [createPhoneRoutes({
-    registry, jobs, owner: options.owner ?? (() => "owner"), isAdmin: (a) => a.scopes.includes("admin"), live: options.live ?? (() => true),
+    registry, jobs, owner: options.owner ?? (() => "owner"), isAdmin: (a) => a.scopes.includes("admin"), live: options.live ?? (() => true), places: options.places ?? null,
     ...(options.onEvent ? { onEvent: options.onEvent } : {}),
   })];
   const server = createServer(async (req, res) => {
@@ -95,6 +96,39 @@ describe("phone routes", () => {
     expect(put.body.phone.key).toBe("session:s1");
     expect(registry.get("session:s1")).toBeDefined();
     expect((await call("DELETE", "/api/phones/self")).body).toEqual({ removed: true });
+  });
+
+  it("proxies a places search only for a registered phone allowed to use location", async () => {
+    const nearby = vi.fn<PlacesProvider["nearby"]>(async (input) => ({
+      provider: "google", query: input.query, radiusMeters: input.radiusMeters,
+      origin: { latitude: input.latitude, longitude: input.longitude },
+      places: [{ name: "Cafe", address: "1 Road", latitude: 31.2, longitude: 121.5, distanceMeters: 10, types: ["cafe"], rating: 4.5, openNow: true }],
+    }));
+    const { call } = await setup({ auth: companion("d1"), places: { nearby } });
+    expect((await call("POST", "/api/phones/self/places", { query: "coffee", latitude: 31.2, longitude: 121.5 }, fromPhone("d1"))).status).toBe(404);
+    await call("PUT", "/api/phones/self", registration, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/places", { query: "coffee", latitude: 31.2, longitude: 121.5 }, fromPhone("d1"))).status).toBe(403);
+    await call("PUT", "/api/phones/self", { ...registration, capabilities: { location: "when_in_use" } }, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/places", { query: "", latitude: 31.2, longitude: 121.5 }, fromPhone("d1"))).status).toBe(400);
+    const out = await call("POST", "/api/phones/self/places", { query: "coffee", latitude: 31.2, longitude: 121.5 }, fromPhone("d1"));
+    expect(out.status).toBe(200);
+    expect(out.body.places[0].name).toBe("Cafe");
+    expect(nearby).toHaveBeenCalledWith({ query: "coffee", radiusMeters: 5_000, latitude: 31.2, longitude: 121.5 });
+  });
+
+  it("keeps missing and failing places providers explicit", async () => {
+    const missing = await setup({ auth: companion("d1"), places: null });
+    await missing.call("PUT", "/api/phones/self", { ...registration, capabilities: { location: "when_in_use" } }, fromPhone("d1"));
+    const absent = await missing.call("POST", "/api/phones/self/places", { query: "coffee", latitude: 31.2, longitude: 121.5 }, fromPhone("d1"));
+    expect(absent.status).toBe(503);
+    expect(absent.body.error).toBe("Places search is not configured on this computer");
+
+    const failure = Object.assign(new Error("Google Places answered HTTP 500"), { status: 502 });
+    const failing = await setup({ auth: companion("d1"), places: { nearby: async () => { throw failure; } } });
+    await failing.call("PUT", "/api/phones/self", { ...registration, capabilities: { location: "when_in_use" } }, fromPhone("d1"));
+    const out = await failing.call("POST", "/api/phones/self/places", { query: "coffee", latitude: 31.2, longitude: 121.5 }, fromPhone("d1"));
+    expect(out.status).toBe(502);
+    expect(out.body.error).toBe("Google Places answered HTTP 500");
   });
 
   it("long-polls a job, leases and answers it", async () => {

@@ -155,6 +155,45 @@ data class PhoneNoticeMessage(
     val atMs: Long,
 )
 
+/** What the phone asks its paired computer to search nearby. */
+@Serializable
+data class PhonePlacesRequest(
+    val query: String,
+    val radiusMeters: Int,
+    val latitude: Double,
+    val longitude: Double,
+)
+
+@Serializable
+data class PhonePlace(
+    val name: String,
+    val address: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val distanceMeters: Int? = null,
+    val types: List<String> = emptyList(),
+    val rating: Double? = null,
+    val openNow: Boolean? = null,
+)
+
+@Serializable
+data class PhonePlacesAnswer(
+    val provider: String,
+    val query: String,
+    val radiusMeters: Int,
+    val origin: PhonePlacesOrigin,
+    val places: List<PhonePlace> = emptyList(),
+)
+
+@Serializable
+data class PhonePlacesOrigin(val latitude: Double, val longitude: Double)
+
+/** The computer-side search, with the refusal kept readable for the bot. */
+sealed interface PhonePlacesLookup {
+    data class Success(val answer: PhonePlacesAnswer) : PhonePlacesLookup
+    data class Failure(val error: String, val code: String?) : PhonePlacesLookup
+}
+
 /**
  * What this build knows how to answer. The list is the calendar subset on
  * purpose: a name here is a tool the Android executor implements, and anything
@@ -184,6 +223,7 @@ enum class PhoneTool(
     COMPLETE_REMINDER("PHONE_COMPLETE_REMINDER", "reminders", true),
     DELETE_REMINDER("PHONE_DELETE_REMINDER", "reminders", true),
     GET_LOCATION("PHONE_GET_LOCATION", "location", false),
+    FIND_PLACES_NEARBY("PHONE_FIND_PLACES_NEARBY", "location", false),
     SEND_MESSAGE("PHONE_SEND_MESSAGE", "messages", true),
     SEND_WHATSAPP("PHONE_SEND_WHATSAPP", "messages", true),
     // A channel reply the phone sends itself; the server only ever pins `to`

@@ -1565,6 +1565,14 @@ class CompanionClient(
     suspend fun pollPhoneJob(): PhoneJob? =
         send<PhoneJobPoll>(makeRequest("GET", "/api/phones/self/jobs"), phoneJobClient).job
 
+    /** Ask the paired computer to search places around the phone's own fix. */
+    suspend fun findNearbyPlaces(request: PhonePlacesRequest): PhonePlacesAnswer =
+        send<PhonePlacesAnswer>(makeRequest(
+            "POST",
+            "/api/phones/self/places",
+            body = CompanionJson.encodeToJsonElement(PhonePlacesRequest.serializer(), request).jsonObject,
+        ))
+
     /** Take the job before running it; false when the asking turn already ended. */
     suspend fun leasePhoneJob(jobId: String): Boolean =
         send<PhoneLease>(
