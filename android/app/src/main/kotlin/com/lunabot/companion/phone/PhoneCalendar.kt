@@ -73,6 +73,7 @@ internal class PhoneCalendar(
                 PhoneTool.CREATE_EVENT -> createEvent(arguments)
                 PhoneTool.UPDATE_EVENT -> updateEvent(arguments)
                 PhoneTool.DELETE_EVENT -> deleteEvent(arguments)
+                PhoneTool.RESPOND_TO_INVITE -> respondToInvite(arguments)
                 // The runner dispatches by capability; this is the compiler's
                 // reminder that the enum now holds other apps' tools too.
                 else -> PhoneToolOutcome.Failure("这个工具不属于日历。", "unsupported")
@@ -229,6 +230,39 @@ internal class PhoneCalendar(
         return PhoneToolOutcome.Success(buildJsonObject { put("deleted", true) })
     }
 
+    /**
+     * An RSVP is a write on the phone owner's own attendee row, never on the
+     * event: CalendarContract has no self marker, so the row is the one whose
+     * email is the calendar's owner account, and the calendar's sync adapter
+     * picks the new status up and answers the organizer. The result is the
+     * accepted word alone, the same shape the computer's own tests pin for
+     * this tool.
+     */
+    private fun respondToInvite(arguments: JsonObject): PhoneToolOutcome {
+        val id = arguments.string("id") ?: return missing("id")
+        val response = arguments.string("response") ?: return missing("response")
+        val status = when (response) {
+            "accept" -> CalendarContract.Attendees.ATTENDEE_STATUS_ACCEPTED
+            "decline" -> CalendarContract.Attendees.ATTENDEE_STATUS_DECLINED
+            "tentative" -> CalendarContract.Attendees.ATTENDEE_STATUS_TENTATIVE
+            else -> return PhoneToolOutcome.Failure("response 需要是 accept、decline 或 tentative。", "unsupported")
+        }
+        val calendarId = eventCalendarId(id) ?: return notFound()
+        val attendeeId = selfAttendeeId(id, calendarId)
+            ?: return PhoneToolOutcome.Failure("这个日程里没有你的邀请记录。", "not_found")
+        val values = ContentValues().apply {
+            put(CalendarContract.Attendees.ATTENDEE_STATUS, status)
+        }
+        val uri = ContentUris.withAppendedId(CalendarContract.Attendees.CONTENT_URI, attendeeId)
+        val changed = resolver.update(uri, values, null, null)
+        // The row existed a moment ago, so a silent refusal means a read-only
+        // calendar far more likely than a vanished row.
+        if (changed <= 0) {
+            return PhoneToolOutcome.Failure("这个日历没有接受这次回复，它可能是只读的。", "denied")
+        }
+        return PhoneToolOutcome.Success(buildJsonObject { put("response", response) })
+    }
+
     // MARK: - Provider access
 
     private fun queryInstances(
@@ -282,6 +316,60 @@ internal class PhoneCalendar(
         )?.use { cursor ->
             if (!cursor.moveToFirst()) return null
             return eventJson(cursor)
+        }
+        return null
+    }
+
+    /** The calendar the event belongs to, or null when the phone has no such event. */
+    private fun eventCalendarId(eventId: String): Long? {
+        val uri = ContentUris.withAppendedId(
+            CalendarContract.Events.CONTENT_URI,
+            eventId.toLongOrNull() ?: return null,
+        )
+        resolver.query(uri, arrayOf(CalendarContract.Events.CALENDAR_ID), null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return cursor.getLong(0)
+        }
+        return null
+    }
+
+    /**
+     * The owner's own row in the event's attendee list: the one whose email is
+     * the calendar's owner account, case-insensitively — the same match the
+     * AOSP calendar app makes before it writes an RSVP.
+     */
+    private fun selfAttendeeId(eventId: String, calendarId: Long): Long? {
+        val ownerAccount = calendarOwnerAccount(calendarId) ?: return null
+        val numericId = eventId.toLongOrNull() ?: return null
+        resolver.query(
+            CalendarContract.Attendees.CONTENT_URI,
+            arrayOf(CalendarContract.Attendees._ID, CalendarContract.Attendees.ATTENDEE_EMAIL),
+            "${CalendarContract.Attendees.EVENT_ID} = ?",
+            arrayOf(numericId.toString()),
+            null,
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(CalendarContract.Attendees._ID)
+            val emailColumn = cursor.getColumnIndexOrThrow(CalendarContract.Attendees.ATTENDEE_EMAIL)
+            while (cursor.moveToNext()) {
+                val email = if (cursor.isNull(emailColumn)) null else cursor.getString(emailColumn)
+                if (email != null && email.equals(ownerAccount, ignoreCase = true)) {
+                    return cursor.getLong(idColumn)
+                }
+            }
+        }
+        return null
+    }
+
+    private fun calendarOwnerAccount(calendarId: Long): String? {
+        resolver.query(
+            ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calendarId),
+            arrayOf(CalendarContract.Calendars.OWNER_ACCOUNT),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return if (cursor.isNull(0)) null else cursor.getString(0)
         }
         return null
     }
