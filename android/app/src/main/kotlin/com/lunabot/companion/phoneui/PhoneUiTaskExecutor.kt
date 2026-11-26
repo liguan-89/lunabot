@@ -1213,14 +1213,37 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 )
             }
         }
-        // Web views and custom editors expose focus but not set-text; typed key
-        // events reach them the way a person's keyboard would. Non-ASCII needs
-        // an IME, which this slice does not own, so it is refused rather than
-        // written as something else.
+        // Web views and custom editors expose focus but not set-text. What a
+        // person would do is paste: the clipboard carries every Unicode
+        // character, and the field's own paste action writes it whole. Key
+        // events below still serve ASCII, whose paced plan imitates a person;
+        // they cannot carry anything else, so non-ASCII without a paste action
+        // is refused rather than written as something else.
         if (!PhoneUiKeys.typeableText(text)) {
-            return PhoneToolOutcome.Failure(
-                "这个输入框不接受直接写入，而这段文本不是纯英文或数字；手机端还没有输入法接管。",
-                CODE_UNSUPPORTED,
+            val canPaste = node.isEditable && node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_PASTE }
+            if (!canPaste) {
+                return PhoneToolOutcome.Failure(
+                    "这个输入框不接受直接写入，也不接受粘贴，而这段文本不是纯英文或数字，按键事件写不进去。",
+                    CODE_UNSUPPORTED,
+                )
+            }
+            if (!runCatching { shell.writeClipboard(text) }.getOrDefault(false)) {
+                return PhoneToolOutcome.Failure("写入剪贴板失败，无法粘贴输入。", CODE_DENIED)
+            }
+            runCatching { node.performAction(AccessibilityNodeInfo.ACTION_FOCUS) }
+            val pasteFocused = runCatching { node.refresh() && node.isFocused }.getOrDefault(false)
+            if (!pasteFocused) {
+                return PhoneToolOutcome.Failure("这个输入框无法获得焦点，不能输入。", CODE_DENIED)
+            }
+            if (!perform(node, AccessibilityNodeInfo.ACTION_PASTE)) {
+                return PhoneToolOutcome.Failure("粘贴没有生效。", CODE_DENIED)
+            }
+            step.changed = awaitChange(service, session, step.before)
+            return PhoneToolOutcome.Success(
+                buildJsonObject {
+                    put("typed", true)
+                    put("channel", "paste")
+                },
             )
         }
         runCatching { node.performAction(AccessibilityNodeInfo.ACTION_FOCUS) }
