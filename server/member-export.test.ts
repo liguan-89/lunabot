@@ -142,8 +142,8 @@ describe("me-export routes", () => {
     const answer: { status?: number; headers?: Record<string, string>; body?: unknown; bytes?: Buffer } = {};
     const chunks: Buffer[] = [];
     const sink = new Writable({ write(chunk, _encoding, done) { chunks.push(Buffer.from(chunk)); done(); } });
-    const res = sink as unknown as ServerResponse & { writeHead(status: number, sent: Record<string, string>): void };
-    res.writeHead = (status: number, sent: Record<string, string>) => { answer.status = status; answer.headers = sent; };
+    const res = sink as unknown as ServerResponse;
+    res.writeHead = ((status: number, sent: Record<string, string>) => { answer.status = status; answer.headers = sent; return res; }) as ServerResponse["writeHead"];
     sink.on("finish", () => { answer.bytes = Buffer.concat(chunks); });
     const json = ((_res: ServerResponse, status: number, body: unknown) => { answer.status = status; answer.body = body; }) as never;
     await route({ req: { headers: {} } as IncomingMessage, res, url: parsed, path: parsed.pathname, method, auth, json, readBody: (async () => ({})) as never });
