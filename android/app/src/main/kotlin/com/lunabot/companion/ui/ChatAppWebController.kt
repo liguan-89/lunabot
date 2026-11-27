@@ -42,6 +42,7 @@ interface ChatAppBridgeDelegate {
     suspend fun context(update: JsonObject)
     fun resize(height: Int)
     fun initialized()
+    fun hostReady() = Unit
     fun teardownRequested()
     fun failure(text: String)
 }
@@ -116,8 +117,13 @@ class ChatAppWebController(
     }
 
     private fun configure(view: WebView) {
+        val assets = WebViewAssetLoader.AssetsPathHandler(context)
         val assetLoader = WebViewAssetLoader.Builder()
-            .addPathHandler("/app/", WebViewAssetLoader.AssetsPathHandler(context))
+            .addPathHandler("/app/") { path ->
+                // PathHandler receives only the suffix after `/app/`; the checked-in
+                // asset keeps its `app/` directory, so the two prefixes are not duplicates.
+                if (path == "app-host.html") assets.handle("app/app-host.html") else null
+            }
             .build()
         view.settings.javaScriptEnabled = true
         view.settings.allowFileAccess = false
@@ -222,6 +228,7 @@ class ChatAppWebController(
         when ((message["type"] as? JsonPrimitive)?.content) {
             "ready" -> {
                 ready = true
+                delegate.hostReady()
                 if (!loadSent && document != null) postLoad()
             }
             "initialized" -> delegate.initialized()

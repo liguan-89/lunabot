@@ -337,6 +337,11 @@ dependencies {
     // the tree it actually produces; without it the assertion would be about a
     // list the composable is free to ignore.
     testImplementation("org.robolectric:robolectric:4.17")
+
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation(composeBom)
