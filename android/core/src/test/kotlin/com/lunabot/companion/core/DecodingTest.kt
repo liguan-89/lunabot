@@ -2,6 +2,7 @@ package com.lunabot.companion.core
 
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -122,6 +123,7 @@ class DecodingTest {
         )
 
         assertTrue(document.valid)
+        assertTrue(CompanionJson.encodeToString(document).contains("\"connect\":[]"))
         assertEquals("m1", document.messageId)
         assertEquals("view", document.tool?.name)
         assertEquals(true, document.can.serverTools)

@@ -8,8 +8,8 @@ import kotlinx.serialization.json.JsonObject
 /** Origins a frame may reach after the host's filter; `refused` is informational chrome only. */
 @Serializable
 data class AppNetwork(
-    val connect: List<String> = emptyList(),
-    val resources: List<String> = emptyList(),
+    val connect: List<String>,
+    val resources: List<String>,
     val refused: List<String>? = null,
 )
 

@@ -2,6 +2,7 @@ package com.lunabot.companion.ui
 
 import android.webkit.WebView
 import androidx.test.core.app.ActivityScenario
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.lunabot.companion.core.AppCan
 import com.lunabot.companion.core.AppDocument
@@ -36,10 +37,12 @@ class ChatAppWebViewInstrumentedTest {
 
     private class Harness(
         val controller: ChatAppWebController,
+        val webView: WebView,
         val scope: CoroutineScope,
         val initialized: CountDownLatch,
         val hostReady: CountDownLatch,
         val contexts: LinkedBlockingQueue<JsonObject>,
+        val console: MutableList<String>,
         val messages: MutableList<String>,
         val links: MutableList<String>,
     )
@@ -48,9 +51,11 @@ class ChatAppWebViewInstrumentedTest {
         val initialized = CountDownLatch(1)
         val hostReady = CountDownLatch(1)
         val contexts = LinkedBlockingQueue<JsonObject>()
+        val console = mutableListOf<String>()
         val messages = mutableListOf<String>()
         val links = mutableListOf<String>()
         var harness: Harness? = null
+        lateinit var webView: WebView
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         val delegate = object : ChatAppBridgeDelegate {
             override suspend fun rpc(method: String, params: JsonObject): AppRpcOutcome = AppRpcOutcome.Result(JsonObject(emptyMap()))
@@ -66,16 +71,25 @@ class ChatAppWebViewInstrumentedTest {
         val doc = document(mainScript, mcp)
         scenario = ActivityScenario.launch(ChatAppTestActivity::class.java)
         scenario?.onActivity { activity ->
-            val webView = WebView(activity)
-            val controller = ChatAppWebController(activity, scope, delegate, "instrumented-test")
+            webView = WebView(activity)
+            val controller = ChatAppWebController(activity, scope, delegate, "instrumented-test") { console += it }
             activity.setContentView(webView)
             controller.attach(webView)
             controller.load(doc, 360, 720, false, 160)
-            harness = Harness(controller, scope, initialized, hostReady, contexts, messages, links)
+            harness = Harness(controller, webView, scope, initialized, hostReady, contexts, console, messages, links)
         }
         val result = requireNotNull(harness)
         assertTrue("host page did not become ready", result.hostReady.await(8, TimeUnit.SECONDS))
-        assertTrue("app did not initialize", result.initialized.await(8, TimeUnit.SECONDS))
+        val initializedOk = result.initialized.await(8, TimeUnit.SECONDS)
+        val detail = if (initializedOk) "" else " host=" + evaluate(result.webView, """
+JSON.stringify({
+  iframes: document.querySelectorAll('iframe').length,
+  injected: typeof appHost,
+  api: typeof lunabotAppHost,
+  body: document.body && document.body.innerHTML.slice(0, 180)
+})
+""")
+        assertTrue("app did not initialize:$detail console=${console.take(8)}", initializedOk)
         return result
     }
 
@@ -95,11 +109,11 @@ window.addEventListener('message', (event) => {
   if (waiter) { pending.delete(String(data.id)); waiter(data); }
 });
 function call(id, method, params) { return new Promise((resolve) => { pending.set(id, resolve); request(id, method, params); }); }
-request(1, 'ui/initialize', {});
 pending.set('1', () => {
   send({ jsonrpc: '2.0', method: 'ui/notifications/initialized' });
   setTimeout(() => { $mainScript }, 0);
 });
+request(1, 'ui/initialize', {});
 </script>"""
         return AppDocument(
             v = 1,
@@ -107,10 +121,23 @@ pending.set('1', () => {
             rev = 1,
             srcdoc = html,
             csp = csp,
-            network = AppNetwork(),
+            network = AppNetwork(connect = emptyList(), resources = emptyList()),
             tool = if (mcp) com.lunabot.companion.core.AppToolDefinition(name = "probe") else null,
             can = AppCan(serverTools = mcp, serverResources = mcp, message = true, openLinks = true, modelContext = true),
         )
+    }
+
+    private fun evaluate(webView: WebView, expression: String): String {
+        val latch = CountDownLatch(1)
+        var value = "no answer"
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            webView.evaluateJavascript(expression) { answer ->
+                value = answer ?: "null"
+                latch.countDown()
+            }
+        }
+        latch.await(4, TimeUnit.SECONDS)
+        return value
     }
 
     private fun nextContext(harness: Harness): JsonObject =
@@ -189,11 +216,14 @@ fetch('$hit').catch(() => {});
 const image = new Image(); image.src = '$hit';
 const prefetch = document.createElement('link'); prefetch.rel = 'prefetch'; prefetch.href = '$hit'; document.head.appendChild(prefetch);
 try { window.open('$hit'); } catch (_) {}
-try { top.location = '$hit'; } catch (_) {}
-const form = document.createElement('form'); form.action = '$hit'; form.method = 'post'; document.body.appendChild(form); form.submit();
-setTimeout(() => report({ done: true }), 700);
+setTimeout(() => report({ done: true }), 500);
+setTimeout(() => {
+  try { top.location = '$hit'; } catch (_) {}
+  const form = document.createElement('form'); form.action = '$hit'; form.method = 'post'; document.body.appendChild(form); form.submit();
+}, 800);
 """)
             assertNotNull(nextContext(harness).getValue("done"))
+            Thread.sleep(700)
             assertEquals(0, server.requestCount)
             harness.scope.cancel()
         } finally {

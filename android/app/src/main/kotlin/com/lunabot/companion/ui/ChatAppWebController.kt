@@ -54,6 +54,7 @@ class ChatAppWebController(
     private val scope: CoroutineScope,
     private val delegate: ChatAppBridgeDelegate,
     private val hostVersion: String,
+    private val consoleLog: ((String) -> Unit)? = null,
 ) {
     private var webView: WebView? = null
     private var replyProxy: JavaScriptReplyProxy? = null
@@ -153,7 +154,7 @@ class ChatAppWebController(
                         isMainFrame: Boolean,
                         replyProxy: JavaScriptReplyProxy,
                     ) {
-                        if (!isMainFrame || sourceOrigin.toString() != ChatAppNetwork.HOST_ORIGIN) return
+                        if (!isMainFrame || !isHostOrigin(sourceOrigin)) return
                         this@ChatAppWebController.replyProxy = replyProxy
                         handlePageMessage(message.data)
                     }
@@ -171,6 +172,11 @@ class ChatAppWebController(
             }
         }
         view.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+                consoleLog?.invoke("${message.sourceId()}:${message.lineNumber()} ${message.message()}")
+                return consoleLog != null
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 request.deny()
             }
@@ -211,6 +217,12 @@ class ChatAppWebController(
         }
         view.loadUrl(ChatAppNetwork.HOST_PAGE)
     }
+
+    private fun isHostOrigin(origin: Uri): Boolean =
+        origin.scheme == "https" &&
+            origin.host == "appassets.androidplatform.net" &&
+            (origin.port == -1 || origin.port == 443) &&
+            origin.path.orEmpty().removeSuffix("/").isEmpty()
 
     private fun forbidden(): WebResourceResponse = WebResourceResponse(
         "text/plain",
