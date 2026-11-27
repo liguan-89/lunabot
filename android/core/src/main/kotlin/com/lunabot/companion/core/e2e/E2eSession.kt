@@ -378,6 +378,20 @@ class E2eStream internal constructor(
         inbound.offer(ByteArray(0))
     }
 
+    /**
+     * A local close or cancel: the socket is going away, so a reader parked in
+     * `take()` and a writer parked on a closed window must wake now. Without
+     * this the socket close only reaches the peer (the RST frame) while the
+     * local thread that a timeout or cancel is trying to interrupt sleeps on.
+     */
+    internal fun interruptBlocking() {
+        synchronized(stateLock) {
+            reset = true
+            stateLock.notifyAll()
+        }
+        inbound.offer(ByteArray(0))
+    }
+
     internal fun wakeWriter() {
         synchronized(stateLock) { stateLock.notifyAll() }
     }

@@ -201,6 +201,13 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
         // endless response like /api/events never hears the close and keeps eating
         // tunnel bandwidth as a zombie. reset() destroys the stream on both ends.
         runCatching { stream?.reset() }
+        // Timeouts and cancels reach this close exactly to interrupt the I/O
+        // they oversee: the reset frame above only tells the peer, while the
+        // local reader parked in `take()` and the writer parked on a closed
+        // window belong to this machine. Without waking them here, OkHttp's
+        // whole timeout machinery fires into a void — the sleeping thread
+        // never resumes, the callback never runs, and the caller hangs forever.
+        runCatching { stream?.interruptBlocking() }
         runCatching { super.close() }
     }
 

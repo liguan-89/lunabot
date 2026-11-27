@@ -193,6 +193,65 @@ class E2eSessionTest {
         session.close()
     }
 
+    @Test
+    fun `a local interrupt wakes a parked reader and a parked writer`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long = 0
+        override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+        )
+        session.connect()
+
+        val stream = session.openStream()
+
+        // The reader parks in take(): no bytes ever arrive for this stream.
+        val readerResult = java.util.concurrent.atomic.AtomicReference<Int?>(null)
+        val reader = Thread {
+            readerResult.set(stream.read(ByteArray(1), timeoutMs = 0))
+        }.apply { isDaemon = true; start() }
+
+        // The writer parks on its window: the accept frame already widened it
+        // to the full 2 MiB, and the test's computer never grants more back,
+        // so anything past that cannot move.
+        val writerResult = java.util.concurrent.atomic.AtomicBoolean(true)
+        val writer = Thread {
+            writerResult.set(stream.write(ByteArray(Yamux.STREAM_WINDOW + 64 * 1024)))
+        }.apply { isDaemon = true; start() }
+
+        Thread.sleep(300)
+        assertTrue(reader.isAlive, "the reader is parked with no bytes arriving")
+        assertTrue(writer.isAlive, "the writer is parked on an exhausted window")
+
+        // What a socket close does after the timeout or cancel that triggered
+        // it: both parked threads must unwind now, not whenever the peer answers.
+        stream.interruptBlocking()
+
+        reader.join(2_000)
+        writer.join(2_000)
+        assertFalse(reader.isAlive, "interrupt wakes the reader")
+        assertFalse(writer.isAlive, "interrupt wakes the writer")
+        assertEquals(-1, readerResult.get(), "the interrupted reader sees EOF")
+        assertFalse(writerResult.get(), "the interrupted writer reports the stream gone")
+        session.close()
+    }
+
     /** The computer half, from the same spec the desktop follows. */
     private class ComputerResponder(
         private val keyPair: P256.KeyPair,
