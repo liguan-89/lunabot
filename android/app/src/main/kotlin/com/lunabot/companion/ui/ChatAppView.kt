@@ -47,6 +47,7 @@ private fun appVersionName(context: android.content.Context): String =
 object ChatAppPool {
     var owner by mutableStateOf<String?>(null)
         private set
+    private val heights = mutableMapOf<String, Int>()
 
     fun claim(key: String) {
         owner = key
@@ -54,6 +55,13 @@ object ChatAppPool {
 
     fun release(key: String) {
         if (owner == key) owner = null
+    }
+
+    fun height(key: String): Int? = heights[key]
+
+    fun rememberHeight(key: String, height: Int) {
+        heights[key] = height
+        if (heights.size > 80) heights.remove(heights.keys.first())
     }
 }
 
@@ -90,7 +98,7 @@ fun ChatAppMessageCard(
     var collapsed by remember(key) { mutableStateOf(false) }
     var initialized by remember(key) { mutableStateOf(false) }
     var bridgeProblem by remember(key) { mutableStateOf<String?>(null) }
-    var heightDp by remember(key, payload.height) { mutableIntStateOf((payload.height ?: 160).coerceIn(72, maxHeightDp)) }
+    var heightDp by remember(key, payload.height) { mutableIntStateOf((ChatAppPool.height(key) ?: payload.height ?: 160).coerceIn(72, maxHeightDp)) }
     var reloadTick by remember(key) { mutableIntStateOf(0) }
 
     DisposableEffect(key) {
@@ -198,6 +206,7 @@ fun ChatAppMessageCard(
 
                         override fun resize(height: Int) {
                             heightDp = height.coerceIn(72, maxHeightCss)
+                            ChatAppPool.rememberHeight(key, heightDp)
                         }
 
                         override fun initialized() {

@@ -473,9 +473,14 @@ class CompanionClient(
         return raw.data
     }
 
+    /** The web origin folder-page file URLs may use. E2E's synthetic host exists only inside OkHttp, not WebView. */
+    private val appFilesOrigin: String?
+        get() = endpoint?.baseUrl?.takeIf { e2e == null && it.scheme == "https" }
+            ?.newBuilder()?.encodedPath("/")?.build()?.toString()?.removeSuffix("/")
+
     /** Fetch one app row's frame document. `origin` is the web origin a folder page's file URLs may use. */
     suspend fun appDocument(threadId: String, messageId: String, origin: String? = null): AppDocument {
-        val query = origin?.let { listOf("origin" to it) }.orEmpty()
+        val query = (origin ?: appFilesOrigin)?.let { listOf("origin" to it) }.orEmpty()
         return send(makeRequest(
             "GET",
             "/api/threads/${segment(threadId)}/messages/${segment(messageId)}/app",
