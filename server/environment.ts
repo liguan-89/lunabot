@@ -162,7 +162,7 @@ export function serverInstall(env: NodeJS.ProcessEnv = process.env, script = pro
   const prefix = cliPrefix(env, script);
   if (prefix.includes("docker") || docker()) return "docker";
   if (prefix === "pnpm omb" || script.endsWith(".ts")) return "source";
-  return /^npx (?:dexbot|lunabot|openmausbot)$/.test(prefix) ? "npx" : "global";
+  return /^npx (?:dexbot|lunabot|lunabot_ai|openmausbot)$/.test(prefix) ? "npx" : "global";
 }
 
 /** What a server only its one owner signs in to takes from that owner's own desktop by default: told in the owner's own

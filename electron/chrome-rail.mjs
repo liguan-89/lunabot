@@ -23,7 +23,7 @@ const ABORTED = -3;
  * show it for (railPlaces); `args()`: the preload's arguments, as the window's own page gets them.
  */
 export function createChromeRail({ createView, preload, args, url, wanted, log = () => {} }) {
-  let view = null, win = null, shown = false, expanded = false, held = false;
+  let view = null, win = null, shown = false, expanded = false, held = false, painted = null;
   /** Anchor coordinates when the places popover is open over the window (null when closed). */
   let popover = null;
   // The rail's page didn't load (this app's server was restarting): it loads again at the next refresh, or it stays blank.
@@ -73,6 +73,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, log =
     contents.on("will-redirect", stay);
     contents.on("render-process-gone", () => { log("chrome rail: its page went away; loading it again"); void contents.loadURL(url()).catch(() => {}); });
     contents.on("did-finish-load", () => {
+      if (painted) contents.send("rail:skin", painted);
       if (popover) contents.send("rail:popover", { open: true, x: popover.x, y: popover.y });
     });
     // Only a load's failing says so: the error page that replaces it finishes loading too.
@@ -154,6 +155,11 @@ export function createChromeRail({ createView, preload, args, url, wanted, log =
     shown: () => shown,
     expanded: () => expanded,
     popoverOpen: () => popover !== null,
+    /** The page beside it painted this skin: the rail wears it too, from its next load onward. */
+    skin(id) {
+      if (typeof id === "string" && id) painted = id;
+      if (painted) rail.send("rail:skin", painted);
+    },
     /** The page beside it offers the button that opens the places popover; asking is the offer, made again by each
      * document. */
     install(ipcMain) {

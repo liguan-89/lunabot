@@ -38,7 +38,7 @@ describe("lunabot serve --relay", () => {
   it("says why a phone cannot pair yet, in the person's terms", () => {
     expect(relayProblemLines(null, "lunabot")).toEqual(["Luna Bot Relay is off on this server. Start it with: lunabot serve --relay"]);
     expect(relayProblemLines(status({ grant: "signed-out", relay: "off" }), "lunabot")[0]).toMatch(/^Luna Bot Relay needs this machine signed in to a Luna Bot account: lunabot login --relay/);
-    expect(relayProblemLines(status({ grant: "unavailable", relay: "off" }), "npx lunabot")[0]).toMatch(/not available for this machine right now\. The server keeps working here/);
+    expect(relayProblemLines(status({ grant: "unavailable", relay: "off" }), "npx lunabot_ai")[0]).toMatch(/not available for this machine right now\. The server keeps working here/);
     expect(relayProblemLines(status({ relay: "connecting", node: null }), "lunabot")[0]).toMatch(/^Can't reach Luna Bot Relay yet\. The server keeps working here/);
     expect(relayProblemLines(status(), "lunabot")).toEqual([]);
     expect(relayProblemLines(status({ grant: "tunnel", relay: "off", reason: "this server runs with --tunnel" }), "lunabot")).toEqual([

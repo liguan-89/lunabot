@@ -14,7 +14,8 @@ it("the window's own rail wears the skin of the page beside it, never keeping it
     add: { cloud: false, link: true, address: false } };
   const applySkin = vi.fn(async () => true);
   Object.assign(window, { ogb: { applySkin, workspaces: { places: vi.fn(async () => places), open: vi.fn(), add: vi.fn(), onChanged: () => () => {} },
-    rail: { expand: vi.fn(async () => {}), onSkin: (callback: (skin: string) => void) => { skinOf = callback; return () => {}; } } } });
+    rail: { expand: vi.fn(async () => {}), onSkin: (callback: (skin: string) => void) => { skinOf = callback; return () => {}; },
+      onPopover: (callback: (popover: { open: boolean; x: number; y: number }) => void) => { callback({ open: true, x: 88, y: 52 }); return () => {}; } } } });
   const { ChromeRail } = await import("./ChromeRail");
   const { refreshPlaces } = await import("@/lib/places");
   const host = document.createElement("div"); document.body.append(host);
@@ -27,4 +28,19 @@ it("the window's own rail wears the skin of the page beside it, never keeping it
   act(() => skinOf("<b>"));
   expect(document.documentElement.dataset.skin).toBe("midnight");
   expect(applySkin, "the page's choice, never sent back to main as this one's").not.toHaveBeenCalled();
+});
+
+it("draws none of the removed strip while the places popover is closed", async () => {
+  const places = { places: [{ id: "local", name: "This computer", color: null, kind: "computer", opens: true, active: true }, { id: "vps", name: "Office", color: null, kind: "server", opens: true }],
+    add: { cloud: false, link: true, address: false } };
+  Object.assign(window, { ogb: { workspaces: { places: vi.fn(async () => places), open: vi.fn(), add: vi.fn(), onChanged: () => () => {} },
+    rail: { expand: vi.fn(async () => {}), onSkin: () => () => {}, onPopover: () => () => {} } } });
+  const { ChromeRail } = await import("./ChromeRail");
+  const { refreshPlaces } = await import("@/lib/places");
+  const host = document.createElement("div"); document.body.append(host);
+  root = createRoot(host);
+  await act(async () => { await refreshPlaces(); root!.render(createElement(ChromeRail)); });
+  await act(async () => { await Promise.resolve(); });
+  expect(host.querySelector("[data-places-rail]")).toBeNull();
+  expect(host.querySelector("[data-rail-place]")).toBeNull();
 });

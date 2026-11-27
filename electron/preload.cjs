@@ -61,6 +61,21 @@ const localOrigin = process.argv.find((arg) => arg.startsWith("--omb-local-origi
 const isLocalPage = !localOrigin || location.origin === localOrigin;
 
 const railState = (state) => ({ available: state?.available === true, popoverOpen: state?.popoverOpen === true });
+const railPopoverState = (info) => (info && info.open === true ? { open: true, x: Number(info.x) || 0, y: Number(info.y) || 0 } : { open: false, x: 0, y: 0 });
+let lastRailPopover = null;
+const railPopoverListeners = new Set();
+let lastRailSkin = null;
+const railSkinListeners = new Set();
+if (isLocalPage) {
+  ipcRenderer.on("rail:popover", (_event, info) => {
+    lastRailPopover = railPopoverState(info);
+    for (const listener of railPopoverListeners) listener(lastRailPopover);
+  });
+  ipcRenderer.on("rail:skin", (_event, skin) => {
+    lastRailSkin = String(skin);
+    for (const listener of railSkinListeners) listener(lastRailSkin);
+  });
+}
 // The rail's own page keeps its size whatever the zoom of this app's page: Chromium gives every page of a host the same
 // zoom, the rail's included, so the rail takes it back out and its popover stays where the capsule put it.
 function railKeepsItsSize() {
@@ -212,14 +227,14 @@ const bridge = {
       expand: (on) => ipcRenderer.invoke("rail:expand", on === true),
       closePopover: () => ipcRenderer.invoke("rail:close-popover"),
       onPopover: (cb) => {
-        const handler = (_event, info) => cb(info && info.open === true ? { open: true, x: Number(info.x) || 0, y: Number(info.y) || 0 } : { open: false, x: 0, y: 0 });
-        ipcRenderer.on("rail:popover", handler);
-        return () => ipcRenderer.removeListener("rail:popover", handler);
+        railPopoverListeners.add(cb);
+        if (lastRailPopover) cb(lastRailPopover);
+        return () => { railPopoverListeners.delete(cb); };
       },
       onSkin: (cb) => {
-        const handler = (_event, skin) => cb(String(skin));
-        ipcRenderer.on("rail:skin", handler);
-        return () => ipcRenderer.removeListener("rail:skin", handler);
+        railSkinListeners.add(cb);
+        if (lastRailSkin !== null) cb(lastRailSkin);
+        return () => { railSkinListeners.delete(cb); };
       },
     } : {}),
   },
