@@ -64,3 +64,21 @@ ping 超时、session 判死重连清零——这就是"周期性退化"的完�
 - T0：`:core:test` 中 e2e 相关测试（E2eSessionTest/YamuxVectorsTest/OkHttpE2eConnectorTest）
 - T1：core 全模块测试 + compileReleaseKotlin
 - 真机：装机后长时间观察 logcat `OMB-E2E` 时间线，确认重连后无流累积
+
+## 追加（2026-11-27 晚）：companion 侧僵尸不死的断点
+
+真机实证：harness:8799 上 23 条 companion 代理连接常驻，多条呈 SSE 心跳
+特征（+84B/20s），累计字节推算存活 4-5 小时；force-stop 手机 app 后
+WebSocket 断开确认，僵尸零死亡——清理链断在 companion 内部。
+
+断点（origin.ts）：`duplexPair` 不向对端传播 destroy（代码注释自认），
+而防护只做了单向——`serverSide.on("close")` 时 destroy `near`。反向缺失：
+yamux 流死亡 → `stream.on("close")` 只 destroy `near` → `serverSide` 永远
+感知不到 → 内存 http.Server 认为连接活着 → proxy 的 `res.on("close")`
+不触发 → harness TCP 不 destroy → 8799 SSE 僵尸永存。SSE 是唯一没有
+超时兜底的交易类型（响应永不完成，keepAliveTimeout/requestTimeout 均不
+适用），故僵尸全部是 SSE，只增不减——"周期性退化"的底层发动机。
+
+修复：`near.on("close")` 对称传播 `serverSide.destroy()`。near 是内存
+管道，serverSide 存在的唯一目的是服务它；near 一死，serverSide 没有任何
+存活理由。重复 destroy 幂等，无循环风险。
