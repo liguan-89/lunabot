@@ -39,6 +39,9 @@ fun interface E2eSocketConnector {
     fun connect(url: String, protocols: List<String>, listener: E2eSocketListener): E2eSocket
 }
 
+/** A stream writer pauses while the WebSocket itself holds this much unsent data. */
+internal const val SEND_BUFFER_HIGH_BYTES = 1024L * 1024L
+
 /** Where the phone dials: straight at the computer, or through MuxBot Relay. */
 sealed class E2eTarget {
     /** `ws://<lan or tailnet host>:<port>/v1/e2e`, subprotocol `omb-e2e.v1`. */
@@ -267,6 +270,8 @@ class E2eSession(
     internal fun muxInstance(): YamuxMux =
         mux ?: throw NoiseException("session_closed")
 
+    internal fun transportBufferedBytes(): Long = socket?.bufferedBytes ?: 0
+
     private fun events(): YamuxEvents = object : YamuxEvents {
         override fun send(frame: Yamux.Frame) {
             val current = keys ?: return
@@ -433,6 +438,15 @@ class E2eStream internal constructor(
     fun write(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): Boolean {
         var sent = 0
         while (sent < length) {
+            if (session.transportBufferedBytes() > SEND_BUFFER_HIGH_BYTES) {
+                synchronized(stateLock) {
+                    if (reset) return false
+                    // OkHttp exposes the queued bytes but no drain event; poll
+                    // briefly rather than enqueueing past its hard 16 MiB cap.
+                    stateLock.wait(50)
+                }
+                continue
+            }
             val taken = session.muxInstance().write(streamId, bytes.copyOfRange(offset + sent, offset + length))
             if (taken > 0) {
                 sent += taken

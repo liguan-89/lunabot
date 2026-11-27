@@ -256,6 +256,49 @@ class E2eSessionTest {
         session.close()
     }
 
+    @Test
+    fun `a stream writer waits for websocket backlog to drain`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val backlog = java.util.concurrent.atomic.AtomicLong(SEND_BUFFER_HIGH_BYTES + 1)
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long get() = backlog.get()
+            override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+        )
+        session.connect()
+        val stream = session.openStream()
+        val writeDone = java.util.concurrent.atomic.AtomicBoolean(false)
+        val writer = Thread {
+            writeDone.set(stream.write(ByteArray(128)))
+        }.apply { isDaemon = true; start() }
+
+        Thread.sleep(250)
+        assertTrue(writer.isAlive, "a full WebSocket queue applies backpressure")
+        assertFalse(writeDone.get(), "nothing is enqueued while the socket is saturated")
+
+        backlog.set(0)
+        writer.join(2_000)
+        assertFalse(writer.isAlive, "the writer resumes once the socket drains")
+        assertTrue(writeDone.get(), "the write completes after draining")
+        session.close()
+    }
+
     /** The computer half, from the same spec the desktop follows. */
     private class ComputerResponder(
         private val keyPair: P256.KeyPair,

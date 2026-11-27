@@ -120,3 +120,21 @@ force-stop / 进程死亡
 注意一个测试污染：T3/agent-device 的 `phoneui-helper` 会在 force-stop 后
 重新拉起手机 App。观察 Zombie 必须先杀掉该 helper，或以确切本地端口追踪
 老连接，不能把新会话的新连接误判为僵尸。
+
+## 追加三：Android WebSocket 发送队列的静默丢帧
+
+`OkHttp WebSocket.send()` 的返回值原被忽略。返回 false 表示帧没有入队
+（队列达到 OkHttp 硬上限或 socket 正在关闭）；yamux 的数据帧、RST、
+WINDOW_UPDATE 任一个这样丢失，都会让双方流控状态永久不一致，而且表面
+没有任何错误。
+
+修复分两层：
+
+1. `send()` 一旦被拒，立刻按传输失败关闭整个 e2e 会话。丢一帧后原会话
+   已经没有可恢复的一致状态，绝不能继续假装健康。
+2. 补上注释声称存在但实际未接线的发送背压：stream writer 在 WebSocket
+   排队字节超过 1 MiB 时暂停，低于上限后继续。OkHttp 没有 drain 事件，
+   只能短轮询 `queueSize()`；这把 16 MiB 硬上限变成理论上不可达。
+
+回归测试：fake socket 先把 `bufferedBytes` 报成 1 MiB+1，writer 必须停住；
+归零后 writer 必须继续并完成。`:core:test` 与 `:app:compileDebugKotlin` 绿。

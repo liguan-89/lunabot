@@ -87,11 +87,11 @@ private class OkHttpE2eSocket(private val listener: E2eSocketListener) : WebSock
         get() = webSocket?.queueSize() ?: 0
 
     override fun sendBinary(bytes: ByteArray) {
-        webSocket?.send(okio.ByteString.of(*bytes))
+        if (webSocket?.send(okio.ByteString.of(*bytes)) != true) listener.onFailure("websocket_send_rejected")
     }
 
     override fun sendText(text: String) {
-        webSocket?.send(text)
+        if (webSocket?.send(text) != true) listener.onFailure("websocket_send_rejected")
     }
 
     override fun close(code: Int) {
