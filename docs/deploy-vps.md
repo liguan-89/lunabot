@@ -152,9 +152,9 @@ root, sign in again as `lunabot`; those accounts have different homes and creden
 No domain, no proxy, no open port. The server gets an address like `https://c-7f3a9c.openmausbot.com` through a Cloudflare tunnel; only traffic through the tunnel reaches it, and that traffic still has to pair.
 
 ```sh
-npx lunabot setup          # once: choose AI access, connect, and choose a model
-npx lunabot login          # once: an emailed code signs this machine in and reserves its address
-npx lunabot serve --tunnel # runs the server there and prints the pairing link with a QR code
+npx lunabot_ai setup          # once: choose AI access, connect, and choose a model
+npx lunabot_ai login          # once: an emailed code signs this machine in and reserves its address
+npx lunabot_ai serve --tunnel # runs the server there and prints the pairing link with a QR code
 ```
 
 `setup` connects an AI provider; it is separate from the Luna Bot account.
@@ -163,7 +163,7 @@ chat-only connection. More engines can be added later. See [CLI setup](cli-onboa
 
 `login` asks for your email, sends an 8-digit code, and prints the address it reserved for this machine. `serve --tunnel` downloads `cloudflared` on the first run (a pinned version with a verified digest, into `~/.lunabot`), starts the server, connects the tunnel, and after a few seconds prints `tunnel: live at https://…`. Leave it running; see "Keep it running" for a service.
 
-The account credentials live in `~/.lunabot/tunnel-account.json`, readable only by your user. `npx lunabot logout` releases the address.
+The account credentials live in `~/.lunabot/tunnel-account.json`, readable only by your user. `npx lunabot_ai logout` releases the address.
 
 Skip to "Install and sign the engines in".
 
@@ -201,7 +201,7 @@ The [installer](#quick-start-one-command-on-your-own-domain) does these steps fo
 
    Caddy requests the certificate on its own; give it a minute. Then `https://lunabot.example.com` shows a page asking for a pairing code. That is correct: nothing works until you pair.
 
-In this path, every `npx lunabot …` command below is run inside the container instead:
+In this path, every `npx lunabot_ai …` command below is run inside the container instead:
 
 ```sh
 docker compose exec omb lunabot pair --label "My MacBook"
@@ -212,7 +212,7 @@ docker compose exec omb lunabot pair --label "My MacBook"
 From the administrator shell, install Tailscale on the server and sign in (`curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up`). Enable HTTPS certificates for your tailnet once at https://login.tailscale.com/admin/dns (HTTPS Certificates), then run this from the `lunabot` shell:
 
 ```sh
-npx lunabot serve --tailscale
+npx lunabot_ai serve --tailscale
 ```
 
 Tailscale terminates HTTPS with its own certificate and the pairing link uses the server's MagicDNS name (`https://lunabot.tail1234.ts.net`). `serve` runs `tailscale serve` in the foreground, so the share ends when it stops. Only devices on your tailnet can reach it, which is a very good property for a server that can run tools.
@@ -268,7 +268,7 @@ restarting or upgrading. The systemd example below includes `~/.local/bin` in PA
 `serve` already printed a pairing block when it started in a terminal (a service prints none into its log). For another device later:
 
 ```sh
-npx lunabot pair --label "Kitchen iPad"
+npx lunabot_ai pair --label "Kitchen iPad"
 ```
 
 ```
@@ -290,19 +290,19 @@ Worth knowing: a code works **once**, for **10 minutes** (`--ttl 24h` keeps it o
 Every paired device is a session:
 
 ```sh
-npx lunabot devices               # id, device, scope, last seen, expires
-npx lunabot devices revoke ID     # signs that device out and closes its stream at once
-npx lunabot status                # the address others use, and whether it answers as this server
+npx lunabot_ai devices               # id, device, scope, last seen, expires
+npx lunabot_ai devices revoke ID     # signs that device out and closes its stream at once
+npx lunabot_ai status                # the address others use, and whether it answers as this server
 ```
 
 ## Keep it running
 
-`npx lunabot serve` is a plain foreground process. `npx lunabot service install --tunnel` (or `--tailscale`) writes a unit like the one below for you, with a copy of the release it runs beside your data. To write it by hand for systemd (paths A and C),
+`npx lunabot_ai serve` is a plain foreground process. `npx lunabot_ai service install --tunnel` (or `--tailscale`) writes a unit like the one below for you, with a copy of the release it runs beside your data. To write it by hand for systemd (paths A and C),
 install a chosen release first, from the `lunabot` shell. Replace `X.Y.Z` with the
 published version you want to run:
 
 ```sh
-npm install --global --prefix "$HOME/.local" lunabot@X.Y.Z
+npm install --global --prefix "$HOME/.local" lunabot_ai@X.Y.Z
 ```
 
 Stop the foreground server with Ctrl-C before enabling the service. From the
@@ -332,7 +332,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now lunabot
 journalctl -u lunabot -f            # the server's log, including "tunnel: live at …"
 ```
 
-Use `--tailscale` instead of `--tunnel` for path C. A service is not a terminal, so `serve` writes no pairing code into the journal; mint one with `npx lunabot pair` when you need it. Docker (path B) restarts on its own (`restart: unless-stopped`).
+Use `--tailscale` instead of `--tunnel` for path C. A service is not a terminal, so `serve` writes no pairing code into the journal; mint one with `npx lunabot_ai pair` when you need it. Docker (path B) restarts on its own (`restart: unless-stopped`).
 
 Adjust the account, home, and PATH if yours differ; Node 24 must be available on
 that PATH. The service runs the installed CLI directly, so a restart uses the
@@ -482,7 +482,7 @@ the administrator shell, replacing `X.Y.Z`:
 ```sh
 sudo systemctl stop lunabot
 sudo -iu lunabot sh -c 'umask 077; tar czf ~/lunabot-before-update.tgz -C ~ .lunabot && chmod 600 ~/lunabot-before-update.tgz'
-sudo -iu lunabot npm install --global --prefix /home/lunabot/.local lunabot@X.Y.Z
+sudo -iu lunabot npm install --global --prefix /home/lunabot/.local lunabot_ai@X.Y.Z
 sudo systemctl start lunabot
 curl -sf http://127.0.0.1:8799/api/health && sudo -iu lunabot lunabot doctor
 ```
@@ -492,13 +492,13 @@ and an engine ready, go back (replace `OLD` with the version you noted):
 
 ```sh
 sudo systemctl stop lunabot
-sudo -iu lunabot npm install --global --prefix /home/lunabot/.local lunabot@OLD
+sudo -iu lunabot npm install --global --prefix /home/lunabot/.local lunabot_ai@OLD
 sudo -iu lunabot sh -c 'mv ~/.lunabot ~/.lunabot-failed-update && tar xzf ~/lunabot-before-update.tgz -C ~'
 sudo systemctl start lunabot
 ```
 
 A service restart by itself does not update the installed package. For
-foreground `npx` usage, name the release: `npx --yes lunabot@X.Y.Z serve --tunnel`.
+foreground `npx` usage, name the release: `npx --yes lunabot_ai@X.Y.Z serve --tunnel`.
 
 ### How far behind a server may fall
 
@@ -600,11 +600,11 @@ Read this before putting anything else in front of the server.
 
 ## Troubleshooting
 
-**`serve --tunnel` says "no account on this machine yet".** Run `npx lunabot login` on this machine first; the credentials are per machine.
+**`serve --tunnel` says "no account on this machine yet".** Run `npx lunabot_ai login` on this machine first; the credentials are per machine.
 
 **The server does not start and says its data "was written by a newer Luna Bot".** An older version was started on data a newer one had already changed, which happens when a version is put back without its data. Nothing was changed. Install the version the message names (or a newer one), or put back the copy of the data from before that update.
 
-**The tunnel stays on "retrying".** The server is running and usable locally; the public hop is not verified yet. Wait a minute (Cloudflare needs a moment on a fresh address), then check `journalctl`/the terminal for the reason. If it never comes up, `npx lunabot logout && npx lunabot login` issues a fresh address.
+**The tunnel stays on "retrying".** The server is running and usable locally; the public hop is not verified yet. Wait a minute (Cloudflare needs a moment on a fresh address), then check `journalctl`/the terminal for the reason. If it never comes up, `npx lunabot_ai logout && npx lunabot_ai login` issues a fresh address.
 
 **Path B: the page never loads or shows a certificate error.** Caddy could not get a certificate. Check that the name resolves to the server and that ports 80 and 443 are open; `docker compose logs caddy` shows the reason.
 
@@ -616,7 +616,7 @@ Read this before putting anything else in front of the server.
 
 **A bot says the engine is not signed in.** Sign that engine in again on the server.
 
-**What does the server think it is?** `https://<address>/.well-known/lunabot/environment` is public and shows its id, label, version and capabilities; `npx lunabot status` prints the same on the server.
+**What does the server think it is?** `https://<address>/.well-known/lunabot/environment` is public and shows its id, label, version and capabilities; `npx lunabot_ai status` prints the same on the server.
 
 **Something else.** `journalctl -u lunabot --since -10m` (or `docker compose logs omb --tail 100`) shows the server's startup lines. Paste them with your question in the community channel.
 

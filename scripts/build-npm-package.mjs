@@ -1,6 +1,6 @@
-// Assemble the `lunabot` npm package: the self-contained server bundle,
+// Assemble the `lunabot_ai` npm package: the self-contained server bundle,
 // the built UI, the bundled skills and the CLI, with a package.json of its
-// own. `npx lunabot serve` then needs Node 24+ and nothing else.
+// own. `npx lunabot_ai serve` then needs Node 24+ and nothing else.
 //
 //   pnpm build:server && pnpm exec vite build && node scripts/build-npm-package.mjs
 //   cd release/npm && npm pack        # or npm publish --access public
@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release", "npm");
 const app = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-// The server bundle's entry is lunabot.js (server/lunabot.ts); the package it ships as is lunabot.
+// The server bundle's entry is lunabot.js (server/lunabot.ts); the package it ships as is lunabot_ai.
 for (const required of ["dist-server/index.js", "dist-server/lunabot.js", "dist/index.html"]) {
   if (!existsSync(join(root, required))) {
     console.error(`missing ${required}: run \`pnpm build:server && pnpm exec vite build\` first`);
@@ -35,7 +35,7 @@ writeFileSync(
   join(out, "package.json"),
   JSON.stringify(
     {
-      name: "lunabot",
+      name: "lunabot_ai",
       version: app.version,
       description: "Run the Luna Bot server anywhere and pair your devices to it",
       license: "AGPL-3.0-only",
@@ -44,7 +44,7 @@ writeFileSync(
       // key twice in the same object literal, which is a duplicate key: the
       // object silently kept one of them and the pre-push lint refused the
       // branch. `dexbot` stays as the compatibility name.
-      bin: { lunabot: "cli.js", dexbot: "cli.js" },
+      bin: { lunabot_ai: "cli.js", lunabot: "cli.js", dexbot: "cli.js" },
       // Never bundled, so npm installs them beside the server: DuckDB and
       // resvg are native addons that npm picks per platform from their
       // optional packages, and the 1Password SDK reads its WebAssembly core
@@ -58,7 +58,7 @@ writeFileSync(
       engines: { node: ">=24" },
       repository: { type: "git", url: "https://github.com/liguan-89/lunabot.git" },
       homepage: "https://cloud.dexai.vip",
-      keywords: ["lunabot", "dexbot", "agents", "self-hosted", "server"],
+      keywords: ["lunabot_ai", "lunabot", "dexbot", "agents", "self-hosted", "server"],
     },
     null,
     2,
@@ -67,16 +67,16 @@ writeFileSync(
 
 writeFileSync(
   join(out, "README.md"),
-  `# lunabot
+  `# lunabot_ai
 
 Your own team of AI bots, with guided terminal setup. Requires Node 24+.
 
 \`\`\`sh
-npm install -g lunabot
+npm install -g lunabot_ai
 lunabot
 \`\`\`
 
-Or run \`npx lunabot\` without a global install. Use the same command next
+Or run \`npx lunabot_ai\` without a global install. Use the same command next
 time; \`lunabot start\` is an alias for the bare command.
 
 First launch: use arrow keys and Enter (numbered choices in plain terminals) to choose
@@ -159,4 +159,4 @@ lunabot help run       # every verb: doctor, run, wait, send, export, events, te
 · [Hosting guide](https://github.com/liguan-89/lunabot/blob/main/docs/self-hosting.md)
 `,
 );
-console.log(`npm package assembled at ${out} (lunabot@${app.version})`);
+console.log(`npm package assembled at ${out} (lunabot_ai@${app.version})`);

@@ -102,7 +102,7 @@ Not proven in this repository's CI: it needs root, systemd, nftables and
 Caddy. The recipe for a disposable VPS (the same shape as the Hetzner launch
 record):
 
-1. Fresh Ubuntu 24.04 or newer, Caddy from apt, `npm install -g lunabot`,
+1. Fresh Ubuntu 24.04 or newer, Caddy from apt, `npm install -g lunabot_ai`,
    Claude Code installed once as root, a wildcard DNS record at the server.
 2. `lunabot fleet init --domain <domain>`; check `systemctl status
    openmausbot-fence` and `nft list table inet openmausbot`.

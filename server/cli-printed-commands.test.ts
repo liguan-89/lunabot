@@ -66,7 +66,7 @@ describe("printed commands", () => {
   });
 
   it("writes commands the way the CLI was started", () => {
-    expect(usage("npx lunabot")).toContain("  npx lunabot pair  [--label NAME]");
+    expect(usage("npx lunabot_ai")).toContain("  npx lunabot_ai pair  [--label NAME]");
     expect(noRouteLines(8799, "docker compose exec omb lunabot").join("\n")).toContain("docker compose exec omb lunabot serve --lan");
   });
 });

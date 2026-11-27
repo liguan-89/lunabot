@@ -21,7 +21,7 @@ export const HEADLESS_USAGE = `Drive a running workspace (scripts, CI, other age
   Token: DEXBOT_TOKEN or --token-file FILE. --json prints one JSON document;
   progress goes to stderr (--quiet drops it). lunabot help VERB for the details.`;
 
-/** The usage text, its commands written the way this CLI was started (`npx lunabot …`). */
+/** The usage text, its commands written the way this CLI was started (`npx lunabot_ai …`). */
 export function usage(prefix = "lunabot"): string {
   return USAGE.split("\n").map((line) => line.replace(/^(\s+)lunabot(?= )/, `$1${prefix}`)).join("\n");
 }
@@ -119,6 +119,6 @@ Ways in (pick one; --lan can join any):
 
 ${HEADLESS_USAGE}
 
-Install once with \`npm install -g lunabot\`, then type \`lunabot\`.
-Or run without a global install: \`npx lunabot\`. Node 24+ is required.
+Install once with \`npm install -g lunabot_ai\`, then type \`lunabot\`.
+Or run without a global install: \`npx lunabot_ai\`. Node 24+ is required.
 `;

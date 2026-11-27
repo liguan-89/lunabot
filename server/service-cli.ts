@@ -30,7 +30,7 @@ export interface ServiceInstallInput {
   hasSentinel?: (script: string) => boolean;
   script: string;
   node: string;
-  /** Under npx: installs `lunabot@version` into `prefix` and resolves whether npm succeeded. */
+  /** Under npx: installs `lunabot_ai@version` into `prefix` and resolves whether npm succeeded. */
   installCopy?: (prefix: string, version: string) => boolean;
   platform?: NodeJS.Platform;
   home?: string;
@@ -85,7 +85,7 @@ export function runServiceCommand(input: ServiceInstallInput, io: ServiceIo): nu
     home,
     bindsLowPorts: Boolean(input.domain),
     ...(input.label ? { label: input.label } : {}),
-    ...(script !== input.script ? { cliPrefix: "npx lunabot" } : {}),
+    ...(script !== input.script ? { cliPrefix: "npx lunabot_ai" } : {}),
   };
   const rendered = platform === "darwin" ? launchdPlist(spec) : systemdUnit(spec);
   mkdirSync(input.dataDir, { recursive: true, mode: 0o700 });
@@ -110,10 +110,10 @@ function pinnedCopy(input: ServiceInstallInput, io: ServiceIo): string | null {
     version = undefined;
   }
   const prefix = join(input.dataDir, "app", version ?? "latest");
-  const command = `npm install --prefix ${prefix} lunabot@${version ?? "latest"}`;
-  io.log(`this run comes from npx's cache, which npm prunes: installing lunabot ${version ?? ""} into ${prefix} for the service`.replace("  ", " "));
+  const command = `npm install --prefix ${prefix} lunabot_ai@${version ?? "latest"}`;
+  io.log(`this run comes from npx's cache, which npm prunes: installing lunabot_ai ${version ?? ""} into ${prefix} for the service`.replace("  ", " "));
   const installed = (input.installCopy ?? installWithNpm)(prefix, version ?? "latest");
-  const script = join(prefix, "node_modules", "lunabot", "dist-server", "lunabot.js");
+  const script = join(prefix, "node_modules", "lunabot_ai", "dist-server", "lunabot.js");
   if (installed && (input.exists ?? existsSync)(script)) return script;
   io.error(`could not install that copy. Run this, then the same service install command again from it:\n  ${command}\n  node ${script} service install …`);
   return null;
@@ -122,7 +122,7 @@ function pinnedCopy(input: ServiceInstallInput, io: ServiceIo): string | null {
 function installWithNpm(prefix: string, version: string): boolean {
   mkdirSync(prefix, { recursive: true, mode: 0o700 });
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  return spawnSync(npm, ["install", "--prefix", prefix, `lunabot@${version}`, "--no-audit", "--no-fund"], { stdio: "inherit" }).status === 0;
+  return spawnSync(npm, ["install", "--prefix", prefix, `lunabot_ai@${version}`, "--no-audit", "--no-fund"], { stdio: "inherit" }).status === 0;
 }
 
 function bundleHasSentinel(script: string): boolean {
