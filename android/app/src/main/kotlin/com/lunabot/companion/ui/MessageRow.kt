@@ -252,6 +252,15 @@ fun MessageRow(
                 quoteOf = quoteOf,
             )
 
+            message.fromApp?.let { fromApp ->
+                Text(
+                    "发送自 ${fromApp.title}",
+                    fontSize = 11.sp,
+                    color = secondaryTint,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+            }
+
             message.comm?.let { comm ->
                 val targetBot = state.bot(comm.withBotId)
                 TranscriptEventPill(
@@ -707,7 +716,7 @@ private fun MessageContent(
             )
         }
         Message.Kind.APP -> if (message.app != null || !message.text.isNullOrEmpty()) {
-            AppSummaryCard(message)
+            ChatAppMessageCard(chat, message, openLink)
         }
         // Turn-audit chip (tool list + reply preview). Desktop shows it only
         // behind a "show tool calls" setting Android doesn't have; hide it.
@@ -2814,7 +2823,7 @@ private fun WidgetSummaryCard(message: Message) {
 }
 
 @Composable
-private fun AppSummaryCard(message: Message) {
+fun AppSummaryCard(message: Message) {
     val data = message.app
     RemoteCard(
         title = data?.title?.takeIf { it.isNotBlank() } ?: "应用卡片",

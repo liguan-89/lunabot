@@ -77,6 +77,61 @@ class DecodingTest {
         assertEquals("mcp", messages[2].app?.source)
     }
 
+
+    @Test
+    fun appCardsDecodeTheLiveDocumentShapeAndUserAttribution() {
+        val messages = CompanionJson.decodeFromString<List<Message>>(
+            """
+            [
+              {"id":"a","role":"bot","kind":"app","at":3,"text":"Pick a date",
+               "app":{"v":1,"source":"mcp","title":"Calendar","doc":"d1","rev":4,"bytes":2341,"height":280,
+                      "network":{"connect":["https://api.example.com"],"resources":["https://cdn.example.com"],"refused":["http://evil.example"]},
+                      "mcp":{"server":"calendar","serverTitle":"Calendar","tool":"view","resourceUri":"ui://calendar/view"},
+                      "context":{"text":"next","at":8,"delivered":false},
+                      "done":{"tool":"pick_date","text":"Picked Friday","at":9}}},
+              {"id":"u","role":"user","kind":"text","at":4,"text":"Friday",
+               "fromApp":{"messageId":"a","title":"Calendar"}}
+            ]
+            """,
+        )
+
+        val app = messages[0].app
+        assertEquals(4, app?.rev)
+        assertEquals(280, app?.height)
+        assertEquals(listOf("https://api.example.com"), app?.network?.connect)
+        assertEquals("calendar", app?.mcp?.server)
+        assertEquals("next", app?.context?.text)
+        assertEquals("Picked Friday", app?.done?.text)
+        assertEquals("Calendar", messages[1].fromApp?.title)
+        assertEquals("a", messages[1].fromApp?.messageId)
+    }
+
+    @Test
+    fun appDocumentsDecodeAndRejectMalformedFrameDocuments() {
+        val document = CompanionJson.decodeFromString<AppDocument>(
+            """
+            {"v":1,"messageId":"m1","rev":2,
+             "srcdoc":"<!DOCTYPE html><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'\"><p>x</p>",
+             "csp":"default-src 'none'",
+             "network":{"connect":[],"resources":[]},
+             "tool":{"name":"view","title":"View","inputSchema":{"type":"object"}},
+             "toolInput":{"date":"Friday"},
+             "toolResult":{"content":[{"type":"text","text":"ready"}],"structuredContent":{"ok":true}},
+             "can":{"serverTools":true,"serverResources":true,"message":true,"openLinks":true,"modelContext":true}}
+            """,
+        )
+
+        assertTrue(document.valid)
+        assertEquals("m1", document.messageId)
+        assertEquals("view", document.tool?.name)
+        assertEquals(true, document.can.serverTools)
+        assertEquals(true, document.toolResult?.structuredContent?.let { it.toString().contains("ok") })
+
+        val malformed = document.copy(v = 2)
+        assertFalse(malformed.valid)
+        assertFalse(document.copy(srcdoc = "<p>missing csp prefix</p>").valid)
+    }
+
     @Test
     fun decodesTheCardKindsTheTranscriptUsedToDrop() {
         val messages = CompanionJson.decodeFromString<List<Message>>(

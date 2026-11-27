@@ -297,6 +297,11 @@ dependencies {
     // cloud machine. ~200 KB, no transitive weight beyond androidx.core.
     implementation("androidx.browser:browser:1.10.0")
 
+    // WebViewAssetLoader and the origin-scoped WebMessageListener used by chat
+    // app frames. The feature itself is runtime-gated: an old System WebView
+    // must show the readable fallback rather than an unsafe JavascriptInterface.
+    implementation("androidx.webkit:webkit:1.18.0")
+
     // Pairing QR scanner. CameraX gives the preview and frame pipeline; ML Kit's
     // *bundled* barcode model reads them. Bundled rather than the Play-services
     // variants (`play-services-code-scanner` / unbundled ML Kit) because pairing
