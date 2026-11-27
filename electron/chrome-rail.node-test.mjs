@@ -282,3 +282,26 @@ test("the rail's own page keeps the popover state main sent before its React pag
   railPage.hear("rail:popover", { open: true, x: 1, y: 2 });
   assert.deepEqual(JSON.parse(JSON.stringify(heard)), [{ open: true, x: 97, y: 53 }, { open: false, x: 0, y: 0 }]);
 });
+
+test("the rail's own page keeps the skin main sent before its React page subscribed", () => {
+  const railPage = pageWithPreload("http://127.0.0.1:8799", "/rail");
+  railPage.hear("rail:skin", "daylight");
+  const heard = [];
+  const stop = railPage.bridge.rail.onSkin((skin) => heard.push(skin));
+  assert.deepEqual(heard, ["daylight"]);
+  railPage.hear("rail:skin", "midnight");
+  stop();
+  railPage.hear("rail:skin", "linen");
+  assert.deepEqual(heard, ["daylight", "midnight"]);
+});
+
+test("a rail view made after the page beside it picked its skin is told that skin once it loads", () => {
+  const w = world();
+  w.rail.skin("daylight");
+  w.rail.attach(w.win);
+  w.ask("rail:open-popover");
+  const contents = w.made[0].webContents;
+  contents.emit("did-finish-load");
+  w.rail.skin("midnight");
+  assert.deepEqual(contents.sent.filter(([channel]) => channel === "rail:skin"), [["rail:skin", "daylight"], ["rail:skin", "midnight"]]);
+});
