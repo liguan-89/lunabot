@@ -1089,6 +1089,10 @@ class Session(
             if (_status.value !is Status.Offline) _status.value = Status.Connecting
             var receivedHello = false
             try {
+                // Back here means the previous stream ended, so its identity
+                // vouch is void and actions must preflight again until the
+                // next hello re-proves this server.
+                activeClient.streamVerified = false
                 activeClient.connection.serverEnvironmentId?.let { expected ->
                     // Fail closed before sending the bearer if the address serves a new workspace.
                     if (activeClient.environment().environmentId != expected) {
@@ -1104,6 +1108,10 @@ class Session(
                         when (val payload = frame.frame) {
                             is Frame.Hello -> {
                                 receivedHello = true
+                                // The stream only came up after this iteration's
+                                // environment check, so it vouches for the server
+                                // until it drops; actions may skip their preflight.
+                                activeClient.streamVerified = true
                                 if (!payload.resumed) {
                                     hydrate()
                                     _state.update { it.resetCursor(payload.cursor) }
