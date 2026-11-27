@@ -1079,8 +1079,15 @@ private fun LoadedChat(
         // Deliberately not disabled while the bot is busy: the harness answers
         // 409 and Session surfaces "The bot is busy — stop it first." That is a
         // clearer answer than a dead button.
+        sendingMessage = true
+        attachmentError = null
         scope.launch {
-            if (session.send(text, chat)) return@launch
+            val sent = try {
+                session.send(text, chat)
+            } finally {
+                sendingMessage = false
+            }
+            if (sent) return@launch
             // The draft was already cleared on the tap; a failed send hands the
             // words back rather than dropping them behind a vanishing notice.
             if (composer.text.isBlank()) {
@@ -1505,6 +1512,7 @@ private fun LoadedChat(
                 attachments = attachments,
                 sending = sendingMessage,
                 preparing = preparingAttachments,
+                creatingThread = creatingThread,
                 busy = chat.busy,
                 engineCanSteer = engineCanSteer,
                 queuedSends = queuedSends,
@@ -2629,6 +2637,7 @@ private fun Composer(
     attachments: List<PendingMessageAttachment>,
     sending: Boolean,
     preparing: Boolean,
+    creatingThread: Boolean,
     busy: Boolean,
     engineCanSteer: Boolean,
     queuedSends: List<QueuedSend>,
@@ -2668,6 +2677,9 @@ private fun Composer(
         }
         // What is in flight, in the order iOS stacks them: the send or the
         // import, then a file on its way, then whatever went wrong.
+        if (creatingThread) {
+            ComposerStatusLine("正在创建新话题…")
+        }
         if (inFlight) {
             ComposerStatusLine(if (preparing) "正在准备附件…" else "正在发送…")
         }

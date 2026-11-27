@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -143,9 +144,13 @@ internal fun BotThreadTree(
                     onClick = onCreate,
                     enabled = !creating,
                     size = 32.dp,
-                    contentDescription = "与 ${bot.name} 新建话题",
+                    contentDescription = if (creating) "正在与 ${bot.name} 新建话题" else "与 ${bot.name} 新建话题",
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = secondaryTint, modifier = Modifier.size(18.dp))
+                    if (creating) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = secondaryTint)
+                    } else {
+                        Icon(Icons.Filled.Add, contentDescription = null, tint = secondaryTint, modifier = Modifier.size(18.dp))
+                    }
                 }
                 TouchTarget(
                     onClick = onManage,
