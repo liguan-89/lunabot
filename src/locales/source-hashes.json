@@ -4093,7 +4093,6 @@
       "decider.jobs.browserClicks": "345b405b1c9db4b376a431d7574df55bfe0c8e27422285a03e635301b23cdc7f",
       "decider.jobs.toolSelection": "b304cd56adc233aa9da1866096a1406777c293eb519bb9cb4386167fd82e3524",
       "decider.jobs.placement": "a6d9ced86cf511f5fbe356ab8d498ebd299c8f67d31b1104b314804cb9589c6d",
-      "decider.jobs.comingSoon": "4f7d64017689437e6d93f5724f3f797054f3935d98a13148025b616b8db8fb2c",
       "decider.provider.label": "713069715df44766a39173391eba9e21bbbedf08b9b646fa3c2d4a92f24bbd79",
       "decider.provider.jev": "a24241daee53fb42566ab0b6dbf5589cc69fe7ef7c6ae71adc00711640f463db",
       "decider.provider.openrouter": "eb70c3bc14fa7ae14285b750955958e63b64b8f19546c30fc2223ad9057a959c",
@@ -7023,7 +7022,6 @@
       "botAccess.phone.cap.reminders": "7971dd7526694c6ae3f2db570e44bfaa79cf30a63067a47f161b6e62c5426ef8",
       "botAccess.phone.cap.contacts": "b450645debe2cf0a590edd7f78d36eccd465027d389652dc30d6350542587c04",
       "botAccess.phone.cap.location": "15b61974b2707a7b3d4201385e0f01f4ff5eb1f17c5639d98788ee5add2025cd",
-      "botAccess.phone.cap.home": "3a78695388b38b5cceefaf6796b0137877514593543b91af2752d5a17e3d736c",
       "botAccess.phone.cap.messages": "04d7b48339271ea67d3c8493e07e90bc68dc565485eebe5e0b67c21c1586e3c0",
       "botAccess.scopes.off": "ca7981b46ecf2c1787b6d76d81d9fd7fa0ca95842e2fcc2a452869891a9334d1",
       "botAccess.scopes.offHint": "166eac5c31f802f053d30d89893a6ac442f4f1f3d09f3d07d756e3129d9f1a71",
@@ -7057,7 +7055,6 @@
       "data.history": "0e769600933790607b2a13b33ddfade0fa17810eb62c3b28ee23e59516516491",
       "data.latest": "578e6d5c5381093cd9e7f5048e0a00c2ba39dd38a4452f21ddaf8ce427dd8030",
       "data.openResult": "0f9fb29e26ca4c6eb059265b3fb73cb77e82bd248b4bf8a0cca80b6c43238972",
-      "data.openInWorkspace": "0c2db6d61bf24233ae8cee67dd1d7e0cf5c7587a50869da9259e78c4c2f2010d",
       "data.resultUnavailable": "60e1c2fb2aab1673ee3bac291faf6b8fa5a05d1a686caebc381520efb66e7280",
       "data.view.chart": "3e5b90ae053ff3e7cd9b364f1ef4fc425d453150904d7d515198a6fb1b6a5be6",
       "data.view.table": "16d1c9050a0b32e83764a81d801a880773abedfd7f8b0b08a1cd87ca0e404f12",
@@ -9551,8 +9548,6 @@
       "chat.notice.phone.write.PHONE_DELETE_REMINDER": "08cd77fbb9c229c9975050c4f19b62fc3af63b59a220c5d3702c21200c5bf8da",
       "chat.notice.phone.write.PHONE_CREATE_CONTACT": "60ba3fce200738c0498598dc41ccc100a86228abce23acf3f381d461a0476049",
       "chat.notice.phone.write.PHONE_UPDATE_CONTACT": "a1291923cfa23d4fead87c347b24173d2aa3a63e963562cba23ec6521d443b1d",
-      "chat.notice.phone.write.PHONE_SET_ACCESSORY": "7db32e3120628a08f0c768affdaf04350716103b0f08f0cf650e5bfb189b8544",
-      "chat.notice.phone.write.PHONE_RUN_SCENE": "85c9bcc636d56f64038270142c3a5e3bd295ca4efba86dbee34ff33f8701d01f",
       "chat.notice.phone.write.PHONE_SEND_MESSAGE": "c0a8ae8588d9f8a7806678fc9a9e9be8e1cf7dffc43cc2bbf1287ba188d358f4",
       "chat.notice.phone.write.PHONE_SEND_WHATSAPP": "46e0861614a3d1b5c7e8d1e9ada701b0a9cf93367ebfa9c3bdfb36caa60a14d0",
       "chat.notice.phone.write.PHONE_UI_LAUNCH": "91e9f61c17d8ce09aa4ec39b1859a3bf32e3dc915fc07284057a8d9c79759fb0",
@@ -10841,7 +10836,8 @@
       "templates.deleteBody": "5eb501cda6aa65d37ae025813d062a6b18d1495b03c7783cf8aa29f412794635",
       "teamShare.storeTemplate": "8f942d310573ae567ba514f49000e1a58225f90f70dbee68e159561d833f44a6",
       "teamShare.storedTemplate": "763c3228739d94bcebcfda9d34b0a89c599ccfc883d9692ce5276bbd49b23338",
-      "server.peerResend.failed": "aae7cfe2173e73be6703022db4001f1464b46b5f9075fced287ce02865c4e730"
+      "server.peerResend.failed": "aae7cfe2173e73be6703022db4001f1464b46b5f9075fced287ce02865c4e730",
+      "data.remoteReadOnly": "d4d8d107041cac669047ca1558aa736d329b813c021910497c6a07f63b0b4932"
     }
   }
 }
