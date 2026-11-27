@@ -73,6 +73,9 @@ sealed interface Destination {
     /** 一个团队分区的共享记忆页。按分区名寻址，空串是 General。 */
     data class TeamMemory(val section: String) : Destination
 
+    /** 团队地图只读页——跨 bot 的协作与委派观测面。 */
+    data object TeamMap : Destination
+
     /**
      * A conversation, in one of the two ways something can name one.
      *
@@ -198,6 +201,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
         private const val BROWSER = "browser:"
         private const val OVERVIEW = "overview:"
         private const val BOT_ACTIVITY = "botactivity:"
+    private const val TEAM_MAP = "team-map"
         private const val BOT_MCP = "botmcp:"
         private const val BOT_DATA = "botdata:"
         private const val TEAM_MEMORY = "teammemory:"
@@ -218,6 +222,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 is Destination.Browser -> BROWSER + it.botId
                 is Destination.Overview -> OVERVIEW + it.botId
                 is Destination.BotActivity -> BOT_ACTIVITY + it.botId
+                Destination.TeamMap -> TEAM_MAP
                 is Destination.BotMcpServers -> BOT_MCP + it.botId
                 is Destination.BotData -> BOT_DATA + it.botId
                 is Destination.TeamMemory -> TEAM_MEMORY + it.section
@@ -242,6 +247,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 it.startsWith(COMPUTER) -> Destination.Computer(it.removePrefix(COMPUTER))
                 it.startsWith(BROWSER) -> Destination.Browser(it.removePrefix(BROWSER))
                 it.startsWith(OVERVIEW) -> Destination.Overview(it.removePrefix(OVERVIEW))
+                it == TEAM_MAP -> Destination.TeamMap
                 it.startsWith(BOT_ACTIVITY) -> Destination.BotActivity(it.removePrefix(BOT_ACTIVITY))
                 it.startsWith(BOT_MCP) -> Destination.BotMcpServers(it.removePrefix(BOT_MCP))
                 it.startsWith(BOT_DATA) -> Destination.BotData(it.removePrefix(BOT_DATA))

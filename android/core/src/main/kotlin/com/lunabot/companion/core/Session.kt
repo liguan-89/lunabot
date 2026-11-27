@@ -3066,6 +3066,20 @@ class Session(
     // MARK: - Data 只读
 
     /** 这个智能体的 Data（sheet 与表目录），或 null——拒答、太旧、够不到或数据引擎不可用。 */
+    /** 团队地图，或 null——连接失效/电脑太旧时干脆不画，同 loadBotData。 */
+    suspend fun loadTeamMap(): TeamMapResponse? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val data = activeClient.teamMap()
+            currentCoroutineContext().ensureActive()
+            data.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
     suspend fun loadBotData(botId: String): BotDataResponse? {
         val activeClient = client ?: return null
         val connectionId = _connection.value?.id

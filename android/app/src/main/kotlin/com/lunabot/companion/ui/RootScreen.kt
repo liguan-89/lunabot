@@ -494,6 +494,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
         Destination.Settings -> SettingsScreen(
             onBack = navigator::pop,
             onOpenRoutines = { navigator.push(Destination.Routines) },
+            onOpenTeamMap = { navigator.push(Destination.TeamMap) },
             onOpenConnectedApps = { navigator.push(Destination.ConnectedApps) },
             onOpenVoice = { navigator.push(Destination.Voice) },
             onOpenNotifications = { navigator.push(Destination.Notifications) },
@@ -556,6 +557,9 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
         )
         is Destination.TeamMemory -> TeamMemoryScreen(
             section = destination.section,
+            onBack = navigator::pop,
+        )
+        Destination.TeamMap -> TeamMapScreen(
             onBack = navigator::pop,
         )
         is Destination.BotRoutines -> TasksRoutinesScreen(
