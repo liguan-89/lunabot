@@ -297,6 +297,11 @@ dependencies {
     // cloud machine. ~200 KB, no transitive weight beyond androidx.core.
     implementation("androidx.browser:browser:1.10.0")
 
+    // WebViewAssetLoader and the origin-scoped WebMessageListener used by chat
+    // app frames. The feature itself is runtime-gated: an old System WebView
+    // must show the readable fallback rather than an unsafe JavascriptInterface.
+    implementation("androidx.webkit:webkit:1.18.0")
+
     // Pairing QR scanner. CameraX gives the preview and frame pipeline; ML Kit's
     // *bundled* barcode model reads them. Bundled rather than the Play-services
     // variants (`play-services-code-scanner` / unbundled ML Kit) because pairing
@@ -332,6 +337,11 @@ dependencies {
     // the tree it actually produces; without it the assertion would be about a
     // list the composable is free to ignore.
     testImplementation("org.robolectric:robolectric:4.17")
+
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation(composeBom)

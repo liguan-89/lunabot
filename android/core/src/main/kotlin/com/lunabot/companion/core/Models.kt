@@ -333,8 +333,7 @@ data class WidgetSettledRef(
 
 /**
  * A bot page or MCP app (`kind == "app"`). `doc` names the stored document;
- * the phone shows the readable fallback rather than mounting a sandboxed page,
- * because the app's bridge is the desktop's to run.
+ * the frame's HTML is fetched separately only when the row mounts.
  */
 @Serializable
 data class AppCardData(
@@ -342,6 +341,18 @@ data class AppCardData(
     val source: String = "",
     val title: String = "",
     val doc: String = "",
+    val rev: Int = 0,
+    val history: List<String>? = null,
+    val format: String? = null,
+    val bytes: Int = 0,
+    val height: Int? = null,
+    val border: Boolean? = null,
+    val network: AppNetwork? = null,
+    val mcp: AppMcpRef? = null,
+    val context: AppContextState? = null,
+    val done: AppDoneState? = null,
+    val blocked: String? = null,
+    val live: Boolean? = null,
 )
 
 /**
@@ -459,6 +470,8 @@ data class Message(
     val via: String? = null,
     /** An external interface (the Slack worker) relayed this user line. */
     val relayed: Boolean? = null,
+    /** This user row was sent by an app's `ui/message`. */
+    val fromApp: AppFromRef? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {

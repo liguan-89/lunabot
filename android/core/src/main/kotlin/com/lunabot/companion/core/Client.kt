@@ -473,6 +473,98 @@ class CompanionClient(
         return raw.data
     }
 
+    /** The web origin folder-page file URLs may use. E2E's synthetic host exists only inside OkHttp, not WebView. */
+    private val appFilesOrigin: String?
+        get() = endpoint?.baseUrl?.takeIf { e2e == null && it.scheme == "https" }
+            ?.newBuilder()?.encodedPath("/")?.build()?.toString()?.removeSuffix("/")
+
+    /** Fetch one app row's frame document. `origin` is the web origin a folder page's file URLs may use. */
+    suspend fun appDocument(threadId: String, messageId: String, origin: String? = null): AppDocument {
+        val query = (origin ?: appFilesOrigin)?.let { listOf("origin" to it) }.orEmpty()
+        return send(makeRequest(
+            "GET",
+            "/api/threads/${segment(threadId)}/messages/${segment(messageId)}/app",
+            query,
+        ))
+    }
+
+    /**
+     * One app-initiated MCP call. Unlike ordinary client methods, a refusal is data for the View:
+     * the host page needs the server's JSON-RPC code and message back, not an thrown phone-side error.
+     */
+    suspend fun appRpc(
+        botId: String,
+        threadId: String,
+        messageId: String,
+        method: String,
+        params: JsonObject,
+    ): AppRpcOutcome {
+        if (!isSafeRouteId(botId) || !isSafeRouteId(threadId) || !isSafeRouteId(messageId)) throw APIError.BadUrl
+        val raw = perform(makeRequest(
+            "POST",
+            "/api/bots/${safeRouteId(botId)}/apps/${safeRouteId(messageId)}/rpc",
+            body = buildJsonObject {
+                put("threadId", threadId)
+                put("method", method)
+                put("params", params)
+            },
+        ))
+        val text = raw.data.toString(Charsets.UTF_8)
+        if (raw.code in 200..299) {
+            val value = runCatching { CompanionJson.decodeFromString<kotlinx.serialization.json.JsonElement>(text) }.getOrNull()
+            return AppRpcOutcome.Result(value)
+        }
+        val body = runCatching { CompanionJson.decodeFromString<JsonObject>(text) }.getOrNull()
+        val error = body?.get("error")
+        val errorObject = error as? JsonObject
+        val errorPrimitive = error as? JsonPrimitive
+        val code = (errorObject?.get("code") as? JsonPrimitive)?.content?.toIntOrNull() ?: -32000
+        val message = (errorObject?.get("message") as? JsonPrimitive)?.content
+            ?: errorPrimitive?.takeIf { it.isString }?.content
+            ?: "电脑返回了错误 (${raw.code})。"
+        val signIn = ((body?.get("signIn") as? JsonObject)?.get("server") as? JsonPrimitive)?.content
+        val blocked = body?.get("blocked") as? JsonObject
+        return AppRpcOutcome.Refusal(
+            code = code,
+            message = message,
+            signInServer = signIn,
+            blockedReason = (blocked?.get("reason") as? JsonPrimitive)?.content ?: if (raw.code == 410) "server-removed" else null,
+            blockedText = (blocked?.get("text") as? JsonPrimitive)?.content,
+            offline = false,
+        )
+    }
+
+    /** Store the latest model-context update of one app row. */
+    suspend fun appContext(botId: String, threadId: String, messageId: String, update: JsonObject) {
+        if (!isSafeRouteId(botId) || !isSafeRouteId(threadId) || !isSafeRouteId(messageId)) throw APIError.BadUrl
+        sendUnit(makeRequest(
+            "POST",
+            "/api/bots/${safeRouteId(botId)}/apps/${safeRouteId(messageId)}/context",
+            body = buildJsonObject {
+                put("threadId", threadId)
+                update["content"]?.let { put("content", it) }
+                update["structuredContent"]?.let { put("structuredContent", it) }
+            },
+        ))
+    }
+
+    /** `ui/message` rides the ordinary send route as an app-authored user reply. */
+    suspend fun sendAppMessage(botId: String, threadId: String, messageId: String, text: String, sendId: String): SendReceipt {
+        if (!isSafeRouteId(botId) || !isSafeRouteId(threadId) || !isSafeRouteId(messageId) || !isSafeSendId(sendId)) throw APIError.BadUrl
+        return sendForReceipt(makeRequest(
+            "POST",
+            "/api/bots/${safeRouteId(botId)}/messages",
+            body = buildJsonObject {
+                put("threadId", threadId)
+                put("sendId", sendId)
+                put("appMessage", buildJsonObject {
+                    put("messageId", messageId)
+                    put("text", text)
+                })
+            },
+        ))
+    }
+
     suspend fun voices(): List<Voice> = send<VoiceListResponse>(
         makeRequest("GET", "/api/tts/voices"),
     ).voices

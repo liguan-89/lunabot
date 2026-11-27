@@ -1627,6 +1627,56 @@ class Session(
         }
     }
 
+    /** Fetch an app document for a row that is about to mount. */
+    suspend fun appDocument(threadId: String, messageId: String, origin: String? = null): AppDocument {
+        val activeClient = client ?: throw IllegalStateException("此电脑当前离线。")
+        try {
+            return activeClient.appDocument(threadId, messageId, origin)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            throw error
+        }
+    }
+
+    /** One app-initiated RPC, with the server's refusal shape preserved for the View. */
+    suspend fun appRpc(botId: String, threadId: String, messageId: String, method: String, params: JsonObject): AppRpcOutcome {
+        val activeClient = client ?: return AppRpcOutcome.Refusal(-32000, "Offline", offline = true)
+        return try {
+            activeClient.appRpc(botId, threadId, messageId, method, params)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            AppRpcOutcome.Refusal(-32000, if (error is APIError.Transport) "Offline" else error.message ?: "The app's server refused this.", offline = error is APIError.Transport)
+        }
+    }
+
+    suspend fun postAppContext(botId: String, threadId: String, messageId: String, update: JsonObject) {
+        val activeClient = client ?: throw IllegalStateException("此电脑当前离线。")
+        try {
+            activeClient.appContext(botId, threadId, messageId, update)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            throw error
+        }
+    }
+
+    suspend fun sendAppMessage(botId: String, threadId: String, messageId: String, text: String, sendId: String): SendReceipt {
+        val activeClient = client ?: throw IllegalStateException("此电脑当前离线。")
+        try {
+            return activeClient.sendAppMessage(botId, threadId, messageId, text, sendId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: APIError) {
+            if (error.isUnauthorized) _status.value = Status.Unauthorized
+            throw error
+        }
+    }
+
     /**
      * Update Claude Code for the engine a failed turn ran on. The answer is
      * for the card that asked, not the app-wide error banner: it shows the

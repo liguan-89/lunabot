@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import kotlin.test.AfterTest
@@ -674,6 +675,88 @@ class ClientTest {
         server.enqueue(json("""{"ok":true}"""))
         client.markRoomRead("g1")
         assertEquals("/api/groups/g1/read", server.takeRequest().path)
+    }
+
+
+    @Test
+    fun appDocumentUsesTheMessageDocumentRoute() = runBlocking {
+        server.enqueue(json("""
+            {"v":1,"messageId":"m1","rev":1,
+             "srcdoc":"<!DOCTYPE html><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'\"><p>x</p>",
+             "csp":"default-src 'none'","network":{"connect":[],"resources":[]},
+             "can":{"serverTools":false,"serverResources":false,"message":true,"openLinks":true,"modelContext":true}}
+        """))
+
+        val document = client.appDocument("t1", "m1")
+
+        assertTrue(document.valid)
+        server.takeRequest().let { request ->
+            assertEquals("GET", request.method)
+            assertEquals("/api/threads/t1/messages/m1/app", request.path)
+            assertEquals("Bearer device-token", request.getHeader("Authorization"))
+        }
+    }
+
+    @Test
+    fun appRpcPostsTheBridgeShapeAndPreservesRefusals() = runBlocking {
+        server.enqueue(json("""{"content":[{"type":"text","text":"ok"}]}"""))
+        server.enqueue(json(
+            """{"error":{"code":-32000,"message":"Sign-in needed"},"signIn":{"server":"github"},"blocked":{"reason":"server-off","text":"GitHub is off"}}""",
+            code = 401,
+        ))
+
+        val params = kotlinx.serialization.json.buildJsonObject {
+            put("name", "pick_date")
+            put("arguments", kotlinx.serialization.json.buildJsonObject {
+                put("date", "Friday")
+            })
+        }
+        val result = client.appRpc("b1", "t1", "m1", "tools/call", params)
+        val refusal = client.appRpc("b1", "t1", "m1", "tools/call", params)
+
+        assertTrue(result is AppRpcOutcome.Result)
+        refusal as AppRpcOutcome.Refusal
+        assertEquals(-32000, refusal.code)
+        assertEquals("github", refusal.signInServer)
+        assertEquals("server-off", refusal.blockedReason)
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/bots/b1/apps/m1/rpc", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals("t1", body.getValue("threadId").jsonPrimitive.content)
+            assertEquals("tools/call", body.getValue("method").jsonPrimitive.content)
+            assertEquals("pick_date", body.getValue("params").jsonObject.getValue("name").jsonPrimitive.content)
+        }
+    }
+
+    @Test
+    fun appContextAndMessageRideTheirServerRoutes() = runBlocking {
+        server.enqueue(json("""{"ok":true}"""))
+        server.enqueue(json("""{"receipt":{"threadId":"t1","steered":false}}"""))
+
+        client.appContext(
+            "b1", "t1", "m1",
+            kotlinx.serialization.json.buildJsonObject {
+                put("content", kotlinx.serialization.json.JsonArray(emptyList()))
+            },
+        )
+        client.sendAppMessage("b1", "t1", "m1", "Friday", "send-123456789012")
+
+        server.takeRequest().let { request ->
+            assertEquals("/api/bots/b1/apps/m1/context", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals("t1", body.getValue("threadId").jsonPrimitive.content)
+            assertTrue("content" in body)
+        }
+        server.takeRequest().let { request ->
+            assertEquals("/api/bots/b1/messages", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals("t1", body.getValue("threadId").jsonPrimitive.content)
+            assertEquals("send-123456789012", body.getValue("sendId").jsonPrimitive.content)
+            val appMessage = body.getValue("appMessage").jsonObject
+            assertEquals("m1", appMessage.getValue("messageId").jsonPrimitive.content)
+            assertEquals("Friday", appMessage.getValue("text").jsonPrimitive.content)
+        }
     }
 
     private fun json(body: String, code: Int = 200) = MockResponse()
