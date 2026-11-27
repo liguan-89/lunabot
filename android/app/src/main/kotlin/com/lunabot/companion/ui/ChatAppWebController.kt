@@ -169,6 +169,13 @@ class ChatAppWebController(
                 request.deny()
             }
 
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: android.webkit.GeolocationPermissions.Callback?,
+            ) {
+                callback?.invoke(origin, false, false)
+            }
+
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -187,6 +194,11 @@ class ChatAppWebController(
             }
 
             override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: android.webkit.JsPromptResult?): Boolean {
+                result?.cancel()
+                return true
+            }
+
+            override fun onJsBeforeUnload(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
                 result?.cancel()
                 return true
             }

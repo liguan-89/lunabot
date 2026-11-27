@@ -194,9 +194,13 @@ fun ChatAppMessageCard(
                         }
 
                         override suspend fun openLink(url: String) {
-                            if (!(url.startsWith("https://") || url.startsWith("http://"))) throw IllegalStateException("只允许打开网页链接。")
+                            val uri = url.toUri()
+                            val valid = url.length <= 2_048 &&
+                                (uri.scheme == "https" || uri.scheme == "http") &&
+                                !uri.host.isNullOrEmpty() && uri.userInfo == null
+                            if (!valid) throw IllegalStateException("只允许打开网页链接。")
                             if (openLink != null) openLink.invoke(url, message)
-                            else CustomTabsIntent.Builder().build().launchUrl(context, url.toUri())
+                            else CustomTabsIntent.Builder().build().launchUrl(context, uri)
                         }
 
                         override suspend fun context(update: JsonObject) {
