@@ -95,3 +95,39 @@ Android 端一条用户可见链路是：
 ### 模拟器补验（2026-11-27，绕过 T3）
 
 在 `test_dsh` Android 15 模拟器安装当前 debug APK，清空测试 app 数据后用 pairing deep link 配对隔离 fixture（`10.0.2.2` 到 host loopback）。手工 adb 点击链通过：进入 `DeviceProbe` → + → 新建话题；新话题页出现「还没有消息」，服务端 active thread 从原默认 thread 切到 `6a1a0e04-6b47-497e-be48-45f0dc0f3928`。输入并发送 `devicefirst1515`：tap `1795763707488`，服务端用户消息 at `1795763707538`（约 50ms），助手 `Hello from pi` at `1795763708039`（tap 后约 551ms）。设备 UI 同时显示用户气泡和助手回复；截图证据 `/tmp/lifecycle-device-final.png`。本轮只补真实链路可达性与回刷，未用慢网络在设备上捕捉瞬时 pending 文案；慢/pending 行为由 Robolectric 受控门控测试证明。
+
+## 全量动作审计（2026-11-27 第二轮）
+
+范围扩大到 Android 端所有用户可触发的异步动作，按「动作 → 进行中反馈 → 失败反馈 → threadId/连接竞态 → 现有测试」盘点。
+
+### 已有完整或基本完整反馈的动作
+
+- 新建话题/首条发送/附件发送：第一轮已补进行中与 receipt 立即上屏，并有 Robolectric 门控测试。
+- 话题 sheet 的切换、重命名、置顶、归档、删除、延后提醒：统一 `saving` 阻止关闭与重复提交，失败留在当前 sheet；已有多项 Robolectric 覆盖。
+- 智能体资料/模型/头像/compact、团队记忆、例程编辑、例程行内运行/开关/取消、群/分区创建、配对、分享 sheet、提问/审批/密钥/连接器卡片、附件下载与打开：均有本地 busy/saving/answering/opening 状态或明确的结果页；失败走当前卡片、`actionError` 或屏幕内错误。
+- 通知已读/全部已读采用先本地翻状态再后台确认的乐观更新；失败由下一次刷新纠回，设计上不等网络。
+
+### 第二轮确认并修复的高风险缺口
+
+1. 话题引用芯片打开目标 thread 需要刷新导航数据或网络请求，但点击后没有任何进行中反馈，重复点击也会并发打开；已在聊天 composer 增加「正在打开话题…」，并在请求期间忽略重复点击。
+2. 全局搜索/聊天内搜索命中真实远端结果时需要 `messagesAround` 甚至切换 branch/task，原实现立即关闭或静默等待，用户看到的就是“点了没反应”；已在 roster 命中行显示「打开中…」，在聊天搜索页命中行显示「正在打开消息…」，并在请求期间禁止第二个打开。
+3. 分享导出 Markdown/JSON 的 action sheet 点击后立即关闭，导出 GET 期间界面完全无反馈，重复进入还可再次导出；已在 composer 增加「正在导出对话记录…」，并在首个导出完成前忽略重复导出。Robolectric 门控测试证明 pending 可见且重复点击只发出一个 export GET。
+4. 运行中的停止按钮点击后外观不变，慢网络下无法知道 interrupt 是否发出，也可重复点击；已把停止钮在请求期间换成 spinner/「正在停止本轮」，并忽略重复点击。Robolectric 门控测试证明 pending 可见且重复点击只发出一个 interrupt POST。
+5. `Session.open(search hit)` 与 `Session.export` 捕获 `Throwable` 时未重新抛出 `CancellationException`，调用方取消会被当成普通失败路径吞掉；已修正取消传播。
+
+### 仍需后续处置的中低风险缺口
+
+- 排队消息的删除/取回编辑没有 row 级 pending；queued row 本身仍在屏幕上，语义比空白好，但慢网络下删除图标无确认，且可能重复点击。建议下一轮补 row 级 spinner 与请求去重。
+- Connected Apps 的 authorize/disconnect 没有按账号 pending；授权 URL 打开前或 disconnect 慢时只靠最终状态/全局错误。建议补按账号 busy capsule。
+- Browser/Computer 的 take/release 是 fire-and-forget，失败只靠 live stream 后续 control/status；高频输入事件的静默 ack 是有意的，但低频 take/release 可考虑明确失败提示。
+- Routine 删除确认与 run-seen 标记没有独立 pending；行内 run/toggle/cancel 已有 `busyRows`，风险低于主聊天链路。
+- 反应 emoji 与版本切换没有进行中态；失败会写全局 actionError，且结果通常快速经 stream/response 返回，列为低优先级。
+
+本轮未发现新的「必然使用错误 threadId」或「服务端接受后必然丢失」路径；主要问题仍是若干网络动作缺少本地即时反馈。
+
+### 第二轮验证记录
+
+- `:app:compileDebugKotlin` 绿。
+- `AndroidThreadNavigationTest.sharing a transcript shows progress and ignores a repeated export tap` 绿：export GET 被门控期间显示「正在导出对话记录…」，重复点击只发出一个请求。
+- `AndroidThreadNavigationTest.stopping a turn shows progress and ignores a repeated stop tap` 绿：interrupt POST 被门控期间停止钮变为「正在停止本轮」，重复点击只发出一个请求。
+- Android T1：`:core:test :app:testDebugUnitTest` 全绿。

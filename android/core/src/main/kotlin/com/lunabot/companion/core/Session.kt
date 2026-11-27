@@ -2267,6 +2267,7 @@ class Session(
             }
             null
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             _actionError.value = error.message
             null
         }
@@ -3538,6 +3539,7 @@ class Session(
             val exported = activeClient.export(threadId, format)
             ExportedTranscript(exported.data, exported.filename, exported.contentType)
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             _actionError.value = error.message
             null
         }

@@ -173,6 +173,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
     var collapsedFolders by rememberSaveable(stateSaver = StringSetSaver) { mutableStateOf(emptySet<String>()) }
     var collapsedSections by rememberSaveable(stateSaver = StringSetSaver) { mutableStateOf(emptySet<String>()) }
     var creatingThreads by remember { mutableStateOf(emptySet<String>()) }
+    var openingSearchHit by remember { mutableStateOf<String?>(null) }
     var managingThreads by remember { mutableStateOf<Chat?>(null) }
     // Which computer this phone is talking to. One stream at a time is the
     // protocol, so the choice is a switch, not a merge.
@@ -701,11 +702,18 @@ fun RosterScreen(navigator: CompanionNavigator) {
                                     items(hits, key = { it.id }) { hit ->
                                         SearchHitRow(
                                             hit = hit,
+                                            opening = openingSearchHit == hit.id,
                                             onClick = {
+                                                if (openingSearchHit != null) return@SearchHitRow
+                                                openingSearchHit = hit.id
                                                 scope.launch {
-                                                    session.open(hit)?.let {
-                                                        haptics.play(TactileAction.OPEN_SEARCH_RESULT)
-                                                        navigator.open(it)
+                                                    try {
+                                                        session.open(hit)?.let {
+                                                            haptics.play(TactileAction.OPEN_SEARCH_RESULT)
+                                                            navigator.open(it)
+                                                        }
+                                                    } finally {
+                                                        openingSearchHit = null
                                                     }
                                                 }
                                             },
@@ -2092,12 +2100,12 @@ private fun RosterBottomBar(
 private val BAR_HEIGHT = 50.dp
 
 @Composable
-private fun SearchHitRow(hit: SearchHit, onClick: () -> Unit) {
+private fun SearchHitRow(hit: SearchHit, opening: Boolean, onClick: () -> Unit) {
     val now = remember(hit.id) { System.currentTimeMillis() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = !opening, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
@@ -2130,11 +2138,20 @@ private fun SearchHitRow(hit: SearchHit, onClick: () -> Unit) {
                     Text(it, fontSize = 12.sp, color = secondaryTint)
                 }
                 Spacer(Modifier.weight(1f))
-                Text(
-                    text = RelativeStamp.list(hit.at, now),
-                    fontSize = 12.sp,
-                    color = secondaryTint,
-                )
+                if (opening) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 1.5.dp,
+                        color = secondaryTint,
+                    )
+                    Text("打开中…", fontSize = 12.sp, color = secondaryTint)
+                } else {
+                    Text(
+                        text = RelativeStamp.list(hit.at, now),
+                        fontSize = 12.sp,
+                        color = secondaryTint,
+                    )
+                }
             }
             Text(
                 text = hit.snippet,
