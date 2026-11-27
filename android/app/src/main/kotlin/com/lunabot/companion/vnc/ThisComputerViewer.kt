@@ -119,6 +119,14 @@ internal class ThisComputerViewer(
         poll = scope.launch {
             var misses = 0
             while (isActive) {
+                // Backgrounded: nobody can see the picture, and every frame is hundreds of kilobytes
+                // through the tunnel. The composition survives Home, so without this the poll ran on.
+                if (!androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
+                        .isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+                ) {
+                    delay(1_000)
+                    continue
+                }
                 // An action owns the link while it runs: a frame competing with a tap is what made a tap take 20 seconds
                 // and then time out on a relay.
                 if (acting) {
