@@ -270,3 +270,15 @@ test("every page beside the rail, from any server, gets the button's bridge and 
   const local = pageWithPreload("http://127.0.0.1:8799", "/");
   assert.deepEqual(Object.keys(local.bridge.rail), ["state", "drawsFrame", "setHidden", "openPopover", "onState", "expand", "closePopover", "onPopover", "onSkin"]);
 });
+
+test("the rail's own page keeps the popover state main sent before its React page subscribed", () => {
+  const railPage = pageWithPreload("http://127.0.0.1:8799", "/rail");
+  railPage.hear("rail:popover", { open: true, x: 97, y: 53, places: ["home"] });
+  const heard = [];
+  const stop = railPage.bridge.rail.onPopover((popover) => heard.push(popover));
+  assert.deepEqual(JSON.parse(JSON.stringify(heard)), [{ open: true, x: 97, y: 53 }]);
+  railPage.hear("rail:popover", { open: false });
+  stop();
+  railPage.hear("rail:popover", { open: true, x: 1, y: 2 });
+  assert.deepEqual(JSON.parse(JSON.stringify(heard)), [{ open: true, x: 97, y: 53 }, { open: false, x: 0, y: 0 }]);
+});
