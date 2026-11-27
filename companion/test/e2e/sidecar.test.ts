@@ -128,6 +128,17 @@ describe("the sidecar's end-to-end connection, through the real relay", () => {
     second.shutdown();
   }, 40_000);
 
+  it("closes the harness event stream when its session dies", async () => {
+    const session = await rig.viaRelay(await state(), deviceToken);
+    events(session, deviceToken);
+    await waitFor(() => rig.harness.openStreams() > 0, 10_000);
+    // What a force-stopped phone amounts to: the whole session is gone. Every
+    // stream it carried must die with it — before the origin close propagation,
+    // the harness stream lived on, one more immortal SSE per dead session.
+    session.shutdown();
+    await waitFor(() => rig.harness.openStreams() === 0, 10_000);
+  }, 30_000);
+
   it("tells a phone it is restricted to Wi-Fi and Tailscale inside its sessions, then the relay drops it (4404); direct stays", async () => {
     const current = await state();
     const relayed = await rig.viaRelay(current, deviceToken);
