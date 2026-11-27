@@ -137,6 +137,7 @@ import com.lunabot.companion.core.generatedImages
 import com.lunabot.companion.core.voiceNotes
 import com.lunabot.companion.core.DisplayedMessageAttachment
 import com.lunabot.companion.core.DownloadedFile
+import com.lunabot.companion.core.DataResultData
 import com.lunabot.companion.core.Message
 import com.lunabot.companion.core.OptionCard
 import com.lunabot.companion.core.ThreadRef
@@ -185,6 +186,8 @@ fun MessageRow(
      * belongs to one bot, and there is no second bot to open.
      */
     openComputer: (() -> Unit)? = null,
+    /** A data_show receipt's chip opens the bot's Data viewer at that card. */
+    onOpenData: ((botId: String, cardId: String) -> Unit)? = null,
     /** Quote this message into the composer; null hides the action. */
     onQuote: ((Message) -> Unit)? = null,
 ) {
@@ -243,6 +246,7 @@ fun MessageRow(
                 openThread = openThread,
                 openChat = openChat,
                 openComputer = openComputer,
+                onOpenData = onOpenData,
             )
 
             message.comm?.let { comm ->
@@ -586,6 +590,7 @@ private fun MessageContent(
     openThread: ((ThreadRef) -> Unit)?,
     openChat: ((Chat) -> Unit)? = null,
     openComputer: (() -> Unit)?,
+    onOpenData: ((botId: String, cardId: String) -> Unit)? = null,
 ) {
     when (message.kind) {
         Message.Kind.TEXT -> when {
@@ -603,7 +608,12 @@ private fun MessageContent(
             CardView(chat, message, haptics)
         }
         Message.Kind.ACTIVITY -> {
-            ActivityChip(message.tool, message.threadRef, openThread)
+            val dataResult = message.dataResult
+            if (message.tool?.name == "data_show" && dataResult != null && onOpenData != null) {
+                DataResultChip(dataResult, onOpenData)
+            } else {
+                ActivityChip(message.tool, message.threadRef, openThread)
+            }
             // Claude Code too old for the model: offer the update on the
             // engine this bot's thread runs on. Rooms have no single engine.
             val claudeInstance = (chat as? Chat.BotChat)?.bot
@@ -3029,5 +3039,34 @@ internal fun WorkingDotsView(color: Color) {
                 center = Offset(radius + index * step, size.height / 2f),
             )
         }
+    }
+}
+
+/** The data_show receipt's chip: what the desktop's DataResultChip says, one
+ * tap into the bot's read-only Data viewer at exactly that card. */
+@Composable
+private fun DataResultChip(result: DataResultData, onOpenData: (botId: String, cardId: String) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .musePaperCard()
+            .clickable(role = Role.Button) { onOpenData(result.botId, result.cardId) }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = if (result.kind == "chart") "📊" else "🗂️",
+            fontSize = 16.sp,
+        )
+        Text(
+            text = result.title,
+            fontSize = 14.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = minisInk,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        Text(text = "在数据中打开", fontSize = 12.5.sp, color = minisSecondary)
     }
 }

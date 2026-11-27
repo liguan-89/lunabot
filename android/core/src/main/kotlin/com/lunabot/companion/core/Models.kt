@@ -359,6 +359,16 @@ data class SetupSuggestionData(
     val answer: String? = null,
 )
 
+/** `Message.dataResult` 的形状；字段名与 wire 一致。 */
+@Serializable
+data class DataResultData(
+    val botId: String,
+    val cardId: String,
+    val title: String,
+    val kind: String,
+    val sql: String? = null,
+)
+
 @Serializable
 data class Message(
     val id: String,
@@ -416,6 +426,12 @@ data class Message(
     val grantProposal: GrantProposalData? = null,
     /** The proactive helper-key suggestion; rendered instead of the text bubble. */
     val setupSuggestion: SetupSuggestionData? = null,
+    /**
+     * A published Data result on a `data_show` activity row: the desktop draws
+     * a chip that opens the result in the bot's Data viewer, and so does the
+     * phone — the same read-only sheet/page/image routes the whitelist carries.
+     */
+    val dataResult: DataResultData? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {
