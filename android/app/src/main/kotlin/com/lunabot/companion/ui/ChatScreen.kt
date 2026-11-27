@@ -557,6 +557,9 @@ private fun LoadedChat(
         val visible = if (hidden.isEmpty()) rawTranscript else rawTranscript.filter { it.id !in hidden }
         transcriptRows(collapseRepeatedReceipts(visible), activityDetail)
     }
+    // A flat reply quotes its anchor by id; the lookup reads the full
+    // transcript, folded rows and hidden cards included.
+    val messageById = remember(rawTranscript) { rawTranscript.associateBy { it.id } }
     var expandedTurns by remember(threadId) { mutableStateOf(emptySet<String>()) }
     var revealedTurnMessageId by remember(threadId) { mutableStateOf<String?>(null) }
     val lastTranscriptId = rawTranscript.lastOrNull()?.id
@@ -1311,8 +1314,9 @@ private fun LoadedChat(
                                     },
                                     onQuote = ::quote,
                                     onOpenData = onOpenData,
+                                    quoteOf = { id -> messageById[id] },
                                 )
-                                is TranscriptRow.ActivityRun -> ActivityRunChip(message.items, ::openThread)
+                                is TranscriptRow.ActivityRun -> ActivityRunChip(message.items, ::openThread, threadId = chat.threadId)
                                 is TranscriptRow.AssistantTurn -> AssistantTurnChip(
                                     turn = message,
                                     chat = chat,

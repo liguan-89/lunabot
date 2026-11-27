@@ -186,6 +186,16 @@ data class ToolActivity(
      * 旧版电脑不带它，也就不提供。
      */
     val limitResetsAt: Double? = null,
+    /** The call's own words: what it did, what it read, what it wrote back. */
+    val summary: String? = null,
+    val input: String? = null,
+    /** Truncated on the wire when the harness spilled the full result; the
+     * thread's `/messages/:mid/tool` route then carries it whole. */
+    val output: String? = null,
+    /** A failed MCP step, in the reader's language: which server, why, what to do. */
+    val problem: String? = null,
+    /** Whether the harness captured the full redacted result server-side. */
+    val fullResult: Boolean? = null,
 )
 
 /**
@@ -369,6 +379,14 @@ data class DataResultData(
     val sql: String? = null,
 )
 
+/** `Message.sender` 的形状（wire 的 ResolvedSender）：名字仅用于归属展示，
+ * 服务端明示不得按它放行或拒绝任何事。 */
+@Serializable
+data class SenderData(
+    val name: String,
+    val id: String? = null,
+)
+
 @Serializable
 data class Message(
     val id: String,
@@ -432,6 +450,15 @@ data class Message(
      * phone — the same read-only sheet/page/image routes the whitelist carries.
      */
     val dataResult: DataResultData? = null,
+    /** Who sent this user message, when the workspace has more than one
+     * person; absent reads as the owner. `id` is an opaque server key. */
+    val sender: SenderData? = null,
+    /** The message this one flat-replies to, for an inline quote. */
+    val replyToId: String? = null,
+    /** "api": sent through the HTTP API; "call": spoken on a Live call. */
+    val via: String? = null,
+    /** An external interface (the Slack worker) relayed this user line. */
+    val relayed: Boolean? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {
@@ -1735,6 +1762,9 @@ data class CreatedRoom(val group: Room)
 
 @Serializable
 internal data class SearchResponse(val hits: List<SearchHit>)
+
+@Serializable
+internal data class MessageToolOutputResponse(val output: String? = null)
 
 @Serializable
 internal data class MessageResponse(val message: Message)
