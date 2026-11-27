@@ -91,3 +91,7 @@ Android 端一条用户可见链路是：
 
 - canonical control surface 没有独立的「phone 新建话题」verb，因此真实 server fixture 只证明首条消息接受、分派与回写；phone 端 create/send 点击链由 Android loopback 集成测试证明。
 - Android 模拟器人工链路未完成：T3 `device_open` 连续返回 `Failed to connect to MCP server 't3-code'. Please try again.`，按设备工具纪律未改用 adb 手工点击。若恢复 device tools 或用户明确允许直连 adb，可补做真实模拟器点击链。
+
+### 模拟器补验（2026-11-27，绕过 T3）
+
+在 `test_dsh` Android 15 模拟器安装当前 debug APK，清空测试 app 数据后用 pairing deep link 配对隔离 fixture（`10.0.2.2` 到 host loopback）。手工 adb 点击链通过：进入 `DeviceProbe` → + → 新建话题；新话题页出现「还没有消息」，服务端 active thread 从原默认 thread 切到 `6a1a0e04-6b47-497e-be48-45f0dc0f3928`。输入并发送 `devicefirst1515`：tap `1795763707488`，服务端用户消息 at `1795763707538`（约 50ms），助手 `Hello from pi` at `1795763708039`（tap 后约 551ms）。设备 UI 同时显示用户气泡和助手回复；截图证据 `/tmp/lifecycle-device-final.png`。本轮只补真实链路可达性与回刷，未用慢网络在设备上捕捉瞬时 pending 文案；慢/pending 行为由 Robolectric 受控门控测试证明。
