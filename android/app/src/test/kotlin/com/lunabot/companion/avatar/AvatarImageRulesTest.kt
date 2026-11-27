@@ -3,6 +3,8 @@ package com.lunabot.companion.avatar
 import com.lunabot.companion.core.AvatarCrop
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -121,18 +123,15 @@ class AvatarImageRulesTest {
         val job = launch(Dispatchers.Default) {
             AvatarImageRules.prepare(stream)
         }
-        withTimeout(2_000) {
-            while (stream.reads < 3) {
-                Thread.sleep(1)
-            }
-        }
-        val readsAtCancel = stream.reads
+        assertTrue(stream.thirdRead.await(10, TimeUnit.SECONDS), "stream reached its third read")
         job.cancel()
+        stream.releaseThirdRead.countDown()
         withTimeout(2_000) { job.join() }
         assertTrue(job.isCancelled)
-        assertTrue(
-            stream.reads < AvatarImageRules.MAX_BYTES / 1024,
-            "cancel must stop before the 10 MB size gate consumes the stream (reads=$readsAtCancel→${stream.reads})",
+        assertEquals(
+            3,
+            stream.reads,
+            "cancel already applied inside the third read must win before a fourth read (reads=${stream.reads})",
         )
     }
 
@@ -195,10 +194,17 @@ class AvatarImageRulesTest {
         @Volatile
         var reads = 0
 
+        val thirdRead = CountDownLatch(1)
+        val releaseThirdRead = CountDownLatch(1)
+
         override fun read(): Int = 0
 
         override fun read(b: ByteArray, off: Int, len: Int): Int {
             reads += 1
+            if (reads == 3) {
+                thirdRead.countDown()
+                releaseThirdRead.await(10, TimeUnit.SECONDS)
+            }
             val n = minOf(len, 64)
             for (i in 0 until n) {
                 b[off + i] = if (reads == 1 && i < header.size) header[i] else 0

@@ -60,9 +60,13 @@ class E2eSessionTest {
 
         val response = StringBuilder()
         val buffer = ByteArray(256)
+        // No read timeout on purpose: the FIN answering this request must wake
+        // a reader parked in take() all by itself. With a timeout the loop
+        // would exit on a zero read and never notice a missing EOF wakeup.
         while (true) {
-            val read = stream.read(buffer, timeoutMs = 2_000)
-            if (read <= 0) break
+            val read = stream.read(buffer, timeoutMs = 0)
+            if (read < 0) break
+            if (read == 0) break
             response.append(String(buffer, 0, read))
         }
         assertEquals("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok", response.toString())
@@ -142,12 +146,207 @@ class E2eSessionTest {
         session.close()
     }
 
+    @Test
+    fun `the receive window is granted back as the reader consumes, not as bytes arrive`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random, responseSize = 1500 * 1024, finishResponse = false)
+        lateinit var listener: E2eSocketListener
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long = 0
+        override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+        )
+        session.connect()
+
+        val stream = session.openStream()
+        assertTrue(stream.write("GET /big HTTP/1.1\r\nHost: h\r\n\r\n".toByteArray()))
+        stream.finish()
+        // The whole 1.5 MiB answer has arrived and sits in the stream's queue, unread.
+        val windowBeforeRead = computer.sendWindow(stream.streamId)
+        assertTrue(windowBeforeRead < Yamux.STREAM_WINDOW, "the computer spent window writing the answer")
+
+        // Nothing read yet: no window comes back, however long the computer waits.
+        assertEquals(windowBeforeRead, computer.sendWindow(stream.streamId))
+
+        // Read past the 1 MiB grant step: the computer's window grows again.
+        val buffer = ByteArray(64 * 1024)
+        var consumed = 0
+        while (consumed < Yamux.WINDOW_UPDATE_AFTER + 1) {
+            val read = stream.read(buffer, timeoutMs = 2_000)
+            assertTrue(read > 0, "bytes are available")
+            consumed += read
+        }
+        assertTrue(
+            computer.sendWindow(stream.streamId) > windowBeforeRead,
+            "reading granted window back: before=$windowBeforeRead after=${computer.sendWindow(stream.streamId)}",
+        )
+        session.close()
+    }
+
+    @Test
+    fun `a local interrupt wakes a parked reader and a parked writer`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long = 0
+        override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+        )
+        session.connect()
+
+        val stream = session.openStream()
+
+        // The reader parks in take(): no bytes ever arrive for this stream.
+        val readerResult = java.util.concurrent.atomic.AtomicReference<Int?>(null)
+        val reader = Thread {
+            readerResult.set(stream.read(ByteArray(1), timeoutMs = 0))
+        }.apply { isDaemon = true; start() }
+
+        // The writer parks on its window: the accept frame already widened it
+        // to the full 2 MiB, and the test's computer never grants more back,
+        // so anything past that cannot move.
+        val writerResult = java.util.concurrent.atomic.AtomicBoolean(true)
+        val writer = Thread {
+            writerResult.set(stream.write(ByteArray(Yamux.STREAM_WINDOW + 64 * 1024)))
+        }.apply { isDaemon = true; start() }
+
+        Thread.sleep(300)
+        assertTrue(reader.isAlive, "the reader is parked with no bytes arriving")
+        assertTrue(writer.isAlive, "the writer is parked on an exhausted window")
+
+        // What a socket close does after the timeout or cancel that triggered
+        // it: both parked threads must unwind now, not whenever the peer answers.
+        stream.interruptBlocking()
+
+        reader.join(2_000)
+        writer.join(2_000)
+        assertFalse(reader.isAlive, "interrupt wakes the reader")
+        assertFalse(writer.isAlive, "interrupt wakes the writer")
+        assertEquals(-1, readerResult.get(), "the interrupted reader sees EOF")
+        assertFalse(writerResult.get(), "the interrupted writer reports the stream gone")
+        session.close()
+    }
+
+    @Test
+    fun `a throwing ping frame fails the session instead of killing the timer`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val throwOnSend = java.util.concurrent.atomic.AtomicBoolean(false)
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long = 0
+            override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                if (throwOnSend.get()) throw RuntimeException("synthetic_send_failure")
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+            pingIntervalMs = 50,
+            pingTimeoutMs = 500,
+        )
+        session.connect()
+        throwOnSend.set(true)
+
+        val deadline = System.currentTimeMillis() + 2_000
+        while (session.failure == null && System.currentTimeMillis() < deadline) Thread.sleep(10)
+        assertTrue(session.failure?.startsWith("ping_timer:") == true, "ping failure reaches the session: ${session.failure}")
+        assertFalse(session.isUsable)
+        session.close()
+    }
+
+    @Test
+    fun `a stream writer waits for websocket backlog to drain`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val backlog = java.util.concurrent.atomic.AtomicLong(SEND_BUFFER_HIGH_BYTES + 1)
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long get() = backlog.get()
+            override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+        )
+        session.connect()
+        val stream = session.openStream()
+        val writeDone = java.util.concurrent.atomic.AtomicBoolean(false)
+        val writer = Thread {
+            writeDone.set(stream.write(ByteArray(128)))
+        }.apply { isDaemon = true; start() }
+
+        Thread.sleep(250)
+        assertTrue(writer.isAlive, "a full WebSocket queue applies backpressure")
+        assertFalse(writeDone.get(), "nothing is enqueued while the socket is saturated")
+
+        backlog.set(0)
+        writer.join(2_000)
+        assertFalse(writer.isAlive, "the writer resumes once the socket drains")
+        assertTrue(writeDone.get(), "the write completes after draining")
+        session.close()
+    }
+
     /** The computer half, from the same spec the desktop follows. */
     private class ComputerResponder(
         private val keyPair: P256.KeyPair,
         private val psk: ByteArray,
         private val transport: Byte,
         private val random: SecureRandom,
+        /** Bytes the response body carries; the default is the two of "ok". */
+        private val responseSize: Int = 2,
+        /** False leaves the stream open after the body — a response still in flight, so the window state stays observable. */
+        private val finishResponse: Boolean = true,
     ) {
         var handshakeDone = false
             private set
@@ -158,6 +357,8 @@ class E2eSessionTest {
         private var mux: YamuxMux? = null
         private val outbound = ArrayList<ByteArray>()
         private val request = StringBuilder()
+
+        fun sendWindow(streamId: Int): Int = mux?.sendWindow(streamId) ?: 0
 
         fun receiveText(text: String): List<String> {
             if (transport == Noise.TRANSPORT_RELAY && text.contains("\"t\":\"phone\"")) {
@@ -205,9 +406,18 @@ class E2eSessionTest {
                 override fun data(streamId: Int, data: ByteArray) {
                     request.append(String(data))
                     if (request.endsWith("\r\n\r\n")) {
-                        val body = "ok"
-                        mux!!.write(streamId, "HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\n\r\n$body".toByteArray())
-                        mux!!.finish(streamId)
+                        val head = "HTTP/1.1 200 OK\r\nContent-Length: $responseSize\r\n\r\n"
+                        mux!!.write(streamId, head.toByteArray())
+                        var left = responseSize
+                        // "ok" leads so the default two-byte response is the text the echo test expects.
+                        val chunk = ByteArray(32 * 1024).also { it[0] = 'o'.code.toByte(); if (it.size > 1) it[1] = 'k'.code.toByte() }
+                        while (left > 0) {
+                            val part = if (left >= chunk.size) chunk else chunk.copyOf(left)
+                            val taken = mux!!.write(streamId, part)
+                            if (taken <= 0) break
+                            left -= taken
+                        }
+                        if (finishResponse) mux!!.finish(streamId)
                     }
                 }
                 override fun ended(streamId: Int) = Unit

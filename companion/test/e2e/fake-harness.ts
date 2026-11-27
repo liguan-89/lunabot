@@ -13,6 +13,8 @@ export interface FakeHarness {
   /** One-shot: the next `/api/files` upload accepts nothing and answers nothing. */
   muteNextFiles: boolean;
   keepaliveMs: number;
+  /** Live event-stream responses: a tunnel-side death must zero this, or the stream is a zombie. */
+  openStreams(): number;
   close(): Promise<void>;
 }
 
@@ -121,6 +123,9 @@ export async function startFakeHarness(): Promise<FakeHarness> {
     },
     set keepaliveMs(value: number) {
       state.keepaliveMs = value;
+    },
+    openStreams() {
+      return streams.size;
     },
     async close() {
       server.closeAllConnections();

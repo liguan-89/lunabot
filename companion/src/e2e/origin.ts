@@ -138,6 +138,16 @@ export function createE2EOrigin(
       serverSide.on("close", () => {
         if (!serverSide.readableEnded || !near.writableFinished) near.destroy();
       });
+      // The mirror image, and the leak that left harness SSE streams immortal:
+      // when the tunnel side dies — the phone reset the stream, the session
+      // closed underneath it — nothing here used to tell the server side. The
+      // memory server kept the exchange open, the proxy never saw res close,
+      // and an endless response like /api/events fanned out into the tunnel
+      // forever. `serverSide` exists only to serve this `near`, so the close
+      // propagates unconditionally; repeated destroys are idempotent.
+      near.on("close", () => {
+        serverSide.destroy();
+      });
       server.emit("connection", serverSide);
       return Promise.resolve(near);
     },

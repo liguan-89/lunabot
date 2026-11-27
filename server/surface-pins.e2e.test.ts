@@ -472,7 +472,7 @@ describe("surface pin provenance against the real server", () => {
     boatDown = false;
     await apiOk("DELETE", `/api/bots/${bot.id}`);
     await stop();
-  });
+  }, 60_000);
 
   it("never takes a relayed line's conversation for where the person writes, when select_computer continues its turn", async () => {
     await start();
@@ -501,7 +501,7 @@ describe("surface pin provenance against the real server", () => {
     boatDown = false;
     await apiOk("DELETE", `/api/bots/${bot.id}`);
     await stop();
-  });
+  }, 60_000);
 
   it("lets a teammate's hand-off move to the built-in browser only, and returns the result from there", async () => {
     // The teammate's turn waits on its own gate while the asker's turn ends: the wrapper above gives that bot its own

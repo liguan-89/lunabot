@@ -195,7 +195,19 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
     override fun close() {
         if (closed) return
         closed = true
-        runCatching { stream?.finish() }
+        // Closing the whole socket means this connection is abandoned — a cancel, a
+        // pool eviction, a reconnecting SSE — not a half-close. finish() would leave
+        // the computer's origin socket open (`end: false` in the pipe), so an
+        // endless response like /api/events never hears the close and keeps eating
+        // tunnel bandwidth as a zombie. reset() destroys the stream on both ends.
+        runCatching { stream?.reset() }
+        // Timeouts and cancels reach this close exactly to interrupt the I/O
+        // they oversee: the reset frame above only tells the peer, while the
+        // local reader parked in `take()` and the writer parked on a closed
+        // window belong to this machine. Without waking them here, OkHttp's
+        // whole timeout machinery fires into a void — the sleeping thread
+        // never resumes, the callback never runs, and the caller hangs forever.
+        runCatching { stream?.interruptBlocking() }
         runCatching { super.close() }
     }
 

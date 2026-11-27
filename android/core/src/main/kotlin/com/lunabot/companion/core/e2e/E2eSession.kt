@@ -39,6 +39,9 @@ fun interface E2eSocketConnector {
     fun connect(url: String, protocols: List<String>, listener: E2eSocketListener): E2eSocket
 }
 
+/** A stream writer pauses while the WebSocket itself holds this much unsent data. */
+internal const val SEND_BUFFER_HIGH_BYTES = 1024L * 1024L
+
 /** Where the phone dials: straight at the computer, or through MuxBot Relay. */
 sealed class E2eTarget {
     /** `ws://<lan or tailnet host>:<port>/v1/e2e`, subprotocol `omb-e2e.v1`. */
@@ -267,6 +270,8 @@ class E2eSession(
     internal fun muxInstance(): YamuxMux =
         mux ?: throw NoiseException("session_closed")
 
+    internal fun transportBufferedBytes(): Long = socket?.bufferedBytes ?: 0
+
     private fun events(): YamuxEvents = object : YamuxEvents {
         override fun send(frame: Yamux.Frame) {
             val current = keys ?: return
@@ -279,8 +284,8 @@ class E2eSession(
 
         override fun data(streamId: Int, data: ByteArray) {
             streams[streamId]?.deliver(data)
-            // Handing bytes to the HTTP stack consumes them: grant the window back.
-            mux?.consumed(streamId, data.size)
+            // The window is granted back in E2eStream.copyOut, when the reader
+            // actually consumes the bytes — not here, where they only join a queue.
         }
 
         override fun ended(streamId: Int) {
@@ -315,12 +320,18 @@ class E2eSession(
         val seq = AtomicLong(0)
         timer.scheduleAtFixedRate(object : java.util.TimerTask() {
             override fun run() {
-                if (closed.get()) return
-                if (System.currentTimeMillis() - lastPong.get() > pingIntervalMs + pingTimeoutMs) {
-                    fail("ping_timeout")
-                    return
+                try {
+                    if (closed.get()) return
+                    if (System.currentTimeMillis() - lastPong.get() > pingIntervalMs + pingTimeoutMs) {
+                        fail("ping_timeout")
+                        return
+                    }
+                    mux?.ping(seq.incrementAndGet().toInt())
+                } catch (error: Exception) {
+                    // Timer swallows a task failure by killing its only thread:
+                    // without this the session loses its liveness watchdog silently.
+                    fail("ping_timer:${error.javaClass.simpleName}")
                 }
-                mux?.ping(seq.incrementAndGet().toInt())
             }
         }, pingIntervalMs, pingIntervalMs)
         pingTimer = timer
@@ -371,10 +382,29 @@ class E2eStream internal constructor(
 
     internal fun remoteEnd() {
         synchronized(stateLock) { eof = true }
+        // The sentinel matters as much as the flag: a reader already parked in
+        // `take()` only ever wakes for a queued byte array. Without it a clean
+        // FIN — the server ending an SSE stream, say — never reaches the
+        // sleeping reader and the stream's EOF semantics silently stop working.
+        inbound.offer(ByteArray(0))
     }
 
     internal fun remoteReset() {
         synchronized(stateLock) { reset = true }
+        inbound.offer(ByteArray(0))
+    }
+
+    /**
+     * A local close or cancel: the socket is going away, so a reader parked in
+     * `take()` and a writer parked on a closed window must wake now. Without
+     * this the socket close only reaches the peer (the RST frame) while the
+     * local thread that a timeout or cancel is trying to interrupt sleeps on.
+     */
+    internal fun interruptBlocking() {
+        synchronized(stateLock) {
+            reset = true
+            stateLock.notifyAll()
+        }
         inbound.offer(ByteArray(0))
     }
 
@@ -403,6 +433,10 @@ class E2eStream internal constructor(
             pending = ByteArray(0)
             pendingOffset = 0
         }
+        // The reader actually took these bytes: only now is the receive window
+        // granted back. Doing it at deliver() time let the peer keep sending into
+        // a queue nobody was draining, so flow control never engaged.
+        runCatching { session.muxInstance().consumed(streamId, count) }
         return count
     }
 
@@ -410,6 +444,15 @@ class E2eStream internal constructor(
     fun write(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): Boolean {
         var sent = 0
         while (sent < length) {
+            if (session.transportBufferedBytes() > SEND_BUFFER_HIGH_BYTES) {
+                synchronized(stateLock) {
+                    if (reset) return false
+                    // OkHttp exposes the queued bytes but no drain event; poll
+                    // briefly rather than enqueueing past its hard 16 MiB cap.
+                    stateLock.wait(50)
+                }
+                continue
+            }
             val taken = session.muxInstance().write(streamId, bytes.copyOfRange(offset + sent, offset + length))
             if (taken > 0) {
                 sent += taken
