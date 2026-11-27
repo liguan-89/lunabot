@@ -56,6 +56,7 @@ import { RoomTurnTimeoutSettings } from "./RoomTurnTimeoutSettings";
 import { McpCallTimeoutSettings } from "./McpCallTimeoutSettings";
 import { ProfileFields } from "./ProfileSettings";
 import { AwayEmailsSetting } from "./AwayEmailsSetting";
+import { MemberDataExport } from "./MemberDataExport";
 import { ThreadConcurrencySettings } from "./ThreadConcurrencySettings";
 import { AutomaticRecoverySettings } from "./AutomaticRecoverySettings";
 import { ThreadCleanupSettings } from "./ThreadCleanupSettings";
@@ -334,6 +335,7 @@ function SettingsDialog() {
               <Card title={t("settings.profile.title")} subtitle={t("settings.profile.sharedSubtitle")}>
                 <ProfileFields />
                 <AwayEmailsSetting />
+                <MemberDataExport />
               </Card>
             </SettingsGroupBlock>
 

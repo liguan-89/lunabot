@@ -435,6 +435,9 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET"], path: /^\/api\/config$/ },
   // a person's own "About you" on a Team Cloud
   { methods: ["GET", "PUT"], path: /^\/api\/me$/ },
+  // everything the signed-in member carries out of a Team Cloud, theirs alone (routes/me-export.ts)
+  { methods: ["POST"], path: /^\/api\/me\/export$/ },
+  { methods: ["GET"], path: /^\/api\/me\/export\/[\w-]{36}\.zip$/ },
   // whether the person saw their own welcome to the team, and its steps they finished (team-welcome.ts)
   { methods: ["PUT"], path: /^\/api\/me\/welcome$/ },
   // their own "Email me when I'm away" switch on a Team Cloud
