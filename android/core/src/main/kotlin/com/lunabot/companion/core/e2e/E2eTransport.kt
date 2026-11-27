@@ -195,7 +195,12 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
     override fun close() {
         if (closed) return
         closed = true
-        runCatching { stream?.finish() }
+        // Closing the whole socket means this connection is abandoned — a cancel, a
+        // pool eviction, a reconnecting SSE — not a half-close. finish() would leave
+        // the computer's origin socket open (`end: false` in the pipe), so an
+        // endless response like /api/events never hears the close and keeps eating
+        // tunnel bandwidth as a zombie. reset() destroys the stream on both ends.
+        runCatching { stream?.reset() }
         runCatching { super.close() }
     }
 
