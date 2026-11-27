@@ -29,7 +29,7 @@ sealed interface SendReceipt {
      * In the transcript now. [steered] means it went into a turn that was
      * already running rather than starting one.
      */
-    data class Sent(val threadId: String?, val steered: Boolean) : SendReceipt
+    data class Sent(val threadId: String?, val steered: Boolean, val message: Message? = null) : SendReceipt
 
     /** Held in the harness's steer queue until the current turn settles. */
     data class Queued(val queueId: String, val threadId: String) : SendReceipt
@@ -46,12 +46,13 @@ data class SendReceiptBody(
     val queued: Boolean? = null,
     val queueId: String? = null,
     val steered: Boolean? = null,
+    val message: Message? = null,
 ) {
     fun receipt(): SendReceipt =
         if (queued == true && queueId != null && threadId != null) {
             SendReceipt.Queued(queueId, threadId)
         } else {
-            SendReceipt.Sent(threadId, steered == true)
+            SendReceipt.Sent(threadId, steered == true, message)
         }
 }
 

@@ -69,6 +69,18 @@ class SessionP1Test {
     }
 
     @Test
+    fun acceptedPlainSendLandsInTheTranscriptWithoutWaitingForTheStream() = runTest {
+        val host = bot("b1", "task-a", "task-a")
+        val session = session { Fleet(listOf(host), emptyList()) }
+        server.enqueue(json("""{"ok":true,"threadId":"task-a","message":{"id":"m1","role":"user","kind":"text","at":2,"text":"first"}}"""))
+
+        assertTrue(session.send("first", Chat.BotChat(host)))
+
+        assertEquals(listOf("m1"), session.state.value.transcript("task-a").map { it.id })
+        assertEquals("m1", session.state.value.activeLeafIds["task-a"])
+    }
+
+    @Test
     fun editRestoresOnlyConfirmedCancellationsNeverAlreadyDrainedSends() = runTest {
         val session = session()
         val chat = Chat.BotChat(bot("b1", "task-a", "task-a"))
