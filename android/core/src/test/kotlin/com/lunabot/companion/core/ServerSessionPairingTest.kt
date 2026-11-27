@@ -165,6 +165,30 @@ class ServerSessionPairingTest {
     }
 
     @Test
+    fun streamVerifiedServerSkipsThePreflightItAlreadyPassed() = runBlocking<Unit> {
+        val saved = assertNotNull(Connection.parse("https://mini.example")).copy(serverEnvironmentId = "env-fixture")
+        Fixture { request -> if (request.url.encodedPath == "/api/bots") 200 to "{\"bots\":[],\"groups\":[]}" else null }.use { f ->
+            val client = CompanionClient(saved, "saved-bearer", f.http)
+            client.streamVerified = true
+            client.fleet()
+            assertEquals(listOf("/api/bots"), f.requests.map { it.url.encodedPath })
+            assertEquals("Bearer saved-bearer", f.requests.single().header("Authorization"))
+        }
+    }
+
+    @Test
+    fun streamVerificationExpiringRestoresThePreflight() = runBlocking<Unit> {
+        val saved = assertNotNull(Connection.parse("https://mini.example")).copy(serverEnvironmentId = "env-fixture")
+        Fixture { request -> if (request.url.encodedPath == "/api/bots") 200 to "{\"bots\":[],\"groups\":[]}" else null }.use { f ->
+            val client = CompanionClient(saved, "saved-bearer", f.http)
+            client.streamVerified = true
+            client.streamVerified = false
+            client.fleet()
+            assertEquals(listOf("/.well-known/dexbot/environment", "/api/bots"), f.requests.map { it.url.encodedPath })
+        }
+    }
+
+    @Test
     fun redirectedDescriptorIsRejectedWithoutFollowingIt() = runBlocking<Unit> {
         okhttp3.mockwebserver.MockWebServer().use { server ->
             server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(302)

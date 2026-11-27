@@ -176,6 +176,16 @@ class CompanionClient(
     val e2eDirectUrl: String?
         get() = e2e?.directUrl
 
+    /**
+     * The live event stream vouches for this server's identity: it only comes
+     * up after the same bearerless environment check [perform] would run, and
+     * a swapped workspace drops the socket it never could hold. While the
+     * stream is up, skipping the per-request preflight halves every action's
+     * tunnel round trips; the session clears this the moment the stream dies.
+     */
+    @Volatile
+    internal var streamVerified: Boolean = false
+
     private val transportClient: OkHttpClient = run {
         val tunnel = e2e ?: return@run baseClient
         e2eHttpClient(baseClient, tunnel)
@@ -1842,7 +1852,7 @@ class CompanionClient(
         request: Request,
         requestClient: OkHttpClient = actionClient,
     ): RawResponse {
-        if (token != null && connection.serverEnvironmentId != null &&
+        if (token != null && connection.serverEnvironmentId != null && !streamVerified &&
             environment().environmentId != connection.serverEnvironmentId
         ) {
             throw APIError.Status(401, "该地址属于另一台服务器。请重新配对以继续。")

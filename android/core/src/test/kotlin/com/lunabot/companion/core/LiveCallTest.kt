@@ -104,7 +104,7 @@ class LiveCallTest {
             LiveRelay.query("b1", "t1"),
             object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
-                    webSocket.close(1000, null)
+                    webSocket.cancel()
                 }
             },
         )
@@ -114,7 +114,7 @@ class LiveCallTest {
             assertEquals("/api/live/relay?botId=b1&threadId=t1&client=android", request.path)
             assertEquals("Bearer device-token", request.getHeader("Authorization"))
         } finally {
-            socket.close(1000, null)
+            socket.cancel()
         }
     }
 }
