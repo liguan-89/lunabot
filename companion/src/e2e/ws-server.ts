@@ -193,6 +193,9 @@ function serveFrames(socket: Duplex, head: Buffer, maxPayload: number, handlers:
     parse();
   });
   socket.on("error", () => finish(1006));
+  // HTTP upgrade sockets are allowHalfOpen: a peer whose process died is only
+  // a readable `end` here, never `close`, unless the server closes its own side.
+  socket.on("end", () => finish(1006));
   socket.on("close", () => finish(1006));
   queueMicrotask(parse);
   return connection;

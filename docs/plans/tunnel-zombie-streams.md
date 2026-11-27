@@ -82,3 +82,41 @@ yamux 流死亡 → `stream.on("close")` 只 destroy `near` → `serverSide` 永
 修复：`near.on("close")` 对称传播 `serverSide.destroy()`。near 是内存
 管道，serverSide 存在的唯一目的是服务它；near 一死，serverSide 没有任何
 存活理由。重复 destroy 幂等，无循环风险。
+
+## 追加二（2026-11-27 深夜）：force-stop 不触发会话关闭的更底层断点
+
+`origin` 修复后真机对照仍失败，进一步定位发现第一环根本没启动：手机被
+`force-stop` 时不会发送 WebSocket close frame，只是内核关闭 TCP。Node 的
+HTTP upgrade socket 是 `allowHalfOpen=true`，此时服务器只收到 readable
+`end`，不会自动收到 `close`；而 `ws-server.ts` 原来只监听 `close/error`，
+所以 `transportClosed()` 从未调用，`E2ESession.#end()`、`Mux.closeAll()`、
+流销毁、`origin` 清理全都没有开始。
+
+完整断链因此是两段，缺一不可：
+
+```
+force-stop / 进程死亡
+  → TCP FIN，无 WebSocket close frame
+  → HTTP upgrade socket 只发 end，不发 close
+  → ws-server 不调用 transportClosed          ← 断点 1（本次修复）
+  → 即使 transportClosed 调用，near 关闭也不传给 serverSide
+                                                 ← 断点 2（origin 已修）
+  → proxy/harness 永不感知，SSE 僵尸永存
+```
+
+修复：`ws-server` 将 `end` 视作传输死亡，`finish(1006)` 销毁本端 socket 并
+调用 `transportClosed()`。WebSocket 协议没有半关闭语义，TCP 读端已经结束
+后继续假装会话存活没有意义。
+
+测试与真机证据：
+
+- `companion/test/e2e/ws-server.test.ts`：裸 TCP 断开、无 close frame；
+  修复前超时无 close 回调，修复后立刻收到 1006。
+- `companion/test/e2e`：201 passed / 1 skipped；typecheck 与 oxlint 绿。
+- 真机对照（直连路径）：手机连接时 companion→harness 有 50315/50370 两条
+  8799 连接；杀掉自动化 helper 防止误复活后 `force-stop`，5 秒后这些确切
+  老端口全部消失，8810 无 CLOSE_WAIT 残留。
+
+注意一个测试污染：T3/agent-device 的 `phoneui-helper` 会在 force-stop 后
+重新拉起手机 App。观察 Zombie 必须先杀掉该 helper，或以确切本地端口追踪
+老连接，不能把新会话的新连接误判为僵尸。
