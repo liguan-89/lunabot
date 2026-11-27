@@ -320,12 +320,18 @@ class E2eSession(
         val seq = AtomicLong(0)
         timer.scheduleAtFixedRate(object : java.util.TimerTask() {
             override fun run() {
-                if (closed.get()) return
-                if (System.currentTimeMillis() - lastPong.get() > pingIntervalMs + pingTimeoutMs) {
-                    fail("ping_timeout")
-                    return
+                try {
+                    if (closed.get()) return
+                    if (System.currentTimeMillis() - lastPong.get() > pingIntervalMs + pingTimeoutMs) {
+                        fail("ping_timeout")
+                        return
+                    }
+                    mux?.ping(seq.incrementAndGet().toInt())
+                } catch (error: Exception) {
+                    // Timer swallows a task failure by killing its only thread:
+                    // without this the session loses its liveness watchdog silently.
+                    fail("ping_timer:${error.javaClass.simpleName}")
                 }
-                mux?.ping(seq.incrementAndGet().toInt())
             }
         }, pingIntervalMs, pingIntervalMs)
         pingTimer = timer

@@ -138,3 +138,10 @@ WINDOW_UPDATE 任一个这样丢失，都会让双方流控状态永久不一致
 
 回归测试：fake socket 先把 `bufferedBytes` 报成 1 MiB+1，writer 必须停住；
 归零后 writer 必须继续并完成。`:core:test` 与 `:app:compileDebugKotlin` 绿。
+
+## 追加四：ping watchdog 自身的静默死亡
+
+Android 的 ping `TimerTask` 原来只让异常自然逃出；`Timer` 的实现会因此
+杀死唯一线程，之后 ping 与 ping_timeout 都不再运行，隧道失去活性看门狗。
+现在 task 内捕获 `Exception` 并把它转化为会话失败：看门狗自身出问题也
+必须让 session 死得显式、可重连，而不是静默停摆。

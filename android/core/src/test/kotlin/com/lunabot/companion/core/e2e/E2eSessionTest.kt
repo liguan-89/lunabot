@@ -257,6 +257,44 @@ class E2eSessionTest {
     }
 
     @Test
+    fun `a throwing ping frame fails the session instead of killing the timer`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val throwOnSend = java.util.concurrent.atomic.AtomicBoolean(false)
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long = 0
+            override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                if (throwOnSend.get()) throw RuntimeException("synthetic_send_failure")
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "lunabot-test",
+            pingIntervalMs = 50,
+            pingTimeoutMs = 500,
+        )
+        session.connect()
+        throwOnSend.set(true)
+
+        val deadline = System.currentTimeMillis() + 2_000
+        while (session.failure == null && System.currentTimeMillis() < deadline) Thread.sleep(10)
+        assertTrue(session.failure?.startsWith("ping_timer:") == true, "ping failure reaches the session: ${session.failure}")
+        assertFalse(session.isUsable)
+        session.close()
+    }
+
+    @Test
     fun `a stream writer waits for websocket backlog to drain`() {
         val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
         lateinit var listener: E2eSocketListener
