@@ -21,21 +21,20 @@ const CLEO = { email: "cleo@acme.test", role: "owner" as const };
 const BEN = { email: "ben@acme.test", role: "member" as const };
 const BEN_KEY = personKey({ id: "", email: BEN.email });
 const SECRET = "interviewing at Globex";
-// Each turn reads its scripted calls and reply again, and its child ends with the turn, so every turn spawns afresh: that
-// is what lets the question gate below be read per turn. A prompt carrying the approval marker raises pi's own
-// confirmation card, which holds its turn until the person answers it. A prompt carrying the question token raises pi's
-// select card, but only while the test's `question-armed` file exists: the turn that carries the person's answer on has
-// their earlier words in its history, so the test disarms the gate before answering.
+// Each turn reads its scripted calls, reply and question gate again, so pi's warm child may carry the next turn: pi
+// pooling is the behaviour under test, not a lifecycle the fixture may race. A prompt carrying the approval marker
+// raises pi's own confirmation card, which holds its turn until the person answers it. A prompt carrying the question
+// token raises pi's select card, but only while the test's `question-armed` file exists: the turn that carries the
+// person's answer on has their earlier words in its history, so the test disarms the gate before answering.
 const APPROVES = "Clean the build";
 const ASKS = "CHART-ORDER";
 const ENGINE = `const dir = process.env.FAKE_CLAUDE_FIXTURE_DIR;
-const { existsSync } = process.getBuiltinModule("node:fs");
 process.env.FAKE_PI_DUMP = dir + "/turns.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = dir + "/tool-calls.json";
 process.env.FAKE_CLAUDE_REPLY_FILE = dir + "/reply.txt";
-process.env.FAKE_CLAUDE_EXIT_AFTER_TURN = "1";
 process.env.FAKE_PI_PERMISSION_ON = ${JSON.stringify(APPROVES)};
-if (existsSync(dir + "/question-armed")) process.env.FAKE_PI_QUESTION_ON = ${JSON.stringify(ASKS)};`;
+process.env.FAKE_PI_QUESTION_ON = ${JSON.stringify(ASKS)};
+process.env.FAKE_PI_QUESTION_GATE = dir + "/question-armed";`;
 const TOKEN = `ops_fake-team-${randomBytes(8).toString("hex")}`;
 
 type Card = { requestId?: string; requestType?: string; subtitle?: string; options?: string[]; answered?: string; answeredText?: string; stopped?: boolean };
@@ -110,7 +109,7 @@ async function turn(token: string, bot: Bot, threadId: string, text: string) {
       receipt: sent.body,
       bot: botState,
       rows,
-      launches: turns().slice(before),
+      turnPrompts: turns().slice(before),
       queueFrames: [...cleos, ...bens].filter((frame) => frame.kind === "bot.queued").slice(-6),
       serverLogTail: fx.logs().slice(-4_000),
     };
