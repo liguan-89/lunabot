@@ -4,7 +4,7 @@
 > `android/core/` 与 `ios/Sources/CompanionCore/`。行号会随上游变动，以函数名和路径为准。
 >
 > Android 列：✅ 已封装且有界面入口 · ▣ 已封装、仅内部使用（配对/流/水合）· ✗ 未实现。
-> 最后核对：2026-11-10（桌面 0.1.151 / Android 1.5.4）。
+> 最后核对：2026-11-27（桌面 2.1.11 发版线 / Android 随 #119–#125 批次）。
 
 ## 0. 一条请求经过哪几层
 
@@ -47,7 +47,7 @@
 | `POST /api/bots/:id/always-allow` | 记忆授权键（409 无待批卡） | ✅ |
 | `POST /api/bots/:id/compact` | 压缩上下文（202） | ✅ |
 | `POST /api/bots/:id/interrupt` | 停止回合 | ✅ |
-| `PATCH /api/bots/:id/cards/:mid` | 非请求卡 answered/dismissed（请求卡必须 respond，409） | ✗ |
+| `PATCH /api/bots/:id/cards/:mid` | 非请求卡 answered/dismissed（请求卡必须 respond，409） | ✅（#119：可回答/关闭，不再恒显「已处理」） |
 | `GET /api/bots/:id/overview` | 单 bot 摘要 | ✅ |
 | `GET/POST /api/bots/:id/skills`、`…/skills/:name` | 技能文件管理 | ✗（仅安装/审阅流） |
 | `GET /api/bots/:id/soul`、`…/soul/apply-file`、`…/discard-file` | SOUL.md 与漂移 | ✗ |
@@ -64,6 +64,8 @@
 | `GET /api/threads/:id/messages?limit&before&around` | 分页 / 定位 | ✅ |
 | `POST /api/bots/:id/messages`、`POST /api/groups/:id/messages` | 发消息（202 receipt） | ✅ |
 | `POST /api/threads/:id/respond`、`POST /api/bots/:id/respond` | 答卡（requestId/behavior/reviewedSha256） | ✅ 只用 thread 形 |
+| `POST /api/grants/answer` | 临时授权提案授予/拒绝 | ✅（#119：grantProposal 卡可操作） |
+| `POST /api/helpers/suggestion/not-now` | 关闭 Helper Key 建议 | ✅（#119：setupSuggestion 卡可处理） |
 | `POST /api/threads/:id/messages/:mid/reactions` | emoji 反应 | ✅ |
 | `POST /api/bots/:id/messages/:mid/edit` | 编辑并分叉（202） | ✅ |
 | `POST /api/bots/:id/active-branch` | 切换版本 / 分支 | ✅ |
@@ -71,6 +73,7 @@
 | `GET /api/threads/:id/export?format` | 导出 Markdown/JSON | ✅ |
 | `GET /api/threads/:id/messages/:mid/image` | 屏幕消息像素 | ✅ |
 | `POST /api/threads/:id/messages/:mid/file` | 按消息授权下载文件 | ✅ |
+| `GET /api/threads/:id/messages/:mid/tool` | 工具活动完整 output（wire 截断时的完整版） | ✅（#124：详情对话框按需加载） |
 | `GET /api/threads/:id/events` | 线程运行时检查器 | ✗ |
 | `POST /api/bots/:id/requests/:rid(/interrupt)` | guarded 请求快照 / 中止 | ✗ |
 
@@ -84,7 +87,7 @@
 | `POST /api/bots/:id/queue/:qid/steer` | 队首插话 | ✗（白名单也未放行） |
 | `POST/PATCH/DELETE /api/groups/:id/tasks(/:tid)` | 房间任务 | ✅ |
 | `POST /api/groups/:id/read` | 房间已读 | ✅ |
-| `POST /api/groups/:id/interrupt` | **停止房间回合** | ✗ **白名单已放行，客户端没封装** |
+| `POST /api/groups/:id/interrupt` | 停止房间回合 | ✅ `Client`/`Session` 已封装接线 |
 | `PATCH/DELETE /api/groups/:id` | 改 / 删房间 | ✗（有意） |
 | `PATCH /api/groups/:id/setup` | 房间引导 | ✗ |
 
@@ -118,7 +121,7 @@
 | `GET /api/instances` | 引擎清单 | ✅ |
 | `POST /api/instances/:id/claude-update` | 升级 Claude | ✅ |
 | `GET /api/tts/voices\|prepare`、`POST /api/tts/speak` | 语音 | ✅ |
-| `GET /api/team-map` | 团队图 | ✗（白名单放行，客户端未封装） |
+| `GET /api/team-map` | 团队图 | ✅（#125：设置→工作区→团队地图只读页） |
 | `GET /api/usage`、`/api/admin-activity`、`/api/decisions` | 用量 / 审计 | ✗ |
 | `GET /api/section-context` | 团队简报 | ✗ |
 | `PATCH/PUT/DELETE /api/sidebar-sections` | 分组管理 | ✗（仅 POST 指派） |
@@ -208,11 +211,11 @@
    - 凭据卡已支持 HPKE 提交：扫码配对 pin 桌面 P-256 recipient key，AAD 绑定设备、bot、会话、卡片、target 与 requestKey；旧配对或 LAN/Bonjour 明文路由仍降级为在电脑上填写。
 2. **`expired` 已修**（见上）。
 3. **通知缺 bot 头像**：`avatarUrl` 未解码。需要后台按令牌拉图，成本中等。
-4. **机器人附的文档不可见**：`Message.attachments.kind == "file"` 没有渲染路径；
-   用户自己发的文件有文本标签，机器人用 `attach_file` 附的文档/视频在手机上是空白。
-5. **活动芯片只有名字**：`tool.summary/input/output/fullResult` 未解码，看不到命令与输出。
-6. **共享归属丢失**：`sender`、`via:"api"`、`peerAsk/peerPost`、`aside` 未解码；
-   共享工作区里别人发的行、bot 代发的行在手机上显示成「我」。
+4. **机器人附件**（已修）：`attach_file` 附的文档/音频有文件卡渲染，不再是空白行。
+5. **活动芯片详情**（已修，#124）：`summary/input/output/fullResult` 已解码；有内容的芯片可点展开
+   详情对话框，`fullResult` 截断时按需走 `…/messages/:mid/tool` 拉完整输出。`step/whose` 结构未解码。
+6. **共享归属**（部分修，#124）：`sender/via/relayed` 已解码——多人 workspace 显示发送者，
+   relay/语音来电/API 来源有标注；`replyToId` 内联引用条已渲染。`peerAsk/peerPost/aside` 仍未解码。
 7. **没有耗时 / 花费**：`turnStartedAt`、`usage`、房间 `working` 未解码。
 8. **运行时等待不可见**：`turn.wait_started/wait_ended` 被丢；「排队等电脑、前面还有谁」看不到。
 9. **`kind:"file"` 附件**（见 4）。
@@ -237,14 +240,14 @@
 
 | 优先级 | 功能 | 协议依据 | 成本 | 风险 |
 |---|---|---|---|---|
-| 1 | 凭据请求卡（HPKE） | `/secret-cards/:mid/provide` 已放行；iOS 参考完整 | 大 | 高（凭据），必须保留 HTTPS-only、内存态、重试复用信封 |
-| 2 | 机器人附件 `kind:"file"` 渲染 | `attachments` 已解码 | 小 | 低 |
+| ~~1~~ | ~~凭据请求卡（HPKE）~~ ✅ #113 已完成 | — | — | — |
+| ~~2~~ | ~~机器人附件 `kind:"file"` 渲染~~ ✅ 已完成 | — | — | — |
 | 3 | 连接器工具清单 / 账号解绑 | `GET /api/connectors/tools`、`DELETE …/accounts/:aid` | 中 | 低 |
 | 4 | 通知头像 + 运行等待 | `avatarUrl`、`turn.wait_*` | 中 | 低 |
 | 5 | 例程 / webhook 帧消费 | `routine*`、`webhook*` | 中 | 低 |
 | 6 | 登出吊销服务端配对 | `POST /api/auth/logout` | 小 | 低（sidecar 会 404，仅服务器直连生效） |
-| 7 | 停止房间回合 | `POST /api/groups/:id/interrupt` 已放行 | 小 | 低 |
-| 8 | 团队图只读 | `GET /api/team-map` 已放行 | 中 | 低 |
+| ~~7~~ | ~~停止房间回合~~ ✅ 已完成 | — | — | — |
+| ~~8~~ | ~~团队图只读~~ ✅ #125 已完成 | — | — | — |
 | 9 | 列表页直接开对讲 | 纯 UI | 小 | 无 |
 | 10 | App 内语言 | 本地 | 小 | 低 |
 
