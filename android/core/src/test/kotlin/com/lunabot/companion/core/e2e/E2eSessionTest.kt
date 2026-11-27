@@ -60,9 +60,13 @@ class E2eSessionTest {
 
         val response = StringBuilder()
         val buffer = ByteArray(256)
+        // No read timeout on purpose: the FIN answering this request must wake
+        // a reader parked in take() all by itself. With a timeout the loop
+        // would exit on a zero read and never notice a missing EOF wakeup.
         while (true) {
-            val read = stream.read(buffer, timeoutMs = 2_000)
-            if (read <= 0) break
+            val read = stream.read(buffer, timeoutMs = 0)
+            if (read < 0) break
+            if (read == 0) break
             response.append(String(buffer, 0, read))
         }
         assertEquals("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok", response.toString())

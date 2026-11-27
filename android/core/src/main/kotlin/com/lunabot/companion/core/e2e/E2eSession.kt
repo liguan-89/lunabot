@@ -371,6 +371,11 @@ class E2eStream internal constructor(
 
     internal fun remoteEnd() {
         synchronized(stateLock) { eof = true }
+        // The sentinel matters as much as the flag: a reader already parked in
+        // `take()` only ever wakes for a queued byte array. Without it a clean
+        // FIN — the server ending an SSE stream, say — never reaches the
+        // sleeping reader and the stream's EOF semantics silently stop working.
+        inbound.offer(ByteArray(0))
     }
 
     internal fun remoteReset() {
