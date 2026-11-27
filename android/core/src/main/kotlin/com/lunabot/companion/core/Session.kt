@@ -2415,24 +2415,56 @@ class Session(
         }
     }
 
+    /**
+     * Fold the outcome the caller already knows into the stored task. The PATCH
+     * endpoints return void, but title, pin, archive and snooze all end in the
+     * value the caller asked for, so the state can move the moment the request
+     * succeeds. The bot frame lands on the stream right after and overwrites
+     * the same fields — applying the known value first only skips the wait.
+     * A full stream rebuild used to do this job and cost ten-plus seconds per
+     * mutation while killing every in-flight upload with it.
+     */
+    private fun applyBotTaskEdit(botId: String, threadId: String, edit: (BotTask) -> BotTask) {
+        _state.update { state ->
+            val bot = state.bot(botId) ?: return@update state
+            val tasks = bot.tasks ?: return@update state
+            if (tasks.none { it.threadId == threadId }) return@update state
+            state.apply(Frame.Bot(bot.copy(tasks = tasks.map { if (it.threadId == threadId) edit(it) else it })))
+        }
+    }
+
+    private fun applyRoomTaskEdit(roomId: String, threadId: String, edit: (BotTask) -> BotTask) {
+        _state.update { state ->
+            val room = state.rooms.firstOrNull { it.id == roomId } ?: return@update state
+            val tasks = room.tasks ?: return@update state
+            if (tasks.none { it.threadId == threadId }) return@update state
+            state.apply(Frame.Room(room.copy(tasks = tasks.map { if (it.threadId == threadId) edit(it) else it })))
+        }
+    }
+
     suspend fun renameTask(task: BotTask, forBot: Bot, title: String): Boolean = mutateTask(false) { client ->
         client.renameTask(forBot.id, task.threadId, title)
-        refresh()
+        applyBotTaskEdit(forBot.id, task.threadId) { it.copy(title = title) }
         true
     }
 
     suspend fun pinTask(task: BotTask, chat: Chat, pinned: Boolean): Boolean = mutateTask(false) { client ->
         when (chat) {
-            is Chat.BotChat -> client.setTaskPinned(chat.bot.id, task.threadId, pinned)
-            is Chat.RoomChat -> client.setRoomTaskPinned(chat.room.id, task.threadId, pinned, task.title)
+            is Chat.BotChat -> {
+                client.setTaskPinned(chat.bot.id, task.threadId, pinned)
+                applyBotTaskEdit(chat.bot.id, task.threadId) { it.copy(pinned = pinned) }
+            }
+            is Chat.RoomChat -> {
+                client.setRoomTaskPinned(chat.room.id, task.threadId, pinned, task.title)
+                applyRoomTaskEdit(chat.room.id, task.threadId) { it.copy(pinned = pinned) }
+            }
         }
-        refresh()
         true
     }
 
     suspend fun archiveTask(task: BotTask, forBot: Bot, archivedAt: Double?): Boolean = mutateTask(false) { client ->
         client.setTaskArchived(forBot.id, task.threadId, archivedAt)
-        refresh()
+        applyBotTaskEdit(forBot.id, task.threadId) { it.copy(archivedAt = archivedAt) }
         true
     }
 
@@ -2442,16 +2474,12 @@ class Session(
         }
     }
 
-    /**
-     * Snooze or wake one thread. The PATCH's bot frame also lands on the
-     * stream; the refresh keeps the sheet from waiting for it, exactly as
-     * rename does.
-     */
+    /** Snooze or wake one thread, applying the requested stamp on success. */
     suspend fun snoozeTask(task: BotTask, forBot: Bot, snoozedUntil: Long?): Boolean {
         val activeClient = client ?: return false
         return try {
             activeClient.snoozeTask(forBot.id, task.threadId, snoozedUntil)
-            refresh()
+            applyBotTaskEdit(forBot.id, task.threadId) { it.copy(snoozedUntil = snoozedUntil?.toDouble()) }
             true
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
@@ -2477,7 +2505,7 @@ class Session(
 
     suspend fun renameTask(task: BotTask, forRoom: Room, title: String): Boolean = mutateTask(false) { client ->
         client.renameRoomTask(forRoom.id, task.threadId, title)
-        refresh()
+        applyRoomTaskEdit(forRoom.id, task.threadId) { it.copy(title = title) }
         true
     }
 
