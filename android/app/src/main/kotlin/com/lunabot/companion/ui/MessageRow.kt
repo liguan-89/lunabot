@@ -612,7 +612,7 @@ private fun MessageContent(
             if (message.tool?.name == "data_show" && dataResult != null && onOpenData != null) {
                 DataResultChip(dataResult, onOpenData)
             } else {
-                ActivityChip(message.tool, message.threadRef, openThread)
+                ActivityChip(message.tool, message.threadRef, openThread, threadId = chat.threadId, messageId = message.id)
             }
             // Claude Code too old for the model: offer the update on the
             // engine this bot's thread runs on. Rooms have no single engine.
@@ -1450,6 +1450,8 @@ private fun ActivityChip(
     tool: ToolActivity?,
     threadRef: ThreadRef? = null,
     openThread: ((ThreadRef) -> Unit)? = null,
+    threadId: String? = null,
+    messageId: String? = null,
 ) {
     if (tool == null) return
     // The AI has answered since: the notice said "no answer yet" about a turn
@@ -1474,11 +1476,20 @@ private fun ActivityChip(
                     )
             }
     }
+    // A chip with more to say than one line — what the call did, read or
+    // wrote back — opens it in a sheet; a thread chip keeps its jump instead.
+    val detail = remember(tool) {
+        listOfNotNull(tool.summary, tool.input, tool.output, tool.problem)
+            .any { it.isNotBlank() } || tool.fullResult == true
+    }
+    var showDetail by remember(tool, messageId) { mutableStateOf(false) }
     val onOpen = if (threadRef != null && openThread != null) {
         {
             haptics.play(TactileAction.OPEN_THREAD_CHIP)
             openThread(threadRef)
         }
+    } else if (detail) {
+        { showDetail = true }
     } else {
         null
     }
@@ -1536,6 +1547,92 @@ private fun ActivityChip(
                 }
             }
             else -> null
+        },
+    )
+
+    if (showDetail) {
+        ActivityDetailDialog(
+            tool = tool,
+            threadId = threadId,
+            messageId = messageId,
+            onDismiss = { showDetail = false },
+        )
+    }
+}
+
+/** The activity chip's sheet: what the call did, read and wrote back, in the
+ * chip's own words. A truncated output the harness spilled whole server-side
+ * is fetched on demand — never eagerly, one tap only. */
+@Composable
+private fun ActivityDetailDialog(
+    tool: ToolActivity,
+    threadId: String?,
+    messageId: String?,
+    onDismiss: () -> Unit,
+) {
+    val session = LocalCompanion.current.session
+    val scope = rememberCoroutineScope()
+    var fullOutput by remember(messageId) { mutableStateOf<String?>(null) }
+    var loadingFull by remember(messageId) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Text(
+                text = "关闭",
+                fontSize = 14.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisInk,
+                modifier = Modifier
+                    .clickable(role = Role.Button, onClick = onDismiss)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            )
+        },
+        title = {
+            Text(
+                text = readableActivityName(ActivityNaming.toolLabel(ActivityNaming.rescueEngine(tool.name, tool.rescue))),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = minisInk,
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                listOf(
+                    "摘要" to tool.summary,
+                    "输入" to tool.input,
+                    "输出" to (fullOutput ?: tool.output),
+                    "问题" to tool.problem,
+                ).forEach { (label, value) ->
+                    if (!value.isNullOrBlank()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = minisSecondary)
+                            Text(
+                                text = value,
+                                fontSize = 13.sp,
+                                color = minisInk,
+                                fontFamily = if (label == "输入" || label == "输出") FontFamily.Monospace else null,
+                            )
+                        }
+                    }
+                }
+                if (fullOutput == null && tool.fullResult == true && threadId != null && messageId != null) {
+                    MuseSecondaryPillButton(
+                        text = if (loadingFull) "加载中…" else "加载完整输出",
+                        onClick = {
+                            if (loadingFull) return@MuseSecondaryPillButton
+                            loadingFull = true
+                            scope.launch {
+                                fullOutput = session.toolOutput(threadId, messageId)
+                                loadingFull = false
+                            }
+                        },
+                        enabled = !loadingFull,
+                    )
+                }
+            }
         },
     )
 }
@@ -1683,7 +1780,7 @@ private fun ReceiptChip(label: String, detail: String) {
 
 /** Several consecutive successful/running activity receipts, folded on demand. */
 @Composable
-fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = null) {
+fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = null, threadId: String? = null) {
     if (items.isEmpty()) return
     var expanded by remember(items.first().id) { mutableStateOf(false) }
     val running = items.any { it.tool?.ok == null }
@@ -1697,7 +1794,7 @@ fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = n
         )
         if (expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items.forEach { item -> ActivityChip(item.tool, item.threadRef, openThread) }
+                items.forEach { item -> ActivityChip(item.tool, item.threadRef, openThread, threadId = threadId, messageId = item.id) }
             }
         }
     }

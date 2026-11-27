@@ -1986,6 +1986,16 @@ class Session(
         perform { it.patchCard(chat.bot.id, messageId, chat.threadId, dismissed = true) }
 
     /**
+     * A tool activity's whole output, when the wire carried it truncated.
+     * Null when the message has no output server-side (its 404), which the
+     * detail sheet reads as "nothing more to show" rather than an error.
+     */
+    suspend fun toolOutput(threadId: String, messageId: String): String? {
+        val activeClient = client ?: return null
+        return runCatching { activeClient.messageToolOutput(threadId, messageId) }.getOrNull()
+    }
+
+    /**
      * Answer a temporary-permission proposal: granted starts the grant until
      * its deadline, refused ends it. The harness refuses non-owner sessions,
      * exactly like the desktop — the error surfaces through actionError.

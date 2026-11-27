@@ -186,6 +186,16 @@ data class ToolActivity(
      * 旧版电脑不带它，也就不提供。
      */
     val limitResetsAt: Double? = null,
+    /** The call's own words: what it did, what it read, what it wrote back. */
+    val summary: String? = null,
+    val input: String? = null,
+    /** Truncated on the wire when the harness spilled the full result; the
+     * thread's `/messages/:mid/tool` route then carries it whole. */
+    val output: String? = null,
+    /** A failed MCP step, in the reader's language: which server, why, what to do. */
+    val problem: String? = null,
+    /** Whether the harness captured the full redacted result server-side. */
+    val fullResult: Boolean? = null,
 )
 
 /**
@@ -1737,6 +1747,8 @@ data class CreatedRoom(val group: Room)
 internal data class SearchResponse(val hits: List<SearchHit>)
 
 @Serializable
+internal data class MessageToolOutputResponse(val output: String? = null)
+
 internal data class MessageResponse(val message: Message)
 
 @Serializable

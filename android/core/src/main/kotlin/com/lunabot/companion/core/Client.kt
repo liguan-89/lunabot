@@ -594,6 +594,13 @@ class CompanionClient(
         ),
     )
 
+    /**
+     * 一条工具活动的完整输出。wire 上的 `tool.output` 截断时由这个路由补齐；
+     * 该消息没有输出时服务端答 404。
+     */
+    suspend fun messageToolOutput(threadId: String, messageId: String): String? =
+        send<MessageToolOutputResponse>(makeRequest("GET", "/api/threads/${segment(threadId)}/messages/${segment(messageId)}/tool")).output
+
     /** 这个智能体的 Data：sheet 上的卡片与数据库里的表，全只读。 */
     suspend fun botData(botId: String): BotDataResponse =
         send(makeRequest("GET", "/api/bots/${segment(botId)}/data"))

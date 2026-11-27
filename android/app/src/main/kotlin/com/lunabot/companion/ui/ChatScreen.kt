@@ -1312,7 +1312,7 @@ private fun LoadedChat(
                                     onQuote = ::quote,
                                     onOpenData = onOpenData,
                                 )
-                                is TranscriptRow.ActivityRun -> ActivityRunChip(message.items, ::openThread)
+                                is TranscriptRow.ActivityRun -> ActivityRunChip(message.items, ::openThread, threadId = chat.threadId)
                                 is TranscriptRow.AssistantTurn -> AssistantTurnChip(
                                     turn = message,
                                     chat = chat,
