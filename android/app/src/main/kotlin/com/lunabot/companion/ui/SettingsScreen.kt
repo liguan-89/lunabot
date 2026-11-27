@@ -153,6 +153,7 @@ import java.net.URI
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenRoutines: (() -> Unit)? = null,
+    onOpenTeamMap: (() -> Unit)? = null,
     onOpenConnectedApps: (() -> Unit)? = null,
     onOpenVoice: (() -> Unit)? = null,
     onOpenNotifications: (() -> Unit)? = null,
@@ -1129,7 +1130,7 @@ fun SettingsScreen(
             // Routine schedules live on the computer this phone is bound to.
             // With no binding there is nothing to schedule against, so the row
             // is absent rather than present and dead.
-            if (onOpenRoutines != null || onOpenVoice != null || onOpenNotifications != null) {
+            if (onOpenRoutines != null || onOpenTeamMap != null || onOpenVoice != null || onOpenNotifications != null) {
                 // 通知行的徽章：等待处理的行数。读不到（旧电脑、团队云上没有收件箱、
                 // 传输失败）徽章静默缺席——入口行本身一直在。
                 var inboxCount by remember(connection?.id) { mutableStateOf<Int?>(null) }
@@ -1149,7 +1150,11 @@ fun SettingsScreen(
                     onOpenRoutines?.let { openRoutines ->
                         SettingsRow(title = "会话与例程", chevron = true, onClick = openRoutines)
                     }
-                    if ((onOpenNotifications != null || onOpenRoutines != null) && onOpenVoice != null) SettingsDivider()
+                    if ((onOpenNotifications != null || onOpenRoutines != null) && onOpenTeamMap != null) SettingsDivider()
+                    onOpenTeamMap?.let { openTeamMap ->
+                        SettingsRow(title = "团队地图", chevron = true, onClick = openTeamMap)
+                    }
+                    if ((onOpenNotifications != null || onOpenRoutines != null || onOpenTeamMap != null) && onOpenVoice != null) SettingsDivider()
                     onOpenVoice?.let { openVoice ->
                         SettingsRow(title = "语音", chevron = true, onClick = openVoice)
                     }

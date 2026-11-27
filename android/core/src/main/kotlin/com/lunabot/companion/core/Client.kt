@@ -602,6 +602,10 @@ class CompanionClient(
         send<MessageToolOutputResponse>(makeRequest("GET", "/api/threads/${segment(threadId)}/messages/${segment(messageId)}/tool")).output
 
     /** 这个智能体的 Data：sheet 上的卡片与数据库里的表，全只读。 */
+    /** 团队地图：bot 两两协作与排队/进行中的委派边。只读，白名单已放行。 */
+    suspend fun teamMap(): TeamMapResponse =
+        send(makeRequest("GET", "/api/team-map"))
+
     suspend fun botData(botId: String): BotDataResponse =
         send(makeRequest("GET", "/api/bots/${segment(botId)}/data"))
 

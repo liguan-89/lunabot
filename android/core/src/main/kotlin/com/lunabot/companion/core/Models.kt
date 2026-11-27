@@ -1769,6 +1769,30 @@ internal data class MessageToolOutputResponse(val output: String? = null)
 @Serializable
 internal data class MessageResponse(val message: Message)
 
+/** `GET /api/team-map` 的应答：bot 两两协作的 DM、排队中与进行中的委派边。
+ * 只读观测面——手机端不做任何 team-map 写操作（本来也没有写路由）。 */
+@Serializable
+data class TeamMapResponse(
+    val collaborations: List<TeamMapCollaboration> = emptyList(),
+    val queued: List<TeamMapHandoff> = emptyList(),
+    val running: List<TeamMapHandoff> = emptyList(),
+)
+
+@Serializable
+data class TeamMapCollaboration(
+    val groupId: String,
+    val botIds: List<String>,
+    val lastAt: Double = 0.0,
+)
+
+@Serializable
+data class TeamMapHandoff(
+    val sourceBotId: String,
+    val targetBotId: String,
+    val groupId: String? = null,
+    val threadId: String? = null,
+)
+
 @Serializable
 internal data class EditResponse(val message: Message? = null)
 
