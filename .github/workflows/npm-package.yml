@@ -5,6 +5,8 @@ on:
   # registry is an unrelated package). Tag pushes publish it through npm
   # trusted publishing; pushes without a tag stay a packaging check only.
   workflow_dispatch:
+  push:
+    tags: ["v*"]
   pull_request:
     paths:
       - server/cli.ts

@@ -1,13 +1,15 @@
 name: Connector image
 
 # The LunaBot connector (connector/), published with every release as
-# ghcr.io/milind-soni/mausbot-connector for linux/amd64 and linux/arm64. The
+# ghcr.io/liguan-89/lunabot-connector for linux/amd64 and linux/arm64. The
 # Admin pins it by digest; the summary prints it. Only a release tag publishes:
 # no pull request starts this, and a manual run on a branch builds nothing.
 on:
-  # Upstream publishes this image as ghcr.io/milind-soni/openmausbot-connector.
-  # Luna Bot does not publish that image from a version tag; keep this manual.
+  # release.yml dispatches this on the tag it just published: a tag created
+  # with the workflow token never fires push events on its own.
   workflow_dispatch:
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: read
