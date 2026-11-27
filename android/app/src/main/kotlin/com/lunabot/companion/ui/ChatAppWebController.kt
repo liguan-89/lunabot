@@ -313,7 +313,7 @@ class ChatAppWebController(
             put("hostContext", hostContext())
             put("limits", buildJsonObject {
                 put("maxHeight", maxHeightPx)
-                put("height", maxOf(48, doc.rev.let { 160 }))
+                put("height", initialHeightPx)
             })
             put("engagedAt", engagedAt)
             put("hostVersion", hostVersion)
