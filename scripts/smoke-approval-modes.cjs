@@ -273,9 +273,8 @@ app.whenReady().then(async () => {
   assert.equal(await send(fullBot.id, `${permissionMarker} under Full`), 202);
   await until(async () => !(await readBot(fullBot.id))?.busy);
   assert.equal(await pendingCard(fullBot.threadId), undefined);
-  const fullDecisions = (await api("/api/decisions")).body.decisions
-    .filter((row) => row.botId === fullBot.id && row.source === "full-access" && row.decision === "auto-approved");
-  assert.ok(fullDecisions.length > 0, "Full must answer the provider's own permission request and log it");
+  await until(async () => (await api("/api/decisions")).body.decisions
+    .some((row) => row.botId === fullBot.id && row.source === "full-access" && row.decision === "auto-approved"));
   console.log(JSON.stringify({ provider: "pi", mode: "full", autoApproved: true, humanInterrupted: false }));
 
   // A delegated turn lands on the receiving bot's own work thread — never on a
