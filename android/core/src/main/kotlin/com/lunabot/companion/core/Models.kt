@@ -379,6 +379,14 @@ data class DataResultData(
     val sql: String? = null,
 )
 
+/** `Message.sender` 的形状（wire 的 ResolvedSender）：名字仅用于归属展示，
+ * 服务端明示不得按它放行或拒绝任何事。 */
+@Serializable
+data class SenderData(
+    val name: String,
+    val id: String? = null,
+)
+
 @Serializable
 data class Message(
     val id: String,
@@ -442,6 +450,15 @@ data class Message(
      * phone — the same read-only sheet/page/image routes the whitelist carries.
      */
     val dataResult: DataResultData? = null,
+    /** Who sent this user message, when the workspace has more than one
+     * person; absent reads as the owner. `id` is an opaque server key. */
+    val sender: SenderData? = null,
+    /** The message this one flat-replies to, for an inline quote. */
+    val replyToId: String? = null,
+    /** "api": sent through the HTTP API; "call": spoken on a Live call. */
+    val via: String? = null,
+    /** An external interface (the Slack worker) relayed this user line. */
+    val relayed: Boolean? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {
@@ -1749,6 +1766,7 @@ internal data class SearchResponse(val hits: List<SearchHit>)
 @Serializable
 internal data class MessageToolOutputResponse(val output: String? = null)
 
+@Serializable
 internal data class MessageResponse(val message: Message)
 
 @Serializable

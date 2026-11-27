@@ -188,6 +188,8 @@ fun MessageRow(
     openComputer: (() -> Unit)? = null,
     /** A data_show receipt's chip opens the bot's Data viewer at that card. */
     onOpenData: ((botId: String, cardId: String) -> Unit)? = null,
+    /** Resolves a quote's message id in this transcript; absent quotes nothing. */
+    quoteOf: (String) -> Message? = { null },
     /** Quote this message into the composer; null hides the action. */
     onQuote: ((Message) -> Unit)? = null,
 ) {
@@ -247,6 +249,7 @@ fun MessageRow(
                 openChat = openChat,
                 openComputer = openComputer,
                 onOpenData = onOpenData,
+                quoteOf = quoteOf,
             )
 
             message.comm?.let { comm ->
@@ -591,12 +594,14 @@ private fun MessageContent(
     openChat: ((Chat) -> Unit)? = null,
     openComputer: (() -> Unit)?,
     onOpenData: ((botId: String, cardId: String) -> Unit)? = null,
+    quoteOf: (String) -> Message? = { null },
 ) {
     when (message.kind) {
         Message.Kind.TEXT -> when {
             message.grantProposal != null -> GrantProposalCard(chat.threadId, message)
             message.setupSuggestion != null -> HelperSuggestionCard(chat.threadId, message)
-            else -> TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
+            else -> TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment,
+                quoted = message.replyToId?.let(quoteOf))
         }
         // A structured ask draws its own card: its answers are the model's
         // questions, not an allow/deny a tap could stand for.
@@ -726,6 +731,8 @@ private fun TextBubble(
     endsRun: Boolean,
     openLink: ((String, Message) -> Unit)?,
     openAttachment: ((DisplayedMessageAttachment, Message, DownloadedFile?) -> Unit)?,
+    /** The message this one quotes, already resolved; null quotes nothing. */
+    quoted: Message? = null,
 ) {
     val threadId = chat.threadId
     val mine = message.role == Message.Role.USER
@@ -797,6 +804,28 @@ private fun TextBubble(
                     ),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+            // A flat reply quotes the line it answers, one line of it, the way
+            // the desktop's inline quote does; an unresolved id quotes nothing.
+            quoted?.let { anchor ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(2.5.dp)
+                            .height(16.dp)
+                            .background(minisSecondary.copy(alpha = 0.5f), RoundedCornerShape(2.dp)),
+                    )
+                    Text(
+                        text = anchor.text.orEmpty().replace('\n', ' ').take(80),
+                        fontSize = 12.sp,
+                        color = minisSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
             // Rooms attribute each line to the member who said it. Only theirs:
             // your own bubble is already on your side.
             if (!mine) {
@@ -806,6 +835,27 @@ private fun TextBubble(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(MausPalette.argb(it.color)),
+                    )
+                }
+            }
+            // A workspace with several people attributes your side too, and an
+            // outside line says how it got in: the API, a Live call, or a relay
+            // nobody typed here.
+            if (mine) {
+                val senderName = message.sender?.name
+                val attribution = when {
+                    senderName != null -> senderName
+                    message.relayed == true -> "经外部接口转发"
+                    message.via == "call" -> "语音来电"
+                    message.via == "api" -> "经 API 发送"
+                    else -> null
+                }
+                if (attribution != null) {
+                    Text(
+                        text = attribution,
+                        fontSize = 11.5.sp,
+                        color = minisSecondary,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             }
