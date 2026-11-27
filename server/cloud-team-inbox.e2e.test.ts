@@ -81,10 +81,20 @@ const openCard = async (threadId: string, requestType: "permission" | "question"
 
 // 150 s, not 60: a loaded ubuntu shard once missed a turn's prompt line inside 60 s across three attempts
 // (Nov 18 CI rounds); local runs settle in single-digit seconds, so the headroom costs nothing green.
-async function until(done: () => Promise<boolean> | boolean, timeoutMs = hostTimeout(150_000)): Promise<void> {
+async function until(done: () => Promise<boolean> | boolean, timeoutMs = hostTimeout(150_000), witness?: () => Promise<unknown> | unknown): Promise<void> {
   const end = Date.now() + timeoutMs;
   while (!(await done())) {
-    if (Date.now() > end) throw new Error(`timed out waiting: ${done.toString().slice(0, 160)}`);
+    if (Date.now() > end) {
+      let evidence = "";
+      if (witness) {
+        try {
+          evidence = `\nwitness: ${JSON.stringify(await witness())?.slice(0, 8_000)}`;
+        } catch (error) {
+          evidence = `\nwitness failed: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }
+      throw new Error(`timed out waiting: ${done.toString().slice(0, 160)}${evidence}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
@@ -93,8 +103,20 @@ async function turn(token: string, bot: Bot, threadId: string, text: string) {
   const before = turns().length;
   const sent = await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await until(() => turns().length > before);
-  await until(async () => await idle() && (await messages(token, threadId)).rows.some((row) => row.role === "bot" && row.kind === "text" && row.text === readFileSync(file("reply.txt"), "utf8")));
+  const witness = async () => {
+    const botState = (await bots(cleo)).find((one) => one.id === bot.id) ?? null;
+    const rows = (await messages(token, threadId)).rows.slice(-12).map((row) => JSON.stringify(row).slice(0, 700));
+    return {
+      receipt: sent.body,
+      bot: botState,
+      rows,
+      launches: turns().slice(before),
+      queueFrames: [...cleos, ...bens].filter((frame) => frame.kind === "bot.queued").slice(-6),
+      serverLogTail: fx.logs().slice(-4_000),
+    };
+  };
+  await until(() => turns().length > before, hostTimeout(150_000), witness);
+  await until(async () => await idle() && (await messages(token, threadId)).rows.some((row) => row.role === "bot" && row.kind === "text" && row.text === readFileSync(file("reply.txt"), "utf8")), hostTimeout(150_000), witness);
 }
 function listen(token: string): Frame[] {
   const frames: Frame[] = [];
