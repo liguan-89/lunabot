@@ -1494,14 +1494,23 @@ class Session(
     }
 
     /**
-     * A send the harness held rather than ran has to stay on screen, or the
-     * words simply vanish from the phone until the turn settles. [text] is
-     * what the person typed; the harness echoes back only an id.
+     * The POST receipt is authoritative even when its stream frame is still in
+     * flight: an accepted line joins the transcript now, while a held send has
+     * to stay on screen or the words vanish until the turn settles. [text] is
+     * what the person typed; the harness echoes back only an id for a hold.
      */
     private fun record(receipt: SendReceipt, text: String, fallbackThreadId: String) {
-        val queued = receipt as? SendReceipt.Queued ?: return
-        val threadId = queued.threadId.ifEmpty { fallbackThreadId }
-        _state.update { it.rememberQueued(QueuedSend(queued.queueId, text), threadId) }
+        when (receipt) {
+            is SendReceipt.Queued -> {
+                val threadId = receipt.threadId.ifEmpty { fallbackThreadId }
+                _state.update { it.rememberQueued(QueuedSend(receipt.queueId, text), threadId) }
+            }
+            is SendReceipt.Sent -> {
+                val message = receipt.message ?: return
+                val threadId = receipt.threadId?.takeIf(String::isNotEmpty) ?: fallbackThreadId
+                _state.update { it.apply(Frame.Message(threadId, message)) }
+            }
+        }
     }
 
     /**
@@ -2258,6 +2267,7 @@ class Session(
             }
             null
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             _actionError.value = error.message
             null
         }
@@ -3529,6 +3539,7 @@ class Session(
             val exported = activeClient.export(threadId, format)
             ExportedTranscript(exported.data, exported.filename, exported.contentType)
         } catch (error: Throwable) {
+            if (error is CancellationException) throw error
             _actionError.value = error.message
             null
         }

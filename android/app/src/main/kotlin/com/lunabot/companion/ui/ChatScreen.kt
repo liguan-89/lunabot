@@ -343,6 +343,10 @@ private fun LoadedChat(
     }
     var showingTasks by remember { mutableStateOf(false) }
     var creatingThread by remember(chatId) { mutableStateOf(false) }
+    var openingThread by remember(threadId) { mutableStateOf(false) }
+    var openingSearchHit by remember(threadId) { mutableStateOf<String?>(null) }
+    var exportingTranscript by remember(threadId) { mutableStateOf(false) }
+    var interrupting by remember(threadId) { mutableStateOf(false) }
     // Saveable: the profile form is a form, and a rotation must not throw away
     // what was typed into it — the sheet has to come back for that to matter.
     var showingProfile by rememberSaveable { mutableStateOf(false) }
@@ -531,10 +535,41 @@ private fun LoadedChat(
     // the way a thread row does; one that opened a thread on a teammate pushes
     // that chat.
     fun openThread(ref: ThreadRef) {
+        if (openingThread) return
         threadOpenJob?.cancel()
+        openingThread = true
         threadOpenJob = scope.launch {
-            val bot = session.openThread(ref) ?: return@launch
-            if (bot.id == chatId) onSelectTask(ChatTarget.Bot(bot.id, bot.threadId)) else onOpenChat(Chat.BotChat(bot))
+            try {
+                val bot = session.openThread(ref) ?: return@launch
+                if (bot.id == chatId) onSelectTask(ChatTarget.Bot(bot.id, bot.threadId)) else onOpenChat(Chat.BotChat(bot))
+            } finally {
+                openingThread = false
+            }
+        }
+    }
+
+    fun interrupt() {
+        if (interrupting) return
+        interrupting = true
+        scope.launch {
+            try {
+                session.interrupt(chat)
+            } finally {
+                interrupting = false
+            }
+        }
+    }
+
+    fun shareTranscript(format: ShareFormat) {
+        if (exportingTranscript) return
+        exportingTranscript = true
+        scope.launch {
+            try {
+                val exported = session.export(threadId, format.wire) ?: return@launch
+                environment.shareTranscript(exported, format)?.let { session.actionError = it }
+            } finally {
+                exportingTranscript = false
+            }
         }
     }
     val focusedMessageId by session.focusedMessageId.collectAsState()
@@ -988,9 +1023,9 @@ private fun LoadedChat(
                 if (bot != null) onOpenComputer(bot.id)
             }
             ChatActionId.SETTINGS -> if (bot != null) showingProfile = true
-            ChatActionId.SHARE_MARKDOWN -> share(scope, environment, threadId, ShareFormat.MARKDOWN)
-            ChatActionId.SHARE_JSON -> share(scope, environment, threadId, ShareFormat.JSON)
-            ChatActionId.INTERRUPT -> scope.launch { session.interrupt(chat) }
+            ChatActionId.SHARE_MARKDOWN -> shareTranscript(ShareFormat.MARKDOWN)
+            ChatActionId.SHARE_JSON -> shareTranscript(ShareFormat.JSON)
+            ChatActionId.INTERRUPT -> interrupt()
         }
         Unit
     }
@@ -1079,8 +1114,15 @@ private fun LoadedChat(
         // Deliberately not disabled while the bot is busy: the harness answers
         // 409 and Session surfaces "The bot is busy — stop it first." That is a
         // clearer answer than a dead button.
+        sendingMessage = true
+        attachmentError = null
         scope.launch {
-            if (session.send(text, chat)) return@launch
+            val sent = try {
+                session.send(text, chat)
+            } finally {
+                sendingMessage = false
+            }
+            if (sent) return@launch
             // The draft was already cleared on the tap; a failed send hands the
             // words back rather than dropping them behind a vanishing notice.
             if (composer.text.isBlank()) {
@@ -1505,12 +1547,19 @@ private fun LoadedChat(
                 attachments = attachments,
                 sending = sendingMessage,
                 preparing = preparingAttachments,
+                creatingThread = creatingThread,
+                controlStatus = when {
+                    openingThread -> "正在打开话题…"
+                    exportingTranscript -> "正在导出对话记录…"
+                    else -> null
+                },
                 busy = chat.busy,
                 engineCanSteer = engineCanSteer,
                 queuedSends = queuedSends,
                 steering = steering,
                 onSteer = steerNow,
-                onStop = { scope.launch { session.interrupt(chat) } },
+                stopping = interrupting,
+                onStop = ::interrupt,
                 onCancelQueued = { queued ->
                     scope.launch { session.cancelQueued(queued, chat) }
                 },
@@ -1617,12 +1666,21 @@ private fun LoadedChat(
                     }
                 }
             },
+            openingHitId = openingSearchHit,
             onOpenHit = { hit ->
-                searching = false
-                searchQuery = ""
+                if (openingSearchHit != null) return@ChatSearchOverlay
+                openingSearchHit = hit.messageId
                 // The hit may be older than the loaded page: the session loads
                 // around it and parks the transcript on the focused message.
-                scope.launch { session.open(hit) }
+                scope.launch {
+                    try {
+                        session.open(hit)
+                    } finally {
+                        openingSearchHit = null
+                        searching = false
+                        searchQuery = ""
+                    }
+                }
             },
             onSearch = { session.search(it) },
         )
@@ -1681,19 +1739,6 @@ private fun LoadedChat(
                 onDismiss = { showingCall = false },
             )
         }
-    }
-}
-
-private fun share(
-    scope: kotlinx.coroutines.CoroutineScope,
-    environment: CompanionEnvironment,
-    threadId: String,
-    format: ShareFormat,
-) {
-    scope.launch {
-        val session = environment.session
-        val exported = session.export(threadId, format.wire) ?: return@launch
-        environment.shareTranscript(exported, format)?.let { session.actionError = it }
     }
 }
 
@@ -1806,6 +1851,7 @@ private fun ChatSearchOverlay(
     onQueryChange: (String) -> Unit,
     onClose: () -> Unit,
     onOpenMessage: (Message) -> Unit,
+    openingHitId: String?,
     onOpenHit: (SearchHit) -> Unit,
     onSearch: suspend (String) -> List<SearchHit>,
 ) {
@@ -1953,7 +1999,7 @@ private fun ChatSearchOverlay(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
+                        .clickable(enabled = openingHitId == null) {
                             result.hit?.let(onOpenHit) ?: result.message?.let(onOpenMessage)
                         }
                         .padding(vertical = 10.dp),
@@ -1986,6 +2032,19 @@ private fun ChatSearchOverlay(
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (openingHitId == result.messageId) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(12.dp),
+                                strokeWidth = 1.5.dp,
+                                color = minisSecondary,
+                            )
+                            Text("正在打开消息…", fontSize = 12.sp, color = minisSecondary)
+                        }
+                    }
                 }
                 MinisDivider()
             }
@@ -2629,11 +2688,15 @@ private fun Composer(
     attachments: List<PendingMessageAttachment>,
     sending: Boolean,
     preparing: Boolean,
+    creatingThread: Boolean,
+    controlStatus: String?,
     busy: Boolean,
     engineCanSteer: Boolean,
     queuedSends: List<QueuedSend>,
     steering: Boolean,
     onSteer: (() -> Unit)?,
+    /** Whether the stop request itself is still traveling to the computer. */
+    stopping: Boolean,
     /** 桌面 Composer 的停止钮：bot 运行中插在发送钮旁边，点了打断本轮。 */
     onStop: (() -> Unit)?,
     onCancelQueued: (QueuedSend) -> Unit,
@@ -2668,6 +2731,10 @@ private fun Composer(
         }
         // What is in flight, in the order iOS stacks them: the send or the
         // import, then a file on its way, then whatever went wrong.
+        if (creatingThread) {
+            ComposerStatusLine("正在创建新话题…")
+        }
+        controlStatus?.let { ComposerStatusLine(it) }
         if (inFlight) {
             ComposerStatusLine(if (preparing) "正在准备附件…" else "正在发送…")
         }
@@ -2869,18 +2936,26 @@ private fun Composer(
                 // crossfade with a small scale, not an icon swap between frames.
                 if (busy && onStop != null) {
                     TouchTarget(
-                        onClick = onStop,
-                        contentDescription = "停止本轮",
+                        onClick = { if (!stopping) onStop() },
+                        contentDescription = if (stopping) "正在停止本轮" else "停止本轮",
                     ) {
                         Box(
                             modifier = Modifier.size(34.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(minisInk, RoundedCornerShape(3.dp)),
-                            )
+                            if (stopping) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 1.8.dp,
+                                    color = minisInk,
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(minisInk, RoundedCornerShape(3.dp)),
+                                )
+                            }
                         }
                     }
                 }

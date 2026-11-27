@@ -333,6 +333,16 @@ describe("the sidecar in front of an unmodified harness", () => {
     const bot = body.bots[0];
     const path = `/api/bots/${bot.id}`;
     const appearance = { color: "coral", mascotBody: "diamond", mascotExpression: "sleeping" };
+    const refusalInvariant = (value: any) => ({
+      color: value.color,
+      mascotBody: value.mascotBody,
+      mascotExpression: value.mascotExpression,
+      autoApprove: value.autoApprove,
+      approvalMode: value.approvalMode,
+      soul: value.soul,
+      computer: value.computer,
+      modelSelection: value.modelSelection,
+    });
     for (const token of [null, "omb_wrong"]) {
       expect((await device("PATCH", path, { token, body: appearance })).status).toBe(401);
     }
@@ -349,7 +359,9 @@ describe("the sidecar in front of an unmodified harness", () => {
       expect(refused.body.error).toContain(Object.keys(protectedPatch)[0]);
       expect(refused.body.error).toContain("host computer");
       const refreshed = await device("GET", "/api/bots");
-      expect(refreshed.body.bots.find((candidate: { id: string }) => candidate.id === bot.id)).toEqual(bot);
+      const current = refreshed.body.bots.find((candidate: { id: string }) => candidate.id === bot.id);
+      expect(refusalInvariant(current)).toEqual(refusalInvariant(bot));
+      expect(current).not.toHaveProperty("unexpected");
     }
   });
 

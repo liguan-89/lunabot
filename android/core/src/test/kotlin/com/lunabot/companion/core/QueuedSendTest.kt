@@ -107,6 +107,14 @@ class QueuedSendTest {
         )
     }
 
+    @Test
+    fun `an accepted send receipt carries the transcript line it accepted`() {
+        val body = """{"ok":true,"threadId":"t1","message":{"id":"m1","role":"user","kind":"text","at":1,"text":"first"}}"""
+        val receipt = json.decodeFromString<SendReceiptBody>(body).receipt()
+        assertEquals("m1", (receipt as SendReceipt.Sent).message?.id)
+        assertEquals("first", receipt.message?.text)
+    }
+
     // MARK: - The server's own queues
 
     @Test

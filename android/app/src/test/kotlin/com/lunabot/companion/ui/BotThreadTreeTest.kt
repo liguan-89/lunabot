@@ -150,7 +150,8 @@ class BotThreadTreeTest {
                 )
             }
         }
-        compose.onNodeWithContentDescription("与 ${fixture.name} 新建话题").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("正在与 ${fixture.name} 新建话题").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("与 ${fixture.name} 新建话题").assertDoesNotExist()
     }
 
     @Test

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -27,10 +28,13 @@ import com.lunabot.companion.core.CompanionJson
 import com.lunabot.companion.core.Connection
 import com.lunabot.companion.core.Fleet
 import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.RuntimeEvent
 import com.lunabot.companion.core.StreamFrame
 import com.lunabot.companion.core.target
 import java.util.Calendar
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -75,6 +79,12 @@ class AndroidThreadNavigationTest {
         method == "POST" && (path == "/api/tts/reply-listener" || path?.startsWith("/api/presence/") == true)
     private var answerAction: (RecordedRequest) -> MockResponse = { MockResponse().setResponseCode(503) }
     private var answerHistory: () -> MockResponse = { json("""{"messages":[],"hasMore":false}""") }
+    private var answerExport: () -> MockResponse = {
+        MockResponse()
+            .setHeader("Content-Type", "text/markdown")
+            .setHeader("Content-Disposition", "attachment; filename=transcript.md")
+            .setBody("# transcript")
+    }
     private val unavailable = "电脑返回了错误 (503)。"
     private val fixture = bot().copy(
         threadId = "first",
@@ -94,6 +104,7 @@ class AndroidThreadNavigationTest {
                 return when {
                     request.method != "GET" -> answerAction(request)
                     request.path == "/api/instances" -> json("""{"instances":[]}""")
+                    request.path?.startsWith("/api/threads/") == true && request.path?.contains("/export") == true -> answerExport()
                     request.path?.startsWith("/api/threads/") == true -> answerHistory()
                     else -> MockResponse().setResponseCode(404)
                 }
@@ -231,6 +242,182 @@ class AndroidThreadNavigationTest {
         assertEquals(1, dismissed)
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
         assertTrue(requests.none { it.method == "POST" && !it.isPassivePhoneReport() })
+    }
+
+    @Test
+    fun `creating a task shows progress and the first send lands before its stream frame`() {
+        val createGate = CountDownLatch(1)
+        val sendGate = CountDownLatch(1)
+        val createdTask = BotTask(threadId = "created", title = "New thread", createdAt = 2.0, busy = false, activity = "idle")
+        val created = fixture.copy(
+            threadId = "created",
+            messages = emptyList(),
+            tasks = listOf(createdTask) + fixture.tasks!!,
+        )
+        answerAction = { request ->
+            when (request.path) {
+                "/api/bots/${fixture.id}/tasks" -> {
+                    createGate.await(5, TimeUnit.SECONDS)
+                    json("""{"bot":${CompanionJson.encodeToString(Bot.serializer(), created)}}""")
+                }
+                "/api/bots/${fixture.id}/messages" -> {
+                    sendGate.await(5, TimeUnit.SECONDS)
+                    json("""{"ok":true,"threadId":"created","message":{"id":"first-user","role":"user","kind":"text","at":3,"text":"第一句"}}""")
+                }
+                else -> MockResponse().setResponseCode(503)
+            }
+        }
+        val frames = MutableSharedFlow<StreamFrame>(extraBufferCapacity = 4)
+        val initial = Destination.Chat(Chat.BotChat(fixture).target)
+        val navigator = CompanionNavigator(listOf(Destination.Roster, initial))
+        mount(events = {
+            flow {
+                emit(StreamFrame(Frame.Hello(cursor = "fixture:1", resumed = false), seq = 1))
+                emitAll(frames)
+            }
+        }) {
+            when (val destination = navigator.current) {
+                is Destination.Conversation -> ChatScreen(
+                    destination = destination,
+                    onResolved = { navigator.selectTask(destination, it) },
+                    onBack = navigator::pop,
+                    onOpenComputer = {},
+                    onOpenOverview = {},
+                )
+                else -> Text("Fixture Home")
+            }
+        }
+
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("新建话题").performClick()
+        compose.onNodeWithText("正在创建新话题…").assertIsDisplayed()
+        assertTrue(requests.any { it.method == "POST" && it.path == "/api/bots/${fixture.id}/tasks" })
+
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("新建话题").performClick()
+        assertEquals(1, requests.count { it.method == "POST" && it.path == "/api/bots/${fixture.id}/tasks" })
+
+        createGate.countDown()
+        compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "created" }
+        compose.onNodeWithText("正在创建新话题…").assertDoesNotExist()
+
+        compose.onNode(hasSetTextAction()).performTextInput("第一句")
+        compose.onNodeWithContentDescription("发送").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("正在发送…").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription("${fixture.name} 正在工作").assertIsDisplayed()
+
+        sendGate.countDown()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("第一句").fetchSemanticsNodes().isNotEmpty()
+        }
+        val sendRequest = requests.single { it.method == "POST" && it.path == "/api/bots/${fixture.id}/messages" }
+        assertTrue(sendRequest.body.readUtf8().contains("\"threadId\":\"created\""))
+
+        compose.waitUntil(5_000) { frames.subscriptionCount.value > 0 }
+        compose.runOnIdle {
+            frames.tryEmit(StreamFrame(
+                Frame.Runtime(RuntimeEvent("content.delta", "created", delta = "你好", streamKind = "assistant_text")),
+                seq = 2,
+            ))
+        }
+        compose.waitUntil(5_000) { scene.session.state.value.streaming["created"] == "你好" }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("你好", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+
+    @Test
+    fun `sharing a transcript shows progress and ignores a repeated export tap`() {
+        val exportGate = CountDownLatch(1)
+        val exportCalls = AtomicInteger(0)
+        answerExport = {
+            exportCalls.incrementAndGet()
+            assertTrue(exportGate.await(5, TimeUnit.SECONDS))
+            MockResponse()
+                .setHeader("Content-Type", "text/markdown")
+                .setHeader("Content-Disposition", "attachment; filename=transcript.md")
+                .setBody("# transcript")
+        }
+        val initial = Destination.Chat(Chat.BotChat(fixture).target)
+        val navigator = CompanionNavigator(listOf(Destination.Roster, initial))
+        mount {
+            when (val destination = navigator.current) {
+                is Destination.Conversation -> ChatScreen(
+                    destination = destination,
+                    onResolved = { navigator.selectTask(destination, it) },
+                    onBack = navigator::pop,
+                    onOpenComputer = {},
+                    onOpenOverview = {},
+                )
+                else -> Text("Fixture Home")
+            }
+        }
+
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("分享对话记录").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("正在导出对话记录…").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitUntil(5_000) { exportCalls.get() == 1 }
+
+        compose.onNodeWithContentDescription("更多").performClick()
+        compose.onNodeWithText("分享对话记录").performClick()
+        exportGate.countDown()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("正在导出对话记录…").fetchSemanticsNodes().isEmpty()
+        }
+        assertEquals(1, exportCalls.get())
+        assertTrue(requests.count { it.method == "GET" && it.path?.startsWith("/api/threads/first/export") == true } == 1)
+    }
+
+
+    @Test
+    fun `stopping a turn shows progress and ignores a repeated stop tap`() {
+        val interruptGate = CountDownLatch(1)
+        val interruptCalls = AtomicInteger(0)
+        answerAction = { request ->
+            if (request.path == "/api/bots/${fixture.id}/interrupt") {
+                interruptCalls.incrementAndGet()
+                assertTrue(interruptGate.await(5, TimeUnit.SECONDS))
+                json("""{"ok":true}""")
+            } else {
+                MockResponse().setResponseCode(503)
+            }
+        }
+        val busy = fixture.copy(
+            busy = true,
+            tasks = fixture.tasks!!.map {
+                if (it.threadId == "first") it.copy(busy = true, activity = "working") else it
+            },
+        )
+        val initial = Destination.Chat(Chat.BotChat(busy).target)
+        val navigator = CompanionNavigator(listOf(Destination.Roster, initial))
+        mount(busy) {
+            when (val destination = navigator.current) {
+                is Destination.Conversation -> ChatScreen(
+                    destination = destination,
+                    onResolved = { navigator.selectTask(destination, it) },
+                    onBack = navigator::pop,
+                    onOpenComputer = {},
+                    onOpenOverview = {},
+                )
+                else -> Text("Fixture Home")
+            }
+        }
+
+        compose.onNodeWithContentDescription("停止本轮").performClick()
+        compose.onNodeWithContentDescription("正在停止本轮").assertIsDisplayed()
+        compose.waitUntil(5_000) { interruptCalls.get() == 1 }
+        compose.onNodeWithContentDescription("正在停止本轮").performClick()
+        interruptGate.countDown()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithContentDescription("正在停止本轮").fetchSemanticsNodes().isEmpty()
+        }
+        assertEquals(1, interruptCalls.get())
+        assertEquals(1, requests.count { it.method == "POST" && it.path == "/api/bots/${fixture.id}/interrupt" })
     }
 
     @Test
