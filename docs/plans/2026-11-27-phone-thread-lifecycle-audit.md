@@ -77,3 +77,17 @@ Android 端一条用户可见链路是：
 
 - 纯文本发送仍走无 `sendId` 的旧兼容路径；附件发送才有幂等 sendId。它能解释不确定网络失败后的重复风险，但不是本轮「无反馈」的直接根因；若要改需先确认旧服务端对未知字段的兼容策略。
 - 真实模型慢仍需要 UI 通过 busy/queue/stream 行表达；本轮只保证接受消息和发送过程不再静默。
+
+## 验证记录（2026-11-27）
+
+已完成：
+
+1. Android loopback 集成验证：`AndroidThreadNavigationTest.creating a task shows progress and the first send lands before its stream frame` 使用真实 Compose、真实 `Session` 与 MockWebServer 覆盖完整链路。受控证据包括：create POST pending 时显示「正在创建新话题…」；pending 期间重复点击不会发出第二个 create POST；create response 后导航目标变为 `created`；首条消息 POST body 捕获 `"threadId":"created"`；发送 pending 时显示「正在发送…」与工作中行；receipt 中的用户消息先于 stream 上屏；后续 `content.delta` 能进入 streaming 状态并渲染。该测试与整个 `AndroidThreadNavigationTest` 文件均绿。
+2. Android T1：`:core:test :app:testDebugUnitTest :app:compileDebugKotlin` 绿。
+3. 隔离 server fixture：`node --experimental-strip-types scripts/control-lunabot.ts launch` 启动于 `http://127.0.0.1:21659`，`doctor` 绿，fake pi available。canonical `send` 对 isolated bot 的首条文本返回 `success=true` 与 message id；`wait --for turn` settled，transcript 同时包含用户消息、fake pi 首条回答与 digest。用户消息 at `1795763142076`，助手文本 at `1795763142326`，服务端接受后约 250ms 产生首条助手文本。
+4. server 定向测试：`server/phones/sends.test.ts`、`server/phones/steer.test.ts`、`server/bot-access.test.ts` 25/25 绿；`server/paired-thread-targets-api.test.ts`、`server/thread-page-frames.e2e.test.ts` 9/9 绿。后者覆盖 paired client 显式 thread 行为、create task frame/page 语义，以及 active thread 切换时不漂移。
+
+限制：
+
+- canonical control surface 没有独立的「phone 新建话题」verb，因此真实 server fixture 只证明首条消息接受、分派与回写；phone 端 create/send 点击链由 Android loopback 集成测试证明。
+- Android 模拟器人工链路未完成：T3 `device_open` 连续返回 `Failed to connect to MCP server 't3-code'. Please try again.`，按设备工具纪律未改用 adb 手工点击。若恢复 device tools 或用户明确允许直连 adb，可补做真实模拟器点击链。
