@@ -2,7 +2,7 @@
 // per-bot grants, and the PHONE_* tool names served by the `device` MCP server.
 import { isReadOnlyAction } from "./connector-scopes.ts";
 
-export const PHONE_CAPABILITIES = ["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi", "phoneData"] as const;
+export const PHONE_CAPABILITIES = ["calendar", "reminders", "contacts", "location", "messages", "phoneUi", "phoneData"] as const;
 export type PhoneCapability = (typeof PHONE_CAPABILITIES)[number];
 export type PhoneGrant = "read" | "write";
 /** Per-bot grant; an absent key is off. */
@@ -23,7 +23,6 @@ export const PHONE_TOOL_NAMES = [
   "PHONE_LIST_REMINDERS", "PHONE_CREATE_REMINDER", "PHONE_UPDATE_REMINDER", "PHONE_COMPLETE_REMINDER", "PHONE_DELETE_REMINDER",
   "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_CREATE_CONTACT", "PHONE_UPDATE_CONTACT",
   "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY",
-  "PHONE_LIST_HOME", "PHONE_SET_ACCESSORY", "PHONE_RUN_SCENE",
   "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP",
   "PHONE_UI_OBSERVE", "PHONE_UI_COLLECT", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
   "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_RUN", "PHONE_UI_DO_EACH", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR",
@@ -41,7 +40,6 @@ const TOOL_CAPABILITY: Record<PhoneToolName, PhoneCapability> = {
   PHONE_COMPLETE_REMINDER: "reminders", PHONE_DELETE_REMINDER: "reminders",
   PHONE_SEARCH_CONTACTS: "contacts", PHONE_GET_CONTACT: "contacts", PHONE_CREATE_CONTACT: "contacts", PHONE_UPDATE_CONTACT: "contacts",
   PHONE_GET_LOCATION: "location", PHONE_FIND_PLACES_NEARBY: "location",
-  PHONE_LIST_HOME: "home", PHONE_SET_ACCESSORY: "home", PHONE_RUN_SCENE: "home",
   PHONE_SEND_MESSAGE: "messages", PHONE_SEND_WHATSAPP: "messages",
   PHONE_UI_OBSERVE: "phoneUi", PHONE_UI_COLLECT: "phoneUi", PHONE_UI_LAUNCH: "phoneUi", PHONE_UI_TAP: "phoneUi",
   PHONE_UI_TAP_AT: "phoneUi", PHONE_UI_TYPE: "phoneUi", PHONE_UI_SCROLL: "phoneUi", PHONE_UI_SWIPE: "phoneUi",

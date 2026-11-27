@@ -88,7 +88,7 @@ export interface RiskGrade {
  *   PHONE_SEND_MESSAGE, PHONE_SEND_WHATSAPP     external, a message leaving the phone
  *   PHONE_SHARE_TEXT, PHONE_FILE_SHARE          external, content handed to another app
  *   a navigation tool, or any other read        read
- *   any other write (events, clipboard, home)   change, off the screen
+ *   any other write (events, clipboard)        change, off the screen
  *   a name this server does not know            unknown
  *
  * The payment rule is Mika's: pay and order always count as spending money, send never does, and the looser kinds

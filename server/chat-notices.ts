@@ -76,8 +76,6 @@ export const CHAT_NOTICE = {
   "chat.notice.phone.write.PHONE_DELETE_REMINDER": "Delete reminder on {phone}",
   "chat.notice.phone.write.PHONE_CREATE_CONTACT": "Create contact on {phone}",
   "chat.notice.phone.write.PHONE_UPDATE_CONTACT": "Update contact on {phone}",
-  "chat.notice.phone.write.PHONE_SET_ACCESSORY": "Set accessory on {phone}",
-  "chat.notice.phone.write.PHONE_RUN_SCENE": "Run scene on {phone}",
   "chat.notice.phone.write.PHONE_SEND_MESSAGE": "Send message on {phone}",
   "chat.notice.phone.write.PHONE_SEND_WHATSAPP": "Send whatsapp on {phone}",
   "chat.notice.phone.write.PHONE_UI_LAUNCH": "Launch app on {phone}",

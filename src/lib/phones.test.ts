@@ -17,17 +17,16 @@ function phone(name: string, capabilities: PublicPhone["registration"]["capabili
 describe("phone apps card decisions", () => {
   it("lists six app rows plus the screen and data rows, which start off when no phone is registered", () => {
     const rows = phoneAppRows({}, []);
-    expect(rows.map((r) => r.cap)).toEqual(["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi", "phoneData"]);
-    expect(rows.slice(0, 6).every((r) => !r.onPhone && r.grant === "write")).toBe(true);
-    expect(rows[6]).toEqual({ cap: "phoneUi", grant: null, onPhone: false });
-    expect(rows[7]).toEqual({ cap: "phoneData", grant: null, onPhone: false });
+    expect(rows.map((r) => r.cap)).toEqual(["calendar", "reminders", "contacts", "location", "messages", "phoneUi", "phoneData"]);
+    expect(rows.slice(0, 5).every((r) => !r.onPhone && r.grant === "write")).toBe(true);
+    expect(rows[5]).toEqual({ cap: "phoneUi", grant: null, onPhone: false });
+    expect(rows[6]).toEqual({ cap: "phoneData", grant: null, onPhone: false });
     expect(phoneAppRows({ phoneApps: {} }, []).every((r) => r.grant === null)).toBe(true);
   });
 
-  it("defaults every bot to the six legacy apps, the Chief or not; an explicit list wins", () => {
+  it("defaults every bot to the legacy apps, the Chief or not; an explicit list wins", () => {
     const chief = { chiefOfStaff: true, phoneApps: undefined };
-    expect(Object.keys(effectivePhoneApps({}))).toHaveLength(6);
-    expect(effectivePhoneApps({}).home).toBe("write");
+    expect(Object.keys(effectivePhoneApps({}))).toHaveLength(5);
     expect(effectivePhoneApps({}).phoneUi).toBeUndefined();
     expect(effectivePhoneApps({}).phoneData).toBeUndefined();
     expect(effectivePhoneApps(chief)).toEqual(effectivePhoneApps({}));
@@ -59,7 +58,7 @@ describe("phone apps card decisions", () => {
 
 describe("phone list helpers", () => {
   it("lists allowed apps in capability order", () => {
-    expect(phoneAppChips(phone("P", { messages: "x", calendar: "y", home: "z" }))).toEqual(["calendar", "home", "messages"]);
+    expect(phoneAppChips(phone("P", { messages: "x", calendar: "y", location: "z" }))).toEqual(["calendar", "location", "messages"]);
     expect(phoneAppChips(phone("P", {}))).toEqual([]);
   });
 
