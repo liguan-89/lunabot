@@ -114,6 +114,15 @@ fun NotificationsScreen(
     }
 
     fun markInboxDone(row: InboxRowLine) {
+        // 与已读同一模式：先本地移除让办结有反应，服务端的最新视图到了
+        // 再整体换掉；失败静默——下一次刷新带回真实状态。
+        (inbox as? InboxResult.Loaded)?.let { current ->
+            inbox = InboxResult.Loaded(
+                current.view.copy(
+                    rows = current.view.rows.filterNot { it.id == row.id },
+                ),
+            )
+        }
         scope.launch {
             session.markInboxRow(row.id, done = true)?.let { view ->
                 inbox = InboxResult.Loaded(view)

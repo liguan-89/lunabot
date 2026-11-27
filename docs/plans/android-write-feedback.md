@@ -52,3 +52,12 @@
 - T1：typecheck + android 模块测试
 - 真机复测：重命名/暂停/记忆/办结延迟从 15-20s 降到 3s 内，且操作后立即
   有可见反馈。
+
+## 源码调查追加（2026-11-27 深夜）
+
+服务端写路径全部为同步直返，无队列/确认等待机制——15-20s 延迟不是服务端制造。
+新发现传输层放大器：**每个 authenticated 请求实际是串行两次 HTTP**——
+`Client.perform` 每次先无缓存 GET `/.well-known/dexbot/environment` 再发真正
+请求（Client.kt:332-340, 1840-1851）。修复 refresh/reload 后若裸 RPC 仍超
+5s，下一步候选：environment 预检缓存化、OkHttp host 并发与 20s long poll
+的相互作用、yamux 大帧队头阻塞。

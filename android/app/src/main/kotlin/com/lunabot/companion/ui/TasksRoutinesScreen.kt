@@ -331,14 +331,26 @@ internal fun TasksRoutinesScreen(
                                     onRunNow = {
                                         request("run:${routine.id}") {
                                             session.runRoutine(routine)
-                                            reload()
                                         }
                                     },
                                     onToggle = {
-                                        request("toggle:${routine.id}") {
-                                            if (!routine.canToggle()) return@request
-                                            session.setRoutineEnabled(routine, !routine.enabled)
-                                            reload()
+                                        // Flip the row at once: the routine frame
+                                        // lands on the stream right after and the
+                                        // quiet reload it triggers settles the truth.
+                                        // A full reload here used to blank the page
+                                        // into a spinner for the whole round trip.
+                                        if (routine.canToggle()) {
+                                            val target = !routine.enabled
+                                            routines = routines.map {
+                                                if (it.id == routine.id) it.copy(enabled = target) else it
+                                            }
+                                            request("toggle:${routine.id}") {
+                                                if (session.setRoutineEnabled(routine, target) == null) {
+                                                    routines = routines.map {
+                                                        if (it.id == routine.id) it.copy(enabled = routine.enabled) else it
+                                                    }
+                                                }
+                                            }
                                         }
                                     },
                                     onDelete = { deleting = routine },
