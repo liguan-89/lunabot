@@ -279,8 +279,8 @@ class E2eSession(
 
         override fun data(streamId: Int, data: ByteArray) {
             streams[streamId]?.deliver(data)
-            // Handing bytes to the HTTP stack consumes them: grant the window back.
-            mux?.consumed(streamId, data.size)
+            // The window is granted back in E2eStream.copyOut, when the reader
+            // actually consumes the bytes — not here, where they only join a queue.
         }
 
         override fun ended(streamId: Int) {
@@ -403,6 +403,10 @@ class E2eStream internal constructor(
             pending = ByteArray(0)
             pendingOffset = 0
         }
+        // The reader actually took these bytes: only now is the receive window
+        // granted back. Doing it at deliver() time let the peer keep sending into
+        // a queue nobody was draining, so flow control never engaged.
+        runCatching { session.muxInstance().consumed(streamId, count) }
         return count
     }
 
