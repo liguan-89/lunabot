@@ -57,3 +57,23 @@ Android 端一条用户可见链路是：
 - 不承诺模型响应速度本身；只保证用户能区分“模型慢/排队/失败/断线”。
 - 不改变 server 会话分派协议，除非审计证明现有 wire 语义本身缺字段或错误。
 - 不处理 v2.1.12 发布流程本身；发布仍从 #136 继续。
+
+## 审计结论（2026-11-27 首轮）
+
+已确认并修复：
+
+1. 新建话题请求虽然有 30 秒 action timeout，不会无限挂起，但聊天页与 roster 在等待期间没有明确进行态；已补聊天页状态行、roster 创建 spinner 与无障碍进行态。
+2. 纯文本发送没有置 `sendingMessage`，导致点击后输入框立即清空，而 `LiveTail` 设计中的“发送 POST 到服务端 busy 之间”的空窗没有任何行；已让纯文本发送复用发送中状态。
+3. 服务端接受消息后会同步写入 transcript，并在 POST receipt 返回权威 `message`；Android 此前丢弃该字段，完全依赖 stream 帧。stream 延迟或刚断线时，已接受消息也会迟迟不显示。现在 receipt 中的消息立即按既有去重路径合并进 `CompanionState`，后续 stream 帧不会重复。
+
+已排除/暂未证实为 bug：
+
+- `SessionP1Test` 已证明发送闭包捕获的是发送时 task：即使 fleet active thread 已切到 `task-b`，纯文本消息仍 POST `task-a`。
+- `createTask` 服务端默认 select 新 task，响应 `publicBot` 带新 active thread、tasks 与消息页；Android 用响应里的 `created.target` 导航，未发现固定沿用旧 threadId 的路径。
+- action 请求有 30 秒 wall-clock timeout；「卡半天」首先是反馈缺失，不是无限等待。
+- server `startOrQueueDirectMessage` 在分派前同步 append 用户消息；accepted/queued 是两种明确 receipt，未发现服务端首条消息必然丢失。
+
+遗留风险（未在本轮扩大修复）：
+
+- 纯文本发送仍走无 `sendId` 的旧兼容路径；附件发送才有幂等 sendId。它能解释不确定网络失败后的重复风险，但不是本轮「无反馈」的直接根因；若要改需先确认旧服务端对未知字段的兼容策略。
+- 真实模型慢仍需要 UI 通过 busy/queue/stream 行表达；本轮只保证接受消息和发送过程不再静默。
