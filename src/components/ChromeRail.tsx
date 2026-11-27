@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useChromeRailPopover } from "@/lib/chrome-rail";
 import { effectiveLanguage, useLanguageChoice, usePageLanguage } from "@/lib/language-preference";
 import { wearSkin } from "@/lib/skins";
 import { AccountsSheet, useAccountsSheet } from "./AccountMenu";
@@ -12,5 +13,6 @@ export function ChromeRail() {
   // The page beside the rail chose its skin: the rail wears the same one.
   useEffect(() => window.ogb?.rail?.onSkin?.(wearSkin), []);
   const accounts = useAccountsSheet();
-  return <DesktopCapabilitiesProvider><div data-chrome-rail className="h-full"><PlacesRail /></div>{accounts.open && <AccountsSheet onClose={accounts.close} />}</DesktopCapabilitiesProvider>;
+  const popover = useChromeRailPopover();
+  return <DesktopCapabilitiesProvider><div data-chrome-rail className="h-full">{popover.open && <PlacesRail />}</div>{accounts.open && <AccountsSheet onClose={accounts.close} />}</DesktopCapabilitiesProvider>;
 }

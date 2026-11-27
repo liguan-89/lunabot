@@ -31,20 +31,20 @@ const VIEWS: Array<{ name: string; query: string; ready: string; height?: number
   { name: "rail-popover", query: "chrome=1", ready: "[data-rail-page]" },
   { name: "rail-popover-simple", query: "mode=simple&chrome=1", ready: "[data-rail-page]" },
   { name: "general-settings-simple", query: "mode=simple&settings=general", ready: "[data-settings-block='appearance']" },
-  { name: "rail-many", query: "railpage=1&places=many&more=1", ready: "[data-rail-more] li" },
-  { name: "add-sheet", query: "railpage=1&sheet=add", ready: "[data-place-add='choose']" },
-  { name: "add-own-server", query: "railpage=1&sheet=server", ready: "[data-place-add='own-server']" },
-  { name: "add-buy-cloud", query: "railpage=1&sheet=cloud", ready: "[data-plan-buy]", height: 900 },
-  { name: "add-name-colour", query: "railpage=1&sheet=name", ready: "[data-cloud-add='extra-name']" },
-  { name: "add-setting-up", query: "railpage=1&sheet=cloud&adding=setting_up", ready: "[data-cloud-add='extra-starting']" },
-  { name: "rail-servers", query: "railpage=1&places=servers&look=teal", ready: "[data-rail-server]" },
-  { name: "connect-server", query: "railpage=1&places=servers&sheet=connect", ready: "[data-place-add='connect-server']" },
+  { name: "rail-many", query: "railpage=1&popover=64,48&places=many", ready: "[data-rail-place='x4']" },
+  { name: "add-sheet", query: "railpage=1&popover=64,48&sheet=add", ready: "[data-place-add='choose']" },
+  { name: "add-own-server", query: "railpage=1&popover=64,48&sheet=server", ready: "[data-place-add='own-server']" },
+  { name: "add-buy-cloud", query: "railpage=1&popover=64,48&sheet=cloud", ready: "[data-plan-buy]", height: 900 },
+  { name: "add-name-colour", query: "railpage=1&popover=64,48&sheet=name", ready: "[data-cloud-add='extra-name']" },
+  { name: "add-setting-up", query: "railpage=1&popover=64,48&sheet=cloud&adding=setting_up", ready: "[data-cloud-add='extra-starting']" },
+  { name: "rail-servers", query: "railpage=1&popover=64,48&places=servers&look=teal", ready: "[data-rail-server]" },
+  { name: "connect-server", query: "railpage=1&popover=64,48&places=servers&sheet=connect", ready: "[data-place-add='connect-server']" },
   { name: "look-settings", query: "look=teal&settings=look", ready: "[data-place-look='admin']" },
   { name: "look-settings-simple", query: "look=teal&mode=simple&settings=look", ready: "[data-place-look='admin']" },
   { name: "look-member", query: "member=1&settings=look", ready: "[data-place-look='locked']" },
   { name: "look-member-simple", query: "member=1&mode=simple&settings=look", ready: "[data-place-look='locked']" },
-  { name: "rail-colour", query: "railpage=1&places=servers&look=teal&menu=vps", ready: "[data-rail-menu='vps']" },
-  { name: "rail-colour-member", query: "railpage=1&member=1&menu=acme", ready: "[data-rail-menu-note]" },
+  { name: "rail-colour", query: "railpage=1&popover=64,48&places=servers&look=teal&menu=vps", ready: "[data-rail-menu='vps']" },
+  { name: "rail-colour-member", query: "railpage=1&popover=64,48&member=1&menu=acme", ready: "[data-rail-menu-note]" },
   // This computer's own page on a desktop with no Cloud: plain, in a colour, its Settings, and the rail's own page.
   { name: "computer", query: "place=computer", ready: "[data-sidebar-top-row]" },
   { name: "computer-simple", query: "place=computer&mode=simple", ready: "[data-sidebar-top-row]" },
@@ -54,8 +54,8 @@ const VIEWS: Array<{ name: string; query: string; ready: string; height?: number
   { name: "computer-settings-simple", query: "place=computer&mode=simple&settings=look", ready: "[data-place-look='local']" },
   { name: "computer-colour-settings", query: "place=computer&look=teal&settings=look", ready: "[data-place-look='local'] [aria-checked='true']" },
   { name: "computer-colour-settings-simple", query: "place=computer&look=teal&mode=simple&settings=look", ready: "[data-place-look='local'] [aria-checked='true']" },
-  { name: "computer-rail", query: "railpage=1&place=computer&look=teal&rail=1", ready: "[data-rail-place='local']" },
-  { name: "computer-rail-colour", query: "railpage=1&place=computer&look=teal&rail=1&menu=local", ready: "[data-rail-menu='local']" },
+  { name: "computer-rail", query: "railpage=1&popover=64,48&place=computer&look=teal&rail=1", ready: "[data-rail-place='local']" },
+  { name: "computer-rail-colour", query: "railpage=1&popover=64,48&place=computer&look=teal&rail=1&menu=local", ready: "[data-rail-menu='local']" },
 ];
 const SKINS = [{ id: "daylight", look: "light" }, { id: "midnight", look: "dark" }];
 
@@ -64,10 +64,11 @@ async function openChrome(profile: string) {
   const page = await openHeadlessChrome(profile);
   return {
     /** Photographs the page once `ready` shows, and answers where the rail's button is (null without one). */
-    async shoot(url: string, ready: string, file: string, height = HEIGHT): Promise<{ left: number; top: number } | null> {
+    async shoot(url: string, ready: string, file: string, height = HEIGHT, behind = true): Promise<{ left: number; top: number } | null> {
       await page.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height, deviceScaleFactor: 2, mobile: false });
       await page.send("Page.navigate", { url });
-      await page.until(`document.querySelector(${JSON.stringify(ready)}) && document.querySelector("[data-sidebar-bot-row], [data-sidebar-hero]")`);
+      const sidebar = behind ? 'document.querySelector("[data-sidebar-bot-row], [data-sidebar-hero]")' : "true";
+      await page.until(`document.querySelector(${JSON.stringify(ready)}) && (${sidebar})`);
       await delay(900);
       writeFileSync(file, await page.capture());
       return await page.evaluate("(() => { const box = document.querySelector('[data-rail-toggle]')?.getBoundingClientRect(); return box ? { left: box.left, top: box.top } : null; })()");
@@ -92,7 +93,7 @@ try {
       const spots = new Map<string, Array<{ view: string; at: { left: number; top: number } | null }>>();
       for (const view of VIEWS.filter((entry) => !only || only.has(entry.name))) for (const skin of SKINS) {
         const file = join(shots, `${view.name}-${skin.look}.png`);
-        const at = await chrome.shoot(`${ui.previewUrl}?skin=${skin.id}${view.query ? `&${view.query}` : ""}`, view.ready, file, view.height);
+        const at = await chrome.shoot(`${ui.previewUrl}?skin=${skin.id}${view.query ? `&${view.query}` : ""}`, view.ready, file, view.height, !view.query.includes("railpage=1"));
         if (view.button) spots.set(view.button, [...spots.get(view.button) ?? [], { view: `${view.name}-${skin.look}`, at }]);
         console.log(file);
       }
