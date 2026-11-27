@@ -3,7 +3,8 @@ package com.lunabot.companion.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
-import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
@@ -112,9 +113,14 @@ class ChatAppWebController(
     }
 
     fun destroy() {
+        val view = webView ?: return
         replyProxy = null
-        webView?.destroy()
         webView = null
+        if (ready && loadSent) {
+            Handler(Looper.getMainLooper()).postDelayed({ view.destroy() }, 1_100)
+        } else {
+            view.destroy()
+        }
     }
 
     private fun configure(view: WebView) {

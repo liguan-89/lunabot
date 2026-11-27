@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -35,9 +36,12 @@ import com.lunabot.companion.core.AppDocument
 import com.lunabot.companion.core.AppRpcOutcome
 import com.lunabot.companion.core.Chat
 import com.lunabot.companion.core.Message
+import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 
 private fun appVersionName(context: android.content.Context): String =
@@ -51,6 +55,10 @@ object ChatAppPool {
 
     fun claim(key: String) {
         owner = key
+    }
+
+    fun claimIfFree(key: String) {
+        if (owner == null) owner = key
     }
 
     fun release(key: String) {
@@ -83,14 +91,15 @@ fun ChatAppMessageCard(
     val session = LocalCompanion.current.session
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val documentCache = remember { ChatAppDocumentCache(File(context.cacheDir, "app-documents")) }
     val dark = minisIsDark()
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val maxHeightDp = (configuration.screenHeightDp * 0.72f).toInt().coerceIn(240, 720)
+    val maxHeightDp = (configuration.screenHeightDp * 0.70f).toInt().coerceIn(240, 720)
     // WebView page units are CSS pixels, which match Android dp in a normally
     // scaled viewport; passing physical pixels would let a page grow several
     // times past the intended screen fraction.
-    val widthCss = (configuration.screenWidthDp - 52).coerceAtLeast(320)
+    var widthCss by remember(key) { mutableIntStateOf((configuration.screenWidthDp - 52).coerceAtLeast(320)) }
     val maxHeightCss = maxHeightDp
 
     var document by remember(key) { mutableStateOf<AppDocument?>(null) }
@@ -98,11 +107,14 @@ fun ChatAppMessageCard(
     var collapsed by remember(key) { mutableStateOf(false) }
     var initialized by remember(key) { mutableStateOf(false) }
     var bridgeProblem by remember(key) { mutableStateOf<String?>(null) }
-    var heightDp by remember(key, payload.height) { mutableIntStateOf((ChatAppPool.height(key) ?: payload.height ?: 160).coerceIn(72, maxHeightDp)) }
+    var heightDp by remember(key, payload.height) { mutableIntStateOf((ChatAppPool.height(key) ?: payload.height ?: 160).coerceIn(48, maxHeightDp)) }
     var reloadTick by remember(key) { mutableIntStateOf(0) }
 
+    LaunchedEffect(poolOwner, collapsed, key) {
+        if (poolOwner == null && !collapsed) ChatAppPool.claimIfFree(key)
+    }
+
     DisposableEffect(key) {
-        ChatAppPool.claim(key)
         onDispose { ChatAppPool.release(key) }
     }
 
@@ -114,12 +126,16 @@ fun ChatAppMessageCard(
         bridgeProblem = null
         try {
             val fetched = session.appDocument(chat.threadId, message.id)
-            document = fetched.takeIf { it.valid && it.rev >= payload.rev }
+            val usable = fetched.takeIf { it.valid && it.rev >= payload.rev }
                 ?: throw IllegalStateException("电脑返回了无法识别的应用页面。")
+            document = usable
+            withContext(Dispatchers.IO) { documentCache.write(chat.threadId, usable) }
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            loadError = error.message ?: "应用页面加载失败。"
+            val cached = withContext(Dispatchers.IO) { documentCache.read(chat.threadId, message.id, payload.rev) }
+            if (cached != null) document = cached
+            else loadError = error.message ?: "应用页面加载失败。"
         }
     }
 
@@ -137,7 +153,11 @@ fun ChatAppMessageCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(payload.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = minisInk, maxLines = 1)
                 Text(
-                    if (payload.source == "mcp") "MCP 应用" else "Bot 页面",
+                    when {
+                        payload.source == "mcp" -> "来自 ${payload.mcp?.serverTitle ?: payload.mcp?.server ?: "MCP 服务器"} 的应用"
+                        chat is Chat.BotChat -> "由 ${chat.bot.name} 制作的页面"
+                        else -> "Bot 页面"
+                    },
                     fontSize = 12.sp,
                     color = minisTertiary,
                 )
@@ -172,7 +192,7 @@ fun ChatAppMessageCard(
                 },
             )
             loadError != null -> ChatAppClosed(
-                text = loadError.orEmpty(),
+                text = listOfNotNull(message.text?.takeIf { it.isNotBlank() }, loadError).joinToString("\n"),
                 action = "重试",
                 danger = true,
                 onClick = { reloadTick += 1 },
@@ -209,7 +229,7 @@ fun ChatAppMessageCard(
                         }
 
                         override fun resize(height: Int) {
-                            heightDp = height.coerceIn(72, maxHeightCss)
+                            heightDp = height.coerceIn(48, maxHeightCss)
                             ChatAppPool.rememberHeight(key, heightDp)
                         }
 
@@ -232,7 +252,7 @@ fun ChatAppMessageCard(
                 }
                 if (!controller.supported) {
                     ChatAppClosed(
-                        text = "当前 Android System WebView 太旧，无法安全运行应用页面。请更新 WebView 后重试。",
+                        text = listOfNotNull(message.text?.takeIf { it.isNotBlank() }, "当前 Android System WebView 太旧，无法安全运行应用页面。请更新 WebView 后重试。").joinToString("\n"),
                         action = "显示摘要",
                         onClick = { collapsed = true },
                     )
@@ -246,7 +266,12 @@ fun ChatAppMessageCard(
                             controller.resize(widthCss, maxHeightCss)
                             controller.load(doc, widthCss, maxHeightCss, dark, heightDp)
                         },
-                        modifier = Modifier.fillMaxWidth().height(heightDp.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(heightDp.dp)
+                            .onSizeChanged { size ->
+                                widthCss = with(density) { size.width.toDp() }.value.toInt().coerceAtLeast(1)
+                            },
                     )
                     DisposableEffect(controller) {
                         onDispose {
