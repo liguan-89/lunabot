@@ -37,15 +37,15 @@ describe("lunabot service", () => {
     const npx = { action: "install" as const, dataDir: join(dir, "x"), port: 8799, publicUrl: "https://maus.example.com", script: "/home/maus/.npm/_npx/deadbeef/node_modules/lunabot/dist-server/lunabot.js", node: "/usr/bin/node", platform: "linux" as const, home: "/home/maus", user: "maus" };
     const installs: string[] = [];
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return false; } }, io)).toBe(1);
-    expect(err.join("\n")).toContain(`npm install --prefix ${join(dir, "x", "app", "latest")} lunabot@latest`);
+    expect(err.join("\n")).toContain(`npm install --prefix ${join(dir, "x", "app", "latest")} lunabot_ai@latest`);
     expect(existsSync(join(dir, "x", "lunabot.service"))).toBe(false);
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return true; }, exists: () => true }, io)).toBe(0);
     const pinned = readFileSync(join(dir, "x", "lunabot.service"), "utf8");
-    const script = join(dir, "x", "app", "latest", "node_modules", "lunabot", "dist-server", "lunabot.js");
+    const script = join(dir, "x", "app", "latest", "node_modules", "lunabot_ai", "dist-server", "lunabot.js");
     expect(pinned).toContain(`ExecStart=/usr/bin/node ${/[\s"\\]/.test(script) ? `"${script.replace(/[\\"]/g, "\\$&")}"` : script} serve`);
     expect(pinned).toContain("--public-url https://maus.example.com");
     expect(pinned).not.toContain("--no-pair");
-    expect(pinned).toContain('Environment="LUNABOT_CLI_PREFIX=npx lunabot"');
+    expect(pinned).toContain('Environment="LUNABOT_CLI_PREFIX=npx lunabot_ai"');
     expect(installs).toEqual([join(dir, "x", "app", "latest"), join(dir, "x", "app", "latest")]);
   });
 

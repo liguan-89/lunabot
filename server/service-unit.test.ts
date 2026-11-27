@@ -48,7 +48,7 @@ describe("service units", () => {
   });
 
   it("refuses to point a service at an npx cache, and knows where each platform's file goes", () => {
-    expect(unstableInstallWarning("/home/lunabot/.npm/_npx/abc123/node_modules/lunabot/cli.js")).toMatch(/npm install -g lunabot/);
+    expect(unstableInstallWarning("/home/lunabot/.npm/_npx/abc123/node_modules/lunabot/cli.js")).toMatch(/npm install -g lunabot_ai/);
     expect(unstableInstallWarning("/usr/lib/node_modules/lunabot/cli.js")).toBeNull();
     const linux = servicePlan("linux", "/home/lunabot/.lunabot");
     expect(linux?.installed).toBe("/etc/systemd/system/lunabot.service");

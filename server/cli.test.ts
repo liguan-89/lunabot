@@ -96,7 +96,7 @@ describe("lunabot command line", () => {
   describe("the pairing block", () => {
     const now = Date.parse("2026-11-07T10:00:00");
     const link = "https://mini.example/pair#code=ABCD-EFGH-JKLM";
-    const base = { code: "ABCD-EFGH-JKLM", expiresAt: now + 10 * 60_000, chatOnly: false, link, prefix: "npx lunabot", now };
+    const base = { code: "ABCD-EFGH-JKLM", expiresAt: now + 10 * 60_000, chatOnly: false, link, prefix: "npx lunabot_ai", now };
 
     it("shows one code, its link to paste into the desktop app, a QR, and the phone command the way the CLI was started", () => {
       const out = pairingBlock(base);
@@ -104,7 +104,7 @@ describe("lunabot command line", () => {
       expect(out).toContain(`Link           ${link}`);
       expect(out).toContain("＋ → Connect to a server, paste the link");
       expect(out).toContain(qrToString(link));
-      expect(out).toContain("For a phone (chat and approvals only)   npx lunabot pair --phone");
+      expect(out).toContain("For a phone (chat and approvals only)   npx lunabot_ai pair --phone");
       expect(out).not.toMatch(/omb_pair_|phone app:|this computer:/);
       expect(pairingBlock({ ...base, chatOnly: true })).toContain("· chat and approvals");
     });
@@ -114,7 +114,7 @@ describe("lunabot command line", () => {
       const out = pairingBlock({ ...base, link: null, localLink: local });
       expect(out).toContain("reachable from this machine only");
       expect(out).toContain(`Browser on this machine     ${local}`);
-      expect(out).toContain("pick a way in first: npx lunabot serve --help");
+      expect(out).toContain("pick a way in first: npx lunabot_ai serve --help");
       expect(out).not.toMatch(/[▀▄█]/);
       expect(pairingBlock({ ...base, link: null, localLink: "http://localhost:8080/pair#code=X", localPlace: "docker" })).toContain("Browser on the Docker host   http://localhost:8080/pair#code=X");
     });

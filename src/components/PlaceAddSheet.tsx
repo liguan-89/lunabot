@@ -20,7 +20,7 @@ import { BackLink, FIELD, Heading, PRIMARY_WIDE } from "./cloud-buy/parts";
 import { Layer, useIsTopLayer } from "./Layer";
 import { SwatchRadios } from "./SwatchRadios";
 
-const PAIR_COMMAND = "npx lunabot pair";
+const PAIR_COMMAND = "npx lunabot_ai pair";
 
 /** A command to run on the server, with its own Copy button. */
 function CommandLine({ command }: { command: string }) {

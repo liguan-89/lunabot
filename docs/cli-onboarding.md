@@ -4,14 +4,14 @@ Install [Node.js](https://nodejs.org/) 24 or newer, then choose either way to ru
 
 ```sh
 # Install once, then use the short command:
-npm install -g lunabot
+npm install -g lunabot_ai
 lunabot
 ```
 
 Or, without a global install:
 
 ```sh
-npx lunabot
+npx lunabot_ai
 ```
 
 Use the same command next time. The first launch guides you through setup; later launches reuse your saved AI connection and phone-access choice. `lunabot start` is the same as the bare command. If that workspace is already running, Luna Bot opens it instead of starting a second server.

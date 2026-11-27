@@ -8,7 +8,7 @@ agents: every command can print one JSON document, and the exit code says how
 things went.
 
 ```sh
-npm install -g lunabot            # or use npx lunabot …
+npm install -g lunabot_ai            # or use npx lunabot_ai …
 lunabot serve --no-pair &         # a workspace with no screen (or use your desktop app)
 lunabot engine set claude --key-env ANTHROPIC_API_KEY
 lunabot team apply launch-room.yaml
@@ -473,7 +473,7 @@ an engine that can limit built-in tools.
 
 ```yaml
 # .github/workflows/rehearse.yml (a sketch)
-- run: npm install -g lunabot @anthropic-ai/claude-code
+- run: npm install -g lunabot_ai @anthropic-ai/claude-code
 - run: lunabot serve --no-pair --data-dir "$RUNNER_TEMP/lunabot" &
   env: { LUNABOT_ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }   # the workspace's Claude key from the start
 - run: lunabot doctor --wait 2m          # the server answers and an engine is ready

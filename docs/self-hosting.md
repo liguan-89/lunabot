@@ -23,12 +23,12 @@ For server feature switches, defaults and configuration-file instructions, see
 
 | You have | Run | Link it prints |
 |---|---|---|
-| HTTPS in front already (cloudflared, Caddy, nginx) | `npx lunabot serve --public-url https://lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
-| A domain name, and ports 80 and 443 open | `npx lunabot serve --domain lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
-| Tailscale on the server and your devices | `npx lunabot serve --tailscale` | `https://<machine>.<tailnet>.ts.net/pair#code=…` |
-| Only this network (home or office) | `npx lunabot serve --lan` | `http://192.168.1.20:8799/pair#code=…` |
-| Nothing at all | `npx lunabot login`, then `npx lunabot serve --tunnel` | `https://c-….openmausbot.com/pair#code=…` |
-| Only the phone app, from anywhere (a machine with no tunnel address, for now) | `npx lunabot login --relay`, then `npx lunabot serve --relay` | a QR for the Luna Bot app ([Luna Bot Relay](phone-relay-server.md)) |
+| HTTPS in front already (cloudflared, Caddy, nginx) | `npx lunabot_ai serve --public-url https://lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
+| A domain name, and ports 80 and 443 open | `npx lunabot_ai serve --domain lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
+| Tailscale on the server and your devices | `npx lunabot_ai serve --tailscale` | `https://<machine>.<tailnet>.ts.net/pair#code=…` |
+| Only this network (home or office) | `npx lunabot_ai serve --lan` | `http://192.168.1.20:8799/pair#code=…` |
+| Nothing at all | `npx lunabot_ai login`, then `npx lunabot_ai serve --tunnel` | `https://c-….openmausbot.com/pair#code=…` |
+| Only the phone app, from anywhere (a machine with no tunnel address, for now) | `npx lunabot_ai login --relay`, then `npx lunabot_ai serve --relay` | a QR for the Luna Bot app ([Luna Bot Relay](phone-relay-server.md)) |
 
 `--lan` can be added to any of the others. Plain `http://` is only for a
 private network: the desktop app accepts it on LAN addresses, Tailscale
@@ -42,8 +42,8 @@ refuses plain http on the open internet.
 On any machine with Node 24 or newer:
 
 ```sh
-npx lunabot setup                                        # once: AI access and a default model
-npx lunabot serve --public-url https://lunabot.example.com  # or --domain, --tailscale, --lan, --tunnel
+npx lunabot_ai setup                                        # once: AI access and a default model
+npx lunabot_ai serve --public-url https://lunabot.example.com  # or --domain, --tailscale, --lan, --tunnel
 ```
 
 In a terminal, `serve` checks the address and prints one pairing block:
@@ -60,8 +60,8 @@ Link           https://lunabot.example.com/pair#code=7KQ2-M9XD-H4TP
   Phone         scan with your camera or the Luna Bot app
 
   ▄▄▄▄▄▄▄ ▄ ▄▄ ▄▄▄▄▄▄▄   (QR of the link)
-For a phone (chat and approvals only)   npx lunabot pair --phone
-New code later   npx lunabot pair
+For a phone (chat and approvals only)   npx lunabot_ai pair --phone
+New code later   npx lunabot_ai pair
 Stop with Ctrl+C
 ```
 
@@ -77,7 +77,7 @@ hetzner-1** finishes. You can also type the address (`lunabot.example.com`,
 `192.168.1.20:8799`) and the pairing code in their own fields.
 
 `serve` with no way in mints no code. It lists the ways in instead. Every
-command the CLI prints starts the way you started it (`npx lunabot`,
+command the CLI prints starts the way you started it (`npx lunabot_ai`,
 `lunabot`, `pnpm omb`, or `docker compose exec omb lunabot`), so you
 can paste it as is.
 
@@ -89,13 +89,13 @@ and don't buffer the event stream ([details](#putting-a-proxy-in-front)).
 Then:
 
 ```sh
-npx lunabot serve --public-url https://lunabot.example.com
+npx lunabot_ai serve --public-url https://lunabot.example.com
 ```
 
 Setting `LUNABOT_PUBLIC_URL=https://lunabot.example.com` in the environment works the
 same way. If the Reach line says
 `✗ https://lunabot.example.com doesn't reach this server`, the tunnel points
-somewhere else. Fix that, then run `npx lunabot status` to check again.
+somewhere else. Fix that, then run `npx lunabot_ai status` to check again.
 
 ### Docker on your computer or home network
 
@@ -149,7 +149,7 @@ Caddy gets the certificate. See [Docker (with HTTPS on your own domain)](#docker
 ### Keep it running (a service)
 
 ```sh
-npx lunabot service install --public-url https://lunabot.example.com   # the same way-in options as serve
+npx lunabot_ai service install --public-url https://lunabot.example.com   # the same way-in options as serve
 ```
 
 This writes a systemd unit (Linux) or a launchd agent (macOS) with the same
@@ -158,7 +158,7 @@ installs a copy of this exact version beside your data, because npm prunes
 its npx cache. The service log never shows a code. Get one with:
 
 ```sh
-npx lunabot pair
+npx lunabot_ai pair
 ```
 
 ## Troubleshooting
@@ -200,7 +200,7 @@ Runs fully on a server:
 - text-to-speech (with a key), the web UI (the server serves it itself)
 
 - a browser for bots, once the engine is installed on the server
-  (`npx lunabot browser install`, or nothing to do in the Docker image,
+  (`npx lunabot_ai browser install`, or nothing to do in the Docker image,
   which ships it): each bot gets its own isolated, persistent session.
   Watching it live from the app is the next step (docs/plans/browser-engine.md).
   It reaches the public internet and the dev servers a bot starts itself,
@@ -213,7 +213,7 @@ Desktop-only for now (needs the Mac/Linux app):
 
 ## Ways in, in detail
 
-`npx lunabot start` (or plain `npx lunabot`) is the guided start. It
+`npx lunabot_ai start` (or plain `npx lunabot_ai`) is the guided start. It
 asks for AI access, an account or API key, and the default model, then opens
 the workspace in this machine's browser. `setup` only configures, and `serve`
 starts without questions from the saved configuration and the flags you give
@@ -224,7 +224,7 @@ engine sign-ins and the server as the same unprivileged user: engine
 credentials live in that user's home, not all under `.lunabot`. For a
 Linux service, the [VPS guide](deploy-vps.md#before-you-start) covers the
 account, engines and browser libraries. After installing browser libraries
-as administrator, run `npx lunabot browser install` as the service user
+as administrator, run `npx lunabot_ai browser install` as the service user
 too.
 
 - **`--public-url URL`**: you already have HTTPS in front. The address must
@@ -253,7 +253,7 @@ too.
   networks and VPN tunnels are skipped. A machine with no private address
   says so and stays on loopback. Plain http travels in clear, so use it only
   on a network you trust.
-- **`--tunnel`**: `npx lunabot login` reserves an address like
+- **`--tunnel`**: `npx lunabot_ai login` reserves an address like
   `https://c-….openmausbot.com` for this machine (an emailed code signs it
   in). `serve --tunnel` connects it through a Cloudflare tunnel, the same one
   the desktop app uses for its companion. The first run downloads
@@ -262,7 +262,7 @@ too.
   lands on a separate listener that the server treats as "through a proxy",
   never as the owner. That listener gzips JSON replies of 1 KB or more when
   the client accepts gzip; the loopback port never compresses.
-  `npx lunabot logout` releases the address. The account credentials
+  `npx lunabot_ai logout` releases the address. The account credentials
   live in `~/.lunabot/tunnel-account.json` (mode 0600). Started from a
   fleet or a container, where nobody can type an emailed code? Set
   `LUNABOT_INSTALLATION_CREDENTIAL` to the installation credential the fleet
@@ -270,9 +270,9 @@ too.
   every start, and nothing is written to disk. A rejected credential stops
   the start with a clear message rather than serving locally.
 
-Later: `npx lunabot pair --label "Kitchen iPad"` for another device
+Later: `npx lunabot_ai pair --label "Kitchen iPad"` for another device
 (`--phone` for one that may chat but not change settings), and
-`npx lunabot devices` to see or sign them out. `lunabot serve` is a
+`npx lunabot_ai devices` to see or sign them out. `lunabot serve` is a
 plain foreground process. For unattended use, run `service install` (above)
 or follow the [systemd example](deploy-vps.md#keep-it-running). Restarting a
 service never downloads a new release on its own.
@@ -444,7 +444,7 @@ LUNABOT_DATA_DIR="$HOME/.lunabot" LUNABOT_PORT=8799 \
 For something durable, let the CLI write the service for you:
 
 ```sh
-npx lunabot service install --domain lunabot.example.com   # or --public-url, --tunnel, --tailscale, --lan
+npx lunabot_ai service install --domain lunabot.example.com   # or --public-url, --tunnel, --tailscale, --lan
 ```
 
 It renders a systemd unit (Linux) or a launchd agent (macOS) that runs the
@@ -456,7 +456,7 @@ that install and start it are printed (they need `sudo` on Linux).
 first installs a copy of the same version into `<data dir>/app/<version>`,
 because npm may prune its npx cache. The unit points at that copy. Not being
 a terminal, the service writes no pairing code into its log: run
-`npx lunabot pair` when you need one.
+`npx lunabot_ai pair` when you need one.
 
 Engine CLIs read their logins from the service user's home: sign them in
 from Settings → Engines (below), or as that user in a terminal, before you
@@ -578,7 +578,7 @@ Pair once, then use the server from any browser on any machine that can
 reach it. On the server:
 
 ```sh
-npx lunabot pair                         # npm install
+npx lunabot_ai pair                         # npm install
 pnpm omb pair                                # from a checkout
 docker compose exec omb lunabot pair     # Docker
 ```
@@ -589,7 +589,7 @@ address the server is reached at (`--public-url`, `--domain`, `--tunnel`,
 `--tailscale`, `--lan`, or `LUNABOT_PUBLIC_URL`). Open the link, or open `/pair`
 on that address and type the code. The browser gets a session cookie (30
 days, renewed on use up to 180 days from pairing, revocable) and the app
-loads. `npx lunabot devices` lists the paired devices and
+loads. `npx lunabot_ai devices` lists the paired devices and
 `devices revoke ID` signs one out.
 
 From the **desktop app**, choose **＋ → Connect to a server** and paste the
@@ -600,7 +600,7 @@ field. The sheet looks the address up and names what it found, for example
 then plain http when the address is private. Plain http works only on a
 private network (LAN addresses, Tailscale's 100.64/10 and `*.ts.net`,
 `*.local`); a public http address is refused with what to do instead.
-Generate a fresh code for each device: `npx lunabot pair --label "My
+Generate a fresh code for each device: `npx lunabot_ai pair --label "My
 desktop"` gives full access, and `--phone` gives chat and approvals only. A
 code already used by your phone cannot also pair your desktop.
 
@@ -827,9 +827,9 @@ npm package, the same thing from the command line, with the server running
 or not, no restart needed:
 
 ```sh
-npx lunabot access add her@yourcompany.com
-npx lunabot access add freelancer@example.com --chat-only
-npx lunabot access list
+npx lunabot_ai access add her@yourcompany.com
+npx lunabot_ai access add freelancer@example.com --chat-only
+npx lunabot_ai access list
 ```
 
 An entry is an address or `@domain` (everyone at that domain). Admins get
@@ -1509,7 +1509,7 @@ update an earlier run left unfinished.
 For the npm service there is no one-command updater yet:
 [do the same steps by hand](deploy-vps.md#paths-a-and-c-npm-with-the-service-above-the-same-steps-by-hand),
 as the service user while the server is stopped. For a foreground invocation,
-`npx --yes lunabot@X.Y.Z serve --tunnel` selects a particular published
+`npx --yes lunabot_ai@X.Y.Z serve --tunnel` selects a particular published
 release; replace `X.Y.Z` with that version.
 
 The desktop and phone apps work with any server version that was the stable

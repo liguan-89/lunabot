@@ -24,10 +24,10 @@ plain `lunabot login`.
 ## Use it
 
 ```sh
-npx lunabot login --relay   # once: an emailed code signs this machine in; no tunnel address is reserved
-npx lunabot serve --relay   # prints a QR for the phone app once the relay connects
-npx lunabot pair --phone    # a QR for another phone, later
-npx lunabot devices         # every paired device; `devices revoke ID` removes one
+npx lunabot_ai login --relay   # once: an emailed code signs this machine in; no tunnel address is reserved
+npx lunabot_ai serve --relay   # prints a QR for the phone app once the relay connects
+npx lunabot_ai pair --phone    # a QR for another phone, later
+npx lunabot_ai devices         # every paired device; `devices revoke ID` removes one
 ```
 
 `--relay` can join `--domain`, `--public-url`, `--tailscale` or `--lan`: those
