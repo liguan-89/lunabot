@@ -179,11 +179,11 @@ posixOnly("conversation branching (fake pi)", () => {
       expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "first try STALL" })).status).toBe(202);
       await waitFor(async () => (await getBot(created.id)).busy === true, "the hung turn to start");
 
-      const backendBefore = (await getBot(created.id)).cloudBackend;
-      const backendChange = await api("PATCH", `/api/bots/${created.id}`, { cloudBackend: "vps" });
-      expect(backendChange.status).toBe(409);
-      expect(backendChange.body.error).toContain("stop the active turn");
-      expect((await getBot(created.id)).cloudBackend).toBe(backendBefore);
+      const aliasBefore = (await getBot(created.id)).vpsAlias;
+      const aliasChange = await api("PATCH", `/api/bots/${created.id}`, { vpsAlias: "other-vps" });
+      expect(aliasChange.status).toBe(409);
+      expect(aliasChange.body.error).toContain("stop the active turn");
+      expect((await getBot(created.id)).vpsAlias).toBe(aliasBefore);
 
       // pi steers a mid-turn send into its live turn; only a chosen queue parks it for stop-then-steer.
       const parallel = await api("POST", `/api/bots/${created.id}/messages`, { text: "sneaky second STALL", followUp: "queue" });
