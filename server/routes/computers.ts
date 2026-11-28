@@ -1,5 +1,5 @@
 import { z, type ZodString } from "zod";
-import * as boat from "../boat.ts";
+import * as cloudDesktop from "../cloud-desktop.ts";
 import type { ComputerControl } from "../computer-control.ts";
 import { isValidSshAlias, localVmMaxInstances, localVmMode, localVmResources, type AppConfig } from "../config.ts";
 import {
@@ -63,7 +63,7 @@ export interface ComputerRouteDeps {
   existingPerBotLocalVmCount(runtime: Runtime): Promise<number>;
   teamComputersPayload(): Promise<unknown>;
   teamComputerInUse(computer: TeamComputerRecord): boolean;
-  managedBoatOwners(): boat.ManagedBoatOwner[];
+  managedBoatOwners(): vps.ManagedVpsOwner[];
   providerTransitionMessage(provider: RemoteComputerProvider): string;
   botHasActiveTurn(botId: string): boolean;
   botComputerControlKey(bot: BotRecord): string;
@@ -73,8 +73,6 @@ export interface ComputerRouteDeps {
   claimTeamComputerLifecycle(computer: TeamComputerRecord): () => void;
   /** `allowPreview`: a desktop link only reads the screen, so a panel's preview in flight does not refuse it. */
   claimBotComputerLifecycle(botId: string, allowPreview?: boolean): () => void;
-  claimBoatInventoryRequest(boxId: string): () => void;
-  claimManagedBoatMutation(instance: boat.ManagedBoatInventoryInstance): () => void;
   claimManagedVpsMutation(containerName: string): () => void;
   /** A cloud computer was just woken, created or opened: its idle window starts again. */
   cloudComputerUsed(owner: string): void;
@@ -88,7 +86,7 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
     localVmTargetForBot, localVmTargetForStatus, localVmPayload, localVmInventoryPayload, existingPerBotLocalVmCount,
     teamComputersPayload, teamComputerInUse, managedBoatOwners, providerTransitionMessage, botHasActiveTurn,
     botComputerControlKey, botComputerControlSnapshot, computerPreviewBot, computerPreviewSurface,
-    claimTeamComputerLifecycle, claimBotComputerLifecycle, claimBoatInventoryRequest, claimManagedBoatMutation,
+    claimTeamComputerLifecycle, claimBotComputerLifecycle,
     claimManagedVpsMutation, cloudComputerUsed,
   } = deps;
   const usage = createComputerUsageRoutes(deps);
@@ -121,7 +119,7 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
       found = computerId ? teamComputers.get(computerId) : undefined;
       const assertCurrentOwner = () => {
         if (auth.kind === "session" && !sessions.isLive(auth.session.id)) throw Object.assign(new Error("Your session ended; sign in again"), { status: 401 });
-        if (computerProviderConfigTransitions.has("box")) throw Object.assign(new Error(providerTransitionMessage("box")), { status: 409 });
+        if (computerProviderConfigTransitions.has("vps")) throw Object.assign(new Error(providerTransitionMessage("vps")), { status: 409 });
       };
       assertCurrentOwner();
       if (action === "control" && method === "POST" && found) {
@@ -151,7 +149,7 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
         checkAssignment();
         const release = claimTeamComputerLifecycle(found);
         try {
-          if (section !== null && !(await boat.findBoat(cfg, teamComputerOwner(found.id)))) return json(res, 409, { error: "Create or retry this computer before assigning it to a team" });
+          if (section !== null && !(await cloudDesktop.findCloudComputer(cfg, teamComputerOwner(found.id)))) return json(res, 409, { error: "Create or retry this computer before assigning it to a team" });
           checkAssignment();
           if (teamComputerInUse(found)) return json(res, 409, { error: "This team computer became busy; stop its work before assigning it" });
           teamComputers.assign(found.id, section);
@@ -161,11 +159,11 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
       if (method === "POST" && !computerId) {
         const parsed = teamComputerCreate.safeParse(body);
         if (!parsed.success) return json(res, 400, { error: "Provide requestId (UUID), a name, and acknowledgeCost: true to create a paid cloud computer" });
-        if (!boat.boatConfigured(cfg)) return json(res, 409, { error: "Configure Boat in Settings before creating a cloud computer" });
+        if (!cloudDesktop.cloudConfigured(cfg)) return json(res, 409, { error: "Configure the VPS connection in Settings before creating a cloud computer" });
         const computer = teamComputers.create(parsed.data.name, parsed.data.requestId);
         const release = claimTeamComputerLifecycle(computer);
         try {
-          await boat.provisionBoat(cfg, teamComputerOwner(computer.id), computer.name);
+          await cloudDesktop.provisionCloudComputer(cfg, teamComputerOwner(computer.id), computer.name);
           teamComputers.setProblem(computer.id);
           return json(res, 201, { id: computer.id });
         } catch (error) {
@@ -181,14 +179,14 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
           if (boatLifecycleBusyBots.has(key)) return json(res, 409, { error: "Wait for this computer's action to finish" });
           if (!computerControl.snapshot(key).held) return json(res, 409, { error: "Take control before opening this shared desktop" });
           const release = claimBotComputerLifecycle(key, true);
-          try { return json(res, 200, await boat.joinReadyBoat(cfg, key)); }
+          try { return json(res, 200, await cloudDesktop.joinReadyCloudComputer(cfg, key)); }
           finally { release(); cloudComputerUsed(key); }
         }
         const release = claimTeamComputerLifecycle(found);
         try {
           const result = action === "provision"
-            ? await boat.provisionBoat(cfg, teamComputerOwner(found.id), found.name)
-            : await boat.sleepBoat(cfg, teamComputerOwner(found.id));
+            ? await cloudDesktop.provisionCloudComputer(cfg, teamComputerOwner(found.id), found.name)
+            : await cloudDesktop.sleepCloudComputer(cfg, teamComputerOwner(found.id));
           teamComputers.setProblem(found.id);
           return json(res, 200, result);
         } catch (error) {
@@ -199,40 +197,6 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
       return json(res, 405, { error: "method not allowed" });
     }
 
-    // Read-only; lifecycle changes are revalidated against a fresh provider listing. The path keeps its historical /boxes segment.
-    if (method === "GET" && path === "/api/computers/boxes") {
-      res.setHeader("cache-control", "private, no-store");
-      return json(res, 200, await boat.listManagedBoats(cfg, managedBoatOwners()));
-    }
-    m = path.match(/^\/api\/computers\/boxes\/([\w-]+)\/(sleep|delete)$/);
-    if (m && method === "POST") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const body = await readBody(req);
-      if (computerProviderConfigTransitions.has("box")) {
-        return json(res, 409, { error: providerTransitionMessage("box") });
-      }
-      const releaseInventoryRequest = claimBoatInventoryRequest(m[1]);
-      try {
-        const owners = managedBoatOwners();
-        if (m[2] === "sleep") {
-          return json(res, 200, await boat.sleepManagedBoat(cfg, owners, m[1], claimManagedBoatMutation));
-        }
-        if (typeof body?.confirmName !== "string" || body.confirmName.length > 100) {
-          return json(res, 400, { error: "confirmName must be the cloud computer name shown in Settings" });
-        }
-        return json(res, 202, await boat.deleteManagedBoat(
-          cfg,
-          owners,
-          m[1],
-          body.confirmName,
-          claimManagedBoatMutation,
-        ));
-      } finally {
-        releaseInventoryRequest();
-      }
-    }
     if (method === "GET" && path === "/api/computers/vps") {
       res.setHeader("cache-control", "private, no-store");
       // Computers live on the default server and on each bot's own: list them all, tagged by alias.

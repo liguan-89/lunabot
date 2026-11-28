@@ -39,9 +39,9 @@ describe("isHandedWork", () => {
 
 describe("ownCloudStateWithin", () => {
   it("answers with the cloud computer's state, and marks a failed or slow lookup as unavailable", async () => {
-    await expect(ownCloudStateWithin(Promise.resolve({ box: { state: "stopped" } }))).resolves.toEqual({ state: "stopped", unavailable: false });
-    await expect(ownCloudStateWithin(Promise.resolve({ box: null }))).resolves.toEqual({ state: undefined, unavailable: false });
-    await expect(ownCloudStateWithin(Promise.reject(new Error("Boat is down")))).resolves.toEqual({ state: undefined, unavailable: true });
+    await expect(ownCloudStateWithin(Promise.resolve({ container: "stopped" as const }))).resolves.toEqual({ state: "stopped", unavailable: false });
+    await expect(ownCloudStateWithin(Promise.resolve({ container: "missing" as const }))).resolves.toEqual({ state: undefined, unavailable: false });
+    await expect(ownCloudStateWithin(Promise.reject(new Error("VPS is unreachable")))).resolves.toEqual({ state: undefined, unavailable: true });
     const started = Date.now();
     await expect(ownCloudStateWithin(new Promise(() => {}), 20)).resolves.toEqual({ state: undefined, unavailable: true });
     expect(Date.now() - started).toBeLessThan(1_000);

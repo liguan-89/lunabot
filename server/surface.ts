@@ -95,13 +95,13 @@ export function handoffUsesOwnCloud(input: { plan: Pick<SurfacePlan, "computer">
   return input.handoffWork && input.plan.computer === undefined && Boolean(input.ownCloudState);
 }
 
-/** Best effort: an unreachable Boat service counts as no cloud computer after `ms`, so a handoff still starts promptly.
+/** Best effort: an unreachable VPS counts as no cloud computer after `ms`, so a handoff still starts promptly.
  * `unavailable` marks a failed or slow lookup, which is not a confirmed "no cloud computer". */
-export function ownCloudStateWithin(status: Promise<{ box?: { state?: string | null } | null }>, ms = 3_000): Promise<{ state: string | null | undefined; unavailable: boolean }> {
+export function ownCloudStateWithin(status: Promise<{ container?: "running" | "stopped" | "missing" }>, ms = 3_000): Promise<{ state: string | null | undefined; unavailable: boolean }> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const unavailable = { state: undefined, unavailable: true };
   return Promise.race([
-    status.then((result) => ({ state: result.box?.state, unavailable: false }), () => unavailable),
+    status.then((result) => ({ state: result.container === "missing" ? null : result.container, unavailable: false }), () => unavailable),
     new Promise<typeof unavailable>((resolve) => { timer = setTimeout(() => resolve(unavailable), ms); }),
   ]).finally(() => clearTimeout(timer));
 }
