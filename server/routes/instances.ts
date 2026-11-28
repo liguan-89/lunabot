@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { providerIconError } from "../../shared/provider-icon.ts";
-import { persistableInstanceConfigs, saveConfig, withInstanceCli, type AppConfig } from "../config.ts";
+import { loadConfig, persistableInstanceConfigs, saveConfig, syncCredentialEnv, withInstanceCli, type AppConfig } from "../config.ts";
 import type { InstanceConfigMap, ModelSelection, ProviderInstance } from "../contracts.ts";
 import { BUILT_IN_DRIVERS } from "../drivers/builtIn.ts";
 import { findCliCandidates, resetPathCache } from "../env-path.ts";
@@ -9,6 +9,9 @@ import type { ProviderRegistry } from "../harness/registry.ts";
 import { checkEngine, type EngineCheck } from "../engine-check.ts";
 import { HOSTED_PROVIDER_SETTINGS_ERROR } from "../hosted-models.ts";
 import { providerIconPatchSchema, withInstanceIcon } from "../provider-icon.ts";
+import { PI_INSTANCE } from "../instance-fleets.ts";
+import { splitPiCustomModel } from "../drivers/pi-custom-provider.ts";
+import { mergeCompatModels } from "../openai-compat-models.ts";
 import type { BusyFlag, ConfigStatus } from "./config.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -41,6 +44,24 @@ const instanceSettingsSchema = z.object({
   hidden: z.boolean().optional(),
   displayName: z.string().trim().min(1).max(80).optional(),
 }).strict();
+
+/** pi 刷新可能发现更多自定义提供方模型；这里只持久化结果，不重建正在运行的提供方实例。 */
+function persistRefreshedCompatModels(cfg: AppConfig, instance: ProviderInstance | null | undefined, broadcast: (payload: Record<string, unknown>) => void, configStatus: () => ConfigStatus): boolean {
+  if (!cfg.openaiCompat || !instance) return false;
+  const discovered = instance.models.options.flatMap((option) => {
+    const custom = splitPiCustomModel(option.id);
+    return custom ? [custom.modelId] : [];
+  });
+  if (!discovered.length) return false;
+  const saved = cfg.openaiCompat.models ?? (cfg.openaiCompat.model ? [cfg.openaiCompat.model] : []);
+  const models = mergeCompatModels(saved, discovered);
+  if (models.length === saved.length && models.every((id, index) => id === saved[index])) return false;
+  saveConfig({ openaiCompat: { models } });
+  syncCredentialEnv({ openaiCompat: { models } });
+  Object.assign(cfg, loadConfig());
+  broadcast({ kind: "config", ...configStatus() });
+  return true;
+}
 
 export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
   const {
@@ -141,7 +162,13 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
         }
         if (action === "refresh-models") {
           if (!(await registry.refreshModels(instanceId))) return json(res, 404, { error: "unknown instance" });
-          return json(res, 200, { instances: await deps.describeInstances() });
+          const compatModelsSynced = instanceId === PI_INSTANCE
+            ? persistRefreshedCompatModels(cfg, registry.get(instanceId), broadcast, configStatus)
+            : false;
+          return json(res, 200, {
+            instances: await deps.describeInstances(),
+            ...(compatModelsSynced ? { config: configStatus() } : {}),
+          });
         }
         const installed = await registry.installRuntime(instanceId);
         if (!installed) return json(res, 404, { error: "Installing this engine from Settings is not available on this server. Use the install command on the machine running Luna Bot." });

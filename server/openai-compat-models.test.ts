@@ -21,6 +21,16 @@ describe("populateCompatModels", () => {
     expect(okFetch).toHaveBeenCalledTimes(1);
   });
 
+  it("fills every model the provider lists, beyond the key-check preview and the retired custom-model cap", async () => {
+    const ids = Array.from({ length: 150 }, (_, index) => `model-${index}`);
+    const cfg = connected();
+    const persisted: string[][] = [];
+    const filled = await populateCompatModels(cfg, undefined, undefined, (patch) => persisted.push(patch.openaiCompat.models), vi.fn(async () => catalog(ids)));
+    expect(filled).toBe(true);
+    expect(cfg.openaiCompat?.models).toEqual(ids);
+    expect(persisted).toEqual([ids]);
+  });
+
   it("fills when the URL save lands last and explicitly sends an empty list the provider never had models for", async () => {
     const cfg = connected([]);
     const filled = await populateCompatModels(cfg, [], undefined, noopPersist, okFetch);

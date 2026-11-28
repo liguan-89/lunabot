@@ -375,7 +375,7 @@ const appConfigSchema = z.object({
       model: optionalText,
       provider: optionalText,
       protocol: z.enum(["openai", "responses", "anthropic"]).optional(),
-      models: z.array(z.string().trim().min(1).max(200)).max(64).optional(),
+      models: z.array(z.string().trim().min(1).max(200)).optional(),
     })
     .optional(),
   /** Composio project key; `userId`/`sessionId` reuse one Composio Session. */

@@ -10695,7 +10695,6 @@
   "modelManagement.addHint": "支持逗号或空格分隔；添加后会立即出现在所有机器人的模型选择器里。",
   "modelManagement.typeModel": "请先输入模型 ID。",
   "modelManagement.duplicate": "这个模型已经在列表里了。",
-  "modelManagement.limit": "最多 64 个自定义模型。",
   "modelManagement.length": "单个模型 ID 最长 200 个字符。",
   "modelManagement.customBadge": "自定义",
   "modelManagement.showAll": "显示全部 {count} 个模型",

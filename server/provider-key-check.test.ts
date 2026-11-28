@@ -104,6 +104,13 @@ describe("provider key check", () => {
       .toEqual({ ok: true, check: "models", models: ["large", "small", "three", "four", "five"] });
   });
 
+  it("returns every valid model id when a caller asks for the whole catalog", async () => {
+    const models = Array.from({ length: 150 }, (_, index) => ({ id: `model-${index}` }));
+    const provider: typeof fetch = async () => Response.json({ data: models });
+    const verdict = await checkProviderKey({ provider: "openaiCompat", key: "fixture", url: "https://models.example.test/v1", allModels: true }, provider);
+    expect(verdict.ok && verdict.check === "models" ? verdict.models : []).toHaveLength(150);
+  });
+
   it("tells a rejected key from a broken provider and from an unreachable one", async () => {
     expect(await checkProviderKey({ provider: "xai", key: "bad-key", url: base })).toEqual({ ok: false, reason: "rejected", status: 401 });
     expect(await checkProviderKey({ provider: "xai", key: "broken-key", url: base })).toEqual({ ok: false, reason: "unexpected", status: 500 });

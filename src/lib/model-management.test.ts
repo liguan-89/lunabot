@@ -61,10 +61,11 @@ describe("addCustomModels", () => {
     expect(addCustomModels(["gpt-5"], "gpt-5")).toEqual({ ids: ["gpt-5"], added: [] });
   });
 
-  it("refuses empty input, oversized ids and more than 64 models", () => {
+  it("refuses empty input and oversized ids, with no count cap", () => {
     expect(addCustomModels(["gpt-5"], " ")).toMatchObject({ problem: "empty", added: [] });
     expect(addCustomModels([], "x".repeat(201))).toMatchObject({ problem: "length", added: [] });
-    expect(addCustomModels(Array.from({ length: 64 }, (_, index) => `m${index}`), "one-more")).toMatchObject({ problem: "limit", added: [] });
+    const existing = Array.from({ length: 150 }, (_, index) => `m${index}`);
+    expect(addCustomModels(existing, "one-more")).toEqual({ ids: [...existing, "one-more"], added: ["one-more"] });
   });
 });
 

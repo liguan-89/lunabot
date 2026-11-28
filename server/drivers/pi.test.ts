@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -12,6 +13,7 @@ import { removeTempDir } from "../testing/cleanup.ts";
 import { encodeInjectId, localHost } from "./local-inject.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
 import { ensurePiInstanceAgentDir } from "./pi-model-catalog.ts";
+import { PI_CUSTOM_ENV } from "./pi-custom-provider.ts";
 import {
   applyPiLocalCatalog,
   decodePiFrame,
@@ -335,6 +337,44 @@ describe("PiDriver catalog (fake CLI)", () => {
       ]);
     } finally {
       await instance.dispose();
+    }
+  });
+
+  it("refreshes every custom-provider model into pi's live catalog without dropping saved ids", async () => {
+    const ids = Array.from({ length: 150 }, (_, index) => `model-${index}`);
+    const provider = createServer((req, res) => {
+      if (req.url !== "/v1/models") return res.writeHead(404).end();
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ data: ids.map((id) => ({ id })) }));
+    });
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const address = provider.address();
+    if (!address || typeof address === "string") throw new Error("fixture provider has no port");
+    const home = mkdtempSync(join(tmpdir(), "omb-pi-custom-refresh-"));
+    const instance = await PiDriver.create({
+      instanceId: "pi-custom-refresh",
+      displayName: undefined,
+      environment: {
+        HOME: home,
+        PATH: process.env.PATH ?? "",
+        [PI_CUSTOM_ENV.baseUrl]: `http://127.0.0.1:${address.port}/v1`,
+        [PI_CUSTOM_ENV.auth]: "fixture-key",
+      },
+      enabled: true,
+      config: { cli: FAKE_CLI, fullAuto: false },
+    });
+    try {
+      await instance.refreshModels?.();
+      const customIds = instance.models.options
+        .filter((option) => option.id.startsWith("luna/"))
+        .map((option) => option.id.slice("luna/".length));
+      expect(customIds).toEqual(ids);
+      const modelsJson = JSON.parse(readFileSync(join(home, ".pi", "instances", "pi-custom-refresh", "models.json"), "utf8"));
+      const rows = modelsJson.providers.luna.models.map((model: { id: string }) => model.id);
+      expect(rows).toEqual(ids);
+    } finally {
+      await instance.dispose();
+      await new Promise<void>((resolve) => provider.close(() => resolve()));
     }
   });
 
