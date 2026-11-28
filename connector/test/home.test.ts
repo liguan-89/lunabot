@@ -15,9 +15,12 @@ const image = (letter: string) => `ghcr.io/milind-soni/openmausbot-cloud-home@sh
 const A = image("a"), B = image("b"), C = image("c"), D = image("d");
 const SECRET = "Bootstrap-secret-0123456789abcdefghijklmnopq";
 const RELAY = "box_omb_relay-token-0123456789abcdefghijklmnop";
+const DESKTOP_KEY = "desktop-private-key-secret";
+const DESKTOP_HOSTS = "desktop-known-hosts-secret";
 const env = {
   LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
   LUNABOT_PUBLIC_URL: "https://acme.example.test", LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_BOAT_TOKEN: RELAY,
+  LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY: DESKTOP_KEY, LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS: DESKTOP_HOSTS,
 };
 const SECCOMP = '{"defaultAction":"SCMP_ACT_ERRNO","syscalls":[]}';
 const LEASE = ".lunabot/lunabot-server.lease";
@@ -119,7 +122,7 @@ describe("the home on an own server", () => {
     });
     expect(spec.StopTimeout).toBe(30);
     expect(Object.keys(spec.HostConfig)).not.toContain("Privileged");
-    expect(spec.Env).toEqual([...Object.entries(env).map(([name, value]) => `${name}=${value}`), `LUNABOT_CLOUD_IMAGE=${A}`]);
+    expect(spec.Env).toEqual([...Object.entries(env).filter(([name]) => name !== "LUNABOT_CLOUD_BOAT_TOKEN").map(([name, value]) => `${name}=${value}`), `LUNABOT_CLOUD_IMAGE=${A}`]);
     expect(JSON.parse(readFileSync(f.state.path("home-env.json"), "utf8"))).toEqual(env);
     if (process.platform !== "win32") {
       expect(statSync(f.state.path("home-env.json")).mode & 0o777).toBe(0o600);
@@ -141,6 +144,8 @@ describe("the home on an own server", () => {
     expect(spec).toEqual(homeSpec(D, env, SECCOMP, { secretsDir, dropsCapabilities: true }));
     expect(JSON.stringify(spec)).not.toContain(SECRET);
     expect(JSON.stringify(spec)).not.toContain(RELAY);
+    expect(JSON.stringify(spec)).not.toContain(DESKTOP_KEY);
+    expect(JSON.stringify(spec)).not.toContain(DESKTOP_HOSTS);
     expect(spec.Env).toEqual([
       "LUNABOT_CLOUD_ROLE=home", `LUNABOT_CLOUD_MACHINE_ID=${env.LUNABOT_CLOUD_MACHINE_ID}`, `LUNABOT_CLOUD_ADMIN_URL=${env.LUNABOT_CLOUD_ADMIN_URL}`, `LUNABOT_PUBLIC_URL=${env.LUNABOT_PUBLIC_URL}`, `LUNABOT_CLOUD_IMAGE=${D}`,
     ]);
@@ -150,7 +155,7 @@ describe("the home on an own server", () => {
     ]);
     expect(spec.HostConfig.CapAdd).toEqual(["CHOWN", "SETUID", "SETGID", "KILL", "SYS_ADMIN", "SETPCAP"]);
     expect(readdirSync(secretsDir)).toEqual(["secrets.json"]);
-    expect(JSON.parse(readFileSync(join(secretsDir, "secrets.json"), "utf8"))).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_BOAT_TOKEN: RELAY });
+    expect(JSON.parse(readFileSync(join(secretsDir, "secrets.json"), "utf8"))).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY: DESKTOP_KEY, LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS: DESKTOP_HOSTS });
     if (process.platform !== "win32") {
       expect(statSync(secretsDir).mode & 0o777).toBe(0o700);
       expect(statSync(join(secretsDir, "secrets.json")).mode & 0o777).toBe(0o600);
@@ -199,7 +204,7 @@ describe("the home on an own server", () => {
     const f = fixture();
     f.state.write("home-env.json", env);
     new Home({ docker: f.docker, state: f.state, log: () => {}, readHealth: async () => ({ status: 0, report: null }), seccomp: () => SECCOMP, transfer: { download: async () => ({ bytes: 0 }), upload: async () => ({ bytes: 0, sha256: "" }) }, diskFree: () => 1e12 });
-    expect(JSON.parse(readFileSync(join(f.state.dir, "home-secrets", "secrets.json"), "utf8"))).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_BOAT_TOKEN: RELAY });
+    expect(JSON.parse(readFileSync(join(f.state.dir, "home-secrets", "secrets.json"), "utf8"))).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: SECRET, LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY: DESKTOP_KEY, LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS: DESKTOP_HOSTS });
   });
 
   it("clears the lease a killed home left before each start, until the image clears it itself, and never while a home runs", async () => {

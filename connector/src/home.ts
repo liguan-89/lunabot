@@ -46,13 +46,15 @@ export function launcherOf(version: readonly number[] | null): Launcher {
  * `secretsDir` (the host folder holding the secrets file) the secrets are mounted read-only instead of set in the
  * environment.
  */
+const RETIRED_HOME_ENV = new Set(["LUNABOT_CLOUD_BOAT_TOKEN", "LUNABOT_BOAT_API"]);
+
 export function homeSpec(image: string, env: Record<string, string>, seccomp: string, options: { secretsDir?: string | null; dropsCapabilities?: boolean } = {}): ContainerSpec {
   const environment = { ...env, LUNABOT_CLOUD_IMAGE: image };
   const secret = new Set<string>(options.secretsDir ? HOME_SECRET_ENV : []);
   const tls = env.LUNABOT_CLOUD_EDGE_TLS === "1";
   return {
     Image: image,
-    Env: Object.entries(environment).filter(([name]) => !secret.has(name)).map(([name, value]) => `${name}=${value}`),
+    Env: Object.entries(environment).filter(([name]) => !secret.has(name) && !RETIRED_HOME_ENV.has(name)).map(([name, value]) => `${name}=${value}`),
     Labels: { [LABELS.role]: "home", [LABELS.image]: image, [LABELS.env]: envDigest(environment) },
     ExposedPorts: { [`${HOME_PORT}/tcp`]: {}, ...(tls ? { [`${HOME_TLS_PORT}/tcp`]: {} } : {}) },
     StopTimeout: HOME_STOP_TIMEOUT_S,
