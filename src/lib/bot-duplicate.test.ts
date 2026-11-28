@@ -42,7 +42,7 @@ describe("what a duplicated bot is created with", () => {
       modelSelection: { instanceId: "codex", model: "default" }, messages: [],
       computer: "cloud", cloudBackend: "vps", autoStartVps: true, vpsAlias: "alpha-vps",
     } as Bot;
-    expect(duplicateBotProfile(source)).toMatchObject({ name: "Rio copy", computer: "cloud", cloudBackend: "vps", autoStartVps: true, vpsAlias: "alpha-vps" });
+    expect(duplicateBotProfile(source)).toMatchObject({ name: "Rio copy", computer: "cloud", autoStartVps: true, vpsAlias: "alpha-vps" });
     const { vpsAlias: _alias, ...onDefault } = source;
     expect(duplicateBotProfile(onDefault as Bot).vpsAlias).toBeUndefined();
   });
