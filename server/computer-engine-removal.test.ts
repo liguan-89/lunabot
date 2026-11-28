@@ -10,14 +10,13 @@ import { Store, type BotRecord } from "./store.ts";
 describe("the Computer engine is not offered", () => {
   it("is in no built-in driver list and no default fleet", () => {
     expect(BUILT_IN_DRIVERS.map(driver => driver.driverKind)).not.toContain("boxAgent");
-    const fleet = instanceConfigs({ box: { token: "box_fixture" } });
+    const fleet = instanceConfigs({});
     expect(fleet).not.toHaveProperty("computer");
     expect(Object.values(fleet).map(entry => entry.driver)).not.toContain("boxAgent");
   });
 
   it("drops a saved fleet's entries for it, so the next save leaves them off disk", () => {
     const cfg: AppConfig = {
-      box: { token: "box_fixture" },
       instances: {
         claude: { driver: "claudeAgent" },
         computer: { driver: "boxAgent", environment: { BOX_TOKEN: "box_instance" } },

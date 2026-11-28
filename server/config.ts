@@ -380,7 +380,6 @@ const appConfigSchema = z.object({
     .optional(),
   /** Composio project key; `userId`/`sessionId` reuse one Composio Session. */
   composio: z.object({ apiKey: optionalText, userId: optionalText, sessionId: optionalText }).optional(),
-  box: z.object({ token: optionalText }).optional(),
   vps: vpsConfigSchema.optional(),
   /** OpenCode key, plus `providerKeys` for its other providers by the env name OpenCode reads; both write-only and only for its child. */
   opencodeGo: z.object({ apiKey: optionalText, providerKeys: z.record(z.string(), z.string()).optional() }).optional(),
@@ -567,8 +566,6 @@ export interface AppConfig extends HelperConfig {
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   openaiCompat?: { key?: string; url?: string; model?: string; provider?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
-  /** Boat token (ascii.dev renamed Box to Boat); config key "box", env BOX_TOKEN. */
-  box?: { token?: string };
   /** A named host from the user's SSH config. Authentication stays with SSH. */
   vps?: { sshAlias?: string };
   opencodeGo?: { apiKey?: string; providerKeys?: Record<string, string> };
@@ -854,8 +851,6 @@ export function loadConfig(): AppConfig {
   if (process.env.OPENAI_COMPAT_MODELS !== undefined) cfg.openaiCompat.models = process.env.OPENAI_COMPAT_MODELS.split(/[,，、\s]+/).map((model) => model.trim()).filter(Boolean);
   cfg.composio = { ...cfg.composio };
   if (process.env.COMPOSIO_API_KEY !== undefined) cfg.composio.apiKey = process.env.COMPOSIO_API_KEY;
-  cfg.box = { ...cfg.box };
-  if (process.env.BOX_TOKEN !== undefined) cfg.box.token = process.env.BOX_TOKEN;
   cfg.opencodeGo = { ...cfg.opencodeGo };
   if (process.env.OPENCODE_API_KEY !== undefined) cfg.opencodeGo.apiKey = process.env.OPENCODE_API_KEY;
   cfg.tts = { ...cfg.tts };
@@ -905,7 +900,6 @@ export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "ne
     [patch.openai?.key, "LUNABOT_OPENAI_API_KEY"],
     [patch.openrouter?.key, "LUNABOT_OPENROUTER_API_KEY"],
     [patch.composio?.apiKey, "COMPOSIO_API_KEY"],
-    [patch.box?.token, "BOX_TOKEN"],
     [patch.opencodeGo?.apiKey, "OPENCODE_API_KEY"],
     [patch.tts?.key, "LUNABOT_TTS_KEY"],
     [patch.tts?.fishKey, "LUNABOT_FISH_AUDIO_API_KEY"],
@@ -1016,7 +1010,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "tk1688", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "seedance", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "wechat", "webauthn"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "tk1688", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "opencodeGo", "tts", "decider", "imageGen", "live", "seedance", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "wechat", "webauthn"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);
