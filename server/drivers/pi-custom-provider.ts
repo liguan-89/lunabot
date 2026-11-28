@@ -40,20 +40,24 @@ export function piCustomApi(protocol: PiCustomProtocol): string {
   return protocol === "responses" ? "openai-responses" : protocol === "anthropic" ? "anthropic-messages" : "openai-completions";
 }
 
+export function piCustomModelsFromEnv(env: Record<string, string | undefined>): string[] {
+  return [...new Set((env[PI_CUSTOM_ENV.models] ?? "")
+    .split(/[,，、\s]+/)
+    .map((model) => model.trim())
+    .filter(Boolean))];
+}
+
 export function piCustomProviderFromEnv(env: Record<string, string | undefined>): PiCustomProvider | null {
   const baseUrl = env[PI_CUSTOM_ENV.baseUrl]?.trim();
   if (!baseUrl) return null;
-  const models = (env[PI_CUSTOM_ENV.models] ?? "")
-    .split(/[,，、\s]+/)
-    .map((model) => model.trim())
-    .filter(Boolean);
+  const models = piCustomModelsFromEnv(env);
   if (!models.length) return null;
   return {
     displayName: env[PI_CUSTOM_ENV.displayName]?.trim() || PI_CUSTOM_PROVIDER_NAME,
     protocol: piCustomProtocol(env[PI_CUSTOM_ENV.protocol]),
     baseUrl,
     apiKey: env[PI_CUSTOM_ENV.auth]?.trim() ?? "",
-    models: [...new Set(models)].slice(0, 64),
+    models,
   };
 }
 

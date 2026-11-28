@@ -10725,7 +10725,6 @@
   "modelManagement.addHint": "Comma or space separated. Added models appear in every bot's model picker at once.",
   "modelManagement.typeModel": "Type a model ID first.",
   "modelManagement.duplicate": "That model is already in the list.",
-  "modelManagement.limit": "At most 64 custom models.",
   "modelManagement.length": "A model ID can be at most 200 characters.",
   "modelManagement.customBadge": "Custom",
   "modelManagement.showAll": "Show all {count} models",

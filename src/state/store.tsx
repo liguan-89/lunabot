@@ -3334,10 +3334,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshModels = useCallback(async (instanceId: string) => {
-    const { instances } = await api(`/api/instances/${encodeURIComponent(instanceId)}/refresh-models`, {
+    const result = await api(`/api/instances/${encodeURIComponent(instanceId)}/refresh-models`, {
       method: "POST",
     });
-    rawDispatch({ type: "instances", instances });
+    rawDispatch({ type: "instances", instances: result.instances }); if (result.config) rawDispatch({ type: "configStatus", config: result.config });
   }, []);
 
   const lastFocusProbe = useRef(0);

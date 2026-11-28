@@ -1,8 +1,7 @@
 import type { ConfigStatus } from "@/state/config-status";
 import type { InstanceInfo } from "@/state/store";
 
-/** What the server accepts per custom provider. */
-export const MAX_CUSTOM_MODELS = 64;
+/** 服务端接受的单个自定义提供方模型 ID 约束。 */
 export const MAX_MODEL_ID_LENGTH = 200;
 
 export interface ManagedModel {
@@ -74,7 +73,7 @@ export function managedModels(instance: InstanceInfo | undefined, config: Config
   return rows;
 }
 
-export type AddModelsProblem = "empty" | "limit" | "length";
+export type AddModelsProblem = "empty" | "length";
 
 /** Adds comma/space separated ids, de-duplicated; leaves `ids` untouched when nothing can be added. */
 export function addCustomModels(ids: readonly string[], text: string): { ids: string[]; added: string[]; problem?: AddModelsProblem } {
@@ -82,7 +81,6 @@ export function addCustomModels(ids: readonly string[], text: string): { ids: st
   if (incoming.length === 0) return { ids: [...ids], added: [], problem: "empty" };
   if (incoming.some((id) => id.length > MAX_MODEL_ID_LENGTH)) return { ids: [...ids], added: [], problem: "length" };
   const added = incoming.filter((id) => !ids.includes(id));
-  if (ids.length + added.length > MAX_CUSTOM_MODELS) return { ids: [...ids], added: [], problem: "limit" };
   return { ids: [...ids, ...added], added };
 }
 

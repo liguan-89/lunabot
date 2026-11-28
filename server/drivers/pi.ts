@@ -1,8 +1,5 @@
-import {
-  mergePiCustomCatalog,
-  withPiDefaultOption,
-  withoutPiCustomEnv,
-} from "./pi-custom-provider.ts";
+import { mergePiCustomCatalog, withPiDefaultOption, withoutPiCustomEnv } from "./pi-custom-provider.ts";
+import { syncPiCustomProviderModels } from "./pi-custom-provider-sync.ts";
 import {
   applyPiLocalCatalog,
   ensurePiCustomProvider,
@@ -228,6 +225,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       } catch {}
     };
     const refreshModels = async () => {
+      await syncPiCustomProviderModels(catalogEnv, piEnv);
       await updatePiModelCatalog(config.cli, catalogEnv, instanceEnvNames(input.environment, catalogEnv));
       await readModels();
     };
