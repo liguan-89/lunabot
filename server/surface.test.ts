@@ -50,9 +50,9 @@ describe("ownCloudStateWithin", () => {
 
 describe("handoffUsesOwnCloud", () => {
   const auto = resolveSurface({ destination: undefined, browserOn: true });
-  it("runs handed-off work on Auto on the receiving bot's own cloud computer, awake or asleep", () => {
+  it("runs handed-off work on Auto on the receiving bot's own cloud computer only when it is already running", () => {
     expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: "running" })).toBe(true);
-    expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: "archived" })).toBe(true);
+    expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: "stopped" })).toBe(false);
   });
   it("never creates one, and leaves a person's own turns and consults alone", () => {
     expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: null })).toBe(false);
