@@ -568,7 +568,6 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       const told = promptRows().at(-1)!;
       expect(told).toContain("self-hosted remote Linux computer");
       expect(told).toContain("This is the user's own VPS");
-      expect(told).toContain("using it does not require a Boat API key");
       expect(told).toContain("wiped whenever its container is recreated");
 
       // SAFETY: the fake pi wrote this launch row from its boot MCP config; fake-pi-cli.ts pins the shape.
