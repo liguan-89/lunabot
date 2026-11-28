@@ -58,7 +58,6 @@ function containerInspectTemplate(): string {
       Image: IMAGE_ID,
       Config: {
         Image: VPS_IMAGE,
-        Env: ["VNC_PW=test-viewer-secret"],
         Labels: {
           [VPS_MANAGED_LABEL]: "1",
           [VPS_CONTAINER_LABEL]: "__NAME__",
@@ -229,14 +228,17 @@ posixOnly("VPS turn routing e2e (fake pi fleet + fake docker over SSH)", () => {
 
     writeFileSync(join(fakeBin, "docker"), FAKE_DOCKER, { mode: 0o755 });
     chmodSync(join(fakeBin, "docker"), 0o755);
-    // Only the viewer's local listening socket is simulated; no SSH network or real VPS is contacted.
+    // Only the viewer bridge's request/response is simulated; no SSH network or real VPS is contacted.
     writeFileSync(join(fakeBin, "ssh"), `#!${process.execPath}
-import { createServer } from 'node:net';
-const args = process.argv.slice(2);
-if (!args.includes('-L')) process.exit(0);
-const forward = args[args.indexOf('-L') + 1];
-const port = Number(forward.split(':')[1]);
-createServer(socket => socket.end()).listen(port, '127.0.0.1');
+let request = '';
+process.stdin.on('data', chunk => {
+  request += chunk;
+  if (request.includes('\\r\\n\\r\\n')) {
+    process.stdout.write('HTTP/1.0 200 OK\\r\\nContent-Length: 2\\r\\n\\r\\nok');
+    request = '';
+  }
+});
+process.stdin.on('end', () => process.exit(0));
 `, { mode: 0o755 });
     writeFileSync(join(fakeBin, "image.json"), imageInspectJson());
     writeFileSync(join(fakeBin, "container.json.tpl"), containerInspectTemplate());

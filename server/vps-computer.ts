@@ -1,7 +1,7 @@
 // BYO Linux VPS: Docker's SSH transport reaches the user's daemon; one Cua MCP container per bot.
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
-import { createConnection, createServer, type AddressInfo } from "node:net";
+import { spawn, type ChildProcess } from "node:child_process";
+import { createConnection, createServer, type Server, type Socket } from "node:net";
 
 import {
   BASE_IMAGE,
@@ -81,11 +81,11 @@ const SCREENSHOT_CLEANUP_BUDGET_MS = 10_000;
 const PREPARATION_LOCK_TIMEOUT_MS = SCREENSHOT_BUDGET_MS + LOCK_ACQUIRE_TIMEOUT_MS;
 type VpsScreenshot = { png: string; format: "png" | "jpeg" };
 const pendingScreenshots = new Map<string, Promise<VpsScreenshot>>();
-const viewerConnections = new Map<string, { privateIp: string; password: string }>();
 const REMOTE_VIEWER_GRACE_MS = 30_000;
 const NATIVE_VIEWER_LIFETIME_MS = 8 * 60 * 60_000;
-type DesktopTunnel = { child: ReturnType<typeof spawn>; joinUrl: string; expiry: ReturnType<typeof setTimeout>; viewers: number; localViewer: boolean };
-type TunnelStart = { cancelled: boolean; child?: ReturnType<typeof spawn> };
+type ViewerBridgeResources = { server?: Server; sockets: Set<Socket>; children: Set<ChildProcess> };
+type DesktopTunnel = ViewerBridgeResources & { server: Server; joinUrl: string; expiry: ReturnType<typeof setTimeout>; viewers: number; localViewer: boolean };
+type TunnelStart = { cancelled: boolean; resources: ViewerBridgeResources };
 const desktopTunnels = new Map<string, DesktopTunnel>();
 const pendingDesktopTunnels = new Map<string, { promise: Promise<DesktopTunnel>; start: TunnelStart }>();
 
@@ -164,18 +164,34 @@ export function vpsDockerArgs(alias: string, args: string[]): string[] {
   return ["-H", `ssh://${alias}`, ...args];
 }
 
-/** Never published by Docker: SSH forwards one loopback port to noVNC, and every caller-controlled part is validated before argv. */
-export function vpsSshTunnelArgs(alias: string, localPort: number, privateIp: string, configPath: string | null = null): string[] {
+const VIEWER_PROXY_SOURCE = `import os, socket, threading
+stream = socket.create_connection(("127.0.0.1", ${INTERNAL_VIEWER_PORT}))
+def feed():
+    while chunk := os.read(0, 65536):
+        stream.sendall(chunk)
+    try:
+        stream.shutdown(socket.SHUT_WR)
+    except OSError:
+        pass
+threading.Thread(target=feed, daemon=True).start()
+while chunk := stream.recv(65536):
+    os.write(1, chunk)
+`;
+const VIEWER_PROXY_COMMAND = `/opt/venv/bin/python -I -c "import base64;exec(base64.b64decode('${Buffer.from(VIEWER_PROXY_SOURCE, "utf8").toString("base64")}'))"`;
+
+/** The exact restricted command the managed desktop host's forced-command wrapper must allow. */
+export function vpsViewerRemoteCommand(containerName: string): string {
+  if (!CONTAINER_NAME.test(containerName) && !CONTAINER_ID.test(containerName)) throw new Error("invalid VPS viewer container");
+  return `docker exec -i ${containerName} ${VIEWER_PROXY_COMMAND}`;
+}
+
+/** One SSH process carries one viewer TCP connection; the local bridge starts one per accepted connection. */
+export function vpsSshViewerArgs(alias: string, containerName: string, configPath: string | null = null): string[] {
   if (!isValidSshAlias(alias)) throw new Error("invalid VPS SSH config alias");
-  if (!Number.isInteger(localPort) || localPort < 1024 || localPort > 65535) throw new Error("invalid VPS viewer port");
-  if (!privateDockerIpv4(privateIp)) throw new Error("invalid VPS private container address");
   return [
     ...(configPath ? ["-F", configPath] : []),
-    "-N",
     "-o",
     "BatchMode=yes",
-    "-o",
-    "ExitOnForwardFailure=yes",
     "-o",
     "PermitLocalCommand=no",
     "-o",
@@ -184,29 +200,12 @@ export function vpsSshTunnelArgs(alias: string, localPort: number, privateIp: st
     "ServerAliveInterval=30",
     "-o",
     "ServerAliveCountMax=3",
-    "-L",
-    `127.0.0.1:${localPort}:${privateIp}:${INTERNAL_VIEWER_PORT}`,
     alias,
+    vpsViewerRemoteCommand(containerName),
   ];
 }
 
-function unusedLoopbackPort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once("error", reject);
-    probe.listen(0, "127.0.0.1", () => {
-      // SAFETY: bound to an IPv4 TCP address above, so Node returns AddressInfo, not a socket path.
-      const port = (probe.address() as AddressInfo).port;
-      probe.close((error) => {
-        if (error) reject(error);
-        else if (port >= 1024) resolve(port);
-        else reject(new Error("could not reserve a VPS viewer port"));
-      });
-    });
-  });
-}
-
-function loopbackAnswers(port: number): Promise<boolean> {
+function loopbackHttpAnswers(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = createConnection({ host: "127.0.0.1", port });
     let settled = false;
@@ -216,10 +215,20 @@ function loopbackAnswers(port: number): Promise<boolean> {
       socket.destroy();
       resolve(answer);
     };
-    socket.once("connect", () => finish(true));
+    socket.once("connect", () => socket.write("GET /vnc.html HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n"));
+    socket.once("data", () => finish(true));
     socket.once("error", () => finish(false));
-    socket.setTimeout(250, () => finish(false));
+    socket.setTimeout(750, () => finish(false));
   });
+}
+
+function closeViewerBridge(resources: ViewerBridgeResources): void {
+  if (resources.server?.listening) resources.server.close();
+  for (const socket of resources.sockets) socket.destroy();
+  resources.sockets.clear();
+  for (const child of resources.children) {
+    if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
+  }
 }
 
 function stopDesktopTunnel(botId: string, expected?: DesktopTunnel): boolean {
@@ -227,8 +236,7 @@ function stopDesktopTunnel(botId: string, expected?: DesktopTunnel): boolean {
     const pending = pendingDesktopTunnels.get(botId);
     if (pending) {
       pending.start.cancelled = true;
-      const child = pending.start.child;
-      if (child?.exitCode === null && !child.killed) child.kill("SIGTERM");
+      closeViewerBridge(pending.start.resources);
       pendingDesktopTunnels.delete(botId);
     }
   }
@@ -236,7 +244,7 @@ function stopDesktopTunnel(botId: string, expected?: DesktopTunnel): boolean {
   if (!tunnel || desktopTunnels.get(botId) !== tunnel) return false;
   desktopTunnels.delete(botId);
   clearTimeout(tunnel.expiry);
-  if (tunnel.child.exitCode === null && !tunnel.child.killed) tunnel.child.kill("SIGTERM");
+  closeViewerBridge(tunnel);
   return true;
 }
 
@@ -256,12 +264,12 @@ export function closeAllVpsDesktopTunnels(): void {
 
 export function vpsDesktopConnection(botId: string) {
   const tunnel = desktopTunnels.get(botId);
-  if (!tunnel || tunnel.child.exitCode !== null || tunnel.child.killed) return;
+  if (!tunnel || !tunnel.server.listening) return;
   const url = new URL(tunnel.joinUrl);
   return {
     port: Number(url.port),
     password: new URLSearchParams(url.hash.slice(1)).get("password"),
-    live: () => desktopTunnels.get(botId) === tunnel && tunnel.child.exitCode === null && !tunnel.child.killed,
+    live: () => desktopTunnels.get(botId) === tunnel && tunnel.server.listening,
     retain: () => {
       tunnel.viewers++;
       if (!tunnel.localViewer) clearTimeout(tunnel.expiry);
@@ -319,22 +327,6 @@ function transportFailure(message: string): string {
   return `Docker over SSH failed while checking the VPS: ${message.trim().slice(0, 200) || "unknown transport error"}`;
 }
 
-function privateDockerIpv4(value: string | undefined): boolean {
-  if (!value) return false;
-  const parts = value.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
-  return (
-    parts[0] === 10 ||
-    (parts[0] === 172 && parts[1]! >= 16 && parts[1]! <= 31) ||
-    (parts[0] === 192 && parts[1] === 168)
-  );
-}
-
-function viewerPassword(env: string[] | undefined): string | null {
-  const value = env?.find((entry) => entry.startsWith("VNC_PW="))?.slice("VNC_PW=".length);
-  return value && /^[A-Za-z0-9_-]{8,128}$/.test(value) ? value : null;
-}
-
 function hasNoHostMounts(detail: {
   Mounts?: unknown;
   HostConfig?: { Binds?: string[] | null; VolumesFrom?: string[] | null };
@@ -387,7 +379,6 @@ async function computeVpsComputerStatus(
   const alias = vpsSshAlias(cfg);
   const status = emptyStatus(botId, alias);
   if (!alias) return status;
-  viewerConnections.delete(`${alias}:${status.container_name}`);
   const run = (args: string[], timeoutMs = 10_000, input?: string) =>
     runner(vpsDockerArgs(alias, args), { timeoutMs, input });
   // Retry only read-only inspections, never an exec or mutation whose outcome a lost connection hides.
@@ -466,15 +457,6 @@ async function computeVpsComputerStatus(
     status.security = dockerSecurityIsHardened(detail?.HostConfig, { restartPolicy: "any" })
       ? "hardened"
       : "unsafe";
-
-    const connectionKey = `${alias}:${status.container_name}`;
-    const privateIp = Object.values(detail?.NetworkSettings?.Networks ?? {})[0]?.IPAddress;
-    const password = viewerPassword(detail?.Config?.Env);
-    if (status.managed && privateIp && privateDockerIpv4(privateIp) && password) {
-      viewerConnections.set(connectionKey, { privateIp, password });
-    } else {
-      viewerConnections.delete(connectionKey);
-    }
 
     const containerRef = status.container_id;
     const canProbe =
@@ -951,7 +933,6 @@ export async function removeManagedVpsComputer(
       );
     }
     invalidateVpsStatus(key);
-    viewerConnections.delete(key);
     if (instance.ownerBotId) stopDesktopTunnel(instance.ownerBotId);
     return { removed: true, name: instance.name };
   });
@@ -1066,14 +1047,14 @@ export async function vpsComputerJoin(
   if (!alias) throw Object.assign(new Error("VPS is not configured"), { status: 409 });
 
   let tunnel = desktopTunnels.get(botId);
-  if (tunnel && (tunnel.child.exitCode !== null || tunnel.child.killed)) {
+  if (tunnel && !tunnel.server.listening) {
     stopDesktopTunnel(botId, tunnel);
     tunnel = undefined;
   }
   if (!tunnel) {
     let pending = pendingDesktopTunnels.get(botId);
     if (!pending) {
-      const start: TunnelStart = { cancelled: false };
+      const start: TunnelStart = { cancelled: false, resources: { sockets: new Set(), children: new Set() } };
       pending = { start, promise: startDesktopTunnel(cfg, botId, alias, runner, start) };
       pendingDesktopTunnels.set(botId, pending);
     }
@@ -1092,64 +1073,73 @@ export async function vpsComputerJoin(
 
 async function startDesktopTunnel(cfg: AppConfig, botId: string, alias: string, runner: VpsCommandRunner, start: TunnelStart): Promise<DesktopTunnel> {
   const assertOpen = () => { if (start.cancelled) throw new Error("VPS desktop tunnel start was cancelled"); };
-  // Always re-inspect: a cached IP or password may predate a container replacement.
+  // Always re-inspect: a cached container may predate a replacement.
   const status = await computeVpsComputerStatus(cfg, botId, runner);
   assertOpen();
   if (!status.ready) {
     throw Object.assign(new Error(status.problem ?? "The VPS computer is not ready"), { status: 409 });
   }
-  const connection = viewerConnections.get(`${alias}:${status.container_name}`);
-  if (!connection) {
-    throw Object.assign(
-      new Error("This VPS computer predates secure live desktop access — replace its managed container once"),
-      { status: 409 },
-    );
-  }
 
-  const localPort = await unusedLoopbackPort();
-  assertOpen();
   const ssh = prepareVpsSsh(DATA_DIR, augmentedPath());
-  const child = spawn("ssh", vpsSshTunnelArgs(alias, localPort, connection.privateIp, ssh.configPath), {
-    shell: false,
-    env: { ...process.env, PATH: ssh.path },
-    stdio: ["ignore", "ignore", "pipe"],
-    windowsHide: true,
-  });
-  start.child = child;
-  let failure: string | null = null;
-  let stderr = "";
-  child.stderr?.setEncoding("utf8");
-  child.stderr?.on("data", (chunk: string) => {
-    stderr = `${stderr}${chunk}`.slice(-1000);
-  });
-  child.once("error", (error) => {
-    failure = error.message;
-  });
-  child.once("close", (code) => {
-    const active = desktopTunnels.get(botId);
-    if (active?.child === child) {
-      clearTimeout(active.expiry);
-      desktopTunnels.delete(botId);
+  const connect = (socket: Socket) => {
+    const child = spawn("ssh", vpsSshViewerArgs(alias, status.container_name, ssh.configPath), {
+      shell: false,
+      env: { ...process.env, PATH: ssh.path },
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    start.resources.children.add(child);
+    start.resources.sockets.add(socket);
+    child.stderr?.resume();
+    child.once("error", () => socket.destroy());
+    child.once("close", () => {
+      start.resources.children.delete(child);
+      socket.end();
+    });
+    socket.once("close", () => {
+      start.resources.sockets.delete(socket);
+      if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
+    });
+    child.stdin?.once("error", () => socket.destroy());
+    if (!child.stdout || !child.stdin) {
+      socket.destroy();
+      return;
     }
-    if (!failure) failure = stderr.trim() || `SSH viewer tunnel exited ${code ?? "without a status"}`;
+    child.stdout.pipe(socket);
+    socket.pipe(child.stdin);
+  };
+  const server = createServer(connect);
+  start.resources.server = server;
+  const localPort = await new Promise<number>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") reject(new Error("could not reserve a VPS viewer port"));
+      else resolve(address.port);
+    });
   });
+  assertOpen();
 
   const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline && !failure) {
-    if (await loopbackAnswers(localPort)) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  let ready = false;
+  while (Date.now() < deadline && !ready) {
+    ready = await loopbackHttpAnswers(localPort);
+    if (!ready) await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  const ready = !failure && await loopbackAnswers(localPort);
-  if (start.cancelled || failure || !ready) {
-    if (child.exitCode === null && !child.killed) child.kill("SIGTERM");
+  if (start.cancelled || !ready) {
+    closeViewerBridge(start.resources);
     assertOpen();
-    const detail = failure || stderr.trim() || "the SSH port forward did not become ready";
-    throw Object.assign(new Error(`Could not open the VPS live desktop: ${detail}`), { status: 502 });
+    throw Object.assign(new Error("Could not open the VPS live desktop: the container viewer bridge did not become ready"), { status: 502 });
   }
 
-  const joinUrl = `http://127.0.0.1:${localPort}/vnc.html#autoconnect=true&resize=scale&password=${encodeURIComponent(connection.password)}`;
+  const joinUrl = `http://127.0.0.1:${localPort}/vnc.html#autoconnect=true&resize=scale`;
   const tunnel: DesktopTunnel = {
-    child, joinUrl, viewers: 0, localViewer: false,
+    server,
+    sockets: start.resources.sockets,
+    children: start.resources.children,
+    joinUrl,
+    viewers: 0,
+    localViewer: false,
     expiry: setTimeout(() => stopDesktopTunnel(botId, tunnel), REMOTE_VIEWER_GRACE_MS),
   };
   tunnel.expiry.unref();
