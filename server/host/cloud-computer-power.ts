@@ -34,6 +34,8 @@ export interface CloudComputerPowerDeps {
   routineComputer(routine: ScheduledRoutine): string | null;
   /** Resolves the VPS alias for a bot-owned computer; team computers use cfg. */
   cfgForBot?(bot: BotRecord): AppConfig;
+  /** Resolves the owner key used for sleeps and inventory; team computers use cfg. */
+  cfgForOwner?(owner: string): AppConfig;
   /** Every alias the installation scans when arming computers left running. */
   vpsAliases?(): string[];
   broadcast(payload: Record<string, unknown>): void;
@@ -48,13 +50,7 @@ export function createCloudComputerPower(deps: CloudComputerPowerDeps) {
   let listingRetry: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
 
-  const cfgForOwner = (owner: string) => {
-    const bot = deps.owners().find((entry) => entry.botId === owner);
-    // Bot ids are stable enough for this lookup only through owners; team owner keys deliberately fall back to cfg.
-    const record = bot && !owner.startsWith("computer_") ? { id: owner, vpsAlias: undefined } : null;
-    void record;
-    return cfg;
-  };
+  const cfgForOwner = (owner: string) => deps.cfgForOwner?.(owner) ?? cfg;
   const routineDueSoon = (owner: string) => deps.routines().some(routine => routine.enabled && routine.nextRunAt !== null &&
     routine.nextRunAt - Date.now() <= ROUTINE_DUE_SOON_MS && deps.routineComputer(routine) === owner);
   const busy = (owner: string) => (starting.get(owner) ?? 0) > 0 || deps.busy(owner) || routineDueSoon(owner);

@@ -5772,6 +5772,7 @@ const LOCAL_VM_DESKTOP_WAIT_MS = 90_000;
 const localVmIdles = new Map<string, ComputerIdleTimer>();
 const meetingsHost = createMeetingsHost({ cfg, dataDir: DATA_DIR, store, startTurn: (botId, text, opts) => startTurn(botId, text, opts), threadBusy, power: () => cloudComputerPower, computerOwner: (bot) => botComputerControlKey(bot), routines: () => routines, log: (line) => console.warn(line) }, () => ({ personName: personNameIn, sendsFreely: (botId, threadId) => roomTurnLevels.forRequest(threadId, botId, () => sourceApprovalMode(botId, threadId)) === "full", outbound: () => outboundHold, markOutside: (threadId) => outsideLineage.mark(threadId), folder: (botId, threadId) => messageFileRootsForThread(botId, threadId).filter((root) => root !== ATTACHMENTS_DIR)[0] ?? null })); const cloudComputerPower = createCloudComputerPower({
   cfg, owners: managedBoatOwners, broadcast, log: line => console.warn(line), routines: () => routines?.listRoutines() ?? [],
+  cfgForBot: bot => vpsConfigForBot(cfg, bot), cfgForOwner: owner => { const bot = store.bot(owner); return bot ? vpsConfigForBot(cfg, bot) : cfg; },
   routineComputer: routine => { const bot = store.bot(routine.botId); return bot && turnProvider(bot, routine.runOn) !== null ? botComputerControlKey(bot) : null; },
   busy: owner => computerProviderConfigTransitions.has("box") || boatLifecycleBusyBots.has(owner) || managedBoatOwners().some(entry => entry.botId === owner && entry.inUse) || meetingsHost.keepsAwake(owner),
   claim: owner => { const team = teamComputers.list().find(entry => teamComputerOwner(entry.id) === owner); return team ? claimTeamComputerLifecycle(team) : claimBotComputerLifecycle(owner); },
@@ -5910,7 +5911,7 @@ async function attachTeamBoat(computer: TeamComputerRecord, owner: TurnOwner, on
 /** The turn runs from the start; only its first screen call takes the team's computer. */
 function mountTeamBoat(computer: TeamComputerRecord, botId: string, owner: TurnOwner, canMount: boolean, opts: { onClaimed: (capture: () => Promise<{ png: string; format: string }>) => void; onRejected: (failure: string, error?: unknown) => void }): NonNullable<SendTurnInput["integrations"]>["localComputer"] {
   if (!canMount) throw new Error("This model cannot use the team's cloud computer; choose a model provider with computer tools or an explicit bot destination");
-  if (!boat.boatConfigured(cfg)) throw new Error("The team's Boat account is not configured; reconnect it in Settings");
+  if (!cloudDesktop.cloudConfigured(cfg)) throw new Error("The team cloud computer VPS is not configured; connect it in Settings");
   teamComputerTurns.set(owner.threadId, { owner, computerId: computer.id, botId });
   const slot: AutoVmClaimSlot = { owner, lazy: true, startsComputer: true, label: "the team's cloud computer", onRejected: opts.onRejected, claim: async () => {
     const attached = await attachTeamBoat(computer, owner, () => { slot.pendingReason = CLOUD_COMPUTER_STARTING; });
@@ -13569,8 +13570,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (internalCapability.boxId === undefined) return json(res, 403, { error: "this turn has no cloud computer" });
         const abort = new AbortController();
         res.once("close", () => { if (!res.writableEnded) abort.abort(); });
+        const computerBot = store.bot(internalCapability.botId);
+        const computerCfg = internalCapability.teamComputerId || !computerBot ? cfg : vpsConfigForBot(cfg, computerBot);
         return json(res, 200, { result: await cloudComputerRpc(body, {
-          cfg, signal: abort.signal, folder: () => messageFileRootsForThread(internalCapability.botId, internalCapability.threadId)[0],
+          cfg: computerCfg, signal: abort.signal, folder: () => messageFileRootsForThread(internalCapability.botId, internalCapability.threadId)[0],
           boxId: () => internalCapability.boxId ?? claimedBoatId(internalCapability),
           gate: () => computerCallGate(internalCapability, abort.signal),
           assertActive: requireActiveInternalCapability,
