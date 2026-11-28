@@ -11,7 +11,6 @@ import { setAdvancedMode, useAdvancedMode } from "@/lib/interface-mode";
 import { SIMPLE_ONLY } from "@/lib/simple-only";
 import { ComputerFilesPane } from "./ComputerFilesPane";
 import { effectivePlace, isComputerPlace, personPin, placeLabelKey, placeOffered } from "@/lib/place";
-import type { CloudBackend } from "../../shared/wire";
 import { openKeySettings } from "./keys/key-focus";
 import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
@@ -39,7 +38,7 @@ import { LocalScreenPreview } from "./LocalScreenPreview";
 import { LinuxLocalControl } from "./LinuxLocalControl";
 import { MacLocalControl } from "./MacLocalControl"; import { WindowsLocalControl } from "./WindowsLocalControl";
 import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
-import { busyBoatView, instanceSupportsLocalComputer, localComputerDisabledReason, localComputerSelectable, pageOnRemoteServer, persistedComputerSelectionMatches, isReadyBoatState, resolveBoatPanelAction, shouldPollCloudPreview } from "@/lib/local-computer";
+import { busyBoatView, instanceSupportsLocalComputer, localComputerDisabledReason, localComputerSelectable, pageOnRemoteServer, persistedComputerSelectionMatches, isReadyBoatState, shouldPollCloudPreview } from "@/lib/local-computer";
 import { moveBetweenTabs, PANEL_TABS, panelTabProps, scrollTabsWithWheel, TAB_PANEL_FOCUS, tabPanelProps, useAndroidTabFallback } from "./computer-panel-tabs";
 import { releaseComputerPanelFocus, useComputerPanelEntry } from "@/lib/computer-panel-focus";
 import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, useComputerPanelResize } from "./computer-panel-resize";
@@ -159,24 +158,20 @@ export function ComputerPanel({
   const [persistedComputerSelection, setPersistedComputerSelection] = useState<{
     botId: string;
     computer: Bot["computer"];
-    cloudBackend: CloudBackend;
     section: string;
   } | null>(null);
   const [resolvedComputerSelection, setResolvedComputerSelection] = useState<{
     botId: string;
     threadId: string;
     computer: Bot["computer"];
-    cloudBackend: CloudBackend;
   } | null>(null);
   const [teamComputer, setTeamComputer] = useState<{
     id: string; name: string; botId: string; section: string;
   } | null>(null);
-  const cloudBackend: CloudBackend = "vps";
   const computerSelectionPersisted = Boolean(
     persistedComputerSelection
       && persistedComputerSelection.botId === bot.id
       && persistedComputerSelection.computer === profileBot.computer
-      && persistedComputerSelection.cloudBackend === cloudBackend
       && persistedComputerSelection.section === (bot.section?.trim() ?? ""),
   );
   const computerStatusCurrent = Boolean(
@@ -184,23 +179,20 @@ export function ComputerPanel({
       && resolvedComputerSelection.botId === bot.id
       && resolvedComputerSelection.threadId === bot.threadId
       && resolvedComputerSelection.computer === bot.computer
-      && resolvedComputerSelection.cloudBackend === cloudBackend,
+    ,
   );
   const currentTeamComputer = computerStatusCurrent && livePlace === "auto"
     && teamComputer?.botId === bot.id && teamComputer.section === (bot.section?.trim() ?? "")
     ? teamComputer : null;
   const cloudPreviewReady = computerStatusCurrent && shouldPollCloudPreview({
     computer: bot.computer,
-    cloudBackend,
     phase,
     botId: bot.id,
     resolvedBotId: resolvedComputerSelection?.botId ?? null,
     resolvedComputer: resolvedComputerSelection?.computer ?? null,
-    resolvedCloudBackend: resolvedComputerSelection?.cloudBackend ?? null,
   });
   const updateComputerSelection = useCallback((patch: {
     computer?: Bot["computer"] | null;
-    cloudBackend?: CloudBackend;
     browser?: boolean;
     acknowledgeLocalAuto?: boolean;
   }) => {
@@ -217,21 +209,19 @@ export function ComputerPanel({
       if (!alive) return;
       if (persistedBot && !persistedComputerSelectionMatches({
         computer: profileBot.computer,
-        cloudBackend,
         persistedBot,
       })) return;
       if (persistedBot && (persistedBot.section?.trim() ?? "") !== (bot.section?.trim() ?? "")) return;
       setPersistedComputerSelection({
         botId: bot.id,
         computer: profileBot.computer,
-        cloudBackend,
         section: bot.section?.trim() ?? "",
       });
     });
     return () => {
       alive = false;
     };
-  }, [bot.id, profileBot.computer, bot.section, cloudBackend, flushBotPatches]);
+  }, [bot.id, profileBot.computer, bot.section, flushBotPatches]);
   const [boatState, setBoatState] = useState<string | null>(null);
   const [polledFrame, setPolledFrame] = useState<{ png: string; mime: string } | null>(null);
   const [previewError, setPreviewError] = useState<Error | string | null>(null);
@@ -368,7 +358,7 @@ export function ComputerPanel({
     .filter((routine) => routine.botId === bot.id)
     .sort((a, b) => Number(b.enabled) - Number(a.enabled) || (a.nextRunAt ?? Infinity) - (b.nextRunAt ?? Infinity));
   const cloudRoutineReady = Boolean(
-    state.config?.box.configured &&
+    state.config?.vps?.configured &&
       boatCapableEngine(state.instances, bot.modelSelection.instanceId)?.snapshot.state === "available",
   );
   const activeRoutineRun = state.routineRuns.find(
@@ -407,7 +397,7 @@ export function ComputerPanel({
         setError(new LocalizedPanelError("computer.err.localEngine"));
       }
       setPhase(capabilitiesReady && localAvailable && providerSupportsLocal ? "local" : "local-unavailable");
-      setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer, cloudBackend });
+      setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer });
       return;
     }
     if (bot.computer === "vm") {
@@ -421,7 +411,7 @@ export function ComputerPanel({
         .then((rawStatus) => {
           if (!alive) return;
           const status: LocalVmStatus = rawStatus;
-          setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer, cloudBackend });
+          setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer });
           setVmStatus(status);
           if (status.ready) {
             vmReadinessAttempts.current = 0;
@@ -468,7 +458,7 @@ export function ComputerPanel({
       return;
     }
     if (bot.computer !== "cloud" && !capabilitiesReady) return;
-    if (cloudBackend === "vps") {
+    {
       api(threadPath("computer"))
         .then((rawStatus) => {
           if (!alive) return;
@@ -478,7 +468,6 @@ export function ComputerPanel({
             botId: bot.id,
             threadId: bot.threadId,
             computer: bot.computer,
-            cloudBackend,
           });
           if (!status.configured) {
             setError(new LocalizedPanelError("computer.err.vpsAlias"));
@@ -494,26 +483,6 @@ export function ComputerPanel({
             setError(status.problem);
             setPhase("vps-incompatible");
             return;
-          }
-          if (canManageCloud) {
-            setPhase("starting");
-            return api(`/api/bots/${bot.id}/computer/provision`, { method: "POST" }).then((result) => {
-              if (!alive) return;
-              setBoatState(result.container ?? null);
-              if (result.ready) {
-                setResolvedComputerSelection({
-                  botId: bot.id,
-                  threadId: bot.threadId,
-                  computer: bot.computer,
-                  cloudBackend,
-                });
-                setPhase("ready");
-              }
-              else {
-                setError(result.problem ?? new LocalizedPanelError("computer.err.vpsNotReady"));
-                setPhase("error");
-              }
-            });
           }
           setBoatState(status.container ?? null);
           setError(
@@ -532,60 +501,12 @@ export function ComputerPanel({
         alive = false;
       };
     }
-    // Opening the panel only looks: it never creates or wakes a Boat.
-    api(threadPath("computer"))
-      .then((status) => {
-        if (!alive) return;
-        const action = resolveBoatPanelAction({
-          computer: livePlace === "cloud" ? "cloud" : undefined,
-          configured: Boolean(status.configured),
-          boatState: typeof status.box?.state === "string" ? status.box.state : null,
-          canUseCloud: cloudSupported,
-          autoLocal: false,
-          teamComputer: typeof status.teamComputer?.id === "string" && typeof status.teamComputer?.name === "string",
-          busy: profileBot.busy,
-        });
-        setResolvedComputerSelection({
-          botId: bot.id,
-          threadId: bot.threadId,
-          computer: bot.computer,
-          cloudBackend,
-        });
-        if (!status.configured && bot.computer === "cloud" && !status.teamComputer) {
-          setPhase("unconfigured");
-          return;
-        }
-        if (action === "team-boat") {
-          setTeamComputer({ id: status.teamComputer.id, name: status.teamComputer.name,
-            botId: bot.id, section: bot.section?.trim() ?? "" });
-          setBoatState(typeof status.box?.state === "string" ? status.box.state : status.configured ? "missing" : "unavailable");
-          setError(typeof status.problem === "string" ? status.problem : null);
-          setPhase("team-boat");
-          return;
-        }
-        if (action === "attach-ready-boat" || (bot.computer === "cloud" && action === "show-ready-boat")) {
-          setBoatState(typeof status.box?.state === "string" ? status.box.state : null);
-          setPhase("ready");
-          return;
-        }
-        setBoatState(typeof status.box?.state === "string" ? status.box.state : null);
-        setPhase(action);
-      })
-      .catch((e) => {
-        if (!alive) return;
-        setError(e.message);
-        setPhase("error");
-      });
-    return () => {
-      alive = false;
-    };
   }, [
     bot.id,
     bot.threadId,
     bot.computer,
     bot.section,
     bot.autoStartVps, bot.vpsAlias,
-    cloudBackend,
     retry,
     capabilitiesReady,
     localSelectable,
@@ -644,7 +565,7 @@ export function ComputerPanel({
   }, [bot.id, dispatch]);
   const liveTarget = !computerStatusCurrent ? null
     : phase === "vm" && vmStatus?.viewer_url && vmStatus.target_key ? viewerTargetId({ key: vmStatus.target_key })
-      : cloudPreviewReady && cloudBackend === "vps" ? `vps/${bot.id}` : null;
+      : cloudPreviewReady ? `vps/${bot.id}` : null;
   const takeover = useComputerTakeover({
     botId: bot.id, session: `${viewerConnectionKey}:${panelView}`, held: control.held, request: requestControl,
     viewerClose: liveTarget?.startsWith("vps/") ? threadPath("computer/viewer-close") : null,
@@ -725,7 +646,7 @@ export function ComputerPanel({
       controller.abort();
       clearInterval(timer);
     };
-  }, [panelView, cloudPreviewReady, threadPath, cloudBackend, viewerOpen, liveHere, pageVisible, pending, controlPending, previewRetry]);
+  }, [panelView, cloudPreviewReady, threadPath, viewerOpen, liveHere, pageVisible, pending, controlPending, previewRetry]);
 
   useEffect(() => {
     if (panelView !== "computer" || phase !== "vm" || !computerStatusCurrent || viewerOpen || liveHere || !pageVisible) return;
@@ -914,7 +835,7 @@ export function ComputerPanel({
           setBoatState(result.container ?? null);
           if (result.ready) {
             if (bot.computer === "cloud") {
-              setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer, cloudBackend });
+              setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer });
             }
             setPhase("ready");
           }
@@ -925,9 +846,8 @@ export function ComputerPanel({
         }
         if (kind === "sleep") {
           setResolvedComputerSelection(null);
-          setBoatState(cloudBackend === "vps" ? "stopped" : "archived");
-          if (cloudBackend === "vps") setPhase("vps-stopped");
-          else setPhase(canManageCloud ? "cloud-asleep" : "show-sleeping-boat");
+          setBoatState("stopped");
+          setPhase("vps-stopped");
         }
       })
       .catch((e) => {
@@ -943,7 +863,7 @@ export function ComputerPanel({
     api(`/api/bots/${bot.id}/computer/provision`, { method: "POST" })
       .then((result) => {
         setBoatState(result.state ?? null);
-        setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer, cloudBackend });
+        setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer });
         setPhase("ready");
       })
       .catch((e) => {
@@ -1023,7 +943,7 @@ export function ComputerPanel({
       setVpsStatus(result);
       setBoatState(result.container ?? null);
       if (result.ready && bot.computer === "cloud") {
-        setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer, cloudBackend });
+        setResolvedComputerSelection({ botId: bot.id, threadId: bot.threadId, computer: bot.computer });
       }
       setPhase(result.ready ? "ready" : "error");
       if (!result.ready) setError(result.problem ?? new LocalizedPanelError("computer.err.vpsReplaceNotReady"));
@@ -1154,7 +1074,7 @@ export function ComputerPanel({
 
   const emptyState = {
     checking: t("computer.phase.checking"),
-    starting: cloudBackend === "vps" ? t("computer.phase.starting") : cloudView.line,
+    starting: t("computer.phase.starting"),
     "busy-boat": cloudView.line,
     unconfigured: cloudView.line,
     "auto-unavailable": autoView.line,
@@ -1302,7 +1222,7 @@ export function ComputerPanel({
             {(phase === "show-ready-boat" || phase === "show-sleeping-boat" || phase === "show-pending-boat") && (
               <span className="text-[11px]">{t("computer.badge.autoBoat")}</span>
             )}
-            {computerStatusCurrent && bot.computer === "cloud" && cloudBackend === "vps" && (phase === "ready" || phase === "starting") && !liveHere && <span className="text-[11px]">{t("computer.badge.vps")}</span>}
+            {computerStatusCurrent && bot.computer === "cloud" && (phase === "ready" || phase === "starting") && !liveHere && <span className="text-[11px]">{t("computer.badge.vps")}</span>}
         </div>
         <div className={cn("relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-xl bg-card", liveHere && "ring-2 ring-accent")}>
           {liveHere && liveTarget ? (
@@ -1316,7 +1236,7 @@ export function ComputerPanel({
             </Suspense>
           ) : cloudPreviewReady || (bot.computer === "cloud" && phase === "starting") ? (
             <CloudScreenPreview
-              key={`${bot.id}:${bot.threadId}:${bot.computer}:${cloudBackend}`}
+              key={`${bot.id}:${bot.threadId}:${bot.computer}`}
               src={frameSrc}
               name={bot.name}
               error={panelErrorText(previewError)}
@@ -1595,7 +1515,7 @@ export function ComputerPanel({
               held={control.held} frame={frameSrc} name={bot.name} onTakeControl={(expand) => void takeControl(expand)}
               disabled={control.held && takeBlocked} takeDisabled={controlPending || takeBlocked} error={errorText}
             />
-            {cloudPreviewReady && canManageCloud && (cloudBackend === "vps" || boatState !== "archived") && (
+            {cloudPreviewReady && canManageCloud && (
               <button
                 type="button"
                 onClick={() => run("sleep")}
@@ -1632,7 +1552,7 @@ export function ComputerPanel({
                 {t(liveTarget ? "computer.fullScreen" : "computer.openLiveDesktop")}
               </button>
             )}
-            {canManageCloud && (cloudBackend === "vps" || boatState !== "archived") && (
+            {canManageCloud && (
               <button
                 onClick={() => run("sleep")}
                 disabled={pending === "sleep" || profileBot.busy}
