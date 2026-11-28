@@ -40,6 +40,9 @@ export const WORKSPACE_CREDENTIAL_ENV = [
   "LUNABOT_BROWSER_CONNECTION", "LUNABOT_USER_DATA",
 ] as const;
 
+/** Removed products must not leak their old tokens into a child just because the variables survive in an operator environment. */
+export const RETIRED_CREDENTIAL_ENV = ["BOX_TOKEN", "OGB_BOX_TOKEN"] as const;
+
 /** Operator secrets only this process reads, plus every `LUNABOT_CLOUD_` var (the underscore leaves out LUNABOT_CLOUDFLARED_PATH). */
 export const CONTROL_PLANE_ENV = ["LUNABOT_LICENSE_KEY", "LUNABOT_INSTALLATION_CREDENTIAL"] as const;
 export const CONTROL_PLANE_ENV_PREFIX = "LUNABOT_CLOUD_";
@@ -54,6 +57,7 @@ export function stripControlPlaneEnv(env: Record<string, string | undefined>): v
 
 export function stripWorkspaceCredentialEnv(env: Record<string, string | undefined>): void {
   for (const key of WORKSPACE_CREDENTIAL_ENV) delete env[key];
+  for (const key of RETIRED_CREDENTIAL_ENV) delete env[key];
   stripControlPlaneEnv(env);
 }
 

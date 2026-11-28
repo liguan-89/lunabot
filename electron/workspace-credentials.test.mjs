@@ -34,7 +34,6 @@ describe("workspace credential migration", () => {
     expect(result.credentialsChanged).toBe(true);
     expect(result.credentials).toEqual({
       xaiApiKey: "xai-secret",
-      boxToken: "boat-secret",
       ttsKey: "tts-secret",
       fishAudioKey: "fish-secret",
       opencodeGoApiKey: "ocg-secret",
@@ -49,6 +48,15 @@ describe("workspace credential migration", () => {
       profile: { name: "Ada" },
     });
     expect(config.xai.key).toBe("xai-secret");
+  });
+
+  it("removes a retired Boat token from config and the encrypted store without injecting it", () => {
+    const result = migrateWorkspaceCredentials({ box: { token: "boat-secret" } }, { boxToken: "stored-boat-secret", xaiApiKey: "xai-keep" });
+    expect(result.configChanged).toBe(true);
+    expect(result.credentialsChanged).toBe(true);
+    expect(result.config.box).toEqual({});
+    expect(result.credentials).toEqual({ xaiApiKey: "xai-keep" });
+    expect(workspaceCredentialEnv(result.credentials)).toEqual({ XAI_API_KEY: "xai-keep" });
   });
 
   it("keeps the Jev and OpenRouter decision keys apart, with the model and provider left in the file", () => {
@@ -80,21 +88,21 @@ describe("workspace credential migration", () => {
 
   it("treats a saved non-empty value as newest intent and overwrites the store", () => {
     const result = migrateWorkspaceCredentials(
-      { box: { token: "box-NEW" } },
-      { boxToken: "box-OLD", xaiApiKey: "xai-keep" },
+      { xai: { key: "xai-NEW" } },
+      { xaiApiKey: "xai-OLD", ttsKey: "tts-keep" },
     );
-    expect(result.credentials).toEqual({ boxToken: "box-NEW", xaiApiKey: "xai-keep" });
-    expect(result.config.box).toEqual({});
+    expect(result.credentials).toEqual({ xaiApiKey: "xai-NEW", ttsKey: "tts-keep" });
+    expect(result.config.xai).toEqual({});
   });
 
   it("treats an empty saved value as no information and keeps the stored secret", () => {
     // The packaged app tombstones every external-mode save as "" in config.json while the key goes to credentials.bin.
     const result = migrateWorkspaceCredentials(
       { xai: { key: "" }, tts: { key: "   " } },
-      { xaiApiKey: "xai-OLD", ttsKey: "tts-OLD", boxToken: "box-keep" },
+      { xaiApiKey: "xai-OLD", ttsKey: "tts-OLD", openaiApiKey: "openai-keep" },
     );
     expect(result.credentialsChanged).toBe(false);
-    expect(result.credentials).toEqual({ xaiApiKey: "xai-OLD", ttsKey: "tts-OLD", boxToken: "box-keep" });
+    expect(result.credentials).toEqual({ xaiApiKey: "xai-OLD", ttsKey: "tts-OLD", openaiApiKey: "openai-keep" });
     expect(result.config).toEqual({ xai: {}, tts: {} });
     expect(result.configChanged).toBe(true);
   });
@@ -112,7 +120,7 @@ describe("workspace credential migration", () => {
   });
 
   it("keeps stored secrets when the field is absent (already migrated)", () => {
-    const stored = { xaiApiKey: "xai-keep", boxToken: "box-keep" };
+    const stored = { xaiApiKey: "xai-keep", openaiApiKey: "openai-keep" };
     const result = migrateWorkspaceCredentials({ profile: { name: "Ada" } }, stored);
     expect(result.configChanged).toBe(false);
     expect(result.credentialsChanged).toBe(false);
@@ -132,7 +140,6 @@ describe("workspace credential env", () => {
     expect(
       workspaceCredentialEnv({
         xaiApiKey: "xai-secret",
-        boxToken: "boat-secret",
         ttsKey: "tts-secret",
         fishAudioKey: "fish-secret",
         opencodeGoApiKey: "ocg-secret",
@@ -141,7 +148,6 @@ describe("workspace credential env", () => {
       }),
     ).toEqual({
       XAI_API_KEY: "xai-secret",
-      BOX_TOKEN: "boat-secret",
       LUNABOT_TTS_KEY: "tts-secret",
       LUNABOT_FISH_AUDIO_API_KEY: "fish-secret",
       OPENCODE_API_KEY: "ocg-secret",
@@ -211,8 +217,8 @@ describe("migrating config.json on disk", () => {
     const path = configFile({ openai: { key: "openai-secret" }, profile: { name: "Ada" } });
     const save = vi.fn(async () => { expect(readFileSync(path, "utf8")).toContain("openai-secret"); });
     const credentials = await migrateWorkspaceConfigFile({ configPath: path, credentials: { boxToken: "kept" }, save, log: vi.fn() });
-    expect(save).toHaveBeenCalledExactlyOnceWith({ boxToken: "kept", openaiApiKey: "openai-secret" });
-    expect(credentials).toEqual({ boxToken: "kept", openaiApiKey: "openai-secret" });
+    expect(save).toHaveBeenCalledExactlyOnceWith({ openaiApiKey: "openai-secret" });
+    expect(credentials).toEqual({ openaiApiKey: "openai-secret" });
     expect(readFileSync(path, "utf8")).not.toContain("openai-secret");
     expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ openai: {}, profile: { name: "Ada" } });
     expect(readdirSync(join(path, ".."))).toEqual(["config.json"]);

@@ -13,7 +13,6 @@ export const WORKSPACE_CREDENTIALS = [
   { section: "deepseek", field: "key", name: "deepseekApiKey", env: "LUNABOT_DEEPSEEK_API_KEY" },
   { section: "openaiCompat", field: "key", name: "openaiCompatApiKey", env: "OPENAI_COMPAT_API_KEY" },
   { section: "xai", field: "key", name: "xaiApiKey", env: "XAI_API_KEY" },
-  { section: "box", field: "token", name: "boxToken", env: "BOX_TOKEN" },
   { section: "tts", field: "key", name: "ttsKey", env: "LUNABOT_TTS_KEY" },
   { section: "tts", field: "fishKey", name: "fishAudioKey", env: "LUNABOT_FISH_AUDIO_API_KEY" },
   { section: "tts", field: "geminiKey", name: "geminiTtsKey", env: "LUNABOT_GEMINI_API_KEY" },
@@ -33,6 +32,12 @@ export const WORKSPACE_CREDENTIALS = [
 
 /** Moves plaintext secrets into the store and deletes the field. "" never drops a stored secret: every packaged
  * credential save writes an empty tombstone to config.json. The caller persists credentials before config. */
+
+// Boat is retired. Its old plaintext field is still removed from config.json, and any stored copy is deleted rather than injected into the server.
+const RETIRED_WORKSPACE_CREDENTIALS = [
+  { section: "box", field: "token", name: "boxToken" },
+];
+
 export function migrateWorkspaceCredentials(config, credentials) {
   const nextConfig = structuredClone(config ?? {});
   const nextCredentials = { ...credentials };
@@ -51,6 +56,17 @@ export function migrateWorkspaceCredentials(config, credentials) {
     }
     delete home[field];
     configChanged = true;
+  }
+  for (const { section, field, name } of RETIRED_WORKSPACE_CREDENTIALS) {
+    const home = nextConfig?.[section];
+    if (home && typeof home === "object" && !Array.isArray(home) && Object.hasOwn(home, field)) {
+      delete home[field];
+      configChanged = true;
+    }
+    if (Object.hasOwn(nextCredentials, name)) {
+      delete nextCredentials[name];
+      credentialsChanged = true;
+    }
   }
   return { config: nextConfig, credentials: nextCredentials, configChanged, credentialsChanged };
 }
