@@ -1,6 +1,6 @@
-// Served at POST /api/internal/computer/mcp behind a turn-scoped capability, so the Boat credential never leaves this server.
+// Served at POST /api/internal/computer/mcp behind a turn-scoped capability, so the VPS SSH credential never leaves this server.
 import type { ValidateFunction } from "ajv";
-import { isolatedRemoteCommand, runCommand, screenshotBoat } from "./boat.ts";
+import { isolatedRemoteCommand, runCommand, screenshotCloudComputer } from "./cloud-desktop.ts";
 import { isRedditAddress, REDDIT_REFUSAL } from "./browser/egress/reddit.ts";
 import {
   backgroundStatus, commandLateText, EXEC_LATE, PROCESS_ID_PATTERN, startInBackground, STATUS_WAIT_MAX_SECONDS, STDERR_TAIL_CHARS, STDOUT_TAIL_CHARS,
@@ -33,15 +33,15 @@ export const CLOUD_COMPUTER_TOOLS = [
     wait_seconds: { type: "integer", minimum: 0, maximum: STATUS_WAIT_MAX_SECONDS, description: "Wait up to this many seconds for the command to finish before answering. A running result can arrive before the full interval because the last status read needs time to respond." },
   }, ["process_id"]),
   tool("copy_from_computer", "Copy one file of up to 2 GiB from the cloud computer into your working folder, for example to load it with data_load or use it in a page. A file already there is replaced.", {
-    path: { type: "string", minLength: 1, maxLength: 4096, description: "The file on the cloud computer, under /home/user or /tmp." },
+    path: { type: "string", minLength: 1, maxLength: 4096, description: "The file on the cloud computer, under /home/cua or /tmp." },
     to: { type: "string", minLength: 1, maxLength: 1000, description: "Where it goes, relative to your working folder. Default: the file's own name." },
   }, ["path"]),
   tool("copy_to_computer", "Copy one file of up to 2 GiB from your working folder to the cloud computer. A file already there is replaced.", {
     from: { type: "string", minLength: 1, maxLength: 1000, description: "The file, relative to your working folder." },
-    path: { type: "string", minLength: 1, maxLength: 4096, description: "Where it goes on the cloud computer, under /home/user or /tmp." },
+    path: { type: "string", minLength: 1, maxLength: 4096, description: "Where it goes on the cloud computer, under /home/cua or /tmp." },
   }, ["from", "path"]),
 ];
-/** A call the gate let through while no Boat had landed for the turn. */
+/** A call the gate let through while no cloud computer had landed for the turn. */
 export const CLOUD_COMPUTER_NOT_READY = "The cloud computer is not ready. This call was not performed. Take a fresh screenshot in a moment.";
 export const CLOUD_COMPUTER_LATE = "The cloud computer did not answer in time. This call may still have run; take a fresh screenshot before repeating it.";
 export const CLOUD_COMPUTER_COPY_LATE = "The copy did not finish within 9 minutes and was stopped; nothing was changed. Make the file smaller on the cloud computer first (filter, compress or split it), then copy the parts.";
@@ -92,7 +92,7 @@ export async function runCloudComputerTool(
     return "error" in copied ? { isError: true, content: [{ type: "text", text: copied.error }] } : { content: [{ type: "text", text: JSON.stringify(copied) }] };
   }
   if (name === "screenshot") {
-    const shot = await screenshotBoat(cfg, "", boxId, { signal, nativeSize: true });
+    const shot = await screenshotCloudComputer(cfg, "", boxId, { signal, nativeSize: true });
     signal.throwIfAborted();
     return { content: [{ type: "image", mimeType: "image/jpeg", data: shot.png }] };
   }
@@ -119,13 +119,13 @@ export async function runCloudComputerTool(
   return { isError: !result.ok, content: [{ type: "text", text: JSON.stringify(result) }] };
 }
 
-/** The order is the safety argument: arguments, then the control gate (which may create or wake the Boat), then the Boat
- * read; the turn's capability must be live before and after the Boat acts. Listing touches no Boat. */
+/** The order is the safety argument: arguments, then the control gate (which may create or wake the Boat), then the cloud computer
+ * read; the turn's capability must be live before and after the cloud computer acts. Listing touches no Boat. */
 export async function cloudComputerRpc(
   request: { method?: unknown; params?: unknown } | null | undefined,
   deps: {
     cfg: AppConfig;
-    /** The Boat this call acts on, read after the gate. */
+    /** The cloud computer this call acts on, read after the gate. */
     boxId(): string | null | undefined;
     /** The bot's working folder, which the copy tools read from and write into. */
     folder?(): string | null | undefined;
@@ -149,7 +149,7 @@ export async function cloudComputerRpc(
   const problem = cloudComputerCallProblem(params.name, args);
   if (problem) return { isError: true, content: [{ type: "text", text: problem }] };
   const control = await deps.gate();
-  // A refusal acts on no Boat, so it answers even when the turn has ended meanwhile.
+  // A refusal acts on no cloud computer, so it answers even when the turn has ended meanwhile.
   if (control.held) return { isError: true, content: [{ type: "text", text: controlRefusal(control) }] };
   deps.assertActive();
   const boxId = deps.boxId();

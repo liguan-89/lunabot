@@ -1,31 +1,27 @@
-// Boat (docs.boat.dev/openapi/boat-v1.yaml): POST /sandboxes/{id}/files/download-url and /files/upload-url answer a link
-// the sandbox serves itself, bound to one path, taking no Authorization header and no size limit; a PUT replaces a file
-// only once its upload completes.
-// Security: the link is a secret until it expires, so no result, error or log ever carries it. A copy reads or writes
-// only inside the bot's working folder, judged after every existing link is followed, and never under its secret folder.
+// Copies use `docker cp` over the same SSH transport as every other VPS desktop operation. Local placement is resolved
+// before and after directory creation, so a link in the working folder cannot make a download land outside it.
 import { randomBytes } from "node:crypto";
 import { constants, lstatSync, mkdirSync, realpathSync, renameSync, rmSync, statfsSync } from "node:fs";
 import { open } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, posix, relative, win32 } from "node:path";
-import { assertBoatNotDeleting, boatAccount, boatErrorMessage, boatFetch } from "./boat.ts";
+import { cloudCopyArgs, runCommand } from "./cloud-desktop.ts";
 import type { AppConfig } from "./config.ts";
-import { boatProviderApi } from "./included-services.ts";
 import { inSecretFolder, SECRET_FILE_REFUSAL } from "./secret-folder.ts";
 import { isInside, resolveThroughLinks } from "./sentinel/paths.ts";
+import { defaultRunner, type VpsCommandRunner } from "./vps-computer.ts";
 
 const MiB = 1024 * 1024;
 const COPY_MAX_BYTES = 2 * 1024 * MiB;
 /** Left free on the folder's disk, so a download never fills it. */
 const DISK_RESERVE_BYTES = 256 * MiB;
-const LINK_TTL_SECONDS = 300;
-const OLD_RELAY = "This Cloud's computer service can't hand out file transfer links yet, so files can't be copied to or from the cloud computer until it updates. Use exec in the meantime.";
-const UNUSABLE_LINK = "The cloud computer answered with a transfer link that can't be used. Try the copy again in a minute.";
 const noFollow = typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
+const shellQuote = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
 
 export type CopyOutcome = { path: string; bytes: number } | { error: string };
 export interface CopyOptions {
   /** Bytes free on the disk that holds `dir`. */
   freeBytes?(dir: string): number;
+  runner?: VpsCommandRunner;
 }
 
 const sized = (bytes: number) => bytes >= 1024 * MiB ? `${(bytes / 1024 / MiB).toFixed(1)} GiB` : `${(bytes / MiB).toFixed(1)} MiB`;
@@ -34,13 +30,6 @@ const tooBig = (path: string, bytes: number, atLeast = false) =>
   `${path} is ${atLeast ? "over " : ""}${sized(bytes)}; a copy moves at most 2 GiB. Make it smaller on the cloud computer first (filter, compress or split it), then copy the parts.`;
 const noSpace = (path: string, bytes: number, free: number, atLeast = false) =>
   `Not enough space for ${path}: it needs ${atLeast ? "more than " : ""}${sized(bytes)} with ${sized(DISK_RESERVE_BYTES)} kept free, and the working folder's disk has ${sized(free)} free.`;
-
-/** What the sandbox's own answer means; its body is never read, since it could carry the link. */
-function linkRefusal(status: number, path: string): string {
-  if (status === 404) return `${path} is not on the cloud computer.`;
-  if (status === 401 || status === 403 || status === 410) return "The cloud computer refused the transfer link, which may have expired. Try the copy again.";
-  return `The cloud computer answered ${status} to the copy. Try again in a minute.`;
-}
 
 type Placed = { root: string; file: string } | { error: string };
 
@@ -72,113 +61,79 @@ function land(placed: { root: string; file: string }, wanted: string): { parent:
   return { parent, target };
 }
 
-/** HTTPS, or plain HTTP only from a loopback Boat (a test fixture's), never pointed anywhere else. */
-function usableLink(cfg: AppConfig, link: unknown): URL | null {
-  let url: URL, api: URL;
-  try {
-    url = new URL(String(link));
-    api = new URL(boatAccount(cfg)?.api ?? boatProviderApi());
-  } catch {
-    return null;
+function remoteFilePath(input: string): string | { error: string } {
+  if (!input || input.length > 4096 || input.includes("\0") || input.includes(":")) {
+    return { error: "The cloud computer path must be a plain Linux path under /home/cua or /tmp." };
   }
-  if (url.username || url.password) return null;
-  if (url.protocol === "https:") return url;
-  const loopback = api.protocol === "http:" && ["127.0.0.1", "[::1]", "localhost"].includes(api.hostname);
-  return loopback && url.protocol === "http:" && url.hostname === api.hostname ? url : null;
+  const resolved = posix.normalize(input.startsWith("/") ? input : posix.join("/home/cua", input));
+  if ((resolved !== "/tmp" && !resolved.startsWith("/tmp/")) && (resolved !== "/home/cua" && !resolved.startsWith("/home/cua/"))) {
+    return { error: "The cloud computer path must stay under /home/cua or /tmp." };
+  }
+  if (resolved === "/tmp" || resolved === "/home/cua" || resolved.endsWith("/")) return { error: "Name a file on the cloud computer, not a folder." };
+  return resolved;
 }
 
-async function transferLink(cfg: AppConfig, boxId: string, kind: "download-url" | "upload-url", path: string, signal: AbortSignal): Promise<{ url: URL; path: string } | { error: string }> {
-  assertBoatNotDeleting(boxId);
-  const response = await boatFetch(cfg, `/sandboxes/${boxId}/files/${kind}`, { method: "POST", body: JSON.stringify({ path, ttlSeconds: LINK_TTL_SECONDS }), signal });
-  const body = await response.json().catch(() => null) as { ok?: unknown; code?: unknown; error?: { code?: unknown }; url?: unknown; method?: unknown; path?: unknown } | null;
-  if (!response.ok || body?.ok === false) {
-    if ((body?.error?.code ?? body?.code) === "not_available") return { error: OLD_RELAY };
-    return { error: boatErrorMessage(response.status, `Copying ${path} ${kind === "download-url" ? "from" : "to"} the cloud computer`, body, boatAccount(cfg)?.included === true) };
-  }
-  const url = usableLink(cfg, body?.url);
-  if (!url || body?.method !== (kind === "download-url" ? "GET" : "PUT")) return { error: UNUSABLE_LINK };
-  return { url, path: typeof body.path === "string" ? body.path : path };
+async function copyWithDocker(cfg: AppConfig, computer: string, source: string, destination: string, signal: AbortSignal, runner: VpsCommandRunner) {
+  await runner(cloudCopyArgs(cfg, computer, source, destination), { timeoutMs: 9 * 60_000, signal });
 }
 
-/** Streams the file to a temporary name beside its place and renames it there, so a failed copy never leaves half a file. */
+/** Copies to a temporary name beside its place and renames it there, so a failed copy never leaves half a file. */
 export async function copyFromComputer(
   cfg: AppConfig,
-  boxId: string,
+  computer: string,
   folder: string,
   args: { path: string; to?: string },
   signal: AbortSignal,
   options: CopyOptions = {},
 ): Promise<CopyOutcome> {
-  const wanted = args.to ?? posix.basename(args.path);
+  const runner = options.runner ?? defaultRunner;
+  const remote = remoteFilePath(args.path);
+  if (typeof remote !== "string") return remote;
+  const wanted = args.to ?? posix.basename(remote);
   if (!wanted) return { error: "Name the file to copy, or say where it goes with to." };
   const placed = placeInFolder(folder, wanted);
   if ("error" in placed) return placed;
-  const link = await transferLink(cfg, boxId, "download-url", args.path, signal);
-  if ("error" in link) return link;
-  let response: Response;
-  try {
-    response = await fetch(link.url, { signal, redirect: "error" });
-  } catch {
-    signal.throwIfAborted();
-    return { error: "The cloud computer could not be reached to copy the file. Try again in a minute." };
-  }
+  const sizeAnswer = await runCommand(cfg, computer, `stat -c %s ${shellQuote(remote)} 2>/dev/null`, { timeoutMs: 15_000, signal });
+  if (!sizeAnswer.ok) return { error: `${args.path} is not on the cloud computer.` };
+  const bytes = Number(sizeAnswer.stdout.trim());
+  if (!Number.isSafeInteger(bytes) || bytes < 0) return { error: "The cloud computer gave an unreadable file size. Try again." };
+  if (bytes > COPY_MAX_BYTES) return { error: tooBig(args.path, bytes) };
   const free = (options.freeBytes ?? diskFree)(placed.root);
-  const declared = Number(response.headers.get("content-length") ?? Number.NaN);
-  const landed = !response.ok ? { error: linkRefusal(response.status, args.path) }
-    : declared > COPY_MAX_BYTES ? { error: tooBig(args.path, declared) }
-    : declared + DISK_RESERVE_BYTES > free ? { error: noSpace(args.path, declared, free) }
-    : land(placed, wanted);
-  if ("error" in landed) {
-    await response.body?.cancel().catch(() => {});
-    return landed;
-  }
+  if (bytes + DISK_RESERVE_BYTES > free) return { error: noSpace(args.path, bytes, free) };
+  const landed = land(placed, wanted);
+  if ("error" in landed) return landed;
   const { parent, target } = landed;
   const temporary = join(parent, `.${basename(target)}.${randomBytes(6).toString("hex")}.part`);
-  const handle = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | noFollow, 0o644);
-  let bytes = 0;
   let written = false;
   try {
-    const reader = response.body?.getReader();
-    try {
-      for (;;) {
-        const chunk = await reader?.read();
-        if (!chunk || chunk.done) break;
-        bytes += chunk.value.byteLength;
-        if (bytes > COPY_MAX_BYTES) return { error: tooBig(args.path, COPY_MAX_BYTES, true) };
-        if (bytes + DISK_RESERVE_BYTES > free) return { error: noSpace(args.path, bytes, free, true) };
-        try {
-          await handle.write(chunk.value);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "ENOSPC") return { error: noSpace(args.path, bytes, free, true) };
-          throw error;
-        }
-      }
-    } catch (error) {
-      signal.throwIfAborted();
-      if (!(error instanceof Error) || "code" in error) throw error;
-      return { error: "The download from the cloud computer was interrupted; nothing was saved. Try again." };
-    } finally {
-      await reader?.cancel().catch(() => {});
-    }
-    await handle.close();
+    await copyWithDocker(cfg, computer, `${computer}:${remote}`, temporary, signal, runner);
     signal.throwIfAborted();
+    const copied = lstatSync(temporary, { throwIfNoEntry: false });
+    if (!copied?.isFile()) return { error: "The cloud computer did not copy a regular file. Try again." };
     renameSync(temporary, target);
     written = true;
+  } catch (error) {
+    signal.throwIfAborted();
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    return { error: "The download from the cloud computer was interrupted; nothing was saved. Try again." };
   } finally {
-    await handle.close().catch(() => {});
     if (!written) rmSync(temporary, { force: true });
   }
   return { path: relative(placed.root, target), bytes };
 }
 
-/** Streams the file from disk as the upload's body; the computer keeps its old file unless the whole upload lands. */
+/** Copies to a temporary remote file first; the computer keeps its old file unless the whole upload lands. */
 export async function copyToComputer(
   cfg: AppConfig,
-  boxId: string,
+  computer: string,
   folder: string,
   args: { from: string; path: string },
   signal: AbortSignal,
+  options: CopyOptions = {},
 ): Promise<CopyOutcome> {
+  const runner = options.runner ?? defaultRunner;
+  const remote = remoteFilePath(args.path);
+  if (typeof remote !== "string") return remote;
   const placed = placeInFolder(folder, args.from);
   if ("error" in placed) return placed;
   let handle;
@@ -194,23 +149,22 @@ export async function copyToComputer(
     const info = await handle.stat();
     if (!info.isFile()) return { error: `${args.from} is not a file.` };
     if (info.size > COPY_MAX_BYTES) return { error: tooBig(args.from, info.size) };
-    const link = await transferLink(cfg, boxId, "upload-url", args.path, signal);
-    if ("error" in link) return link;
-    // Never more than the length declared, whatever is appended meanwhile; a file that shrinks fails the upload.
-    const body = info.size === 0 ? new Uint8Array() : handle.createReadStream({ start: 0, end: info.size - 1, autoClose: false });
-    let response: Response;
+    const temporary = `/tmp/lunabot-upload-${randomBytes(8).toString("hex")}`;
+    let uploaded = false;
     try {
-      response = await fetch(link.url, {
-        method: "PUT", body: body as unknown as RequestInit["body"], signal, redirect: "error", duplex: "half",
-        headers: { "content-type": "application/octet-stream", "content-length": String(info.size) },
-      } as RequestInit);
-    } catch {
+      await runCommand(cfg, computer, `mkdir -p ${shellQuote(posix.dirname(remote))}`, { timeoutMs: 15_000, signal });
+      await copyWithDocker(cfg, computer, placed.file, `${computer}:${temporary}`, signal, runner);
+      uploaded = true;
+      const moved = await runCommand(cfg, computer, `mv ${shellQuote(temporary)} ${shellQuote(remote)}`, { timeoutMs: 15_000, signal });
+      if (!moved.ok) return { error: "The cloud computer refused the uploaded file. Try again." };
+      return { path: remote, bytes: info.size };
+    } catch (error) {
       signal.throwIfAborted();
+      if (error instanceof Error && error.name === "AbortError") throw error;
       return { error: `The upload of ${args.from} was interrupted; the cloud computer still has its old file, if any. Try again.` };
+    } finally {
+      if (uploaded) await runCommand(cfg, computer, `rm -f ${shellQuote(temporary)}`, { timeoutMs: 10_000 }).catch(() => {});
     }
-    await response.body?.cancel().catch(() => {});
-    if (!response.ok) return { error: linkRefusal(response.status, args.path) };
-    return { path: link.path, bytes: info.size };
   } finally {
     await handle.close().catch(() => {});
   }
