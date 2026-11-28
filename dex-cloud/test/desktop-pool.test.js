@@ -23,6 +23,7 @@ test("the desktop pool client pins the host key, uses batch mode, and sends only
   const [command, args] = calls[0];
   assert.equal(command, "ssh");
   assert.ok(args.includes("BatchMode=yes"));
+  assert.ok(args.includes("IdentitiesOnly=yes"));
   assert.ok(args.includes("StrictHostKeyChecking=yes"));
   assert.equal(args.at(-2), "dexcloud-desktop@desktop.example.test");
   assert.equal(args.at(-1), "/usr/local/sbin/dexcloud-desktop-slot allocate c-0123456789ab ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITenant");

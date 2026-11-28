@@ -42,6 +42,7 @@ export function createDesktopPool(config, { run = execFileAsync } = {}) {
       "-i", keyPath,
       "-p", String(config.desktop.sshPort),
       "-o", "BatchMode=yes",
+      "-o", "IdentitiesOnly=yes",
       "-o", "StrictHostKeyChecking=yes",
       "-o", `UserKnownHostsFile=${hostsPath}`,
       `${config.desktop.provisionUser}@${config.desktop.host}`,
