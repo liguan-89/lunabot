@@ -8080,7 +8080,6 @@ async function beginTurn(
       const dwebUrl = process.env.DWEB_URL?.trim();
       if (dwebUrl) integrations.dweb = { url: dwebUrl };
       let teamComputer = computerSkipped || proactive.fence.confines(threadId) || botApiThread(threadId) ? undefined : inheritedTeamComputer(bot);
-      const cloudBackend = "vps" as const;
       const mountsComputerMcp = instance.adapter.capabilities.computerMcp === true;
       const mountsLocalComputer = instance.adapter.capabilities.localComputerMcp === true;
       const dispatchTask = store.taskByThread(bot.id, threadId);
@@ -8129,8 +8128,7 @@ async function beginTurn(
       let previewCapture: (() => Promise<{ png: string; format: string }>) | null = null;
       let browserCapture: (() => Promise<{ png: string; format: string }>) | null = null;
       let computerKind: "box" | "vps" | "vm" | "local" | null = null;
-      let autoVpsProblem: string | null = null;
-      let autoVpsReachable: boolean | undefined = undefined, autoVpsOutdated = false, vmUpdateNote = "";
+      let vmUpdateNote = "";
       /** A capture in flight after another thread owns the shared desktop would picture its work under this bot's name. */
       const localVmPreviewFor = (localVmTarget: LocalVmTarget, claimThreadId: string) => () => {
         const owner = localVmLeaseFor(localVmTarget).current(localVmOwnerBusy);
@@ -8346,10 +8344,28 @@ async function beginTurn(
         skipComputer(!namedPlace || !placeSource ? error : await asPlaceFailure(error, namedPlace, placeSource, bot));
       }
 
+      // Auto mounts a permitted VPS lazily: no desktop is created or woken unless the model actually uses it.
+      if (
+        wants === undefined &&
+        !integrations.localComputer &&
+        canWorkOnCloud(cloudEngine(instance)) &&
+        !computerPlaceRefusal("vps") &&
+        !computerToolsRefusal(toolScope, "works-on", bot.name) &&
+        cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) &&
+        vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource })
+      ) {
+        integrations.localComputer = mountBotCloud(bot, resourceOwner, {
+          source: placeSource,
+          onClaimed: adoptClaimedCapture,
+          onRejected: surfaceLazyClaimRejection("the cloud computer"),
+        });
+        computerKind = "box";
+      }
+
       // Electron owns cua-driver and its TCC attribution; the harness only reads its running connection descriptor.
       if (wants === undefined && !integrations.localComputer && !computerPlaceRefusal("localVm") && await attachLocalVm(false)) computerKind = "vm";
       // An unattended run with a VPS configured never lands on the host's own desktop, nor does a bot whose own desktop awaits an update.
-      const hostBarred = (cloudBackend === "vps" && Boolean(opts?.automationSource)) || autoVpsOutdated || Boolean(vmUpdateNote);
+      const hostBarred = (cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) && Boolean(opts?.automationSource)) || Boolean(vmUpdateNote);
       if (
         !integrations.localComputer &&
         wants === undefined &&
@@ -8376,18 +8392,6 @@ async function beginTurn(
           integrations.localComputer = gatedLocalComputer(cua, controlIntegration(bot.id, threadId, dispatchClaimId, "this computer"), savedSteps.journals(directRequestOwners.get(threadId)));
           computerKind = "local";
         }
-      }
-      let vpsUnavailableNote = "";
-      if (
-        wants === undefined &&
-        cloudBackend === "vps" &&
-        !integrations.localComputer &&
-        autoVpsProblem &&
-        !computerSelectionTurns.has(threadId)
-      ) {
-        const hint = autoVpsOutdated ? VPS_OUTDATED_HINT : vps.vpsUnavailableHint({ automationSource: opts?.automationSource, autoStartVps: bot.autoStartVps, reachable: autoVpsReachable });
-        if (opts?.automationSource) skipComputer(new Error(`${autoVpsProblem}. ${hint}`));
-        else vpsUnavailableNote = ` This bot's VPS computer is unavailable this turn (${autoVpsProblem}), so no computer is mounted. Work that needs no screen can go ahead. If the request needs the VPS desktop, do not claim to have used it: say it is unavailable${hint ? ` and what the person can do: ${hint}` : "."}`;
       }
       // One reachability rule: a bot is never told about a peer that coordinate_bots would refuse.
       const sectionPeers = personalReach.peers(store.bots, bot, threadId);
@@ -8509,7 +8513,7 @@ async function beginTurn(
         { id: "shell", label: "Long-running commands", text: worksInWorkspace ? longCommandsPrompt(computerPromptKind) : "" },
         { id: "computer", label: "Computer", text: computerPrompt(computerPromptKind) },
         { id: "team-computer", label: "Team computer", text: teamComputerPrompt(teamComputer) },
-        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note + vpsUnavailableNote + vmUpdateNote + (computerSkipped && plan.computer !== "off" ? computerSkippedNote(redactSecretsInText(computerSkipped)) : "") + (computerSelectionTurns.get(threadId)?.handoff && !integrations.browser ? HANDOFF_BROWSER_NOTE : ""), canSelect: computerSelectionTurns.has(threadId) && !computerSelectionTurns.get(threadId)?.handoff, cloudHome: Boolean(CLOUD_HOME), botOpened: plan.botOpened, ownComputer: CLOUD_HOME && integrations.agents && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
+        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note + vmUpdateNote + (computerSkipped && plan.computer !== "off" ? computerSkippedNote(redactSecretsInText(computerSkipped)) : "") + (computerSelectionTurns.get(threadId)?.handoff && !integrations.browser ? HANDOFF_BROWSER_NOTE : ""), canSelect: computerSelectionTurns.has(threadId) && !computerSelectionTurns.get(threadId)?.handoff, cloudHome: Boolean(CLOUD_HOME), botOpened: plan.botOpened, ownComputer: CLOUD_HOME && integrations.agents && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
         { id: "cloud-home", label: "My Cloud", text: CLOUD_HOME ? cloudHomePrompt(Boolean(integrations.agents) && lendingEnabled(), syncedFolders(DATA_DIR), sharedComputers.known(CLOUD_HOME_LENDER), CLOUD_PERSONAL) + firstHourHooks.prompt(bot.id, threadId) : "" },
         { id: "composio", label: "Connected apps", text: integrations.composio ? composioSystemPrompt(liveBot?.connectorTools ?? bot.connectorTools) + describeConnectorScopes((liveBot ?? bot).connectorScopes) : "" },
         { id: "mcp", label: "MCP servers", text: customMcpPrompt(Object.keys(integrations.custom ?? {}), mcpServersHost.off(bot)) }, { id: "to-connect", label: "Connections to make", text: cloudConnections.prompt(liveBot ?? bot, lentMcp.lines(liveBot ?? bot, { botId: bot.id, threadId, generation: dispatchClaimId })) + teamConnections.prompt(threadId, dispatchClaimId, integrations) },
