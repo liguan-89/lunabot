@@ -29,7 +29,7 @@ import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsI
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
 import { withoutHiddenModels } from "../shared/model-management.ts";
 import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
-import { CLOUD_COMPUTER_BUSY_ERROR } from "../shared/computer-contention.ts";
+import {  } from "../shared/computer-contention.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
 import { assistantTranscript, errorTranscript } from "../shared/client-cancel.ts"; import { PersonStops, stoppedTurnRow } from "./person-stops.ts"; import { LiveTurns } from "./live-turns.ts";
 import { phonePairingLink } from "../shared/pairing-link.ts"; import { personTagNames, withoutPersonTags } from "../shared/person-mention.ts";
@@ -15478,12 +15478,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const bot = computerPreviewBot(m[1], url);
       if (!bot) return json(res, 404, { error: "no such bot" });
       const surface = url.searchParams.has("threadId") ? await computerPreviewSurface(bot, bot.threadId) : "cloud";
-      if (surface !== "cloud") return json(res, 200, { surface, configured: false, backend: bot.cloudBackend === "vps" ? "vps" : "box" });
+      if (surface !== "cloud") return json(res, 200, { surface, configured: false, backend: "vps" });
       const teamComputer = inheritedTeamComputer(bot);
-      if (teamComputer) return json(res, 200, { surface, backend: "box", teamComputer: { id: teamComputer.id, name: teamComputer.name }, ...(await cloudDesktop.cloudStatus(cfg, teamComputerOwner(teamComputer.id))) });
-      return bot.cloudBackend === "vps"
-        ? json(res, 200, { surface, backend: "vps", ...(await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id)) })
-        : json(res, 200, { surface, backend: "box", ...(await cloudDesktop.cloudStatus(cfg, bot.id)) });
+      if (teamComputer) return json(res, 200, { surface, backend: "vps", teamComputer: { id: teamComputer.id, name: teamComputer.name }, ...(await cloudDesktop.cloudStatus(cfg, teamComputerOwner(teamComputer.id))) });
+      return json(res, 200, { surface, backend: "vps", ...(await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id)) });
     }
     // The person's take and release; the bot has no verb here, only a sign-in request its card settles.
     m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/control$/);
@@ -15540,9 +15538,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      const closedViewers = auth.kind === "session" ? desktopViewer.closeForOwner(auth.session.id, bot.id) : 0;
-      if (bot.cloudBackend === "vps") return json(res, 200, vps.closeVpsDesktopTunnel(bot.id));
-      return json(res, 200, { closed: closedViewers > 0 });
+      return json(res, 200, vps.closeVpsDesktopTunnel(bot.id));
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/(provision|join|sleep|exec|screenshot|remove)$/);
     if (m && method === "POST") {
@@ -15558,7 +15554,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      if (m[2] === "join" && bot.cloudBackend === "vps") {
+      if (m[2] === "join") {
         for (let pending; (pending = vpsJoinRequests.get(botId));) await pending;
       }
       const remoteProvider: RemoteComputerProvider = "vps";
@@ -15586,7 +15582,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           return json(res, 200, await cloudDesktop.sleepCloudComputer(cfg, key));
         } finally { release(); if (m[2] !== "sleep") cloudComputerPower.used(key); }
       }
-      if (bot.cloudBackend === "vps") {
+      {
         if (m[2] === "screenshot") {
           res.setHeader("cache-control", "private, no-store");
           return json(res, 200, await computerPreviews.capture(botId, () => vps.vpsComputerScreenshot(vpsConfigForBot(cfg, bot), botId)));
@@ -15620,51 +15616,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
             joinSettled();
           }
         }
-      }
-      const activeBoatTurn = botHasActiveTurn(botId);
-      if (["provision", "sleep"].includes(m[2]) && activeBoatTurn) {
-        return json(res, 409, {
-          error: CLOUD_COMPUTER_BUSY_ERROR,
-        });
-      }
-      let boatCommand: string | undefined;
-      if (m[2] === "exec") {
-        const body = await readBody(req);
-        boatCommand = String(body?.command ?? "");
-        if (boatCommand.length > cloudDesktop.MAX_REMOTE_COMMAND_LENGTH) {
-          return json(res, 400, {
-            error: `command is too long (maximum ${cloudDesktop.MAX_REMOTE_COMMAND_LENGTH} characters)`,
-          });
-        }
-      }
-      if (bot.computer !== "cloud" && !threadPreview) {
-        return json(res, 409, {
-          error: "Choose Cloud computer before changing or opening this cloud computer. Auto only checks existing computer state.",
-        });
-      }
-      if (m[2] === "remove") {
-        return json(res, 409, { error: "a cloud computer has no container to remove — put it to sleep instead" });
-      }
-      if (m[2] === "screenshot") {
-        res.setHeader("cache-control", "private, no-store");
-        try { return json(res, 200, await computerPreviews.capture(botId, () => cloudDesktop.screenshotCloudComputer(cfg, botId))); }
-        finally { cloudComputerPower.used(botId); }
-      }
-      const releaseComputerLifecycle = claimBotComputerLifecycle(botId, m[2] === "join");
-      try {
-        switch (m[2]) {
-          case "provision":
-            return json(res, 200, await cloudDesktop.provisionCloudComputer(cfg, botId, bot.name));
-          case "join":
-            return json(res, 200, await (activeBoatTurn || (threadPreview && bot.computer !== "cloud") ? cloudDesktop.joinReadyCloudComputer(cfg, botId) : cloudDesktop.joinCloudComputer(cfg, botId)));
-          case "sleep":
-            return json(res, 200, await cloudDesktop.sleepCloudComputer(cfg, botId));
-          case "exec":
-            return json(res, 200, await cloudDesktop.execOnCloudComputer(cfg, botId, boatCommand ?? ""));
-        }
-      } finally {
-        releaseComputerLifecycle();
-        if (m[2] !== "sleep") cloudComputerPower.used(botId);
       }
     }
 
