@@ -271,25 +271,16 @@ describe("local computer UI eligibility", () => {
     expect(shouldPollCloudPreview({ ...ready, botId: "bot-b" })).toBe(false);
     expect(shouldPollCloudPreview({ ...ready, resolvedBotId: null })).toBe(false);
     expect(shouldPollCloudPreview({ ...ready, resolvedComputer: undefined })).toBe(false);
-    expect(shouldPollCloudPreview({ ...ready, cloudBackend: "vps" })).toBe(false);
-    expect(shouldPollCloudPreview({ ...ready, resolvedCloudBackend: "vps" })).toBe(false);
+    expect(shouldPollCloudPreview({ ...ready, cloudBackend: "vps", resolvedCloudBackend: "vps" })).toBe(true);
+    expect(shouldPollCloudPreview({ ...ready, resolvedCloudBackend: undefined })).toBe(false);
   });
 
-  it("rejects stale persisted selections in both cloud-backend switch directions", () => {
-    const expected = { computer: "cloud" as const, cloudBackend: "box" as const };
-    expect(persistedComputerSelectionMatches({ ...expected, persistedBot: expected })).toBe(true);
+  it("accepts a persisted cloud selection only for the same destination", () => {
     expect(persistedComputerSelectionMatches({
-      ...expected,
-      persistedBot: { computer: "cloud", cloudBackend: "vps" },
-    })).toBe(false);
+      computer: "cloud", cloudBackend: "vps", persistedBot: { computer: "cloud", cloudBackend: "vps" },
+    })).toBe(true);
     expect(persistedComputerSelectionMatches({
-      computer: "cloud",
-      cloudBackend: "vps",
-      persistedBot: { computer: "cloud", cloudBackend: "box" },
-    })).toBe(false);
-    expect(persistedComputerSelectionMatches({
-      ...expected,
-      persistedBot: { computer: undefined, cloudBackend: "box" },
+      computer: "cloud", cloudBackend: "vps", persistedBot: { computer: undefined, cloudBackend: "vps" },
     })).toBe(false);
   });
 });

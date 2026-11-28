@@ -19,7 +19,7 @@ export function usePlaceViews(bot: Bot): Record<Place, { view: PlaceView; reacha
   const { state } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const seat = usePlaceSeat(state.config, capabilities);
-  const backend = bot.cloudBackend === "vps" ? "vps" : "box";
+  const backend = "vps" as const;
   const allowed = state.config?.managedPolicy?.computers ?? { thisComputer: true, localVm: true, box: true, vps: true };
   const providerSupportsLocal = instanceSupportsLocalComputer(state.instances, bot);
   const local = {

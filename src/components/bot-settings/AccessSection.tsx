@@ -642,7 +642,7 @@ function DraftWorksOn({ bot, patch, seat }: { bot: Bot; patch: ReturnType<typeof
         reason: localReason ?? t("computer.unavailableLocal"),
       },
     }));
-    const managedBy = placeManagedBy(mode, bot.cloudBackend, state.config?.managedPolicy);
+    const managedBy = placeManagedBy(mode, state.config?.managedPolicy);
     return {
       mode, labelKey, descriptionKey, Icon, view, managedBy,
       selected: worksOnSelected(mode, bot.computer, capabilities),
