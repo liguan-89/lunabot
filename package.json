@@ -2,7 +2,7 @@
   "name": "lunabot",
   "productName": "Luna Bot",
   "private": true,
-  "version": "2.1.12",
+  "version": "2.1.13",
   "description": "Luna Bot — a local-first chat app for running a team of AI agents.",
   "homepage": "https://github.com/liguan-89/lunabot",
   "repository": {
