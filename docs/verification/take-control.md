@@ -4,7 +4,7 @@ Run the focused checks in disposable homes:
 
 ```sh
 pnpm exec vitest run src/components/ComputerPanel.takeover.test.ts src/components/computer-takeover.test.ts src/components/ComputerPanel.simple.test.ts
-pnpm exec vitest run server/computer-take-control.e2e.test.ts server/boat-desktop-link.test.ts server/container-computer.test.ts server/vps-computer.test.ts server/routes/desktop-viewer.test.ts
+pnpm exec vitest run server/vps-routing.test.ts server/container-computer.test.ts server/vps-computer.test.ts server/routes/desktop-viewer.test.ts
 ```
 
 The panel checks mount the real `ComputerPanel` with its real control requests;
@@ -28,12 +28,12 @@ only the live desktop itself is a stand-in. They prove:
   the app; closing that tab gives the computer back, and a failed join closes it
   and gives the computer back.
 
-The server checks run the real routes against a stub Boat relay that holds every
+The server checks run the real routes against a fake Docker-over-SSH VPS that holds every
 screen capture. They prove that a screen preview in flight never blocks taking
 control or the desktop link, for a bot's own cloud computer, a team's shared one
 and the Team map's take, while putting the computer to sleep still waits for the
 capture, and two viewers share one capture. Each request for a desktop link is
-bounded, so a provider that never answers cannot leave the bot waiting. A Local
+bounded, so a VPS that never answers cannot leave the bot waiting. A Local
 VM or VPS desktop gets a process cap of 4096; one made under the old 512 cap is
 raised in place once, and a cap someone chose stays.
 

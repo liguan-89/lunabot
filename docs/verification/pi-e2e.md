@@ -240,11 +240,10 @@ pnpm vitest run server/main-thread.e2e.test.ts
   pi's finish gate, and no key appears in config, instances, frames or logs. The
   retired `openaiCompat` instance snapshot and its `authenticated/reason` fields
   are gone: pi's own snapshot is always available because pi holds no key.
-- `server/openai-boat.e2e.test.ts` — a cloud bot's direct, group and scheduled
-  turns claim the loopback Boat, run its native-resolution screenshot, keep the
-  selected model over pi's RPC (`piModelsSet`), offer pi's permission card, and
-  prove human control blocks the computer call. A cleared custom-provider key is
-  no longer part of cloud readiness, so that old refusal was dropped.
+- `server/vps-routing.test.ts` — a cloud bot's direct and delegated turns use
+  the bot's VPS desktop through the harness proxy, keep computer credentials out
+  of the engine, share slow screenshots safely, and describe an unavailable VPS
+  truthfully instead of letting the model believe it controls a desktop.
 - `server/parallel-threads.e2e.test.ts` — a bot's threads run at once on pi,
   and the Starter Cloud's slot arithmetic, browser seat and team computer still
   hold per thread. The old per-engine matrix (Claude, ACP, OpenAI-compatible)
@@ -280,9 +279,6 @@ pnpm vitest run server/main-thread.e2e.test.ts
 - `server/bot-visibility.e2e.test.ts` — per-bot visibility on a shared
   workspace, with the closed and hidden bots' prompts read from
   `FAKE_PI_PROMPTS` instead of a second echo engine.
-- `server/computer-engine-removal.e2e.test.ts` — a retired Claude instance is
-  retargeted to pi at boot, and a Boat screenshot is a scripted
-  `{ server: "computer" }` call through the mounted pi extension.
 - `server/decider-rooms.e2e.test.ts` — room deciders on pi; engine-generated
   thread titles are gone with pi's missing one-shot text call.
 - `server/full-access-workflows.e2e.test.ts` and
