@@ -70,7 +70,7 @@ describe("default VPS command runner", () => {
     child.stderr.write("err");
     child.emit("close", 0, null);
 
-    await expect(result).resolves.toEqual({ stdout: "out", stderr: "err" });
+    await expect(result).resolves.toEqual({ stdout: "out", stderr: "err", exitCode: 0 });
     const resolved = resolveCliSpawn("docker", ["info"]);
     expect(spawnMock).toHaveBeenCalledWith(resolved.command, resolved.args, {
       shell: false,
