@@ -26,7 +26,7 @@ export interface ComputerFramesRouteDeps {
   teamComputerInUse(computer: TeamComputerRecord): boolean;
 }
 
-type MapBot = Pick<BotRecord, "id" | "name" | "section" | "computer" | "cloudBackend" | "hidden">;
+type MapBot = Pick<BotRecord, "id" | "name" | "section" | "computer" | "hidden">;
 
 /** Auto bots of a team use its computer; a bot set to its own cloud computer, or one that already has one, gets its own. */
 export function mapComputers(input: {

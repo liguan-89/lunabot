@@ -22,7 +22,7 @@ export type CloudPlanFacts = { plan: "starter" | "personal" | "pro" | "max" | "o
 export interface UsageInput {
   config: ConfigStatus;
   instances: readonly InstanceInfo[];
-  bots: ReadonlyArray<Pick<Bot, "computer" | "cloudBackend" | "hidden">>;
+  bots: ReadonlyArray<Pick<Bot, "computer" | "hidden">>;
   groups: ReadonlyArray<Pick<Group, "dm">>;
   sections?: readonly string[];
   /** null while the routine list is not loaded. */

@@ -47,7 +47,7 @@ function engineFacts(instance: InstanceInfo | undefined, model: string | undefin
 }
 
 export function placeFacts(input: {
-  bot: Pick<Bot, "name" | "modelSelection" | "toolScope" | "cloudBackend">;
+  bot: Pick<Bot, "name" | "modelSelection" | "toolScope">;
   place: PlaceFacts["place"];
   seat: PlaceSeat;
   config: (FeatureFlagConfig & Pick<ConfigStatus, "box">) | null | undefined;

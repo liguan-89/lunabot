@@ -231,7 +231,7 @@ describe("AccessSection Works on", () => {
     fixture.config = { box: { configured: true } } as Partial<ConfigStatus>;
     const chosen = draft(makeBot({ computer: "cloud" }));
     expect(chosen.html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>(?:(?!<\/button>).)*?Cloud desktop/);
-    expect(chosen.html).toContain("Cloud backend");
+    expect(chosen.html).not.toContain("Cloud backend");
 
     const picker = nodes(chosen.tree).find((node) => (node.type as { name?: string }).name === "DraftWorksOn")!;
     let rendered: ReactNode = null;
@@ -282,8 +282,8 @@ describe("AccessSection Works on", () => {
     expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>(?:(?!<\/button>).)*?Auto/);
   });
 
-  it("hides the Boat or VPS choice on My Cloud, whose cloud computers are the plan's", () => {
-    expect(render(makeBot())).toContain("Cloud backend");
+  it("never offers a cloud backend choice, on a desktop or My Cloud", () => {
+    expect(render(makeBot())).not.toContain("Cloud backend");
     fixture.config = { cloudHome: true } as Partial<ConfigStatus>;
     expect(render(makeBot())).not.toContain("Cloud backend");
     expect(render(makeBot({ computer: "cloud" }))).not.toContain("Boat");
@@ -322,12 +322,13 @@ describe("Research (treg) card", () => {
   });
 
   it("is on by default for every bot with the person's own treg key, and says it bills their treg balance", () => {
-    fixture.config = { xResearch: { included: false }, treg: { configured: true } } as Partial<ConfigStatus>;
+    fixture.config = { xResearch: { included: false }, treg: { configured: true }, vps: { configured: true, sshAlias: "production-vps" } } as Partial<ConfigStatus>;
     const html = render(makeBot());
     expect(html).toMatch(new RegExp(`${SWITCH}[^>]*aria-checked="true"`));
     expect(html).not.toMatch(new RegExp(`${SWITCH}[^>]* disabled=""`));
     expect(html).toContain("through your treg key. Calls are billed to your treg balance.");
-    expect(html).not.toContain("Open API keys");
+    const research = html.slice(html.indexOf('data-testid="access-x-research"'));
+    expect(research).not.toContain("Open API keys");
   });
 
   it("is on by default with a Cloud plan, and turns off for one bot with one patch", () => {
@@ -355,17 +356,17 @@ describe("Research (treg) card", () => {
 describe("a VPS bot's own server", () => {
   it("is offered on a saved VPS bot beside the default, and never while a new bot or the New bot defaults are drafted", async () => {
     fixture.config = { vps: { configured: true, sshAlias: "production-vps" } } as Partial<ConfigStatus>;
-    const vpsBot = makeBot({ computer: "cloud", cloudBackend: "vps", vpsAlias: "alpha-vps" });
+    const vpsBot = makeBot({ computer: "cloud", vpsAlias: "alpha-vps" });
     const saved = render(vpsBot);
     expect(saved).toContain("Server (SSH alias)");
     expect(saved).toContain("Leave empty to use production-vps from Settings → API keys.");
     expect(saved).toContain('value="alpha-vps"');
-    expect(render(makeBot({ computer: "cloud", cloudBackend: "box" }))).not.toContain("Server (SSH alias)");
+    expect(render(makeBot({ computer: "cloud" }))).toContain("Server (SSH alias)");
     const { BotEditorContext } = await import("./BotEditorContext");
     const { api } = await import("@/state/store");
     const drafted = renderToStaticMarkup(createElement(StoreProvider, null,
       createElement(BotEditorContext.Provider, { value: { request: api, draft: true } }, createElement(AccessSection, { bot: vpsBot, derived: makeDerived() }))));
-    expect(drafted).toContain("Self-hosted VPS");
+    expect(drafted).not.toContain("Self-hosted VPS");
     expect(drafted).not.toContain("Server (SSH alias)");
   });
 });

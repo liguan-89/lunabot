@@ -993,7 +993,7 @@ describe("the Where it works page", () => {
 
   it.each([undefined, "cloud"] as const)("shows only VPS preferences for an existing bot kept on %s", (computer) => {
     fixture.storeState = { ...fixture.storeState, config: { vps: { sshAlias: "fixture-vps" } } };
-    const bot = makeBot({ computer, cloudBackend: "box" });
+    const bot = makeBot({ computer });
     const preference = ofType(where(bot), CloudPreference);
     expect(preference).toBeDefined();
     expect(preference!.props).toMatchObject({ bot, patch });

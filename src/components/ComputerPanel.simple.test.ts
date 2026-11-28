@@ -600,7 +600,7 @@ describe("Technical controls", () => {
 
   it("turns VPS setup into one friendly line, its start button and the cloud computer choice", () => {
     fixture.seed = { phase: "vps-stopped", resolved: { botId: "scout", threadId: "thread-scout", computer: "cloud", cloudBackend: "vps" } };
-    const vps = () => makeBot({ computer: "cloud", cloudBackend: "vps" });
+    const vps = () => makeBot({ computer: "cloud" });
     const simple = render(vps());
     expect(simple.html).toContain("Scout&#x27;s desktop needs a setup step first.");
     expect(simple.button("Start the desktop on your VPS")).toBeDefined();
@@ -619,7 +619,7 @@ describe("Technical controls", () => {
 
   it("offers a bot that picks its own place auto-start beside a stopped VPS, and Advanced's switch where Simple has no fix", () => {
     fixture.seed = { phase: "vps-unconfigured", resolved: { botId: "scout", threadId: "thread-scout", computer: undefined, cloudBackend: "vps" } };
-    const simple = render(makeBot({ cloudBackend: "vps" }));
+    const simple = render(makeBot());
     expect(simple.html).toContain("Start VPS automatically");
     expect(simple.button("Start the desktop on your VPS")).toBeUndefined();
     (simple.nodes.find((node) => node.type === SimpleVpsChoices)!.props.onAutoStart as () => void)();

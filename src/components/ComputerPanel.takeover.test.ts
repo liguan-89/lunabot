@@ -365,7 +365,7 @@ describe("taking control of a Local VM", () => {
 
 describe("taking control of other computers", () => {
   it("a VPS is driven in place too, and handing back closes its viewer tunnel", async () => {
-    await open(makeBot({ computer: "cloud", cloudBackend: "vps" }));
+    await open(makeBot({ computer: "cloud" }));
     await press("Take control");
     await shownLive();
     expect(liveDesktop()!.dataset.target).toBe("vps/scout");
