@@ -8136,7 +8136,7 @@ async function beginTurn(
       }
       let previewCapture: (() => Promise<{ png: string; format: string }>) | null = null;
       let browserCapture: (() => Promise<{ png: string; format: string }>) | null = null;
-      let computerKind: "box" | "vps" | "vm" | "local" | null = null;
+      let computerKind: "vps" | "vm" | "local" | null = null;
       let vmUpdateNote = "";
       /** A capture in flight after another thread owns the shared desktop would picture its work under this bot's name. */
       const localVmPreviewFor = (localVmTarget: LocalVmTarget, claimThreadId: string) => () => {
@@ -8332,7 +8332,7 @@ async function beginTurn(
 
         if (teamComputer) {
           integrations.localComputer = mountTeamBoat(teamComputer, bot.id, resourceOwner, canWorkOnCloud(cloudEngine(instance)), { onClaimed: adoptClaimedCapture, onRejected: surfaceLazyClaimRejection("the team's cloud computer") });
-          computerKind = "box";
+          computerKind = "vps";
         }
         if (!teamComputer && wants === "cloud" && cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))) {
           integrations.localComputer = mountBotCloud(bot, resourceOwner, {
@@ -8341,18 +8341,20 @@ async function beginTurn(
             onRejected: surfaceLazyClaimRejection("the cloud computer"),
             existingOnly: handoffOwnCloud,
           });
-          // An explicit cloud place is already consent to create or wake it. Claim before the prompt is written,
-          // so the model is never told it controls a desktop this turn could not start.
-          startAutoVmClaim(autoVmClaims, threadId, resourceOwner.generation);
-          const claim = autoVmClaims.get(threadId);
-          if (claim?.owner.generation === resourceOwner.generation && claim.begin) await claim.begin;
-          if (claim?.owner.generation === resourceOwner.generation && claim.failed) throw new Error(claim.cause ?? claim.failure ?? "the cloud computer could not be created or reached");
-          computerKind = "box";
+          // An explicit cloud place is already consent to create or wake it. Prepare before the prompt is written,
+          // while the first real screen call still claims the shared desktop for this turn.
+          const prepared = await withinBudget(
+            cloudComputerPower.start(bot, resourceOwner, { existingOnly: handoffOwnCloud, budgetMs: CLOUD_COMPUTER_START_BUDGET_MS }),
+            CLOUD_COMPUTER_START_BUDGET_MS,
+            CLOUD_COMPUTER_DID_NOT_START,
+          );
+          if (!prepared) throw new Error(handoffOwnCloud ? "this bot no longer has a cloud computer of its own" : "the cloud computer could not be created or reached");
+          computerKind = "vps";
         }
         if (wants === "cloud" && !cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))) {
           throw cloudNotConfigured(bot, placeSource ?? "works-on");
         }
-        if (wants === "cloud" && computerKind !== "box") {
+        if (wants === "cloud" && computerKind !== "vps") {
           throw new Error("the cloud computer could not be created or reached");
         }
       } catch (error) {
@@ -8374,7 +8376,7 @@ async function beginTurn(
           onClaimed: adoptClaimedCapture,
           onRejected: surfaceLazyClaimRejection("the cloud computer"),
         });
-        computerKind = "box";
+        computerKind = "vps";
       }
 
       // Electron owns cua-driver and its TCC attribution; the harness only reads its running connection descriptor.
@@ -9876,7 +9878,7 @@ async function runClaimedGroupMemberTurn(
   let providerDispatched = false;
   let setupStallReason: string | undefined;
   let unregisterSetupStall = () => {};
-  let roomComputerKind: "local" | "vps" | "box" | null = null;
+  let roomComputerKind: "local" | "vps" | null = null;
   let roomVpsBotId: string | null = null;
   let roomScreenBotId: string | null = null;
   const releaseRoomVmLease = () => {
@@ -10179,7 +10181,7 @@ async function runClaimedGroupMemberTurn(
     if (!roomTeamComputer && roomPlan.computer === "cloud") {
       if (!cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, readyBot))) throw cloudNotConfigured(readyBot, "room");
       integrations.localComputer = mountBotCloud(readyBot, resourceOwner, { source: "room", onClaimed: showClaimedScreen, onRejected: failRoomClaim });
-      roomComputerKind = "box";
+      roomComputerKind = "vps";
     }
 
     // The speaker's desktop, never the coordinator's; claim the lease before asynchronous VM setup.
@@ -10294,7 +10296,7 @@ integrations.agents && (CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretN
   const recentLines = recentWork(recentWorkSources(bot), bot, { userName: typeof userName === "string" ? userName : "the team", currentThreadId: threadId, ...recentWorkFilter(threadId) });
   recordTurnPlace(bot.id, threadId, (roomTeamComputer ? "cloud" : roomVmTarget ? "vm" : surfaceOfComputerKind(roomComputerKind)) ?? (integrations.browser ? "browser" : null));
   const roomComputerPromptKind = resolveComputerPromptKind({
-    kind: roomTeamComputer || roomComputerKind === "box" ? "box" : roomVmTarget ? "vm" : roomComputerKind,
+    kind: roomTeamComputer || roomComputerKind === "vps" ? "vps" : roomVmTarget ? "vm" : roomComputerKind,
     vmPrivate: localVmMode(cfg) === "per-bot",
   });
   {
