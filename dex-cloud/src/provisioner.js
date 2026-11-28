@@ -37,7 +37,7 @@ function cloudPost(cloud, path, body, headers) {
   });
 }
 
-export function createProvisioner({ config, store, docker, log = console.log }) {
+export function createProvisioner({ config, store, docker, desktopPool = null, generateDesktopKey = null, log = console.log }) {
   async function waitHealthy(cloud) {
     const deadline = Date.now() + config.cloudProvisionTimeoutMs;
     let last = "";
@@ -59,8 +59,8 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
     return false;
   }
 
-  function environment(cloud) {
-    return [
+  async function environment(cloud) {
+    const env = [
       "LUNABOT_CLOUD_ROLE=home",
       `LUNABOT_CLOUD_MACHINE_ID=${cloud.machine_id}`,
       `LUNABOT_CLOUD_ADMIN_URL=${config.origin}`,
@@ -71,6 +71,19 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       "LUNABOT_CLOUD_CLIENT_IP_HEADER=X-Forwarded-For",
       `LUNABOT_SERVER_NAME=${cloud.name}`,
     ];
+    if (!desktopPool) return env;
+    const key = await generateDesktopKey();
+    const desktop = await desktopPool.allocate({ cloudId: cloud.id, publicKey: key.publicKey });
+    const knownHost = desktop.port === 22 ? desktop.host : `[${desktop.host}]:${desktop.port}`;
+    return [
+      ...env,
+      `LUNABOT_CLOUD_DESKTOP_SSH_ALIAS=${config.desktop.alias}`,
+      `LUNABOT_CLOUD_DESKTOP_SSH_HOST=${desktop.host}`,
+      `LUNABOT_CLOUD_DESKTOP_SSH_PORT=${desktop.port}`,
+      `LUNABOT_CLOUD_DESKTOP_SSH_USER=${desktop.user}`,
+      `LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY=${key.privateKey}`,
+      `LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS=${knownHost} ${config.desktop.hostPublicKey}`,
+    ];
   }
 
   async function provision(cloud) {
@@ -80,6 +93,7 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       if (!(await docker.imageExists(config.cloudImage))) {
         throw Object.assign(new Error(`cloud image missing: ${config.cloudImage}`), { code: "cloud_image_missing" });
       }
+      const env = await environment(cloud);
       store.updateCloud(cloud.id, { setup_step: "storage", setup_progress: 0.4, power_state: "awake" });
       await docker.createVolume(volumeName(cloud.id));
       store.updateCloud(cloud.id, { setup_step: "starting", setup_progress: 0.65 });
@@ -89,7 +103,7 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
         image: config.cloudImage,
         network: config.cloudNetwork,
         volume: volumeName(cloud.id),
-        env: environment(cloud),
+        env,
         memoryMb: config.cloudMemoryMb,
         nanoCpus: config.cloudNanoCpus,
       });
@@ -173,6 +187,10 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       await docker.removeContainer(containerName(cloud.id));
       await docker.removeVolume(volumeName(cloud.id));
       store.deleteCloud(cloud.id);
+      if (desktopPool) {
+        try { await desktopPool.release({ cloudId: cloud.id }); }
+        catch (error) { log(`cloud ${cloud.id} desktop release failed: ${error?.message ?? error}`); }
+      }
     },
 
     async pairing(cloud) {

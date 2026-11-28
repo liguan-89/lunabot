@@ -1,10 +1,11 @@
 import { createServer } from "node:http";
 
 import { createApp } from "./server.js";
-import { loadConfig, loadRelaySeed } from "./config.js";
+import { desktopPoolConfigured, loadConfig, loadRelaySeed } from "./config.js";
 import { relaySigningKey } from "./crypto.js";
 import { createDocker } from "./docker.js";
 import { createEmailer } from "./email.js";
+import { createDesktopPool, generateDesktopKey } from "./desktop-pool.js";
 import { createProvisioner } from "./provisioner.js";
 import { createRouter } from "./router.js";
 import { openStore } from "./store.js";
@@ -24,7 +25,8 @@ if (config.relaySeed) {
 
 const emailer = createEmailer(config, log);
 const docker = createDocker(config.dockerSocket);
-const provisioner = createProvisioner({ config, store, docker, log });
+const desktopPool = desktopPoolConfigured(config) ? createDesktopPool(config) : null;
+const provisioner = createProvisioner({ config, store, docker, desktopPool, generateDesktopKey, log });
 const app = createApp({ config, store, emailer, relayKey, provisioner, log });
 const server = createServer(app);
 

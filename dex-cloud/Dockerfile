@@ -4,6 +4,8 @@ WORKDIR /app
 COPY package.json ./
 COPY src ./src
 
+RUN apk add --no-cache openssh-client
+
 ENV NODE_ENV=production
 EXPOSE 8791
 USER node
