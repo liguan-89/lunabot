@@ -99,11 +99,11 @@ it("takes cron through the real routine tools, applying the bot's own routine at
 
     await proposal("create_trigger", { when: "schedule", name: "Impossible date", instructions: "Must not run.", schedule: { ...schedule, expression: "0 9 31 2 *" } }, "Try an invalid calendar rule.", true);
     await proposal("create_trigger", { when: "schedule",
-      name: "Explicit Boat", instructions: "Run on the Boat-hosted agent.", schedule, run_on: "box",
-    }, "Try the separate Boat runner without a Boat account.", true);
-    const boatResponse = ownTurns().at(-1).evidence.find((entry: any) => entry.step?.tool === "create_trigger").response;
-    expect(boatResponse.result.content[0].text).toContain('run_on="maus"');
-    expect(boatResponse.result.content[0].text).toContain("self-hosted VPS");
+      name: "Explicit cloud desktop", instructions: "Run on the cloud desktop.", schedule, run_on: "box",
+    }, "Try the separate cloud desktop runner without a configured machine.", true);
+    const cloudResponse = ownTurns().at(-1).evidence.find((entry: any) => entry.step?.tool === "create_trigger").response;
+    expect(cloudResponse.result.content[0].text).toContain('run_on="maus"');
+    expect(cloudResponse.result.content[0].text).toContain("cloud desktops on a Linux machine you control");
     const before = await current();
     for (const invalid of [
       { type: "cron", expression: "0 9 1 * *" },

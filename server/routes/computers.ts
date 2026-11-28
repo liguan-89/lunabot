@@ -97,7 +97,7 @@ export function createComputerRoutes(deps: ComputerRouteDeps): RouteHandler {
     const { req, res, url, path, method, auth, json, readBody } = context;
     const routines = deps.routines();
     let m: RegExpMatchArray | null = null;
-    // Team Boats have real ownership, never a hidden bot or an arbitrary provider id. Admin-only.
+    // Team computers have real ownership, never a hidden bot or an arbitrary provider id. Admin-only.
     if (path === "/api/team-computers" && method === "GET") {
       res.setHeader("cache-control", "private, no-store");
       return json(res, 200, await teamComputersPayload());

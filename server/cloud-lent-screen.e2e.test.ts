@@ -13,6 +13,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { spawnWithSecrets } from "./cloud-home-start.ts";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { writeFakeVpsDocker } from "./testing/fake-vps-docker.ts";
 import { markLeftBehind } from "./testing/cloud-left-behind.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
@@ -87,7 +88,11 @@ beforeAll(async () => {
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);
   // Each turn holds until the test writes the release file, so its launch and prompt can be read while it runs.
-  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
+  const fakeBin = join(home, "fakebin");
+  mkdirSync(fakeBin, { recursive: true });
+  writeFakeVpsDocker(fakeBin);
+  writeFileSync(join(fakeBin, "docker.log"), "");
+  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ vps: { sshAlias: "production-vps" }, instances: {
     pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
       FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: join(home, "release"),
       // Mount the turn's MCP servers through the real extension at boot: a confined launch must leave its
@@ -106,9 +111,9 @@ beforeAll(async () => {
       // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
       LUNABOT_BOT_BOX: "0",
       LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
+      LUNABOT_PUBLIC_URL: `https://${HOST}`, LUNABOT_EXTRA_PATH: fakeBin, FAKE_DOCKER_DIR: fakeBin, FAKE_DOCKER_LOG: join(fakeBin, "docker.log"),
       LUNABOT_CLOUD_SECRETS_FD: "3",
-    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${randomBytes(32).toString("base64url")}` }, undefined, true);
+    }, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret }, undefined, true);
     for (const stream of [child.stdout, child.stderr]) stream?.on("data", (chunk) => { log += chunk; });
     const deadline = Date.now() + 20_000;
     for (;;) {
@@ -168,7 +173,7 @@ async function agentTools(turn: Turn) {
   return (name: string, args: unknown = {}) => request("tools/call", { name, arguments: args }) as Promise<{ isError?: boolean; content: Array<{ text: string }> }>;
 }
 
-it("lets an Auto conversation pinned to the cloud computer use the person's lent PC, and says how", async () => {
+it.skipIf(process.platform === "win32")("lets an Auto conversation pinned to the cloud computer use the person's lent PC, and says how", async () => {
   const created = (await api("POST", "/api/bots", { token: owner, body: { name: "Office", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot as { id: string; threadId: string };
   const guestThread = (await api("POST", `/api/bots/${created.id}/tasks`, { token: owner, body: { title: "Guest's" } })).body.task.threadId as string;
   // Stopped: an earlier Auto turn selected the cloud computer in this conversation (the pin a turn makes on its own), and
