@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -12,7 +12,7 @@ import {
 } from "./cloud-home.ts";
 import {
   cloudHomeChildEnvironments, cloudHomeDataDir, codeTrustProblem, edgeCertIssuers, edgeClientAddress, edgeHold, hardenHost, hasCapability, holdVolume, passwdIds, prepareCloudHomeData,
-  readCloudSecretsFile, setprivArgs, spawnWithSecrets,
+  prepareManagedDesktopSsh, readCloudSecretsFile, setprivArgs, spawnWithSecrets,
 } from "./cloud-home-start.ts";
 import { RESTART_EXIT_CODE, restartPolicy } from "./restart.ts";
 import { hostedModelPolicy } from "./hosted-models.ts";
@@ -338,6 +338,56 @@ it("a new home on a kept volume clears the data-directory lease the previous mac
   expect(readFileSync(lease, "utf8")).toContain(hostname());
 });
 
+it("writes the managed desktop SSH host as a marked block, preserves the rest of the config, and removes it cleanly", () => {
+  const home = directory();
+  const managed = {
+    LUNABOT_CLOUD_DESKTOP_SSH_ALIAS: "dexcloud-desktop",
+    LUNABOT_CLOUD_DESKTOP_SSH_HOST: "desktop.example.test",
+    LUNABOT_CLOUD_DESKTOP_SSH_PORT: "2222",
+    LUNABOT_CLOUD_DESKTOP_SSH_USER: "dxd0",
+    LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY: `-----BEGIN OPENSSH PRIVATE KEY-----\n${"a".repeat(160)}\n-----END OPENSSH PRIVATE KEY-----\n`,
+    LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS: "desktop.example.test ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixture\n",
+  };
+  mkdirSync(join(home, ".ssh"), { recursive: true });
+  writeFileSync(join(home, ".ssh", "config"), "Host mine\n  HostName mine.example.test\n");
+  expect(prepareManagedDesktopSsh(home, managed)).toBe(true);
+  expect(prepareManagedDesktopSsh(home, managed)).toBe(false);
+  const config = readFileSync(join(home, ".ssh", "config"), "utf8");
+  expect(config).toContain("Host mine\n  HostName mine.example.test\n");
+  expect(config).toContain("Host dexcloud-desktop\n  HostName desktop.example.test\n  Port 2222\n  User dxd0\n");
+  expect(config).toContain("StrictHostKeyChecking yes");
+  expect(readFileSync(join(home, ".ssh", "lunabot-managed-desktop-key"), "utf8")).toBe(managed.LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY);
+  expect(readFileSync(join(home, ".ssh", "lunabot-managed-desktop-known-hosts"), "utf8")).toBe(managed.LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS);
+  if (process.platform !== "win32") {
+    expect(statSync(join(home, ".ssh", "config")).mode & 0o777).toBe(0o600);
+    expect(statSync(join(home, ".ssh", "lunabot-managed-desktop-key")).mode & 0o777).toBe(0o600);
+  }
+
+  expect(prepareManagedDesktopSsh(home, {})).toBe(true);
+  expect(readFileSync(join(home, ".ssh", "config"), "utf8")).toBe("Host mine\n  HostName mine.example.test\n");
+  expect(existsSync(join(home, ".ssh", "lunabot-managed-desktop-key"))).toBe(false);
+  expect(existsSync(join(home, ".ssh", "lunabot-managed-desktop-known-hosts"))).toBe(false);
+  expect(() => prepareManagedDesktopSsh(home, { LUNABOT_CLOUD_DESKTOP_SSH_ALIAS: "dexcloud-desktop" })).toThrow(/managed desktop SSH is invalid/);
+});
+
+it("passes the managed desktop host names to the server, never its private key or known hosts", () => {
+  const config = cloudHomeConfiguration(contract())!;
+  const env = { ...contract(), PATH: "/usr/bin",
+    LUNABOT_CLOUD_DESKTOP_SSH_ALIAS: "dexcloud-desktop", LUNABOT_CLOUD_DESKTOP_SSH_HOST: "desktop.example.test",
+    LUNABOT_CLOUD_DESKTOP_SSH_PORT: "2222", LUNABOT_CLOUD_DESKTOP_SSH_USER: "dxd0",
+    LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY: "private", LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS: "hosts" };
+  const { server, dropped } = cloudHomeChildEnvironments(config, env, "/data");
+  expect(server).toMatchObject({
+    LUNABOT_CLOUD_DESKTOP_SSH_ALIAS: "dexcloud-desktop",
+    LUNABOT_CLOUD_DESKTOP_SSH_HOST: "desktop.example.test",
+    LUNABOT_CLOUD_DESKTOP_SSH_PORT: "2222",
+    LUNABOT_CLOUD_DESKTOP_SSH_USER: "dxd0",
+  });
+  expect(server).not.toHaveProperty("LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY");
+  expect(server).not.toHaveProperty("LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS");
+  expect(dropped).toEqual(expect.arrayContaining(["LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY", "LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS"]));
+});
+
 it("holds its volume for as long as it lives, and says plainly why it will not start on a volume it cannot hold", () => {
   const home = directory();
   const calls: number[] = [];
@@ -386,7 +436,7 @@ it("lets nobody name the client on an own server unless its owner names a proxy,
 });
 
 it("gives the edge only its routing name and the server the contract, never a gateway's settings or a secret", () => {
-  const relay = { LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${"b".repeat(43)}`, LUNABOT_CLOUD_VOICE_TOKEN: `omb_voice_${"v".repeat(43)}`, LUNABOT_CLOUD_DECIDER_TOKEN: `omb_decide_${"d".repeat(43)}`,
+  const relay = { LUNABOT_CLOUD_VOICE_TOKEN: `omb_voice_${"v".repeat(43)}`, LUNABOT_CLOUD_DECIDER_TOKEN: `omb_decide_${"d".repeat(43)}`,
     LUNABOT_CLOUD_AI_TOKEN: `omb_ai_${"a".repeat(43)}` };
   const config = cloudHomeConfiguration(withGateway())!;
   const { server, edge, secrets } = cloudHomeChildEnvironments(config, { ...withGateway(), ...relay, PATH: "/usr/bin" }, "/data");
@@ -504,13 +554,13 @@ it("hands the server the addresses a moved home answered at before, and never it
 it("gives the server only an allow-listed environment: a secret added later, a test's key or anything unknown never reaches it", () => {
   const config = cloudHomeConfiguration(contract())!;
   const env = { ...contract(), PATH: "/usr/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", NODE_ENV: "production", LUNABOT_STATIC_DIR: "/app/dist",
-    LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/boat", LUNABOT_TTS_DEFAULT_VOICE: "alloy", LUNABOT_CLOUD_AI_URL: "https://cloud.example.test/api/cloud/services/ai",
+    LUNABOT_TTS_DEFAULT_VOICE: "alloy", LUNABOT_CLOUD_AI_URL: "https://cloud.example.test/api/cloud/services/ai",
     LUNABOT_COMPOSIO_BROKER_URL: "https://broker.example.test", LUNABOT_COMPOSIO_BROKER_TOKEN: "b".repeat(64), LUNABOT_COMPOSIO_BROKER: "off",
     LUNABOT_CLOUD_FUTURE_SECRET: "later", LUNABOT_TEST_CLOUD_LEFT_BEHIND_KEY: "k".repeat(43), FLY_API_TOKEN: "fly", SOME_TOKEN: "t", HOME: "/root" };
   const { server, dropped } = cloudHomeChildEnvironments(config, env, "/data");
   expect(server).toMatchObject({ PATH: "/usr/bin", LANG: "C.UTF-8", LC_ALL: "C.UTF-8", NODE_ENV: "production", LUNABOT_STATIC_DIR: "/app/dist",
     LUNABOT_CLOUD_ROLE: "home", LUNABOT_CLOUD_MACHINE_ID: machineId, LUNABOT_CLOUD_ADMIN_URL: "https://cloud.example.test",
-    LUNABOT_CLOUD_BOAT_URL: "https://cloud.example.test/boat", LUNABOT_TTS_DEFAULT_VOICE: "alloy", LUNABOT_CLOUD_AI_URL: "https://cloud.example.test/api/cloud/services/ai", HOME: "/data",
+    LUNABOT_TTS_DEFAULT_VOICE: "alloy", LUNABOT_CLOUD_AI_URL: "https://cloud.example.test/api/cloud/services/ai", HOME: "/data",
     // A staging Cloud may name its connected-apps service; the Cloud registers its own token, never one from outside.
     LUNABOT_COMPOSIO_BROKER_URL: "https://broker.example.test", LUNABOT_COMPOSIO_BROKER: "off" });
   for (const name of ["LUNABOT_CLOUD_FUTURE_SECRET", "LUNABOT_TEST_CLOUD_LEFT_BEHIND_KEY", "FLY_API_TOKEN", "SOME_TOKEN", "LUNABOT_COMPOSIO_BROKER_TOKEN"]) {
@@ -596,7 +646,7 @@ it("the Cloud launcher starts the server again only when it asks to after a rest
   const launcher = readFileSync(join(import.meta.dirname, "cloud-home-start.ts"), "utf8");
   expect(launcher).toContain("const policy = restartPolicy();");
   // The volume is prepared (and the previous machine's lease cleared) through one helper, as `maus`, before any child starts.
-  expect(launcher).toContain("const prepare = () => prepareCloudHomeData(home, cloudHomeDataDir(env, home), config.machineId);");
+  expect(launcher).toContain("prepareCloudHomeData(home, cloudHomeDataDir(env, home), config.machineId)");
   expect(launcher.indexOf("prepared = prepare();")).toBeLessThan(launcher.indexOf("runServer();"));
   expect(launcher).toContain("if (!policy.again(code, stopping)) return false;");
   for (const code of [0, 1, null]) expect(restartPolicy().again(code)).toBe(false);
@@ -639,10 +689,10 @@ const child = spawnSync(process.execPath, ["-e", "process.stdout.write(JSON.stri
 writeFileSync(${JSON.stringify(out)}, JSON.stringify({ secrets, env: process.env, own: parentEnviron(process.pid), child: child.stdout }));
 `);
     const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}), LUNABOT_CLOUD_SECRETS_FD: "3", VISIBLE_PROBE: "visible" };
-    const child = spawnWithSecrets(process.execPath, [script], env, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_probe-token" });
+    const child = spawnWithSecrets(process.execPath, [script], env, { LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_VOICE_TOKEN: "omb_voice_probe-token" });
     await new Promise((resolve) => child.once("exit", resolve));
     const seen = JSON.parse(readFileSync(out, "utf8"));
-    expect(seen.secrets).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_probe-token" });
+    expect(seen.secrets).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_VOICE_TOKEN: "omb_voice_probe-token" });
     if (process.platform !== "win32") expect(seen.own).toContain("VISIBLE_PROBE=visible");
     for (const where of [seen.own, JSON.stringify(seen.env), seen.child]) {
       expect(where).not.toContain(secret);
@@ -742,11 +792,11 @@ it("takes an own server's secrets from the root-only file the connector mounts, 
     },
     stat: (path: string) => (path === file ? overrides.file ?? { uid: 0, mode: 0o100400 } : path === "/run/lunabot" ? overrides.dir ?? { uid: 0, mode: 0o40700 } : { uid: 0, mode: 0o40755 }),
     read: () => overrides.text ?? JSON.stringify({
-      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40),
+      LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_VOICE_TOKEN: `omb_voice_${"v".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40),
       LUNABOT_PUBLIC_URL: "https://elsewhere.example", PATH: "/tmp",
     }),
   });
-  expect(readCloudSecretsFile("/data", file, fs())).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_BOAT_TOKEN: `box_lunabot_${"b".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40) });
+  expect(readCloudSecretsFile("/data", file, fs())).toEqual({ LUNABOT_CLOUD_BOOTSTRAP_SECRET: secret, LUNABOT_CLOUD_VOICE_TOKEN: `omb_voice_${"v".repeat(43)}`, LUNABOT_CLOUD_TUNNEL_TOKEN: "t".repeat(40) });
   expect(readCloudSecretsFile("/data", file, fs({ exists: false }))).toEqual({});
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 0, mode: 0o100644 } }))).toThrow("readable by others than root");
   expect(() => readCloudSecretsFile("/data", file, fs({ file: { uid: 1001, mode: 0o100400 } }))).toThrow(`${file} is not root's`);

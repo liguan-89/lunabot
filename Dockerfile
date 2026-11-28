@@ -25,6 +25,8 @@
 # collect, and Chrome needs shared memory (docs/browser-packaging.md, "Process
 # hygiene"). On Fly Machines (the Cloud home) Fly's own init is PID 1.
 
+FROM docker:27.5.1-cli AS docker-cli
+
 FROM caddy:2.10.2 AS edge
 # Official Caddy carries a privileged-port file capability. The Cloud home's
 # edge uses the unprivileged 8080, and a plain copy to a fresh inode drops the
@@ -139,7 +141,7 @@ FROM runtime AS cloud-home
 ARG UV_VERSION=0.13.4
 ARG TARGETARCH
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 poppler-utils unzip bubblewrap socat \
+  && apt-get install -y --no-install-recommends python3 poppler-utils unzip bubblewrap socat openssh-client \
   && rm -rf /var/lib/apt/lists/* \
   && HOME=/tmp/omb-build-home npm install -g pnpm@10.33.0 \
   && uv_arch=x86_64 && if [ "$TARGETARCH" = arm64 ]; then uv_arch=aarch64; fi \
@@ -151,6 +153,7 @@ RUN apt-get update \
 # Caddy and Grok are pinned, so they sit beneath the engines, which change
 # more often.
 COPY --from=edge /caddy /usr/local/bin/caddy
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=tunnel /cloudflared /usr/local/bin/cloudflared
 # cloudflared's own user: its token rides its environment, which lunabot can't read.
 RUN useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin omb-tunnel
@@ -195,6 +198,8 @@ COPY --from=build /src/skills ./skills
 RUN export HOME=/tmp/omb-build-home \
  && chmod go-w /app/cloud /app/cloud/Caddyfile /app/cloud/Caddyfile.tls /app/cloud/Caddyfile.tunnel /app/cloud/edge-routes.caddy \
  && caddy version \
+ && docker --version \
+ && ssh -V 2>&1 | grep -q OpenSSH \
  && cloudflared version \
  && LUNABOT_CLOUD_PUBLIC_HOST=validate.fly.dev caddy validate --config /app/cloud/Caddyfile --adapter caddyfile \
  && LUNABOT_CLOUD_PUBLIC_HOST=validate.example.com LUNABOT_CLOUD_EDGE_STORAGE=/tmp/omb-build-home/edge caddy validate --config /app/cloud/Caddyfile.tls --adapter caddyfile \

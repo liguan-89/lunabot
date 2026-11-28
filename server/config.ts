@@ -681,7 +681,9 @@ export function parseConfigPatch(value: JsonValue): ConfigPatch {
 }
 
 export function vpsSshAlias(cfg: AppConfig): string | null {
-  return isValidSshAlias(cfg.vps?.sshAlias) ? cfg.vps.sshAlias : null;
+  if (isValidSshAlias(cfg.vps?.sshAlias)) return cfg.vps.sshAlias;
+  const managed = process.env.LUNABOT_CLOUD_DESKTOP_SSH_ALIAS;
+  return isValidSshAlias(managed) ? managed : null;
 }
 
 /** Revalidated because the value is forwarded into a child process environment. */
