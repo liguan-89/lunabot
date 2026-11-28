@@ -85,8 +85,8 @@
 2. 安装脚本负责：
    - 安装/校验 `uidmap`、`slirp4netns`、`fuse-overlayfs`、`docker-ce-rootless-extras`、OpenSSH；
    - 创建固定数量 tenant users（如 `dxd0`…`dxdN`），配置 subuid/subgid；
-   - 为每个 tenant user 生成 concrete systemd service，直接 supervision `dockerd-rootless.sh`，`Delegate=yes`，并设置 tenant 总 `MemoryMax`/`CPUQuota`；
-   - 安装 forced-command wrapper：只允许 `docker system dial-stdio`；禁止 shell/scp/sftp/agent forwarding；viewer 所需端口转发单独最小化；
+   - 为每个 tenant user 启用官方支持的 per-user systemd + linger，安装并启动 rootless Docker；通过 `user@<uid>` drop-in 设置 tenant 总 `MemoryMax`/`CPUQuota`；
+   - 安装 forced-command wrapper：只允许 `docker system dial-stdio` 和精确形状的 noVNC `docker exec` 桥接命令；禁止 shell/scp/sftp/agent forwarding；
    - 安装 provisioning helper，只允许 dex-cloud provision 用户通过 sudo 执行固定命令。
 3. dex-cloud config 增加：
    - `LUNABOT_CLOUD_DESKTOP_HOST`、`DESKTOP_SSH_PORT`、`DESKTOP_PROVISION_USER`、`DESKTOP_PROVISION_KEY(_FILE)`、`DESKTOP_HOST_PUBLIC_KEY`、slot/capacity/resource env；
@@ -124,5 +124,5 @@
 ## 当前最大风险
 
 1. rootless Docker 与 `vps-computer.ts` 的兼容性（尤其 noVNC private IP/端口、cgroup limits、`--cgroupns private`）尚未实测。
-2. systemd-wide 监督 rootless docker 虽可运行 direct `dockerd-rootless.sh`，但 Docker 官方更推荐 user systemd；安装脚本必须在目标 Ubuntu 版本实测，不行就切到 per-user systemd + linger。
+2. 安装脚本采用 Docker 官方支持的 per-user systemd + linger；仍必须在目标 Ubuntu 版本实测 cgroup 委派、rootless network 与容器资源限制。
 3. Boat 删除面很大，尤其 team computers、usage、place/copy、测试 fixtures；必须小步提交并用 typecheck/定向测试收敛，不能一把梭。

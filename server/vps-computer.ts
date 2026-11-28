@@ -751,8 +751,8 @@ export function vpsContainerRunArgs(
     "unless-stopped",
     // No VNC_PW: without one the desktop offers RFB security type None, which
     // is what the phone viewer speaks (VNC Auth's DES is weak crypto). The
-    // port is never published; the panel reaches it over the loopback SSH
-    // tunnel and the phone through the paired, lease-bound relay inside TLS.
+    // port is never published; the panel reaches it over the authenticated SSH
+    // bridge and the phone through the paired, lease-bound relay inside TLS.
     imageRef,
   ];
 }
