@@ -130,7 +130,6 @@ const { SettingsPage } = await import("./bot-panel/SettingsPage");
 const { LibraryTab } = await import("./bot-panel/LibraryTab");
 const { ApprovalChip } = await import("./ComposerPlusMenu");
 const { callMode, setCallMode } = await import("@/lib/call-mode");
-const { CloudBackendPicker } = await import("./CloudBackendPicker");
 const { CloudPreference } = await import("./bot-settings/AccessSection");
 const { ComputerTab, WherePage } = await import("./bot-panel/ComputerTab");
 const { PageBody, AppsPage, RoutinesPage, MemoryPage, SkillsPage, FolderPage, BrowserPage } = await import("./bot-panel/pages");
@@ -992,18 +991,13 @@ describe("the Where it works page", () => {
     .map((node) => [node.props["data-panel-choice"], node.props.title, Boolean(node.props.disabled), node.props.checked]);
   const choose = (rendered: Rendered, value: string) => click(find(rendered, "data-panel-choice", value));
 
-  it.each([undefined, "cloud"] as const)("offers the hosted desktop backend for an existing bot kept on %s", (computer) => {
+  it.each([undefined, "cloud"] as const)("shows only VPS preferences for an existing bot kept on %s", (computer) => {
     fixture.storeState = { ...fixture.storeState, config: { vps: { sshAlias: "fixture-vps" } } };
     const bot = makeBot({ computer, cloudBackend: "box" });
     const preference = ofType(where(bot), CloudPreference);
     expect(preference).toBeDefined();
     expect(preference!.props).toMatchObject({ bot, patch });
-    expect(where(bot).html).toContain("Self-hosted VPS");
-    const picker = ofType(capture(() => CloudPreference({ bot, patch })), CloudBackendPicker)!;
-    (picker.props.onChange as (backend: string) => void)("vps");
-    expect(patch).toHaveBeenLastCalledWith({ cloudBackend: "vps" });
-    (picker.props.onChange as (backend: string) => void)("box");
-    expect(patch).toHaveBeenLastCalledWith({ cloudBackend: "box" });
+    expect(where(bot).html).not.toContain("Boat");
   });
 
   it.each(["local", "browser", "vm", "off"] as const)("does not offer a hosted backend for a bot kept on %s", (computer) => {

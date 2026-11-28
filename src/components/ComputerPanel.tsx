@@ -12,14 +12,13 @@ import { SIMPLE_ONLY } from "@/lib/simple-only";
 import { ComputerFilesPane } from "./ComputerFilesPane";
 import { effectivePlace, isComputerPlace, personPin, placeLabelKey, placeOffered } from "@/lib/place";
 import type { CloudBackend } from "../../shared/wire";
-import { KeyRow } from "./keys/KeyRow"; import { openKeySettings } from "./keys/key-focus";
+import { openKeySettings } from "./keys/key-focus";
 import { cn } from "@/lib/cn";
 import { useCaptionChrome } from "@/components/DesktopCapabilities";
 import { usePageVisible } from "@/lib/page-visible";
 import { listenLiveFrames } from "@/lib/live-events";
 import { CloudScreenPreview } from "./CloudScreenPreview";
 import { isActiveTurnRefusal, isRemoteScreenshotContention } from "@/lib/remote-desktop";
-import { CloudBackendPicker } from "./CloudBackendPicker";
 import { SimpleVpsChoices } from "./SimpleVpsChoices";
 import { placeManagedBy, worksOnChoices, WorksOnGrid, worksOnSelected } from "./WorksOnGrid";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
@@ -53,7 +52,7 @@ import {
 } from "@/lib/computer-panel-view";
 import { approvalModeFor } from "../../shared/approval-mode";
 import { openPlaceAction, placeBlocked, placeFacts, placeHasIssue, placeViewFor, usePlaceSeat, worksOnSimpleLabel } from "@/lib/place-view";
-import { cloudRefusal, type PlaceActionId, type PlaceFacts, type PlaceView } from "../../shared/place-view";
+import { type PlaceActionId, type PlaceFacts, type PlaceView } from "../../shared/place-view";
 import { t } from "@/lib/i18n";
 import { LocalizedPanelError, panelErrorText } from "@/lib/computer-messages";
 
@@ -172,7 +171,7 @@ export function ComputerPanel({
   const [teamComputer, setTeamComputer] = useState<{
     id: string; name: string; botId: string; section: string;
   } | null>(null);
-  const cloudBackend = bot.cloudBackend ?? "box";
+  const cloudBackend: CloudBackend = "vps";
   const computerSelectionPersisted = Boolean(
     persistedComputerSelection
       && persistedComputerSelection.botId === bot.id
@@ -187,7 +186,7 @@ export function ComputerPanel({
       && resolvedComputerSelection.computer === bot.computer
       && resolvedComputerSelection.cloudBackend === cloudBackend,
   );
-  const currentTeamComputer = computerStatusCurrent && livePlace === "auto" && cloudBackend === "box"
+  const currentTeamComputer = computerStatusCurrent && livePlace === "auto"
     && teamComputer?.botId === bot.id && teamComputer.section === (bot.section?.trim() ?? "")
     ? teamComputer : null;
   const cloudPreviewReady = computerStatusCurrent && shouldPollCloudPreview({
@@ -262,7 +261,6 @@ export function ComputerPanel({
   const browserEnabled = builtInBrowserEnabled(state.config) && bot.browser !== false
     && (browserAvailableHere || state.config?.browserEngine?.installable === true);
   const [retry, setRetry] = useState(0);
-  const [boatKeyShown, setBoatKeyShown] = useState(false);
   // Auto is the server's decision: never guess host-vs-cloud from desktop capabilities.
   useEffect(() => {
     if (livePlace !== "auto" || !computerSelectionPersisted) return;
@@ -1092,11 +1090,7 @@ export function ComputerPanel({
 
   const managedPolicy = state.config?.managedPolicy;
   const busyBoat = busyBoatView(boatState, profileBot.busy === true);
-  const cloudComputer: PlaceFacts["computer"] = !computerStatusCurrent || livePlace !== "cloud" || cloudBackend !== "box" ? undefined
-    : phase === "starting" ? "starting"
-      : phase === "busy-boat" ? (busyBoat.spinner ? "starting" : busyBoat.line === "computer.cloud.asleep" ? "asleep" : "none")
-        : phase === "ready" ? "on"
-          : boatState === "archived" || boatState === "stopped" ? "asleep" : undefined;
+  const cloudComputer: PlaceFacts["computer"] = undefined;
   const viewOf = (place: PlaceFacts["place"], refusal?: PlaceFacts["refusal"]): PlaceView => placeViewFor({
     ...placeFacts({
       bot, place, seat: placeSeat, config: state.config, instances: state.instances,
@@ -1106,10 +1100,7 @@ export function ComputerPanel({
     }),
     ...(refusal ? { refusal } : {}),
   });
-  const cloudRefused = bot.computer === "cloud" && cloudBackend === "box" && phase === "error" && error && !(error instanceof LocalizedPanelError)
-    ? cloudRefusal({ message: errorText ?? "", status: Number((error as { status?: unknown }).status ?? 0) || undefined }, state.config?.box?.included === true)
-    : undefined;
-  const cloudView = viewOf("cloud", cloudRefused);
+  const cloudView = viewOf("cloud");
   const autoView = viewOf("auto");
   const localHidden = pageOnRemoteServer(capabilities);
   const placeOptions = worksOnChoices(state.config, capabilities).map(([mode, labelKey, descriptionKey, Icon]) => {
@@ -1180,7 +1171,7 @@ export function ComputerPanel({
     "vm-unavailable": t("computer.phase.vmUnavailable"),
     browser: viewOf("browser").line,
     off: viewOf("off").line,
-    error: bot.computer === "cloud" && (cloudRefused || placeBlocked(cloudView)) ? cloudView.line : t("computer.phase.error"),
+    error: bot.computer === "cloud" && placeBlocked(cloudView) ? cloudView.line : t("computer.phase.error"),
   } satisfies Record<Exclude<Phase, "ready" | "local" | "vm">, string>;
 
   return (
@@ -1508,18 +1499,12 @@ export function ComputerPanel({
           )}
         </div>
 
-        {errorText && !cloudRefused && (
+        {errorText && (
           <div className="mt-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[12px] text-danger">
             {errorText}
           </div>
         )}
-        {(boatKeyShown || (phase === "unconfigured" && cloudView.action?.id === "add-boat-key")) && (
-          <div data-boat-key className="mt-3 rounded-xl bg-card py-1.5">
-            <KeyRow id="box" via="computer_panel"
-              onSaved={(configured) => { setBoatKeyShown(true); if (configured) setRetry((n) => n + 1); }}
-            />
-          </div>
-        )}
+
         {advanced && phase === "vps-unconfigured" && (
           <div className="mt-3 rounded-xl bg-card p-4">
             <div className="mb-3 text-[13px] text-ink-secondary">
@@ -1682,13 +1667,6 @@ export function ComputerPanel({
             {worksOnView.line}
             {placeActionButton(worksOnView, "mt-1 block font-medium text-accent hover:underline")}
           </div>
-          {profileBot.computer === "cloud" && (
-            <CloudBackendPicker
-              compact
-              value={cloudBackend}
-              onChange={(backend) => updateComputerSelection({ cloudBackend: backend })}
-            />
-          )}
         </div>
 
         <button type="button" onClick={() => selectPanelView("routines")} className="mt-4 flex w-full items-start gap-3 rounded-xl bg-card p-4 text-left hover:bg-raised">
@@ -1750,7 +1728,7 @@ export function ComputerPanel({
                 </button>
               </div>
             )}
-            {vpsPhase && <SimpleVpsChoices bot={bot} backend={cloudBackend} onBackend={(backend) => updateComputerSelection({ cloudBackend: backend })}
+            {vpsPhase && <SimpleVpsChoices bot={bot}
               onAutoStart={() => dispatch({ type: "updateBot", botId: bot.id, patch: { autoStartVps: !bot.autoStartVps } })} />}
           </div>
         )}
