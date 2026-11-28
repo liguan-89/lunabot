@@ -15,12 +15,12 @@ function start(env = {}) {
   const store = openStore(":memory:");
   const pagesDir = mkdtempSync(join(tmpdir(), "dex-pages-"));
   const config = loadConfig({
-    DEXCLOUD_DB: ":memory:",
-    DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
-    DEXCLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
-    DEXCLOUD_DEV_CODES: "1",
-    DEXCLOUD_LATEST_VERSION: "2.1.6",
-    DEXCLOUD_PAGES_DIR: pagesDir,
+    LUNABOT_CLOUD_DB: ":memory:",
+    LUNABOT_CLOUD_ORIGIN: "https://cloud.dexai.vip",
+    LUNABOT_CLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
+    LUNABOT_CLOUD_DEV_CODES: "1",
+    LUNABOT_CLOUD_LATEST_VERSION: "2.1.6",
+    LUNABOT_CLOUD_PAGES_DIR: pagesDir,
     ...env,
   });
   const server = createServer(createApp({

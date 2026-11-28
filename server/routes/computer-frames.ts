@@ -1,4 +1,4 @@
-import * as boat from "../boat.ts";
+import * as cloudDesktop from "../cloud-desktop.ts";
 import type { ComputerControl } from "../computer-control.ts";
 import type { MapComputer, MapComputersPayload } from "../../shared/map-computer.ts";
 import { createComputerFrames, mapComputerState, type ComputerFrames, type FrameMachine } from "../computer-frames.ts";
@@ -6,6 +6,7 @@ import type { AppConfig } from "../config.ts";
 import { latestTurnFrame } from "../screen-frame-source.ts";
 import { sectionKey, type BotRecord, type Store } from "../store.ts";
 import { teamComputerOwner, type TeamComputerRecord, type TeamComputers } from "../team-computers.ts";
+import { vpsAliasesInPlay } from "../vps-hosts.ts";
 import type { RemoteComputerProvider } from "./config.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -20,12 +21,12 @@ export interface ComputerFramesRouteDeps {
   teamComputers: Pick<TeamComputers, "list">;
   computerControl: Pick<ComputerControl, "snapshot">;
   computerProviderConfigTransitions: Pick<Set<RemoteComputerProvider>, "has">;
-  managedBoatOwners(): boat.ManagedBoatOwner[];
+  managedBoatOwners(): cloudDesktop.ManagedCloudOwner[];
   botHasActiveTurn(botId: string): boolean;
   teamComputerInUse(computer: TeamComputerRecord): boolean;
 }
 
-type MapBot = Pick<BotRecord, "id" | "name" | "section" | "computer" | "cloudBackend" | "hidden">;
+type MapBot = Pick<BotRecord, "id" | "name" | "section" | "computer" | "hidden">;
 
 /** Auto bots of a team use its computer; a bot set to its own cloud computer, or one that already has one, gets its own. */
 export function mapComputers(input: {
@@ -37,9 +38,9 @@ export function mapComputers(input: {
   const bots = input.bots.filter((bot) => !bot.hidden);
   const teams = input.teamComputers.filter((computer) => computer.section !== null);
   const sharedBy = (computer: (typeof teams)[number]) => bots.filter((bot) =>
-    bot.computer === undefined && bot.cloudBackend !== "vps" && sectionKey(bot.section) === computer.section);
+    bot.computer === undefined && sectionKey(bot.section) === computer.section);
   const usesTeam = new Set(teams.flatMap((computer) => sharedBy(computer).map((bot) => bot.id)));
-  const own = bots.filter((bot) => bot.cloudBackend !== "vps" && (bot.computer === "cloud" || (!usesTeam.has(bot.id) && input.machine(bot.id) !== undefined)));
+  const own = bots.filter((bot) => bot.computer === "cloud" || (!usesTeam.has(bot.id) && input.machine(bot.id) !== undefined));
   return [
     ...own.map((bot) => ({
       id: bot.id, kind: "bot" as const, name: bot.name, botIds: [bot.id],
@@ -71,10 +72,10 @@ export function frameForCaller(frame: NonNullable<ReturnType<ComputerFrames["fra
 }
 
 async function captureThumbnail(cfg: AppConfig, boxId: string, signal: AbortSignal): Promise<{ data: string; mime: string }> {
-  const command = boat.panelShotCommand({ width: MAP_FRAME_WIDTH, quality: MAP_FRAME_QUALITY, framePath: MAP_FRAME_PATH });
-  const out = await boat.runCommand(cfg, boxId, command, { timeoutMs: 20_000, signal });
+  const command = cloudDesktop.panelShotCommand({ width: MAP_FRAME_WIDTH, quality: MAP_FRAME_QUALITY, framePath: MAP_FRAME_PATH });
+  const out = await cloudDesktop.runCommand(cfg, boxId, command, { timeoutMs: 20_000, signal });
   if (!/captured/.test(out.stdout)) throw new Error("screen capture failed on the cloud computer");
-  const data = await boat.readFileBase64(cfg, boxId, MAP_FRAME_PATH, signal);
+  const data = await cloudDesktop.readFileBase64(cfg, boxId, MAP_FRAME_PATH, signal);
   if (!data) throw new Error("could not read the frame back from the cloud computer");
   return { data, mime: "image/jpeg" };
 }
@@ -89,7 +90,7 @@ export function createComputerFramesRoutes(deps: ComputerFramesRouteDeps, frames
   };
   const cache = frames ?? createComputerFrames({
     listMachines: async () => {
-      const inventory = await boat.listManagedBoats(cfg, deps.managedBoatOwners(), { adoptLegacy: false });
+      const inventory = await cloudDesktop.listManagedCloudComputers(cfg, deps.managedBoatOwners(), { vpsAliases: vpsAliasesInPlay(cfg, store.bots) });
       if (!inventory.available) return null;
       return inventory.instances.flatMap((instance) => instance.ownerBotId && instance.state !== "removing"
         ? [{ owner: instance.ownerBotId, boxId: instance.boxId, state: instance.state }] : []);
@@ -101,12 +102,12 @@ export function createComputerFramesRoutes(deps: ComputerFramesRouteDeps, frames
     },
     working,
     held: (owner) => computerControl.snapshot(owner).held,
-    paused: () => deps.computerProviderConfigTransitions.has("box") || !boat.boatConfigured(cfg),
+    paused: () => deps.computerProviderConfigTransitions.has("vps") || !cloudDesktop.cloudConfigured(cfg),
   });
   return async ({ res, url, path, method, json }) => {
     if (method !== "GET" || path !== "/api/computers/frames") return PASS;
     res.setHeader("cache-control", "private, no-store");
-    const configured = boat.boatConfigured(cfg);
+    const configured = cloudDesktop.cloudConfigured(cfg);
     if (configured) await cache.watch();
     const have = parseHave(url.searchParams.get("have"));
     const computers: MapComputer[] = mapComputers({

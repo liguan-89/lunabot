@@ -29,7 +29,7 @@ import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsI
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
 import { withoutHiddenModels } from "../shared/model-management.ts";
 import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
-import { CLOUD_COMPUTER_BUSY_ERROR } from "../shared/computer-contention.ts";
+import {  } from "../shared/computer-contention.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
 import { assistantTranscript, errorTranscript } from "../shared/client-cancel.ts"; import { PersonStops, stoppedTurnRow } from "./person-stops.ts"; import { LiveTurns } from "./live-turns.ts";
 import { phonePairingLink } from "../shared/pairing-link.ts"; import { personTagNames, withoutPersonTags } from "../shared/person-mention.ts";
@@ -93,7 +93,7 @@ import { runtimeRequestCardFields } from "./request-card.ts";
 import type { DirectSendInput, DirectSendReceipt } from "./direct-send.ts";
 import { finishedWithoutSummaryLine, ROOM_SUMMARY_REASK, roomTurnNarrationIds, roomTurnReply } from "./room-reply.ts";
 import { chosenPlace, pickComputer } from "./computer-selection.ts";
-import * as boat from "./boat.ts"; import { keyHint, keyStatus, nestedKeyStatus, withoutKeyHints } from "./key-hint.ts";
+import { keyHint, keyStatus, nestedKeyStatus, withoutKeyHints } from "./key-hint.ts";
 import { cloudComputerRpc } from "./cloud-computer-tools.ts";
 import { chartRenderer, compileChart, dataEngine, validateVegaLite } from "./data/deps.ts";
 import { BUILT_IN_DATA_SYSTEM_PROMPT } from "./data/instructions.ts";
@@ -115,8 +115,6 @@ import { helperModelAllowed, isEffortLevel, type CardAnswerer, type ResolvedSend
 import { isPersistentQuestionCard, shouldSettleRequestCard } from "../shared/ask-question.ts";
 import { narrowedToolScope, parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
 import type { TeamComputersPayload } from "../shared/team-computer.ts";
-import { boatCreateRecoverySnapshot } from "./boat-create-idempotency.ts";
-import { boatDeletionSnapshot } from "./boat-delete-journal.ts";
 import { liveDecisionRefusal } from "../shared/live-approval.ts"; import type { PersonWaitKind } from "../shared/person-wait.ts";
 import { vpsLeftBehindNotice } from "./cloud-backend.ts";
 import * as composio from "./composio.ts";
@@ -435,8 +433,9 @@ import { LocalVmSeatPool, type LocalVmSeatHolder } from "./local-vm-seat-pool.ts
 import { createLoopGuard, loopGuardSettings } from "./host/loop-guard.ts"; import { createPersonFirst } from "./host/person-first.ts"; import { createRunOwners, runActorOf } from "./host/run-owner.ts";
 import { claudeUserSkillsEnabled, settingsTurnFields } from "./turn-settings.ts";
 import { addHeldSecretScrubber, redactSecretsInText, scrubHeldSecrets } from "./redact.ts";
+import * as cloudDesktop from "./cloud-desktop.ts";
 import * as vps from "./vps-computer.ts";
-import { vpsConfigForBot, vpsSshAliasForBot } from "./vps-hosts.ts";
+import { vpsAliasesInPlay, vpsConfigForBot, vpsSshAliasForBot } from "./vps-hosts.ts";
 import { ROUTINE_RESTARTED, RoutineManager, type Routine, type RoutineRun, type RoutineRunOn, type RoutineRunTrigger } from "./routines.ts"; import { routineModelRefusal, routineThreadModel, type RoutineModelChecks } from "./routine-input.ts"; import { routineRunsFor } from "./routine-run-window.ts"; import { batchSaves } from "./save-batch.ts";
 import { CalendarCallManager, type CalendarCall } from "./calendar-calls.ts";
 import { BROWSER_UPLOAD_TOOL, browserRuntimeEnv } from "./browser-runtime.ts";
@@ -514,7 +513,6 @@ import { CONTROL_ACT_WITHIN_MS, CONTROL_BUSY, CONTROL_HANDED_BACK, CONTROL_WAIT_
 import { computerFreeAfterText, computerParkedText, computerPersonAwayText, computerStoppedWaitingText, computerWaitingText, type ComputerHolder } from "./computer-wait.ts";
 import { modelContextWindow } from "./model-context-window.ts";
 import { browserIsThePlace, chosenPin, cloudPlaceRefusal, computerSkippedNote, computerToolsRefusal, handoffUsesOwnCloud, isHandedWork, ownCloudStateWithin, parseSurface, pinSource, PlaceUnavailableError, placeUnavailable, resolveSurface, surfaceLabel, surfaceOfComputerKind, surfacePrompt, type ComputerWant, type PlaceSource, type Surface } from "./surface.ts";
-import { cloudRefusal, type PlaceRow } from "../shared/place-view.ts";
 import {
   PendingTurnCancellations,
   ProviderTurnGenerationRegistry,
@@ -1503,7 +1501,7 @@ onKeyRejectionChange(() => { registry.forgetSnapshots(); broadcast({ kind: "conf
 function computerPlaceRefusal(kind: ComputerKind): { message: string; code: "cloud_home" | "managed_policy" } | undefined {
   const cloudHome = CLOUD_HOME ? cloudHomePlaceRefusal(kind === "thisComputer" ? "local" : kind === "localVm" ? "vm" : "cloud") : undefined;
   if (cloudHome) return { message: cloudHome, code: "cloud_home" };
-  const managed = managedPolicy.computerRefusal(kind);
+  const managed = managedPolicy.computerRefusal(kind === "vps" && CLOUD_HOME ? "box" : kind);
   return managed ? { message: managed, code: "managed_policy" } : undefined;
 }
 function policyModelRefusal(instance: { instanceId: string; driverKind: string }): string | undefined {
@@ -1813,7 +1811,7 @@ function agentsIntegration(
   const bot = store.bot(botId), speaking = botForThread(botId, threadId) ?? bot;
   // Only advertises the tools; the routes behind them refuse regardless.
   const host = { skillAuthoring: skillAuthoringEnabled(cfg), sharedComputers: botLending(), cloudHome: Boolean(CLOUD_HOME), team: Boolean(CLOUD_TEAM),
-    voiceNotes: tts.voiceReady(cfg, speaking?.voice) && speaking?.voiceNotes !== false, x: Boolean(researchCredential(cfg.treg?.key)), research: researchAvailability.available(), imageGeneration: imageGenerationReady(cfg), videoGeneration: seedancePublicStatus(cfg.seedance).ready, meetings: boat.boatConfigured(cfg), toolSelection: deciderReady(cfg, "toolSelection") };
+    voiceNotes: tts.voiceReady(cfg, speaking?.voice) && speaking?.voiceNotes !== false, x: Boolean(researchCredential(cfg.treg?.key)), research: researchAvailability.available(), imageGeneration: imageGenerationReady(cfg), videoGeneration: seedancePublicStatus(cfg.seedance).ready, meetings: cloudDesktop.cloudConfigured(cfg), toolSelection: deciderReady(cfg, "toolSelection") };
   return { ...agentsProxyLaunch(), env: agentsServerEnv({ threadId, bot: bot ?? { id: botId }, room: Boolean(store.groupByThread(threadId)), teamComputer: Boolean(bot && inheritedTeamComputer(bot)), botDriven: automated || botDrivenConversation(store.taskByThread(botId, threadId)), host },
     { generation, depth, skillAuthoring, roomHandoffId, ...(hostFiles && !CLOUD_HOME && !HOSTED_WORKSPACE ? { deliversSavedFiles: true } : {}) },
     (turn) => mintInternalCapability({ botId, threadId, kind: "agents", createdBots: 0, openedThreads: 0, ...turn }), `http://127.0.0.1:${PORT}`) };
@@ -1859,39 +1857,17 @@ function clearFailedAutoPin(botId: string, threadId: string, place: Surface): bo
 }
 
 async function asPlaceFailure(
-  error: unknown, place: Surface, source: PlaceSource, bot: { id: string; name: string }, backend: "box" | "vps" = "box",
+  error: unknown, place: Surface, source: PlaceSource, bot: { id: string; name: string },
 ): Promise<unknown> {
   if (error instanceof DirectTurnSetupCancelled || error instanceof ComputerWaitParked || error instanceof PlaceUnavailableError) return error;
   const failure = error instanceof Error ? error : new Error(String(error));
   const cause = failure.message.trim().replace(/[\s.]+$/, "");
-  if (place !== "cloud" || backend === "vps" || (failure as { code?: unknown }).code === "managed_policy") {
-    return placeUnavailable(place, {
-      state: "place-failed", params: { bot: bot.name, cause: `${cause.charAt(0).toUpperCase()}${cause.slice(1)}.` }, source,
-    }, Boolean(CLOUD_HOME));
-  }
-  const { boatCode, boatStatus, status } = failure as { boatCode?: unknown; boatStatus?: unknown; status?: unknown };
-  const providerStatus = typeof boatStatus === "number" ? boatStatus : typeof status === "number" ? status : undefined;
-  const read = cloudRefusal({
-    message: failure.message,
-    ...(typeof boatCode === "string" ? { code: boatCode } : {}),
-    ...(providerStatus !== undefined ? { status: providerStatus } : {}),
-  }, boat.boatAccount(cfg)?.included === true);
-  const row: PlaceRow = { state: read.state, params: { bot: bot.name, ...read.params }, source };
-  if (row.state === "cc-at-once") row.params.holders = await cloudComputerHolders(bot.id);
-  return placeUnavailable(place, row, Boolean(CLOUD_HOME));
+  return placeUnavailable(place, {
+    state: "place-failed", params: { bot: bot.name, cause: `${cause.charAt(0).toUpperCase()}${cause.slice(1)}.` }, source,
+  }, Boolean(CLOUD_HOME));
 }
-async function cloudComputerHolders(botId: string): Promise<string[]> {
-  try {
-    const listed = await boat.listManagedBoats(cfg, managedBoatOwners(), { adoptLegacy: false });
-    return [...new Set(listed.instances
-      .filter((instance) => instance.ownerBotId && instance.ownerBotId !== botId && instance.ownerName)
-      .map((instance) => instance.ownerName!))];
-  } catch {
-    return [];
-  }
-}
-function boatNotConfigured(bot: { name: string }, source: PlaceSource): PlaceUnavailableError {
-  return placeUnavailable("cloud", { state: CLOUD_HOME ? "cc-unavailable" : "cc-needs-key", params: { bot: bot.name }, source }, Boolean(CLOUD_HOME));
+function cloudNotConfigured(bot: { name: string }, source: PlaceSource): PlaceUnavailableError {
+  return placeUnavailable("cloud", { state: "cc-needs-key", params: { bot: bot.name }, source }, Boolean(CLOUD_HOME));
 }
 const directTurnDispatchClaims = new Map<string, DirectTurnDispatchClaim>();
 const directTurnGenerationByThread = new Map<string, string>();
@@ -2544,7 +2520,7 @@ async function moveOffComputerEngine(): Promise<void> {
   const moves = store.retireInstances(removed, replacement, {
     driverKind: instance?.driverKind,
     canWorkOnCloud: canWorkOnCloud(cloudEngine(instance)),
-    keepCloud: (bot) => boat.boatConfigured(cfg) && bot.cloudBackend !== "vps" && !inheritedTeamComputer(bot),
+    keepCloud: (bot) => cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) && !inheritedTeamComputer(bot),
   });
   writeComputerEngineMoveLines(moves, (move) => {
     const bot = store.bot(move.botId);
@@ -3003,7 +2979,7 @@ function previewSystemPrompt(bot: BotRecord) {
   const previewComputer = teamComputer ? "cloud" : bot.computer;
   const computerPromptKind = resolveComputerPromptKind({
     kind: previewComputer === "vm" ? "vm" : previewComputer === "cloud"
-      ? bot.cloudBackend === "vps" ? "vps" : "box" : previewComputer === "local" ? "local" : null,
+      ? "vps" : previewComputer === "local" ? "local" : null,
     vmPrivate: localVmMode(cfg) === "per-bot",
   });
   const peers = reachablePeers(store.bots, bot);
@@ -3039,7 +3015,7 @@ function previewSystemPrompt(bot: BotRecord) {
     }, { note: previewPlan.note, cloudHome: Boolean(CLOUD_HOME), ownComputer: CLOUD_HOME && agentsMounted && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
     { id: "cloud-home", label: "My Cloud", text: CLOUD_HOME ? cloudHomePrompt(agentsMounted && lendingEnabled(), syncedFolders(DATA_DIR), sharedComputers.known(CLOUD_HOME_LENDER), CLOUD_PERSONAL) + firstHourHooks.prompt(bot.id, bot.threadId) : "" },
     { id: "composio", label: "Connected apps", text: caps?.composioMcp && bot.composio !== false && composio.configured(cfg) ? composioSystemPrompt(bot.connectorTools) + describeConnectorScopes(bot.connectorScopes) : "" },
-    { id: "email", label: "Email", text: caps?.emailMcp === true ? emailHost.prompt(bot) : "" }, { id: "meetings", label: "Meetings", text: meetingsUnavailablePrompt({ agentsTools: agentsMounted, cloudComputer: boat.boatConfigured(cfg) }) },
+    { id: "email", label: "Email", text: caps?.emailMcp === true ? emailHost.prompt(bot) : "" }, { id: "meetings", label: "Meetings", text: meetingsUnavailablePrompt({ agentsTools: agentsMounted, cloudComputer: cloudDesktop.cloudConfigured(cfg) }) },
     ...phones.previewParts(bot, caps?.deviceMcp === true),
     { id: "mcp", label: "MCP servers", text: caps?.customMcp ? customMcpPrompt(Object.keys(engineMcpServers(bot)), mcpServersHost.off(bot)) : "" }, { id: "to-connect", label: "Connections to make", text: cloudConnections.prompt(bot) },
     { id: "browser", label: "Browser", text: previewPlan.browser ? browserPromptFor(bot, agentsMounted) : "" },
@@ -3082,7 +3058,6 @@ async function botOverview(bot: BotRecord, shown: { routine(routine: Routine): b
       description: bot.description,
       soul: bot.soul,
       computer: bot.computer,
-      cloudBackend: bot.cloudBackend,
       cwd: bot.cwd,
       autoApprove: bot.autoApprove,
       approvalMode: approvalModeForTurn(bot),
@@ -4703,7 +4678,7 @@ const desktopViewer = createDesktopViewer({
   target: (id) => {
     if (id.startsWith("vps/")) {
       const botId = id.slice(4);
-      if (store.bot(botId)?.cloudBackend !== "vps") return;
+      if (!store.bot(botId)) return;
       return { key: id, resolve: async () => {
         const connection = vps.vpsDesktopConnection(botId);
         if (!connection) throw Object.assign(new Error("VPS viewer is not open"), { status: 409 });
@@ -5763,20 +5738,20 @@ const boatLifecycleBusyBots = new Set<string>();
 const computerPreviews = createComputerPreviews();
 const vpsJoinRequests = new Map<string, Promise<void>>();
 const orphanBoatLifecycleBusyIds = new Set<string>();
-const boatInventoryRequestsBusyIds = new Set<string>();
-type RemoteComputerProvider = "box" | "vps";
+type RemoteComputerProvider = "vps";
 const computerProviderConfigTransitions = new Set<RemoteComputerProvider>();
 const localVmIdleMs = () => localVmIdleTimeoutMinutes(cfg) * 60_000;
 const LOCAL_VM_DESKTOP_WAIT_MS = 90_000;
 const localVmIdles = new Map<string, ComputerIdleTimer>();
-const meetingsHost = createMeetingsHost({ cfg, dataDir: DATA_DIR, store, startTurn: (botId, text, opts) => startTurn(botId, text, opts), threadBusy, power: () => cloudComputerPower, computerOwner: (bot) => botComputerControlKey(bot), routines: () => routines, log: (line) => console.warn(line) }, () => ({ personName: personNameIn, sendsFreely: (botId, threadId) => roomTurnLevels.forRequest(threadId, botId, () => sourceApprovalMode(botId, threadId)) === "full", outbound: () => outboundHold, markOutside: (threadId) => outsideLineage.mark(threadId), folder: (botId, threadId) => messageFileRootsForThread(botId, threadId).filter((root) => root !== ATTACHMENTS_DIR)[0] ?? null })); const cloudComputerPower = createCloudComputerPower({
+const meetingsHost = createMeetingsHost({ cfg, dataDir: DATA_DIR, store, startTurn: (botId, text, opts) => startTurn(botId, text, opts), threadBusy, power: () => cloudComputerPower, computerOwner: (bot) => botComputerControlKey(bot), cfgForOwner: owner => { const bot = store.bot(owner); return bot ? vpsConfigForBot(cfg, bot) : cfg; }, routines: () => routines, log: (line) => console.warn(line) }, () => ({ personName: personNameIn, sendsFreely: (botId, threadId) => roomTurnLevels.forRequest(threadId, botId, () => sourceApprovalMode(botId, threadId)) === "full", outbound: () => outboundHold, markOutside: (threadId) => outsideLineage.mark(threadId), folder: (botId, threadId) => messageFileRootsForThread(botId, threadId).filter((root) => root !== ATTACHMENTS_DIR)[0] ?? null })); const cloudComputerPower = createCloudComputerPower({
   cfg, owners: managedBoatOwners, broadcast, log: line => console.warn(line), routines: () => routines?.listRoutines() ?? [],
-  routineComputer: routine => { const bot = store.bot(routine.botId); return bot && turnProvider(bot, routine.runOn) === "box" ? botComputerControlKey(bot) : null; },
-  busy: owner => computerProviderConfigTransitions.has("box") || boatLifecycleBusyBots.has(owner) || managedBoatOwners().some(entry => entry.botId === owner && entry.inUse) || meetingsHost.keepsAwake(owner),
+  cfgForBot: bot => vpsConfigForBot(cfg, bot), cfgForOwner: owner => { const bot = store.bot(owner); return bot ? vpsConfigForBot(cfg, bot) : cfg; },
+  routineComputer: routine => { const bot = store.bot(routine.botId); return bot && turnProvider(bot, routine.runOn) !== null ? botComputerControlKey(bot) : null; },
+  busy: owner => computerProviderConfigTransitions.has("vps") || boatLifecycleBusyBots.has(owner) || managedBoatOwners().some(entry => entry.botId === owner && entry.inUse) || meetingsHost.keepsAwake(owner),
   claim: owner => { const team = teamComputers.list().find(entry => teamComputerOwner(entry.id) === owner); return team ? claimTeamComputerLifecycle(team) : claimBotComputerLifecycle(owner); },
 });
 
-function inheritedTeamComputer(bot: Pick<BotRecord, "section" | "computer" | "cloudBackend">): TeamComputerRecord | undefined {
+function inheritedTeamComputer(bot: Pick<BotRecord, "section" | "computer">): TeamComputerRecord | undefined {
   return teamComputers.forBot(bot);
 }
 
@@ -5853,7 +5828,7 @@ function teamComputerInUse(computer: TeamComputerRecord): boolean {
 }
 
 function claimTeamComputerLifecycle(computer: TeamComputerRecord): () => void {
-  if (computerProviderConfigTransitions.has("box")) throw Object.assign(new Error(providerTransitionMessage("box")), { status: 409 });
+  if (computerProviderConfigTransitions.has("vps")) throw Object.assign(new Error(providerTransitionMessage("vps")), { status: 409 });
   if (teamComputerInUse(computer)) throw Object.assign(new Error("This team computer is in use; stop the team's work and release computer control first"), { status: 409 });
   return claimBotComputerLifecycle(teamComputerOwner(computer.id));
 }
@@ -5870,7 +5845,7 @@ function assertTeamComputerChangeIdle(before: BotRecord, after: BotRecord): void
 
 async function teamComputersPayload(): Promise<TeamComputersPayload> {
   const entries = teamComputers.list();
-  const inventory = await boat.listManagedBoats(cfg, managedBoatOwners());
+  const inventory = await cloudDesktop.listManagedCloudComputers(cfg, managedBoatOwners(), { vpsAliases: vpsAliasesInPlay(cfg, store.bots) });
   return {
     configured: inventory.configured,
     ...(inventory.problem ? { problem: inventory.problem } : {}),
@@ -5892,24 +5867,24 @@ async function attachTeamBoat(computer: TeamComputerRecord, owner: TurnOwner, on
   if (boatLifecycleBusyBots.has(ownerId)) throw new Error("The team computer is being changed; wait for it to finish");
   await bindTurnComputer(owner, `computer:box-bot:${ownerId}`, true);
   onSeated();
-  let machine = await boat.findBoat(cfg, ownerId);
+  let machine = await cloudDesktop.findCloudComputer(cfg, ownerId);
   if (!machine) throw new Error("The team's cloud computer is missing; explicitly create or retry it from the Team map");
   await bindTurnComputer(owner, `computer:box:${machine.id}`, true);
   cloudComputerPower.attached(owner, ownerId);
-  const action = boat.boatTurnLifecycleAction(typeof machine.state === "string" ? machine.state : null);
-  if (action === "wake") machine = await withinBudget(boat.readyBoat(cfg, ownerId), CLOUD_COMPUTER_START_BUDGET_MS, CLOUD_COMPUTER_DID_NOT_START);
-  if (!machine || boat.boatTurnLifecycleAction(typeof machine.state === "string" ? machine.state : null) !== "attach") {
+  const action = cloudDesktop.cloudTurnLifecycleAction(typeof machine.state === "string" ? machine.state : null);
+  if (action === "wake") machine = await withinBudget(cloudDesktop.readyCloudComputer(cfg, ownerId), CLOUD_COMPUTER_START_BUDGET_MS, CLOUD_COMPUTER_DID_NOT_START);
+  if (!machine || cloudDesktop.cloudTurnLifecycleAction(typeof machine.state === "string" ? machine.state : null) !== "attach") {
     throw new Error("The team computer is not ready; check it in the Team map");
   }
   if (turnResourceOwners.get(owner.threadId)?.generation !== owner.generation ||
       !turnResources.owns(`computer:box:${machine.id}`, owner)) throw new Error("This computer turn ended while its machine was starting");
-  return { boxId: machine.id as string, capture: () => boat.screenshotBoat(cfg, ownerId, machine!.id) };
+  return { boxId: machine.id as string, capture: () => cloudDesktop.screenshotCloudComputer(cfg, ownerId, machine!.id) };
 }
 
 /** The turn runs from the start; only its first screen call takes the team's computer. */
 function mountTeamBoat(computer: TeamComputerRecord, botId: string, owner: TurnOwner, canMount: boolean, opts: { onClaimed: (capture: () => Promise<{ png: string; format: string }>) => void; onRejected: (failure: string, error?: unknown) => void }): NonNullable<SendTurnInput["integrations"]>["localComputer"] {
   if (!canMount) throw new Error("This model cannot use the team's cloud computer; choose a model provider with computer tools or an explicit bot destination");
-  if (!boat.boatConfigured(cfg)) throw new Error("The team's Boat account is not configured; reconnect it in Settings");
+  if (!cloudDesktop.cloudConfigured(cfg)) throw new Error("The team cloud computer VPS is not configured; connect it in Settings");
   teamComputerTurns.set(owner.threadId, { owner, computerId: computer.id, botId });
   const slot: AutoVmClaimSlot = { owner, lazy: true, startsComputer: true, label: "the team's cloud computer", onRejected: opts.onRejected, claim: async () => {
     const attached = await attachTeamBoat(computer, owner, () => { slot.pendingReason = CLOUD_COMPUTER_STARTING; });
@@ -5953,40 +5928,7 @@ async function mountHostComputer(owner: TurnOwner, botId: string, providerSuppor
   return gatedLocalComputer(cua, controlIntegration(botId, owner.threadId, owner.generation, "this computer"), journal);
 }
 
-/** Checked and started at dispatch, unlike the Boat: the VPS bridge execs into the container as soon as the engine launches and dies if it is not up. */
-async function mountBotVps(
-  bot: BotRecord,
-  owner: TurnOwner,
-  opts: { start: boolean; onClaimed: (capture: () => Promise<{ png: string; format: string }>) => void; onRejected?: (failure: string) => void },
-) {
-  const botVpsConfig = vpsConfigForBot(cfg, bot);
-  const vpsResource = `computer:vps:${vpsSshAliasForBot(cfg, bot)}:${bot.id}`;
-  const remote = await (opts.start ? vps.vpsComputerAction("provision", botVpsConfig, bot.id) : vps.inspectVpsForAuto(botVpsConfig, bot.id));
-  if (!remote?.ready || !remote.sshAlias) return { problem: remote?.problem ?? null, reachable: remote?.daemonUp === true, outdated: vpsDesktopOutdated(remote) };
-  const targetCfg = { ...cfg, vps: { sshAlias: remote.sshAlias } };
-  const vpsMcp = vps.vpsComputerMcp(targetCfg, bot.id, remote.container_id ?? undefined);
-  const vpsControl = controlIntegration(bot.id, owner.threadId, owner.generation);
-  // Live frames only once this turn holds the desktop, or it would publish another turn's screen as its own.
-  const vpsCapture = () => vps.vpsComputerScreenshot(targetCfg, bot.id);
-  autoVmClaims.set(owner.threadId, {
-    owner,
-    lazy: true,
-    label: "the VPS computer",
-    onRejected: opts.onRejected,
-    claim: async () => {
-      await bindTurnComputer(owner, vpsResource, true);
-      opts.onClaimed(vpsCapture);
-    },
-  });
-  return {
-    integration: {
-      ...vpsMcp,
-      env: { ...vpsMcp.env, LUNABOT_CONTROL_URL: vpsControl.url, LUNABOT_CONTROL_TOKEN: vpsControl.token },
-    },
-  };
-}
-
-function mountBotBoat(
+function mountBotCloud(
   bot: BotRecord,
   owner: TurnOwner,
   opts: {
@@ -6003,16 +5945,17 @@ function mountBotBoat(
     label: "the cloud computer",
     onRejected: opts.onRejected,
     claim: async () => {
-      let attached: Awaited<ReturnType<typeof attachBotBoat>>;
+      vpsThreadStarted(bot.id, owner.threadId);
+      let attached: Awaited<ReturnType<typeof attachBotCloud>>;
       try {
-        attached = await attachBotBoat(bot, owner, {
+        attached = await attachBotCloud(bot, owner, {
           budgetMs: CLOUD_COMPUTER_START_BUDGET_MS,
           onSeated: () => { slot.pendingReason = CLOUD_COMPUTER_STARTING; }, existingOnly: opts.existingOnly,
         });
         if (!attached) throw new Error(opts.existingOnly ? "this bot no longer has a cloud computer of its own" : "the cloud computer could not be created or reached");
       } catch (error) {
         slot.cause = error instanceof Error ? error.message : String(error);
-        throw keepTransient(error, opts.source ? await asPlaceFailure(error, "cloud", opts.source, bot, "box") : error);
+        throw keepTransient(error, opts.source ? await asPlaceFailure(error, "cloud", opts.source, bot) : error);
       }
       slot.boxId = attached.boxId;
       opts.onClaimed(attached.capture);
@@ -6028,7 +5971,7 @@ function claimedBoatId(capability: InternalCapability): string | undefined {
 }
 
 /** The Cloud place is the consent boundary to create or wake a Boat (which un-pauses billing); Auto never reaches here. */
-async function attachBotBoat(bot: BotRecord, owner: TurnOwner, start: { budgetMs: number; onSeated: () => void; existingOnly?: boolean }) {
+async function attachBotCloud(bot: BotRecord, owner: TurnOwner, start: { budgetMs: number; onSeated: () => void; existingOnly?: boolean }) {
   // Claim before any network await so setup itself cannot race another turn.
   await bindTurnComputer(owner, `computer:box-bot:${bot.id}`, true);
   start.onSeated();
@@ -6037,11 +5980,11 @@ async function attachBotBoat(bot: BotRecord, owner: TurnOwner, start: { budgetMs
   await bindTurnComputer(owner, `computer:box:${machine.id}`);
   return {
     boxId: machine.id as string,
-    capture: () => boat.screenshotBoat(cfg, bot.id, machine.id),
+    capture: () => cloudDesktop.screenshotCloudComputer(vpsConfigForBot(cfg, bot), bot.id, machine.id),
   };
 }
 
-function managedBoatOwners(): boat.ManagedBoatOwner[] {
+function managedBoatOwners(): cloudDesktop.ManagedCloudOwner[] {
   return [...store.bots.map((bot) => ({
     botId: bot.id,
     name: bot.name,
@@ -6065,10 +6008,8 @@ function botHasActiveTurn(botId: string): boolean {
     activeGroupTurnForBot(botId) !== null;
 }
 
-function providerTransitionMessage(provider: RemoteComputerProvider): string {
-  return provider === "box"
-    ? "Boat account settings are being updated — wait for them to finish"
-    : "VPS connection settings are being updated — wait for them to finish";
+function providerTransitionMessage(_provider: RemoteComputerProvider): string {
+  return "VPS connection settings are being updated — wait for them to finish";
 }
 
 function providerOperationConflict(provider: RemoteComputerProvider): string | null {
@@ -6076,22 +6017,12 @@ function providerOperationConflict(provider: RemoteComputerProvider): string | n
     return "stop the active VPS turn before changing the SSH config alias";
   }
   if (managedBoatOwners().some((owner) => owner.inUse)) {
-    return `stop active bot work and computer control before changing ${provider === "box" ? "the Boat account" : "the VPS connection"}`;
+    return "stop active bot work and computer control before changing the VPS connection";
   }
   if (boatLifecycleBusyBots.size > 0 || computerPreviews.size > 0) {
     return "wait for cloud computer actions to finish before changing provider settings";
   }
-  if (provider === "box") {
-    if (boatInventoryRequestsBusyIds.size > 0 || orphanBoatLifecycleBusyIds.size > 0) {
-      return "wait for cloud computer actions to finish before changing the Boat account";
-    }
-    const deletingBoatIds = new Set(boatDeletionSnapshot().map((entry) => entry.boxId));
-    if (boatCreateRecoverySnapshot().some(
-      (entry) => !entry.resolved && (!entry.boxId || !deletingBoatIds.has(entry.boxId)),
-    )) {
-      return "finish reconciling pending cloud computer creation before changing the Boat account";
-    }
-  } else if (vps.vpsLifecycleBusy()) {
+  if (vps.vpsLifecycleBusy()) {
     return "wait for VPS computer actions to finish before changing the SSH config alias";
   }
   return null;
@@ -6109,10 +6040,9 @@ function turnSurfacePlan(bot: BotRecord, runOn?: RoutineRunOn, threadId?: string
 }
 
 function turnProvider(bot: BotRecord, runOn?: RoutineRunOn, threadId?: string): RemoteComputerProvider | null {
-  if (runOn === "cloud" || inheritedTeamComputer(bot)) return "box";
+  if (runOn === "cloud" || inheritedTeamComputer(bot)) return "vps";
   const wants = turnSurfacePlan(bot, runOn, threadId).computer;
-  if (wants !== undefined && wants !== "cloud") return null;
-  return bot.cloudBackend === "vps" ? "vps" : wants === "cloud" ? "box" : null;
+  return wants === undefined || wants === "cloud" ? "vps" : null;
 }
 
 /** A query never grants lifecycle authority. */
@@ -6128,10 +6058,8 @@ async function computerPreviewSurface(bot: BotRecord, threadId?: string) {
   const plan = turnSurfacePlan(bot, undefined, threadId);
   if (plan.computer !== undefined) return plan.computer === "off" && plan.browser ? "browser" : plan.computer;
   const instance = registry.get(bot.modelSelection.instanceId);
-  if (bot.cloudBackend === "vps") {
-    const remote = await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id);
-    if (remote.ready || vpsDesktopOutdated(remote)) return "cloud";
-  }
+  const remote = await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id);
+  if (remote.ready || vpsDesktopOutdated(remote)) return "cloud";
   const target = localVmTargetForStatus(bot.id, threadId);
   if (!CLOUD_HOME && instance?.adapter.capabilities.computerMcp && localVmSeen.has(target.key)) {
     const vm = await containerComputerStatus(undefined, undefined, target).catch(() => null);
@@ -6139,8 +6067,7 @@ async function computerPreviewSurface(bot: BotRecord, threadId?: string) {
   }
   if (!CLOUD_HOME && shouldMountLocalComputer({ requested: undefined, hostPlatform: process.platform,
     providerSupportsLocal: instance?.adapter.capabilities.localComputerMcp === true }) && desktopComputer.connection()) return "local";
-  if (bot.cloudBackend === "vps") return "cloud";
-  return plan.browser ? "browser" : "off";
+  return "cloud";
 }
 
 /** Read-only: starting a configured computer waits until a chat tool selects it and the old turn releases its tools. */
@@ -6162,23 +6089,17 @@ async function selectableComputers(bot: BotRecord) {
       if (off) reason = "Computer access is Off in this bot's settings.";
       else if (toolsLeaveOut && surface !== "browser") reason = toolsLeaveOut;
       else if (surface === "cloud") {
-        if (bot.cloudBackend === "vps") {
-          const status = canWorkOnCloud(cloudEngine(instance)) ? await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id) : null;
-          ready = status?.ready === true;
-          canStart = Boolean(status?.daemonUp && status.managed && status.container === "stopped" &&
+        if (canWorkOnCloud(cloudEngine(instance))) {
+          const status = await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id, undefined, true);
+          ready = status.ready === true;
+          canStart = Boolean(status.daemonUp && status.managed && status.container === "stopped" &&
             status.image && status.imageMatches && status.network === "private" && status.mounts === "none" && status.security === "hardened");
-          canCreate = Boolean(status?.configured && status.daemonUp && status.container === "missing");
+          canCreate = Boolean(status.configured && status.daemonUp && status.container === "missing");
           ownDesktopAwaitsUpdate ||= vpsDesktopOutdated(status);
-          reason = status?.problem ? `${status.problem}${vpsDesktopOutdated(status) ? `. ${VPS_OUTDATED_HINT}` : ""}` : reason;
-        } else if (boat.boatConfigured(cfg) && canWorkOnCloud(cloudEngine(instance))) {
-          const status = await boat.boatStatus(cfg, bot.id);
-          const lifecycle = boat.boatTurnLifecycleAction(status.box?.state ?? null);
-          ready = lifecycle === "attach";
-          canStart = lifecycle === "wake";
-          canCreate = lifecycle === "provision";
+          reason = status.problem ? `${status.problem}${vpsDesktopOutdated(status) ? `. ${VPS_OUTDATED_HINT}` : ""}` : reason;
         } else {
           reason = (cloudPlaceRefusal(cloudEngine(instance, bot.modelSelection.model), "works-on", bot.name)
-            ?? boatNotConfigured(bot, "works-on")).message;
+            ?? cloudNotConfigured(bot, "works-on")).message;
         }
       } else if (surface === "vm" && caps?.computerMcp) {
         const target = localVmTargetForStatus(bot.id);
@@ -6197,7 +6118,7 @@ async function selectableComputers(bot: BotRecord) {
         reason = "The built-in browser is disabled, not installed, or unsupported by this model.";
       }
     } catch (error) { reason = error instanceof Error ? error.message : String(error); }
-    const kind = surface === "local" ? "thisComputer" : surface === "vm" ? "localVm" : surface === "cloud" ? (bot.cloudBackend === "vps" ? "vps" : "box") : undefined;
+    const kind = surface === "local" ? "thisComputer" : surface === "vm" ? "localVm" : surface === "cloud" ? "vps" : undefined;
     const managed = kind && managedPolicy.computerRefusal(kind);
     if (managed) return { surface, label: surfaceLabel(surface), available: false, ready: false, canStart: false, canCreate: false, reason: managed };
     const available = ready || canStart || canCreate;
@@ -6270,33 +6191,6 @@ function providerTransitionForTurn(
   return provider && computerProviderConfigTransitions.has(provider)
     ? providerTransitionMessage(provider)
     : null;
-}
-
-function claimBoatInventoryRequest(boxId: string): () => void {
-  if (boatInventoryRequestsBusyIds.has(boxId)) {
-    throw Object.assign(new Error("this cloud computer is being changed — wait for it to finish"), { status: 409 });
-  }
-  boatInventoryRequestsBusyIds.add(boxId);
-  return () => boatInventoryRequestsBusyIds.delete(boxId);
-}
-
-/** Claimed synchronously before the provider mutation; startTurn checks the same set, so a turn and an irreversible lifecycle action cannot pass each other. */
-function claimManagedBoatMutation(instance: boat.ManagedBoatInventoryInstance): () => void {
-  const ownerBotId = instance.ownerBotId;
-  const teamComputer = teamComputers.list().find(computer => teamComputerOwner(computer.id) === ownerBotId);
-  if (teamComputer) return claimTeamComputerLifecycle(teamComputer);
-  if (!ownerBotId) {
-    if (orphanBoatLifecycleBusyIds.has(instance.boxId)) {
-      throw Object.assign(new Error("this cloud computer is being changed — wait for it to finish"), { status: 409 });
-    }
-    orphanBoatLifecycleBusyIds.add(instance.boxId);
-    return () => orphanBoatLifecycleBusyIds.delete(instance.boxId);
-  }
-  const owner = managedBoatOwners().find((candidate) => candidate.botId === ownerBotId);
-  if (owner?.inUse) {
-    throw Object.assign(new Error("this cloud computer is in use — stop its bot's work first"), { status: 409 });
-  }
-  return claimBotComputerLifecycle(ownerBotId);
 }
 
 /** One synchronous lane: whichever lifecycle operation starts first excludes the other. */
@@ -8185,13 +8079,12 @@ async function beginTurn(
       const dwebUrl = process.env.DWEB_URL?.trim();
       if (dwebUrl) integrations.dweb = { url: dwebUrl };
       let teamComputer = computerSkipped || proactive.fence.confines(threadId) || botApiThread(threadId) ? undefined : inheritedTeamComputer(bot);
-      const cloudBackend = teamComputer || opts?.runOn === "cloud" || bot.cloudBackend !== "vps" ? "box" : "vps";
       const mountsComputerMcp = instance.adapter.capabilities.computerMcp === true;
       const mountsLocalComputer = instance.adapter.capabilities.localComputerMcp === true;
       const dispatchTask = store.taskByThread(bot.id, threadId);
-      const handoffMayUseCloud = !computerSkipped && plan.computer === undefined && isHandedWork(opts?.coordination ? coordinator.node(opts.coordination.id) : undefined) && !teamComputer && cloudBackend === "box" && boat.boatConfigured(cfg)
-        && canWorkOnCloud(cloudEngine(instance)) && !computerPlaceRefusal("box") && !cloudPlaceRefusal(cloudEngine(instance, bot.modelSelection.model), "works-on", bot.name) && !computerToolsRefusal(toolScope, "works-on", bot.name);
-      const ownCloud = handoffMayUseCloud ? await ownCloudStateWithin(boat.boatStatus(cfg, bot.id)) : undefined, handoffOwnCloud = handoffUsesOwnCloud({ plan, handoffWork: Boolean(ownCloud), ownCloudState: ownCloud?.state });
+      const handoffMayUseCloud = !computerSkipped && plan.computer === undefined && isHandedWork(opts?.coordination ? coordinator.node(opts.coordination.id) : undefined) && !teamComputer && cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))
+        && canWorkOnCloud(cloudEngine(instance)) && !computerPlaceRefusal("vps") && !cloudPlaceRefusal(cloudEngine(instance, bot.modelSelection.model), "works-on", bot.name) && !computerToolsRefusal(toolScope, "works-on", bot.name);
+      const ownCloud = handoffMayUseCloud ? await ownCloudStateWithin(vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id)) : undefined, handoffOwnCloud = handoffUsesOwnCloud({ plan, handoffWork: Boolean(ownCloud), ownCloudState: ownCloud?.state });
       let wants: ComputerWant = computerSkipped ? "off" : handoffOwnCloud ? "cloud" : plan.computer;
       // Placement: only an Auto turn, only with the job on, and only after every explicit place has been ruled out.
       // A slow status read is skipped rather than holding the turn; a pick is still subject to the existing refusal
@@ -8218,8 +8111,20 @@ async function beginTurn(
         delete integrations.localComputer;
         releaseTurnComputer(resourceOwner);
       };
-      const wantedKind = teamComputer ? "box" : wants === "local" ? "thisComputer" : wants === "vm" ? "localVm"
-        : wants === "cloud" ? (cloudBackend === "vps" ? "vps" : "box") : undefined;
+      // Auto may reuse a VPS desktop that is already running even when it may not wake or create one.
+      // The status read is bounded, so a slow or unreachable host falls back to the ordinary Auto choices.
+      const autoOwnCloud = wants === undefined && !teamComputer && !computerSkipped && cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))
+        ? ownCloud ?? await ownCloudStateWithin(vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id))
+        : undefined;
+      const autoVpsOutdated = wants === undefined && vpsDesktopOutdated(autoOwnCloud);
+      const autoCloudBlocked = wants === undefined && autoOwnCloud !== undefined && (autoVpsOutdated || (autoOwnCloud.state !== "running" &&
+        !vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource })));
+      const autoCloudNote = autoVpsOutdated
+        ? ` ${VPS_OUTDATED_HINT}`
+        : autoCloudBlocked
+          ? ` This bot's VPS computer is unavailable this turn (${autoOwnCloud.problem ?? "the VPS computer could not be reached"}). ${vps.vpsUnavailableHint({ automationSource: opts?.automationSource, autoStartVps: bot.autoStartVps, reachable: !autoOwnCloud.unavailable })}`
+          : "";
+      const wantedKind = teamComputer || wants === "cloud" ? "vps" : wants === "local" ? "thisComputer" : wants === "vm" ? "localVm" : undefined;
       const placeRefusal = wantedKind && computerPlaceRefusal(wantedKind);
       if (placeRefusal) skipComputer(Object.assign(new Error(placeRefusal.message), { status: 409, code: placeRefusal.code }));
       const namedPlace = teamComputer || wants === undefined || wants === "off" ? undefined : wants;
@@ -8234,9 +8139,8 @@ async function beginTurn(
       }
       let previewCapture: (() => Promise<{ png: string; format: string }>) | null = null;
       let browserCapture: (() => Promise<{ png: string; format: string }>) | null = null;
-      let computerKind: "box" | "vps" | "vm" | "local" | null = null;
-      let autoVpsProblem: string | null = null;
-      let autoVpsReachable: boolean | undefined, autoVpsOutdated = false, vmUpdateNote = "";
+      let computerKind: "vps" | "vm" | "local" | null = null;
+      let vmUpdateNote = "";
       /** A capture in flight after another thread owns the shared desktop would picture its work under this bot's name. */
       const localVmPreviewFor = (localVmTarget: LocalVmTarget, claimThreadId: string) => () => {
         const owner = localVmLeaseFor(localVmTarget).current(localVmOwnerBusy);
@@ -8429,61 +8333,59 @@ async function beginTurn(
           computerKind = "local";
         }
 
-          // Auto stays read-only on the VPS unless the person opted this bot into remote lifecycle actions.
-        if ((wants === "cloud" || (wants === undefined && managedPolicy.computerAllowed("vps"))) && cloudBackend === "vps" &&
-            canWorkOnCloud(cloudEngine(instance))) {
-          vpsThreadStarted(bot.id, threadId);
-          const mounted = await mountBotVps(bot, resourceOwner, {
-            start: vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource }),
-            onClaimed: (vpsCapture) => {
-              pinAutoSurface("cloud");
-              adoptClaimedCapture(vpsCapture);
-            },
-            onRejected: surfaceLazyClaimRejection("the VPS computer"),
-          }).catch((error: unknown) => {
-            if (wants === "cloud") throw error;
-            return { problem: error instanceof Error ? error.message : String(error), reachable: undefined };
-          });
-          if ("integration" in mounted) {
-            integrations.localComputer = mounted.integration;
-            computerKind = "vps";
-          } else {
-            vpsThreadEnded(bot.id, threadId);
-            if (wants === "cloud") {
-              throw new Error(mounted.problem ?? "the VPS computer could not be created or reached");
-            }
-            autoVpsProblem = mounted.problem ?? "the VPS computer could not be reached";
-            autoVpsReachable = mounted.reachable; autoVpsOutdated = "outdated" in mounted && mounted.outdated === true;
-          }
-        }
-
         if (teamComputer) {
           integrations.localComputer = mountTeamBoat(teamComputer, bot.id, resourceOwner, canWorkOnCloud(cloudEngine(instance)), { onClaimed: adoptClaimedCapture, onRejected: surfaceLazyClaimRejection("the team's cloud computer") });
-          computerKind = "box";
+          computerKind = "vps";
         }
-        if (!teamComputer && cloudBackend === "box" && boat.boatConfigured(cfg) && wants === "cloud") {
-          integrations.localComputer = mountBotBoat(bot, resourceOwner, {
+        if (!teamComputer && wants === "cloud" && cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))) {
+          integrations.localComputer = mountBotCloud(bot, resourceOwner, {
             source: placeSource,
             onClaimed: adoptClaimedCapture,
             onRejected: surfaceLazyClaimRejection("the cloud computer"),
             existingOnly: handoffOwnCloud,
           });
-          computerKind = "box";
+          // An explicit cloud place is already consent to create or wake it. Prepare before the prompt is written,
+          // while the first real screen call still claims the shared desktop for this turn.
+          const prepared = await withinBudget(
+            cloudComputerPower.start(bot, resourceOwner, { existingOnly: handoffOwnCloud, budgetMs: CLOUD_COMPUTER_START_BUDGET_MS }),
+            CLOUD_COMPUTER_START_BUDGET_MS,
+            CLOUD_COMPUTER_DID_NOT_START,
+          );
+          if (!prepared) throw new Error(handoffOwnCloud ? "this bot no longer has a cloud computer of its own" : "the cloud computer could not be created or reached");
+          computerKind = "vps";
         }
-        if (wants === "cloud" && cloudBackend === "box" && !boat.boatConfigured(cfg)) {
-          throw boatNotConfigured(bot, placeSource ?? "works-on");
+        if (wants === "cloud" && !cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))) {
+          throw cloudNotConfigured(bot, placeSource ?? "works-on");
         }
-        if (wants === "cloud" && cloudBackend === "box" && computerKind !== "box") {
+        if (wants === "cloud" && computerKind !== "vps") {
           throw new Error("the cloud computer could not be created or reached");
         }
       } catch (error) {
-        skipComputer(!namedPlace || !placeSource ? error : await asPlaceFailure(error, namedPlace, placeSource, bot, cloudBackend));
+        skipComputer(!namedPlace || !placeSource ? error : await asPlaceFailure(error, namedPlace, placeSource, bot));
+      }
+
+      // Auto mounts a permitted VPS lazily: no desktop is created or woken unless the model actually uses it.
+      if (
+        wants === undefined &&
+        !integrations.localComputer &&
+        canWorkOnCloud(cloudEngine(instance)) &&
+        !computerPlaceRefusal("vps") &&
+        !computerToolsRefusal(toolScope, "works-on", bot.name) &&
+        cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) &&
+        (!autoVpsOutdated && (autoOwnCloud?.state === "running" || vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource })))
+      ) {
+        integrations.localComputer = mountBotCloud(bot, resourceOwner, {
+          source: placeSource,
+          onClaimed: adoptClaimedCapture,
+          onRejected: surfaceLazyClaimRejection("the cloud computer"),
+        });
+        computerKind = "vps";
       }
 
       // Electron owns cua-driver and its TCC attribution; the harness only reads its running connection descriptor.
       if (wants === undefined && !integrations.localComputer && !computerPlaceRefusal("localVm") && await attachLocalVm(false)) computerKind = "vm";
       // An unattended run with a VPS configured never lands on the host's own desktop, nor does a bot whose own desktop awaits an update.
-      const hostBarred = (cloudBackend === "vps" && Boolean(opts?.automationSource)) || autoVpsOutdated || Boolean(vmUpdateNote);
+      const hostBarred = (cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) && Boolean(opts?.automationSource)) || Boolean(vmUpdateNote) || autoVpsOutdated;
       if (
         !integrations.localComputer &&
         wants === undefined &&
@@ -8510,18 +8412,6 @@ async function beginTurn(
           integrations.localComputer = gatedLocalComputer(cua, controlIntegration(bot.id, threadId, dispatchClaimId, "this computer"), savedSteps.journals(directRequestOwners.get(threadId)));
           computerKind = "local";
         }
-      }
-      let vpsUnavailableNote = "";
-      if (
-        wants === undefined &&
-        cloudBackend === "vps" &&
-        !integrations.localComputer &&
-        autoVpsProblem &&
-        !computerSelectionTurns.has(threadId)
-      ) {
-        const hint = autoVpsOutdated ? VPS_OUTDATED_HINT : vps.vpsUnavailableHint({ automationSource: opts?.automationSource, autoStartVps: bot.autoStartVps, reachable: autoVpsReachable });
-        if (opts?.automationSource) skipComputer(new Error(`${autoVpsProblem}. ${hint}`));
-        else vpsUnavailableNote = ` This bot's VPS computer is unavailable this turn (${autoVpsProblem}), so no computer is mounted. Work that needs no screen can go ahead. If the request needs the VPS desktop, do not claim to have used it: say it is unavailable${hint ? ` and what the person can do: ${hint}` : "."}`;
       }
       // One reachability rule: a bot is never told about a peer that coordinate_bots would refuse.
       const sectionPeers = personalReach.peers(store.bots, bot, threadId);
@@ -8643,13 +8533,13 @@ async function beginTurn(
         { id: "shell", label: "Long-running commands", text: worksInWorkspace ? longCommandsPrompt(computerPromptKind) : "" },
         { id: "computer", label: "Computer", text: computerPrompt(computerPromptKind) },
         { id: "team-computer", label: "Team computer", text: teamComputerPrompt(teamComputer) },
-        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note + vpsUnavailableNote + vmUpdateNote + (computerSkipped && plan.computer !== "off" ? computerSkippedNote(redactSecretsInText(computerSkipped)) : "") + (computerSelectionTurns.get(threadId)?.handoff && !integrations.browser ? HANDOFF_BROWSER_NOTE : ""), canSelect: computerSelectionTurns.has(threadId) && !computerSelectionTurns.get(threadId)?.handoff, cloudHome: Boolean(CLOUD_HOME), botOpened: plan.botOpened, ownComputer: CLOUD_HOME && integrations.agents && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
+        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note + vmUpdateNote + autoCloudNote + (computerSkipped && plan.computer !== "off" ? computerSkippedNote(redactSecretsInText(computerSkipped)) : "") + (computerSelectionTurns.get(threadId)?.handoff && !integrations.browser ? HANDOFF_BROWSER_NOTE : ""), canSelect: computerSelectionTurns.has(threadId) && !computerSelectionTurns.get(threadId)?.handoff, cloudHome: Boolean(CLOUD_HOME), botOpened: plan.botOpened, ownComputer: CLOUD_HOME && integrations.agents && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
         { id: "cloud-home", label: "My Cloud", text: CLOUD_HOME ? cloudHomePrompt(Boolean(integrations.agents) && lendingEnabled(), syncedFolders(DATA_DIR), sharedComputers.known(CLOUD_HOME_LENDER), CLOUD_PERSONAL) + firstHourHooks.prompt(bot.id, threadId) : "" },
         { id: "composio", label: "Connected apps", text: integrations.composio ? composioSystemPrompt(liveBot?.connectorTools ?? bot.connectorTools) + describeConnectorScopes((liveBot ?? bot).connectorScopes) : "" },
         { id: "mcp", label: "MCP servers", text: customMcpPrompt(Object.keys(integrations.custom ?? {}), mcpServersHost.off(bot)) }, { id: "to-connect", label: "Connections to make", text: cloudConnections.prompt(liveBot ?? bot, lentMcp.lines(liveBot ?? bot, { botId: bot.id, threadId, generation: dispatchClaimId })) + teamConnections.prompt(threadId, dispatchClaimId, integrations) },
         { id: "browser", label: "Browser", text: integrations.browser ? browserPromptFor(bot, Boolean(integrations.agents)) : "" },
         { id: "data", label: "Data", text: integrations.data ? BUILT_IN_DATA_SYSTEM_PROMPT : "" },
-        { id: "email", label: "Email", text: instance.adapter.capabilities.emailMcp === true ? emailHost.prompt(liveBot ?? bot) : "" }, { id: "meetings", label: "Meetings", text: meetingsUnavailablePrompt({ agentsTools: Boolean(integrations.agents), cloudComputer: boat.boatConfigured(cfg) }) },
+        { id: "email", label: "Email", text: instance.adapter.capabilities.emailMcp === true ? emailHost.prompt(liveBot ?? bot) : "" }, { id: "meetings", label: "Meetings", text: meetingsUnavailablePrompt({ agentsTools: Boolean(integrations.agents), cloudComputer: cloudDesktop.cloudConfigured(cfg) }) },
         ...phoneParts,
         { id: "coordination", label: "Team and who is speaking", text: PROVENANCE_PROMPT + (coordinationPrompt && !apiFenced ? ` ${coordinationPrompt}` : "") },
         { id: "assignment", label: "Teammate task", text: coordinationNode?.parentId ? `\n${coordinationSystemInstructions()}` : "" },
@@ -9228,10 +9118,12 @@ async function cloudRoutineReadiness(botId: string, threadId?: string): Promise<
   const selection = threadId ? turnSelection(botId, threadId) : projected?.modelSelection;
   const bot = projected && selection ? { ...projected, modelSelection: selection } : projected;
   if (!bot || bot.hidden) return { ready: false, reason: "The routine's target bot no longer exists." };
-  if (!boat.boatConfigured(cfg)) {
+  const teamComputerForConfig = inheritedTeamComputer(bot);
+  const cloudCfg = teamComputerForConfig ? cfg : vpsConfigForBot(cfg, bot);
+  if (!cloudDesktop.cloudConfigured(cloudCfg)) {
     return {
       ready: false,
-      reason: `${boatNotConfigured(bot, "routine").message} For the bot's configured computer, including a self-hosted VPS, set run_on="maus" instead.`,
+      reason: `${cloudNotConfigured(bot, "routine").message} Configure the VPS connection first, or set run_on="maus" for the bot's configured computer.`,
     };
   }
   const instance = registry.get(bot.modelSelection.instanceId);
@@ -9244,7 +9136,7 @@ async function cloudRoutineReadiness(botId: string, threadId?: string): Promise<
     }
     const teamComputer = inheritedTeamComputer(bot);
     const ownerId = teamComputer ? teamComputerOwner(teamComputer.id) : bot.id;
-    const machine = await boat.findBoat(cfg, ownerId);
+    const machine = await cloudDesktop.findCloudComputer(cloudCfg, ownerId);
     if (teamComputer && !machine) {
       return { ready: false, reason: "The team's cloud computer is missing; explicitly create or retry it from the Team map." };
     }
@@ -9303,15 +9195,8 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
           error: `stop this bot's work in channel ${activeGroup.group.name} before deleting the bot`,
         });
       }
-      if ((boat.boatConfigured(cfg) || vpsSshAliasForBot(cfg, bot)) && (bot.busy || hasDirectDispatch(bot.id))) {
+      if (vpsSshAliasForBot(cfg, bot) && (bot.busy || hasDirectDispatch(bot.id))) {
         return deletionResponse( 409, { error: "stop this bot's work before checking and deleting its cloud computer" });
-      }
-      const botBoatRecovery = boatCreateRecoverySnapshot().filter((entry) => entry.botId === bot.id);
-      const botBoatDeletions = boatDeletionSnapshot().filter((entry) => entry.ownerBotId === bot.id);
-      if (botBoatRecovery.some((entry) => !entry.resolved)) {
-        return deletionResponse( 409, {
-          error: "finish reconciling this bot's pending cloud computer creation before deleting it — check boat.dev, then retry Boat setup",
-        });
       }
       // Claim the bot, its channels and its computer lifecycle before the first await, so a save cannot begin halfway through teardown.
       const releaseComputerLifecycle = claimBotComputerLifecycle(bot.id);
@@ -9356,32 +9241,10 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
         const vpsLeftOn = vpsInventory.configured && !vpsInventory.available ? vpsSshAliasForBot(cfg, bot) : null;
         const ownedVpsComputers = vpsInventory.instances.filter((instance) => instance.ownerBotId === bot.id);
 
-        if ((botBoatRecovery.length > 0 || botBoatDeletions.length > 0) && !boat.boatConfigured(cfg)) {
-          return deletionResponse(409, {
-            error: "Reconnect the Boat account that owns this bot's remembered cloud computer, then retry deletion",
-          });
-        }
-        const cloudInventory = await boat.listManagedBoats(cfg, managedBoatOwners());
-        if (cloudInventory.configured && !cloudInventory.available) {
-          return deletionResponse( 503, {
-            error: `${cloudInventory.problem ?? "cloud computer inventory is unavailable"}. The bot was kept so its computer can be retried safely`,
-          });
-        }
-        const ownedBoatComputers = cloudInventory.instances.filter((instance) => instance.ownerBotId === bot.id);
-
         // Revalidate and record the browser cleanup intent before the first irreversible provider mutation.
         revalidate();
         const browserCleanupRequest = browserCleanup.prepare("bot", bot.id);
         try {
-          for (const instance of ownedBoatComputers) {
-            const removed = await boat.deleteManagedBoat(cfg, managedBoatOwners(), instance.boxId, instance.name);
-            if (removed.pending) {
-              throw Object.assign(
-                new Error("The cloud computer deletion has started but is still finishing. The bot was kept; retry in a moment"),
-                { status: 409 },
-              );
-            }
-          }
           for (const instance of ownedVpsComputers) {
             await vps.removeManagedVpsComputer(vpsConfigForBot(cfg, bot), managedBoatOwners(), instance.name, instance.name);
           }
@@ -10018,7 +9881,7 @@ async function runClaimedGroupMemberTurn(
   let providerDispatched = false;
   let setupStallReason: string | undefined;
   let unregisterSetupStall = () => {};
-  let roomComputerKind: "local" | "vps" | "box" | null = null;
+  let roomComputerKind: "local" | "vps" | null = null;
   let roomVpsBotId: string | null = null;
   let roomScreenBotId: string | null = null;
   const releaseRoomVmLease = () => {
@@ -10319,19 +10182,9 @@ async function runClaimedGroupMemberTurn(
       roomComputerKind = "local";
     }
     if (!roomTeamComputer && roomPlan.computer === "cloud") {
-      if (turnProvider(readyBot) === "vps") {
-        vpsThreadStarted(readyBot.id, threadId);
-        roomVpsBotId = readyBot.id;
-        const mounted = await mountBotVps(readyBot, resourceOwner, { start: true, onClaimed: showClaimedScreen });
-        if (!roomSetupIsCurrent()) return false;
-        if (!("integration" in mounted)) throw new Error(mounted.problem ?? "the VPS computer could not be created or reached");
-        integrations.localComputer = mounted.integration;
-        roomComputerKind = "vps";
-      } else {
-        if (!boat.boatConfigured(cfg)) throw boatNotConfigured(readyBot, "room");
-        integrations.localComputer = mountBotBoat(readyBot, resourceOwner, { source: "room", onClaimed: showClaimedScreen, onRejected: failRoomClaim });
-        roomComputerKind = "box";
-      }
+      if (!cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, readyBot))) throw cloudNotConfigured(readyBot, "room");
+      integrations.localComputer = mountBotCloud(readyBot, resourceOwner, { source: "room", onClaimed: showClaimedScreen, onRejected: failRoomClaim });
+      roomComputerKind = "vps";
     }
 
     // The speaker's desktop, never the coordinator's; claim the lease before asynchronous VM setup.
@@ -10376,7 +10229,7 @@ async function runClaimedGroupMemberTurn(
   } catch (error) {
     const place = roomPlan.computer;
     if (place !== "cloud" && place !== "vm" && place !== "local") throw error;
-    throw await asPlaceFailure(error, place, "room", readyBot, turnProvider(readyBot) === "vps" ? "vps" : "box");
+    throw await asPlaceFailure(error, place, "room", readyBot);
   }
 
   const roomMembers = readyGroup.memberIds
@@ -10446,7 +10299,7 @@ integrations.agents && (CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretN
   const recentLines = recentWork(recentWorkSources(bot), bot, { userName: typeof userName === "string" ? userName : "the team", currentThreadId: threadId, ...recentWorkFilter(threadId) });
   recordTurnPlace(bot.id, threadId, (roomTeamComputer ? "cloud" : roomVmTarget ? "vm" : surfaceOfComputerKind(roomComputerKind)) ?? (integrations.browser ? "browser" : null));
   const roomComputerPromptKind = resolveComputerPromptKind({
-    kind: roomTeamComputer || roomComputerKind === "box" ? "box" : roomVmTarget ? "vm" : roomComputerKind,
+    kind: roomTeamComputer || roomComputerKind === "vps" ? "vps" : roomVmTarget ? "vm" : roomComputerKind,
     vmPrivate: localVmMode(cfg) === "per-bot",
   });
   {
@@ -12098,7 +11951,6 @@ function configStatus() {
       ...(composio.connectionMode(cfg) === "self-hosted" ? keyHint(cfg.composio?.apiKey) : {}),
       configured: composio.configured(cfg), mode: composio.connectionMode(cfg),
     },
-    box: { ...boat.describeBoatAccount(cfg), ...(boat.boatAccount(cfg)?.included ? {} : keyHint(cfg.box?.token)) },
     vps: { configured: Boolean(vpsSshAlias(cfg)), sshAlias: vpsSshAlias(cfg) ?? "" },
     opencodeGo: { ...keyStatus(cfg.opencodeGo?.apiKey), providerKeys: Object.keys(openCodeProviderKeys(cfg)) },
     tts: tts.describeVoice(cfg),
@@ -12769,7 +12621,7 @@ ROUTES.push(createComputerRoutes({
   localVmPayload, localVmInventoryPayload, existingPerBotLocalVmCount, teamComputersPayload, teamComputerInUse,
   managedBoatOwners, providerTransitionMessage, botHasActiveTurn, botComputerControlKey, botComputerControlSnapshot,
   computerPreviewBot, computerPreviewSurface, claimTeamComputerLifecycle, claimBotComputerLifecycle,
-  claimBoatInventoryRequest, claimManagedBoatMutation, claimManagedVpsMutation, cloudComputerUsed: owner => cloudComputerPower.used(owner),
+  claimManagedVpsMutation, cloudComputerUsed: owner => cloudComputerPower.used(owner),
 }));
 ROUTES.push(createDesktopScreenRoutes({ store, computerControl, botComputerControlKey }));
 ROUTES.push(createStatusRoutes({
@@ -13638,8 +13490,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (internalCapability.boxId === undefined) return json(res, 403, { error: "this turn has no cloud computer" });
         const abort = new AbortController();
         res.once("close", () => { if (!res.writableEnded) abort.abort(); });
+        const computerBot = store.bot(internalCapability.botId);
+        const computerCfg = internalCapability.teamComputerId || !computerBot ? cfg : vpsConfigForBot(cfg, computerBot);
         return json(res, 200, { result: await cloudComputerRpc(body, {
-          cfg, signal: abort.signal, folder: () => messageFileRootsForThread(internalCapability.botId, internalCapability.threadId)[0],
+          cfg: computerCfg, signal: abort.signal, folder: () => messageFileRootsForThread(internalCapability.botId, internalCapability.threadId)[0],
           boxId: () => internalCapability.boxId ?? claimedBoatId(internalCapability),
           gate: () => computerCallGate(internalCapability, abort.signal),
           assertActive: requireActiveInternalCapability,
@@ -15601,12 +15455,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       const bot = computerPreviewBot(m[1], url);
       if (!bot) return json(res, 404, { error: "no such bot" });
       const surface = url.searchParams.has("threadId") ? await computerPreviewSurface(bot, bot.threadId) : "cloud";
-      if (surface !== "cloud") return json(res, 200, { surface, configured: false, backend: bot.cloudBackend === "vps" ? "vps" : "box" });
+      if (surface !== "cloud") return json(res, 200, { surface, configured: false, backend: "vps" });
       const teamComputer = inheritedTeamComputer(bot);
-      if (teamComputer) return json(res, 200, { surface, backend: "box", teamComputer: { id: teamComputer.id, name: teamComputer.name }, ...(await boat.boatStatus(cfg, teamComputerOwner(teamComputer.id))) });
-      return bot.cloudBackend === "vps"
-        ? json(res, 200, { surface, backend: "vps", ...(await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id)) })
-        : json(res, 200, { surface, backend: "box", ...(await boat.boatStatus(cfg, bot.id)) });
+      if (teamComputer) return json(res, 200, { surface, backend: "vps", teamComputer: { id: teamComputer.id, name: teamComputer.name }, ...(await cloudDesktop.cloudStatus(cfg, teamComputerOwner(teamComputer.id))) });
+      return json(res, 200, { surface, backend: "vps", ...(await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id)) });
     }
     // The person's take and release; the bot has no verb here, only a sign-in request its card settles.
     m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/control$/);
@@ -15663,9 +15515,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      const closedViewers = auth.kind === "session" ? desktopViewer.closeForOwner(auth.session.id, bot.id) : 0;
-      if (bot.cloudBackend === "vps") return json(res, 200, vps.closeVpsDesktopTunnel(bot.id));
-      return json(res, 200, { closed: closedViewers > 0 });
+      return json(res, 200, vps.closeVpsDesktopTunnel(bot.id));
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/(provision|join|sleep|exec|screenshot|remove)$/);
     if (m && method === "POST") {
@@ -15681,10 +15531,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      if (m[2] === "join" && bot.cloudBackend === "vps") {
+      if (m[2] === "join") {
         for (let pending; (pending = vpsJoinRequests.get(botId));) await pending;
       }
-      const remoteProvider: RemoteComputerProvider = bot.cloudBackend === "vps" ? "vps" : "box";
+      const remoteProvider: RemoteComputerProvider = "vps";
       if (computerProviderConfigTransitions.has(remoteProvider)) {
         return json(res, 409, { error: providerTransitionMessage(remoteProvider) });
       }
@@ -15700,16 +15550,16 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (m[2] === "join" && !computerControl.snapshot(key).held) return json(res, 409, { error: "Take control before opening this shared desktop" });
         if (m[2] === "screenshot") {
           res.setHeader("cache-control", "private, no-store");
-          try { return json(res, 200, await computerPreviews.capture(key, () => boat.screenshotBoat(cfg, key))); }
+          try { return json(res, 200, await computerPreviews.capture(key, () => cloudDesktop.screenshotCloudComputer(cfg, key))); }
           finally { cloudComputerPower.used(key); }
         }
         const release = m[2] === "sleep" ? claimTeamComputerLifecycle(teamComputer) : claimBotComputerLifecycle(key, true);
         try {
-          if (m[2] === "join") return json(res, 200, await boat.joinReadyBoat(cfg, key));
-          return json(res, 200, await boat.sleepBoat(cfg, key));
+          if (m[2] === "join") return json(res, 200, await cloudDesktop.joinReadyCloudComputer(cfg, key));
+          return json(res, 200, await cloudDesktop.sleepCloudComputer(cfg, key));
         } finally { release(); if (m[2] !== "sleep") cloudComputerPower.used(key); }
       }
-      if (bot.cloudBackend === "vps") {
+      {
         if (m[2] === "screenshot") {
           res.setHeader("cache-control", "private, no-store");
           return json(res, 200, await computerPreviews.capture(botId, () => vps.vpsComputerScreenshot(vpsConfigForBot(cfg, bot), botId)));
@@ -15743,51 +15593,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
             joinSettled();
           }
         }
-      }
-      const activeBoatTurn = botHasActiveTurn(botId);
-      if (["provision", "sleep"].includes(m[2]) && activeBoatTurn) {
-        return json(res, 409, {
-          error: CLOUD_COMPUTER_BUSY_ERROR,
-        });
-      }
-      let boatCommand: string | undefined;
-      if (m[2] === "exec") {
-        const body = await readBody(req);
-        boatCommand = String(body?.command ?? "");
-        if (boatCommand.length > boat.MAX_REMOTE_COMMAND_LENGTH) {
-          return json(res, 400, {
-            error: `command is too long (maximum ${boat.MAX_REMOTE_COMMAND_LENGTH} characters)`,
-          });
-        }
-      }
-      if (bot.computer !== "cloud" && !threadPreview) {
-        return json(res, 409, {
-          error: "Choose Cloud computer before changing or opening this cloud computer. Auto only checks existing computer state.",
-        });
-      }
-      if (m[2] === "remove") {
-        return json(res, 409, { error: "a cloud computer has no container to remove — put it to sleep instead" });
-      }
-      if (m[2] === "screenshot") {
-        res.setHeader("cache-control", "private, no-store");
-        try { return json(res, 200, await computerPreviews.capture(botId, () => boat.screenshotBoat(cfg, botId))); }
-        finally { cloudComputerPower.used(botId); }
-      }
-      const releaseComputerLifecycle = claimBotComputerLifecycle(botId, m[2] === "join");
-      try {
-        switch (m[2]) {
-          case "provision":
-            return json(res, 200, await boat.provisionBoat(cfg, botId, bot.name));
-          case "join":
-            return json(res, 200, await (activeBoatTurn || (threadPreview && bot.computer !== "cloud") ? boat.joinReadyBoat(cfg, botId) : boat.joinBoat(cfg, botId)));
-          case "sleep":
-            return json(res, 200, await boat.sleepBoat(cfg, botId));
-          case "exec":
-            return json(res, 200, await boat.execOnBoat(cfg, botId, boatCommand ?? ""));
-        }
-      } finally {
-        releaseComputerLifecycle();
-        if (m[2] !== "sleep") cloudComputerPower.used(botId);
       }
     }
 

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,8 +7,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
-import { cloudHomePrompt } from "./system-prompt.ts";
-import { availableTools, catalogProfileFromEnv } from "./drivers/agents-catalog.ts";
 import { CONTROL_BUSY, CONTROL_REFUSAL_PLAIN, controlRefusal, createControlClient } from "./control-client.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
@@ -53,15 +51,6 @@ async function until<T>(read: () => T | Promise<T>, accept: (value: T) => boolea
 }
 // The latest pi turn, in the shape the retired Claude dump had: its launch (what it mounted, its argv, its pid) and the
 // instructions in effect. A prompt row lands when the turn starts, so this resolves while the turn runs.
-// Clears the prompt rows a recipe already read while keeping the launch rows: a warm pi child writes its launch
-// once at spawn, so a wiped log would leave its next turn's prompt with no launch to pair to.
-const clearDump = () => {
-  if (!existsSync(dumpFile)) return;
-  const kept = readFileSync(dumpFile, "utf8").split("\n").filter((line) => {
-    try { return Boolean((JSON.parse(line) as { argv?: unknown }).argv); } catch { return false; }
-  });
-  writeFileSync(dumpFile, kept.length ? kept.join("\n") + "\n" : "");
-};
 const dump = () => until(() => {
   const turns = piTurns(dumpFile);
   const turn = turns.at(-1);
@@ -498,191 +487,6 @@ describe("Group Local VM ownership on the real isolated server", () => {
     }
   });
 
-  it("does not stall an admitted turn waiting for another turn's shared computer", async () => {
-    const section = `Watchdog fixture ${randomUUID()}`;
-    const bots: any[] = [];
-    try {
-      vmState(); rmSync(dumpFile, { force: true }); rmSync(finishFile, { force: true });
-      allowBoatCreation = true;
-      await api("PUT", "/api/config", { box: { token: "box_fixture" } });
-      // A team's shared computer is held for the whole turn, so the gated slow fake is the holder.
-      for (const name of ["Computer holder", "Computer waiter"]) {
-        const { bot } = await api("POST", "/api/bots", { name, section });
-        bots.push(bot);
-      }
-      const requestId = randomUUID();
-      await api("POST", "/api/team-computers", { requestId, name: "Wait watchdog fixture", acknowledgeCost: true });
-      await api("PATCH", `/api/team-computers/${requestId}`, { section, acknowledgeSharedAccess: true });
-      const count = boatPrompts.length;
-      await api("POST", `/api/bots/${bots[0].id}/messages`, { text: "Hold the shared computer" });
-      await dump();
-      await api("POST", `/api/bots/${bots[1].id}/messages`, { text: "Wait for the shared computer" });
-      const transcript = () => api("GET", `/api/threads/${bots[1].threadId}/messages?limit=50`);
-      await until(transcript, value => JSON.stringify(value).includes("Waiting for"));
-      // Only the waiting thread gets the short clock; the holder is deliberately gated.
-      vmState({ stallThread: bots[1].threadId });
-      await new Promise(resolve => setTimeout(resolve, 400));
-      expect(JSON.stringify(await transcript())).not.toContain("the turn was stopped");
-      const state = await api("GET", "/api/bots?messages=0");
-      expect(state.bots.find((bot: any) => bot.id === bots[1].id).busy).toBe(true);
-      vmState();
-      writeFileSync(finishFile, "finish");
-      await idle(bots[0].id);
-      await idle(bots[1].id);
-      expect(boatPrompts.length).toBe(count);
-      const settled = await transcript();
-      expect(JSON.stringify(settled)).not.toContain("the turn was stopped");
-      expect(JSON.stringify(settled)).toContain("reply to:");
-    } finally {
-      vmState();
-      writeFileSync(finishFile, "finish");
-      allowBoatCreation = false;
-      for (const bot of bots) {
-        await api("POST", `/api/bots/${bot.id}/interrupt`, {});
-        await idle(bot.id);
-        await api("DELETE", `/api/bots/${bot.id}`);
-      }
-      boatRow = null;
-      await api("PUT", "/api/config", { box: { token: "" } });
-    }
-  });
-
-  it.each(["wake", "removed", "missing-auto"])("chat selection starts or provisions a configured cloud computer (%s) only after selecting it", async state => {
-    vmState(); rmSync(dumpFile, { force: true }); rmSync(finishFile, { force: true });
-    const { bot } = await api("POST", "/api/bots", { name: "Chat cloud selection" });
-    try {
-      await api("PUT", "/api/config", { box: { token: "box_fixture" } });
-      await api("PATCH", `/api/bots/${bot.id}`, { computer: state === "missing-auto" ? "browser" : "vm", browser: false });
-      const environmentId = readFileSync(join(fixtureHome, "data", "environment-id"), "utf8").trim();
-      const scope = createHash("sha256").update(environmentId).digest("hex").slice(0, 12);
-      const prefix = bot.id.slice(0, 8).replace(/[^a-z0-9]/g, "");
-      const suffix = createHash("sha256").update(bot.id).digest("hex").slice(0, 6);
-      boatRow = { id: "bx_23456789", name: `ogb-${scope}-${prefix}-${suffix}`, state: "archived" };
-      allowBoatCreation = true;
-      if (state === "missing-auto") { boatRow = null; vmState({ failed: true }); }
-      boatCalls.length = 0; boatPrompts.length = 0;
-      await api("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on the cloud VM" });
-      const before: any = await dump();
-      if (computer(before)) expect((await gate(computer(before))).status).toBe(200);
-      const token = before.mcpConfig.mcpServers.agents.env.LUNABOT_COMMS_TOKEN;
-      const options = await (await fetch(base + "/api/internal/computer/select", { headers: { authorization: `Bearer ${token}` } })).json() as any;
-      expect(options.options.find((option: any) => option.surface === "cloud")).toMatchObject({ available: true, ready: false,
-        canStart: state !== "missing-auto", canCreate: state === "missing-auto" });
-      expect(boatCalls.every(call => call.method === "GET")).toBe(true);
-      const result = await fetch(base + "/api/internal/computer/select", { method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ surface: state === "missing-auto" ? "auto" : "cloud" }) });
-      expect(await result.json()).toMatchObject({ status: "pending", surface: "cloud" });
-      if (computer(before)) expect((await gate(computer(before))).status).toBe(401);
-      expect((await fetch(base + "/api/internal/computer/select", { headers: { authorization: `Bearer ${token}` } })).status).toBe(200);
-      expect(boatCalls.every(call => call.method === "GET")).toBe(true);
-      if (state === "removed") boatRow = null;
-      const harnessComputer = (sent: any) => computer(sent)?.args?.at(-1) === "computer" && /harness-mcp-proxy/.test(computer(sent).args[0]);
-      const selectionBefore = (await api("GET", "/api/bots?messages=0")).bots.find((entry: any) => entry.id === bot.id).modelSelection;
-      rmSync(dumpFile, { force: true });
-      writeFileSync(finishFile, "finish");
-      const continued: any = await dump();
-      expect(harnessComputer(continued)).toBe(true);
-      // The continuation keeps the model its request ran on; pi is told it over RPC, so the bot's record is the proof.
-      expect((await api("GET", "/api/bots?messages=0")).bots.find((entry: any) => entry.id === bot.id).modelSelection).toEqual(selectionBefore);
-      await idle(bot.id);
-      expect(boatPrompts).toHaveLength(0);
-      expect(boatCalls.filter(call => call.method === "POST" && call.path === "/sandboxes")).toHaveLength(state === "wake" ? 0 : 1);
-      expect(boatCalls.some(call => call.path.endsWith("/resume"))).toBe(state === "wake");
-      clearDump();
-      await api("POST", `/api/bots/${bot.id}/messages`, { text: "Inspect the current page on the same cloud VM" });
-      expect(harnessComputer(await dump())).toBe(true);
-      await idle(bot.id);
-      expect(boatPrompts).toHaveLength(0);
-      expect(boatCalls.filter(call => call.method === "POST" && call.path === "/sandboxes")).toHaveLength(state === "wake" ? 0 : 1);
-    } finally {
-      writeFileSync(finishFile, "finish");
-      await api("POST", `/api/bots/${bot.id}/interrupt`, {}); await idle(bot.id);
-      boatRow = null;
-      allowBoatCreation = false;
-      await api("DELETE", `/api/bots/${bot.id}`);
-      await api("PUT", "/api/config", { box: { token: "" } });
-    }
-  }, 45_000);
-
-  it("lets a chat tool select Auto, replaces tools after completion, and continues the same user message once", async () => {
-    vmState(); rmSync(dumpFile, { force: true }); rmSync(finishFile, { force: true });
-    const { bot } = await api("POST", "/api/bots", { name: "Chat selects computer" });
-    try {
-      await api("PUT", "/api/config", { box: { token: "box_fixture" } });
-      await api("PATCH", `/api/bots/${bot.id}`, { computer: "browser", browser: false });
-      await api("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on an available VM and inspect its page title" });
-      const before: any = await dump();
-      expect(computer(before)).toBeUndefined();
-      const token = before.mcpConfig.mcpServers.agents.env.LUNABOT_COMMS_TOKEN;
-      const call = (method: string, body?: unknown) => fetch(base + "/api/internal/computer/select", { method,
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
-      const available = await (await call("GET")).json() as any;
-      expect(available.canSelect).toBe(true);
-      expect(available.options.map((option: any) => option.surface)).toEqual(["cloud", "vm", "local", "browser"]);
-      expect(before.mcpConfig.mcpServers.agents.env.LUNABOT_CLOUD_HOME).toBe("0");
-      expect(before.systemPrompt).not.toContain(cloudHomePrompt(true));
-      expect(before.systemPrompt).not.toContain("You run on the user's OMB Cloud");
-      expect(available.options).toContainEqual(expect.objectContaining({ surface: "vm", available: true }));
-      expect(available.options).toContainEqual(expect.objectContaining({ surface: "cloud", ready: false, canCreate: true }));
-      expect(await (await call("POST", { surface: "auto" })).json()).toMatchObject({ status: "pending", surface: "vm" });
-      expect((await call("POST", { surface: "cloud" })).status).toBe(409);
-      rmSync(dumpFile, { force: true });
-      writeFileSync(finishFile, "finish");
-      const after: any = await dump();
-      expect(computer(after)).toBeTruthy();
-      expect(after.systemPrompt).toContain("Local VM");
-      expect(after.systemPrompt).not.toContain("call select_computer");
-      // The continuation, which may not pick again, is listed the agents tools its request was, select_computer too.
-      const agentsTools = (dumped: any) => availableTools(catalogProfileFromEnv(dumped.mcpConfig.mcpServers.agents.env));
-      expect(agentsTools(after)).toEqual(agentsTools(before));
-      expect(agentsTools(after).map((tool) => tool.name)).toContain("select_computer");
-      await idle(bot.id);
-      const state = await api("GET", "/api/bots?messages=30");
-      const saved = state.bots.find((b: any) => b.id === bot.id);
-      expect(saved.tasks.find((task: any) => task.threadId === bot.threadId).surface).toBe("vm");
-      await api("PATCH", `/api/bots/${bot.id}`, { computer: "local" });
-      const swept = (await api("GET", "/api/bots?messages=0")).bots.find((b: any) => b.id === bot.id);
-      expect(swept.tasks.find((task: any) => task.threadId === bot.threadId).surface).toBeUndefined();
-      expect(saved.messages.filter((message: any) => message.role === "user" && message.kind === "text")).toHaveLength(1);
-      expect((await call("GET")).status).toBe(401);
-    } finally {
-      writeFileSync(finishFile, "finish");
-      await api("POST", `/api/bots/${bot.id}/interrupt`, {}); await idle(bot.id);
-      await api("DELETE", `/api/bots/${bot.id}`);
-      await api("PUT", "/api/config", { box: { token: "" } });
-    }
-  });
-
-  it("lets a chat tool's Auto start a stopped private desktop before waking a sleeping cloud computer", async () => {
-    vmState({ containers: ["shared"], stopped: ["shared"] }); rmSync(dumpFile, { force: true }); rmSync(finishFile, { force: true });
-    const { bot } = await api("POST", "/api/bots", { name: "Chat prefers its desktop" });
-    try {
-      await api("PUT", "/api/config", { box: { token: "box_fixture" } });
-      await api("PATCH", `/api/bots/${bot.id}`, { computer: "browser", browser: false });
-      const environmentId = readFileSync(join(fixtureHome, "data", "environment-id"), "utf8").trim();
-      const scope = createHash("sha256").update(environmentId).digest("hex").slice(0, 12);
-      const prefix = bot.id.slice(0, 8).replace(/[^a-z0-9]/g, "");
-      const suffix = createHash("sha256").update(bot.id).digest("hex").slice(0, 6);
-      boatRow = { id: "bx_23456789", name: `ogb-${scope}-${prefix}-${suffix}`, state: "archived" };
-      await api("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on an available computer" });
-      const token = ((await dump()) as any).mcpConfig.mcpServers.agents.env.LUNABOT_COMMS_TOKEN;
-      const call = (method: string, body?: unknown) => fetch(base + "/api/internal/computer/select", { method,
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
-      const listed = await (await call("GET")).json() as any, offered = listed.options;
-      // Works on Browser with the browser off: chosen, but not to be had, so Auto picks.
-      expect(listed.chosen).toBe("browser");
-      expect(offered).toContainEqual(expect.objectContaining({ surface: "cloud", ready: false, canStart: true }));
-      expect(offered).toContainEqual(expect.objectContaining({ surface: "vm", ready: false, available: true }));
-      expect(await (await call("POST", { surface: "auto" })).json()).toMatchObject({ status: "pending", surface: "vm" });
-    } finally {
-      writeFileSync(finishFile, "finish");
-      await api("POST", `/api/bots/${bot.id}/interrupt`, {}); await idle(bot.id);
-      boatRow = null;
-      await api("DELETE", `/api/bots/${bot.id}`);
-      await api("PUT", "/api/config", { box: { token: "" } });
-    }
-  });
-
   it.each(["stop", "failure", "off", "manual-selection", "new-request"])("does not continue a computer selection after %s", async failure => {
     vmState(); rmSync(dumpFile, { force: true }); rmSync(finishFile, { force: true });
     const { bot } = await api("POST", "/api/bots", { name: `Computer selection ${failure}` });
@@ -887,39 +691,6 @@ describe("Group Local VM ownership on the real isolated server", () => {
       await appHandsItOver();
     }
   });
-
-  it("runs a channel speaker's own Cloud destination on its own engine with its Boat, waking it first", async () => {
-    const { bots, group } = await room();
-    try {
-      await api("PUT", "/api/config", { box: { token: "box_fixture" } });
-      await api("PATCH", `/api/bots/${bots[0].id}`, { computer: "cloud" });
-      const environmentId = readFileSync(join(fixtureHome, "data", "environment-id"), "utf8").trim();
-      const scope = createHash("sha256").update(environmentId).digest("hex").slice(0, 12);
-      const prefix = bots[0].id.slice(0, 8).replace(/[^a-z0-9]/g, "");
-      const suffix = createHash("sha256").update(bots[0].id).digest("hex").slice(0, 6);
-      boatRow = { id: "bx_23456789", name: `ogb-${scope}-${prefix}-${suffix}`, state: "archived" };
-      boatCalls.length = 0; boatPrompts.length = 0;
-      const onBoat = (sent: any) => computer(sent)?.args?.at(-1) === "computer" && /harness-mcp-proxy/.test(computer(sent).args[0]);
-      writeFileSync(finishFile, "finish");
-      await send(group.id);
-      expect(onBoat(await dump())).toBe(true);
-      await idle(bots[0].id);
-      expect(boatCalls.some(call => call.path.endsWith("/resume"))).toBe(true);
-      expect(boatCalls.filter(call => call.method === "POST" && call.path === "/sandboxes")).toHaveLength(0);
-      expect(JSON.stringify(await api("GET", "/api/bots?messages=30"))).not.toContain("not available in channels yet");
-      clearDump();
-      await send(group.id);
-      expect(onBoat(await dump())).toBe(true);
-      await idle(bots[0].id);
-      expect(boatPrompts).toHaveLength(0);
-    } finally {
-      boatRow = null;
-      await stop(group.id);
-      await idle(bots[0].id);
-      await api("PATCH", `/api/bots/${bots[0].id}`, { computer: "vm" });
-      await api("PUT", "/api/config", { box: { token: "" } });
-    }
-  }, 45_000);
 
   it("releases a failed readiness claim so the bot and room can run again", async () => {
     const { bots, group } = await room();

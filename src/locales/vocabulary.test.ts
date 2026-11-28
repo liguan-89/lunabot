@@ -31,23 +31,17 @@ const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
   ["T3", /\bT3\b/, "no other app's name"],
 ];
 
-// Boat makes the cloud desktops and is credited where they appear ("from Boat", "by Boat"); it never names one desktop.
-const OWN_KEY = /Boat (?:API key|account|key|token|plan|provider|credentials|setup|is not configured|is not connected|is a paid service)|boat\.dev|\b(?:Connect|Configure) Boat\b|\b(?:from|by) Boat\b/g;
 const BOAT = /\bBoats?\b/;
 
 function retiredIn(text: string, boat: RegExp = BOAT): string[] {
   const found = RETIRED.filter(([, pattern]) => pattern.test(text)).map(([word, , use]) => `"${word}" (say ${use})`);
-  if (boat.test(text.replace(OWN_KEY, ""))) found.push(`"Boat" (say cloud desktop; Boat only names a person's own key)`);
+  if (boat.test(text)) found.push(`"Boat" (say cloud desktop)`);
   return found;
 }
 
 const PENDING_KEY_PREFIXES: string[] = [];
 const CHECKED_PACKS = ["zh"];
-const EN_ALLOWED: Record<string, string> = {
-  "botAccess.cloud.boat": "the own-key provider picker names its two providers, Boat and a VPS",
-  "botAccess.cloud.hostedBackendDescription": "the own-key provider picker names its two providers, Boat and a VPS",
-  "botAccess.cloud.vpsAutoDescription": "the own-key provider picker's VPS line names its Cloud choice",
-};
+const EN_ALLOWED: Record<string, string> = {};
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const SCANNED = ["src", "server", "electron", "shared"];
@@ -57,9 +51,6 @@ const isSource = (name: string) => /\.(?:ts|tsx|mjs|cjs|js)$/.test(name) && !/\.
 
 /** No snippet keeps the word file-wide; otherwise only literals containing the snippet. */
 const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = [
-  { file: "shared/credential-request.ts", snippet: "when Boat is selected", why: "the card that asks for a person's own Boat key" },
-  { file: "server/boat-create-idempotency.ts", snippet: "unnamed Boat", why: "own-key repair: boat.dev's own name for a machine" },
-
   { file: "server/workspace-backup.ts", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
   { file: "electron/company-backups.mjs", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
   { file: "electron/user-data-migration.mjs", why: "the profile and data folder names earlier builds wrote, moved once on update" },
@@ -194,7 +185,7 @@ describe("one name per thing", () => {
     }
   });
 
-  it("the check catches each retired word, and lets own-key Boat and env names through", () => {
+  it("the check catches each retired word and lets env names through", () => {
     for (const bad of [
       "Sign in to OMB Cloud", "Sign in to LunaBot Cloud", "Get LunaBot Pro", "LunaBot Pro plans",
       "Sign in to DEX BOT Cloud", "Restart DEX BOT", "locked by another DEX BOT process",
@@ -206,8 +197,7 @@ describe("one name per thing", () => {
     for (const good of [
       "Sign in to Luna Bot Cloud", "Pro active · verified by Luna Bot Cloud", "Restart Luna Bot", "locked by another Luna Bot process",
       "set LUNABOT_PUBLIC_IPV4", "Open My Cloud", "Open the Cloud", "Choose Cloud desktop to wake", "Auto, Cloud desktop or Browser",
-      "Included with your Cloud plan", "Add a Boat API key in Settings → API keys", "Connect Boat", "Check boat.dev",
-      "Bots here can get their own cloud desktops from Boat, a paid service", "Cloud desktops by Boat",
+      "Included with your Cloud plan",
       "Local VM", "Open your Plan page",
     ]) expect(retiredIn(good), good).toEqual([]);
   });

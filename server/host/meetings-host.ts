@@ -1,7 +1,7 @@
 // Meeting notes on this server: the meetings, their tools' routes, the Leave button and the computer they keep awake.
 import { MEETING_ROUTINE } from "../../shared/meetings.ts";
 import type { WidgetAction } from "../../shared/widget.ts";
-import * as boat from "../boat.ts";
+import * as cloudDesktop from "../cloud-desktop.ts";
 import { saveBotAttachment } from "../bot-attachment.ts";
 import { createAgentCard } from "../chat-widgets.ts";
 import { startInBackground } from "../cloud-computer-background.ts";
@@ -33,6 +33,7 @@ export interface MeetingsHostDeps {
     used(owner: string): void;
   };
   computerOwner(bot: BotRecord): string;
+  cfgForOwner?(owner: string): AppConfig;
   routines(): Pick<RoutineManager, "create" | "listRoutines"> | null;
   log(line: string): void;
 }
@@ -47,13 +48,14 @@ export function createMeetingsHost(deps: MeetingsHostDeps, routeDeps: () => Meet
     return bot ? { id: bot.id, name: bot.name, color: bot.color } : null;
   };
 
-  const computer = (boxId: string): MeetingComputer => ({
+  const computer = (boxId: string, owner: string): MeetingComputer => ({
     async run(command, timeoutMs) {
-      const result = await boat.runCommand(cfg, boxId, boat.isolatedRemoteCommand(command), { timeoutMs });
+      const computerCfg = deps.cfgForOwner?.(owner) ?? cfg;
+      const result = await cloudDesktop.runCommand(computerCfg, boxId, cloudDesktop.isolatedRemoteCommand(command), { timeoutMs });
       return { ok: result.ok, stdout: result.stdout, stderr: result.stderr };
     },
     async start(command) {
-      const started = await startInBackground(cfg, boxId, command, AbortSignal.timeout(60_000));
+      const started = await startInBackground(deps.cfgForOwner?.(owner) ?? cfg, boxId, command, AbortSignal.timeout(60_000));
       return started.isError ? { ok: false, error: started.content.map((part) => ("text" in part ? part.text : "")).join(" ") } : { ok: true };
     },
   });
@@ -75,10 +77,11 @@ export function createMeetingsHost(deps: MeetingsHostDeps, routeDeps: () => Meet
     async computerFor(record) {
       const bot = store.bot(record.botId);
       if (!bot) return { error: "The bot is gone." };
-      if (!boat.boatConfigured(cfg)) return { error: "Meeting notes need a cloud computer, and none is set up here." };
+      const computerCfg = deps.cfgForOwner?.(record.owner) ?? cfg;
+      if (!cloudDesktop.cloudConfigured(computerCfg)) return { error: "Meeting notes need a cloud computer, and none is set up here." };
       const machine = record.owner === bot.id
         ? await deps.power().start(bot, { threadId: `meeting:${record.id}`, generation: record.id }, { budgetMs: START_BUDGET_MS })
-        : await boat.readyBoat(cfg, record.owner, START_BUDGET_MS);
+        : await cloudDesktop.readyCloudComputer(computerCfg, record.owner, START_BUDGET_MS);
       if (!machine || typeof machine.id !== "string") return { error: "The cloud computer didn't start in time." };
       deps.power().used(record.owner);
       return { boxId: machine.id };
@@ -119,8 +122,9 @@ export function createMeetingsHost(deps: MeetingsHostDeps, routeDeps: () => Meet
     computerOwner(botId) {
       const bot = store.bot(botId);
       if (!bot) return { error: "The bot is gone." };
-      if (!boat.boatConfigured(cfg)) return { error: MEETINGS_NEED_CLOUD_COMPUTER };
-      return deps.computerOwner(bot);
+      const owner = deps.computerOwner(bot);
+      if (!cloudDesktop.cloudConfigured(deps.cfgForOwner?.(owner) ?? cfg)) return { error: MEETINGS_NEED_CLOUD_COMPUTER };
+      return owner;
     },
     createRoutine(botId, threadId) {
       const manager = deps.routines();

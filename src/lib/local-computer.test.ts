@@ -257,12 +257,10 @@ describe("local computer UI eligibility", () => {
   it("refuses cloud preview polling when a stale ready phase belongs to Auto or another destination", () => {
     const ready = {
       computer: "cloud" as const,
-      cloudBackend: "box" as const,
       phase: "ready",
       botId: "bot-a",
       resolvedBotId: "bot-a",
       resolvedComputer: "cloud" as const,
-      resolvedCloudBackend: "box" as const,
     };
     expect(shouldPollCloudPreview(ready)).toBe(true);
     expect(shouldPollCloudPreview({ ...ready, computer: undefined })).toBe(false);
@@ -271,25 +269,14 @@ describe("local computer UI eligibility", () => {
     expect(shouldPollCloudPreview({ ...ready, botId: "bot-b" })).toBe(false);
     expect(shouldPollCloudPreview({ ...ready, resolvedBotId: null })).toBe(false);
     expect(shouldPollCloudPreview({ ...ready, resolvedComputer: undefined })).toBe(false);
-    expect(shouldPollCloudPreview({ ...ready, cloudBackend: "vps" })).toBe(false);
-    expect(shouldPollCloudPreview({ ...ready, resolvedCloudBackend: "vps" })).toBe(false);
   });
 
-  it("rejects stale persisted selections in both cloud-backend switch directions", () => {
-    const expected = { computer: "cloud" as const, cloudBackend: "box" as const };
-    expect(persistedComputerSelectionMatches({ ...expected, persistedBot: expected })).toBe(true);
+  it("accepts a persisted cloud selection only for the same destination", () => {
     expect(persistedComputerSelectionMatches({
-      ...expected,
-      persistedBot: { computer: "cloud", cloudBackend: "vps" },
-    })).toBe(false);
+      computer: "cloud", persistedBot: { computer: "cloud" },
+    })).toBe(true);
     expect(persistedComputerSelectionMatches({
-      computer: "cloud",
-      cloudBackend: "vps",
-      persistedBot: { computer: "cloud", cloudBackend: "box" },
-    })).toBe(false);
-    expect(persistedComputerSelectionMatches({
-      ...expected,
-      persistedBot: { computer: undefined, cloudBackend: "box" },
+      computer: "cloud", persistedBot: { computer: undefined },
     })).toBe(false);
   });
 });
@@ -319,7 +306,6 @@ describe("what the person reads about using this computer", () => {
       key.startsWith("approval.yourComputer.") || key.startsWith("computer.problem.local") || key.startsWith("place.view.") || key.startsWith("place.action."));
     expect(shown.length).toBeGreaterThan(40);
     for (const [key, text] of shown) expect(text, key).not.toMatch(/DevTools|profile[- ]access|grant\b|bind to|\bCUA\b|Cua Driver|Boat key/i);
-    // Boat makes the cloud desktops, and is named where they are offered.
-    expect((en as Record<string, string>)["place.view.ccNeedsKey.line"]).toContain("from Boat");
+    expect((en as Record<string, string>)["place.view.ccNeedsKey.line"]).toContain("Linux machine");
   });
 });

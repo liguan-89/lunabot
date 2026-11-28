@@ -22,7 +22,7 @@ export type TeamComputerRecord = z.infer<typeof entrySchema>;
 export const teamComputerOwner = (id: string): string => `computer_${id}`;
 const failure = (message: string, status = 409) => Object.assign(new Error(message), { status });
 
-/** Persist identity before any provider call, so a retried create keeps its Boat journal key; invalid restored state is never reset. */
+/** Persist identity before any provider call, so a retried create keeps its journal key; invalid restored state is never reset. */
 export class TeamComputers {
   private entries: TeamComputerRecord[] = [];
   private problem?: string;
@@ -53,9 +53,9 @@ export class TeamComputers {
   forSection(section: string | undefined): TeamComputerRecord | undefined {
     return this.list().find(entry => entry.section !== null && entry.section === (section?.trim() || ""));
   }
-  forBot(bot: { computer?: string; cloudBackend?: string; section?: string }): TeamComputerRecord | undefined {
+  forBot(bot: { computer?: string; section?: string }): TeamComputerRecord | undefined {
     // Explicit destinations are permissions, not suggestions. Only Auto inherits.
-    return bot.computer === undefined && bot.cloudBackend !== "vps" ? this.forSection(bot.section) : undefined;
+    return bot.computer === undefined ? this.forSection(bot.section) : undefined;
   }
   create(name: string, id: string = randomUUID()): TeamComputerRecord {
     const entries = this.list();

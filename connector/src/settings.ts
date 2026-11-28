@@ -82,7 +82,9 @@ export const HIDEPID_CAPABILITIES = ["SYS_ADMIN", "SETPCAP"] as const;
 
 /** The home's secrets: kept out of its container's environment (docker inspect shows that) once its launcher reads the file. */
 export const HOME_SECRET_ENV = [
-  "LUNABOT_CLOUD_BOOTSTRAP_SECRET", "LUNABOT_CLOUD_BOAT_TOKEN", "LUNABOT_CLOUD_VOICE_TOKEN", "LUNABOT_CLOUD_DECIDER_TOKEN", "LUNABOT_CLOUD_AI_TOKEN",
+  "LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY",
+  "LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS",
+  "LUNABOT_CLOUD_BOOTSTRAP_SECRET", "LUNABOT_CLOUD_VOICE_TOKEN", "LUNABOT_CLOUD_DECIDER_TOKEN", "LUNABOT_CLOUD_AI_TOKEN",
   "LUNABOT_CLOUD_CONNECTED_APPS_GRANT", "LUNABOT_CLOUD_X_TOKEN", "LUNABOT_CLOUD_TUNNEL_TOKEN",
 ] as const;
 /** In the home: a read-only folder holding only `secrets.json`, root's alone. The launcher reads it at start. */

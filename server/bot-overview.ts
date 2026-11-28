@@ -50,7 +50,6 @@ export interface OverviewFacts {
     | "description"
     | "soul"
     | "computer"
-    | "cloudBackend"
     | "cwd"
     | "autoApprove"
     | "approvalMode"

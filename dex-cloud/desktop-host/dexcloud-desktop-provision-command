@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+
+refuse() {
+  echo "dexcloud-desktop: provisioning command is not allowed" >&2
+  exit 1
+}
+
+cmd=${SSH_ORIGINAL_COMMAND-}
+prefix='/usr/local/sbin/dexcloud-desktop-slot '
+[[ $cmd == "$prefix"* ]] || refuse
+rest=${cmd#"$prefix"}
+read -r action cloud keytype keybody extra <<<"$rest"
+[[ -z ${extra-} ]] || refuse
+[[ $cloud =~ ^c-[0-9a-f]{12}$ ]] || refuse
+
+case $action in
+  allocate)
+    [[ $keytype == "ssh-ed25519" && $keybody =~ ^[A-Za-z0-9+/=]+$ ]] || refuse
+    exec /usr/bin/sudo -n /usr/local/sbin/dexcloud-desktop-slot allocate "$cloud" "$keytype $keybody"
+    ;;
+  release)
+    [[ -z ${keytype-} && -z ${keybody-} ]] || refuse
+    exec /usr/bin/sudo -n /usr/local/sbin/dexcloud-desktop-slot release "$cloud"
+    ;;
+  *)
+    refuse
+    ;;
+esac

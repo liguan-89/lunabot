@@ -39,9 +39,9 @@ describe("isHandedWork", () => {
 
 describe("ownCloudStateWithin", () => {
   it("answers with the cloud computer's state, and marks a failed or slow lookup as unavailable", async () => {
-    await expect(ownCloudStateWithin(Promise.resolve({ box: { state: "stopped" } }))).resolves.toEqual({ state: "stopped", unavailable: false });
-    await expect(ownCloudStateWithin(Promise.resolve({ box: null }))).resolves.toEqual({ state: undefined, unavailable: false });
-    await expect(ownCloudStateWithin(Promise.reject(new Error("Boat is down")))).resolves.toEqual({ state: undefined, unavailable: true });
+    await expect(ownCloudStateWithin(Promise.resolve({ container: "stopped" as const }))).resolves.toEqual({ state: "stopped", unavailable: false });
+    await expect(ownCloudStateWithin(Promise.resolve({ container: "missing" as const }))).resolves.toEqual({ state: null, unavailable: false });
+    await expect(ownCloudStateWithin(Promise.reject(new Error("VPS is unreachable")))).resolves.toEqual({ state: undefined, unavailable: true });
     const started = Date.now();
     await expect(ownCloudStateWithin(new Promise(() => {}), 20)).resolves.toEqual({ state: undefined, unavailable: true });
     expect(Date.now() - started).toBeLessThan(1_000);
@@ -50,9 +50,9 @@ describe("ownCloudStateWithin", () => {
 
 describe("handoffUsesOwnCloud", () => {
   const auto = resolveSurface({ destination: undefined, browserOn: true });
-  it("runs handed-off work on Auto on the receiving bot's own cloud computer, awake or asleep", () => {
+  it("runs handed-off work on Auto on the receiving bot's own cloud computer only when it is already running", () => {
     expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: "running" })).toBe(true);
-    expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: "archived" })).toBe(true);
+    expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: "stopped" })).toBe(false);
   });
   it("never creates one, and leaves a person's own turns and consults alone", () => {
     expect(handoffUsesOwnCloud({ plan: auto, handoffWork: true, ownCloudState: null })).toBe(false);

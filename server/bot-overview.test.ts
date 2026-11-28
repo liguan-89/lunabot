@@ -10,7 +10,6 @@ function baseFacts(overrides: Partial<OverviewFacts> = {}): OverviewFacts {
       description: "Files bugs.",
       soul: "",
       computer: "off",
-      cloudBackend: undefined,
       cwd: undefined,
       autoApprove: false,
       composio: undefined,

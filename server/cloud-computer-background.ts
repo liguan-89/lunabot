@@ -1,9 +1,8 @@
-// Boat (docs.boat.dev/openapi/boat-v1.yaml): POST /sandboxes/{id}/commands with `detached: true` answers at once with an
-// integer processId; GET /sandboxes/{id}/commands/{processId} answers `running`, `status` (running, exited or lost),
-// `exitCode` and the end of each log, cut to `tailBytes`. A processId means something only on the sandbox that started it.
-import { createHash } from "node:crypto";
+// Background commands live inside the VPS desktop container: a small per-process directory holds its wrapper, pid,
+// exit code and output tails. The process_id carries a hash of the container so one computer cannot name another's process.
+import { createHash, randomInt } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import { assertBoatNotDeleting, boatAccount, boatErrorMessage, boatFetch, isolatedRemoteCommand } from "./boat.ts";
+import { isolatedRemoteCommand, runCommand } from "./cloud-desktop.ts";
 import type { CloudComputerResult } from "./cloud-computer-tools.ts";
 import type { AppConfig } from "./config.ts";
 
@@ -12,14 +11,11 @@ export const PROCESS_ID_PATTERN = PROCESS_ID.source;
 export const STATUS_WAIT_MAX_SECONDS = 60;
 export const STDOUT_TAIL_CHARS = 4_000;
 export const STDERR_TAIL_CHARS = 2_000;
-const POLL_MS = 2_000;
-const MAX_LAST_READ_WINDOW_MS = 1_000;
-/** Bounds what a forgotten background server can cost: Boat bills while a computer is on. */
+const POLL_MS = 1_000;
+/** Bounds what a forgotten background server can cost in memory and CPU on the VPS. */
 export const BACKGROUND_KEEPS_AWAKE_MS = 2 * 60 * 60_000;
 const MAX_TRACKED_PER_COMPUTER = 20;
-const AWAKE_CHECK_MS = 20_000;
-const MAX_UTF8_BYTES_PER_UTF16_UNIT = 3;
-const TAIL_BYTES = MAX_UTF8_BYTES_PER_UTF16_UNIT * STDOUT_TAIL_CHARS;
+const TAIL_BYTES = 16_384;
 
 const CHECK_BEFORE_RERUN = "Check before starting it again, for example with exec `pgrep -af '<part of the command>'` or by looking at the files it writes";
 export const EXEC_LATE = "The command did not finish within this call's time limit. It may still be running on the cloud computer, so do not run it "
@@ -32,7 +28,6 @@ const UNKNOWN_PROCESS = "This cloud computer has no background command with that
   + "Look at the files the command writes to see how far it got.";
 const LOST = "The cloud computer restarted or lost track of this command, so its exit code may be unknown. Look at the files it writes to see how far it got.";
 const CUT = "Only the end of the output is shown. Write long output to a file and read the part you need with exec.";
-const STALE = "No newer status was confirmed before the wait ended. This is the last observed status; it may have changed. Call exec_status again.";
 
 type StatusClock = {
   now: () => number;
@@ -46,160 +41,185 @@ const statusClock: StatusClock = {
 };
 
 const text = (value: string, isError = false): CloudComputerResult => ({ ...(isError ? { isError } : {}), content: [{ type: "text", text: value }] });
-const included = (cfg: AppConfig) => boatAccount(cfg)?.included === true;
+const shellQuote = (value: string): string => `'${value.replace(/'/g, "'\\''")}'`;
+const computerTag = (computer: string) => createHash("sha256").update(computer).digest("hex").slice(0, 8);
+export const processIdOn = (computer: string, processId: number) => `bg-${processId}-${computerTag(computer)}`;
 
-/** Security: a process_id names the computer it was started on, so one read through another computer is refused rather
- * than answered with whatever process holds that number there. */
-const computerTag = (boxId: string) => createHash("sha256").update(boxId).digest("hex").slice(0, 8);
-export const processIdOn = (boxId: string, processId: number) => `bg-${processId}-${computerTag(boxId)}`;
-
-function processIdFrom(boxId: string, value: string): number | null {
+function processIdFrom(computer: string, value: string): number | null {
   const match = PROCESS_ID.exec(value);
   const processId = Number(match?.[1]);
-  return match && match[2] === computerTag(boxId) && Number.isSafeInteger(processId) ? processId : null;
+  return match && match[2] === computerTag(computer) && Number.isSafeInteger(processId) ? processId : null;
 }
 
-/** Never starts on a lone low surrogate: half a character is an invalid string some providers reject. */
-function tail(value: unknown, chars: number): { text: string; cut: boolean } {
-  const whole = typeof value === "string" ? value : "";
-  if (whole.length <= chars) return { text: whole, cut: false };
-  const kept = whole.slice(-chars);
+function tail(value: string, chars: number): { text: string; cut: boolean } {
+  if (value.length <= chars) return { text: value, cut: false };
+  const kept = value.slice(-chars);
   const first = kept.charCodeAt(0);
   return { text: first >= 0xdc00 && first <= 0xdfff ? kept.slice(1) : kept, cut: true };
 }
 
-/** An Admin relay that does not forward `detached` has Boat run the command to the end and answer with its result. */
-function ranInForeground(body: any): CloudComputerResult {
-  const stdout = tail(body.stdout, STDOUT_TAIL_CHARS), stderr = tail(body.stderr, STDERR_TAIL_CHARS);
-  return text(JSON.stringify({
-    status: "finished", exitCode: body.exitCode, stdout: stdout.text, stderr: stderr.text,
-    ...(stdout.cut || stderr.cut ? { outputCut: CUT } : {}), note: "The cloud computer ran this command to the end instead of in the background.",
-  }), body.exitCode !== 0);
-}
-
-/** Process ids started on each computer, by box id, with when they started: its idle sleep waits for them. */
+/** Process ids started on each computer, with when they started: idle shutdown waits for them. */
 const started = new Map<string, Map<number, number>>();
 
-function track(boxId: string, processId: number): void {
-  const mine = started.get(boxId) ?? new Map<number, number>();
+function track(computer: string, processId: number): void {
+  const mine = started.get(computer) ?? new Map<number, number>();
   mine.set(processId, Date.now());
   while (mine.size > MAX_TRACKED_PER_COMPUTER) mine.delete(mine.keys().next().value!);
-  started.set(boxId, mine);
+  started.set(computer, mine);
 }
 
-function untrack(boxId: string, processId: number): void {
-  const mine = started.get(boxId);
+function untrack(computer: string, processId: number): void {
+  const mine = started.get(computer);
   mine?.delete(processId);
-  if (mine?.size === 0) started.delete(boxId);
+  if (mine?.size === 0) started.delete(computer);
 }
 
-/** An answer that does not say it ended counts as running; BACKGROUND_KEEPS_AWAKE_MS still ends the wait. */
-async function mayStillRun(cfg: AppConfig, boxId: string, processId: number): Promise<boolean> {
-  try {
-    const response = await boatFetch(cfg, `/sandboxes/${boxId}/commands/${processId}?tailBytes=1`, { signal: AbortSignal.timeout(AWAKE_CHECK_MS) });
-    const body: any = await response.json().catch(() => null);
-    return response.status !== 404 && !(response.ok && body?.running === false);
-  } catch {
-    return true;
+const processDir = (processId: number) => `/tmp/lunabot-bg-${processId}`;
+
+function wrapperScript(command: string, dir: string): string {
+  const isolated = isolatedRemoteCommand(command).replace(/^exec /, "");
+  return `#!/bin/bash
+${isolated} >>${shellQuote(`${dir}/stdout.log`)} 2>>${shellQuote(`${dir}/stderr.log`)}
+printf '%s' "$?" > ${shellQuote(`${dir}/exit`)}
+`;
+}
+
+export async function startInBackground(cfg: AppConfig, computer: string, command: string, signal: AbortSignal): Promise<CloudComputerResult> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const processId = randomInt(1, 1_000_000_000);
+    const dir = processDir(processId);
+    const encoded = Buffer.from(wrapperScript(command, dir), "utf8").toString("base64");
+    const start = [
+      `dir=${shellQuote(dir)}`,
+      'mkdir "$dir" 2>/dev/null || exit 75',
+      `printf %s ${shellQuote(encoded)} | base64 -d > "$dir/run.sh"`,
+      'chmod 700 "$dir/run.sh"',
+      'nohup "$dir/run.sh" >/dev/null 2>&1 </dev/null &',
+      'pid=$!',
+      'printf %s "$pid" > "$dir/pid"',
+      'echo started',
+    ].join("; ");
+    const result = await runCommand(cfg, computer, start, { timeoutMs: 15_000, signal });
+    if (result.timedOut) return text(START_LATE, true);
+    if (result.exitCode === 75) continue;
+    if (!result.ok || !/started/.test(result.stdout)) {
+      return text(`The cloud computer refused to start the command${result.stderr ? `: ${result.stderr.slice(0, 300)}` : ""}`, true);
+    }
+    track(computer, processId);
+    return text(JSON.stringify({
+      processId: processIdOn(computer, processId),
+      status: "running",
+      next: "It keeps running after this call, but its completion will not automatically resume this turn or notify a delegator. If its result is needed for this task, use exec_status with wait_seconds in this turn until it finishes, then check its exit code and output. If you cannot finish checking in this turn, report it as unfinished with the process_id; do not start another copy blindly.",
+    }));
   }
+  return text(`The cloud computer could not allocate a background command id. ${CHECK_BEFORE_RERUN}.`, true);
 }
 
-export async function backgroundCommandRunning(cfg: AppConfig, boxId: string): Promise<boolean> {
-  for (const [processId, at] of started.get(boxId) ?? []) {
-    if (Date.now() - at < BACKGROUND_KEEPS_AWAKE_MS && await mayStillRun(cfg, boxId, processId)) return true;
-    untrack(boxId, processId);
-  }
-  return false;
+interface RemoteStatus {
+  state: "running" | "finished" | "lost" | "missing";
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
 }
 
-export async function startInBackground(cfg: AppConfig, boxId: string, command: string, signal: AbortSignal): Promise<CloudComputerResult> {
-  assertBoatNotDeleting(boxId);
-  const response = await boatFetch(cfg, `/sandboxes/${boxId}/commands`, {
-    method: "POST", body: JSON.stringify({ command: isolatedRemoteCommand(command), detached: true }), signal,
-  });
-  const body: any = await response.json().catch(() => null);
-  if (!response.ok) {
-    const refusal = boatErrorMessage(response.status, "Starting the command", body, included(cfg));
-    return text(response.status >= 500 ? `${refusal} The command may have started. ${CHECK_BEFORE_RERUN}.` : refusal, true);
-  }
-  const processId = body?.processId;
-  if (Number.isInteger(body?.exitCode) && processId === undefined) return ranInForeground(body);
-  if (!Number.isSafeInteger(processId) || processId < 1) return text(`The cloud computer did not say which process it started. The command may have started. ${CHECK_BEFORE_RERUN}.`, true);
-  track(boxId, processId);
-  return text(JSON.stringify({ processId: processIdOn(boxId, processId), status: "running", next: "It keeps running after this call, but its completion will not automatically resume this turn or notify a delegator. If its result is needed for this task, use exec_status with wait_seconds in this turn until it finishes, then check its exit code and output. If you cannot finish checking in this turn, report it as unfinished with the process_id; do not start another copy blindly." }));
+function decodeTail(value: string): { text: string; truncated: boolean } {
+  if (!value) return { text: "", truncated: false };
+  const bytes = Buffer.from(value, "base64");
+  return { text: bytes.toString("utf8"), truncated: bytes.length >= TAIL_BYTES };
 }
 
-function describeStatus(processId: string, body: any, observedAt?: number): CloudComputerResult {
-  const stdout = tail(body.stdout, STDOUT_TAIL_CHARS), stderr = tail(body.stderr, STDERR_TAIL_CHARS);
-  const status = body.running ? "running" : body.status === "lost" ? "lost" : "finished";
-  return text(JSON.stringify({
-    processId, status, exitCode: body.running ? null : (Number.isInteger(body.exitCode) ? body.exitCode : null),
-    ...(!body.running && typeof body.signal === "string" && body.signal ? { signal: body.signal } : {}),
-    ...(body.oomKilled === true ? { outOfMemory: true } : {}),
-    stdout: stdout.text, stderr: stderr.text,
-    ...(stdout.cut || stderr.cut || body.stdoutTruncated === true || body.stderrTruncated === true ? { outputCut: CUT } : {}),
-    ...(status === "lost" ? { note: LOST } : {}),
-    ...(observedAt === undefined ? {} : { observedAt: new Date(observedAt).toISOString(), note: STALE }),
+async function readStatus(cfg: AppConfig, computer: string, processId: number, signal: AbortSignal): Promise<RemoteStatus> {
+  const dir = processDir(processId);
+  const script = [
+    `dir=${shellQuote(dir)}`,
+    '[ -d "$dir" ] || exit 44',
+    'pid=$(cat "$dir/pid" 2>/dev/null || true)',
+    'if [ -f "$dir/exit" ]; then state=finished; code=$(cat "$dir/exit" 2>/dev/null);',
+    'elif [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then state=running; code=;',
+    'else state=lost; code=; fi',
+    'printf \'state=%s\\nexit_code=%s\\n\' "$state" "$code"',
+    `printf 'stdout_b64='; tail -c ${TAIL_BYTES} "$dir/stdout.log" 2>/dev/null | base64 | tr -d '\\n'; printf '\\n'`,
+    `printf 'stderr_b64='; tail -c ${TAIL_BYTES} "$dir/stderr.log" 2>/dev/null | base64 | tr -d '\\n'; printf '\\n'`,
+  ].join("; ");
+  const out = await runCommand(cfg, computer, script, { timeoutMs: 15_000, signal });
+  if (out.exitCode === 44) return { state: "missing", exitCode: null, stdout: "", stderr: "", stdoutTruncated: false, stderrTruncated: false };
+  if (!out.ok) throw new Error(out.stderr.trim() || "the cloud computer could not read the command status");
+  const fields = new Map(out.stdout.split(/\r?\n/).filter(Boolean).map((line) => {
+    const at = line.indexOf("=");
+    return [line.slice(0, at), line.slice(at + 1)] as const;
   }));
+  const state = fields.get("state");
+  const stdout = decodeTail(fields.get("stdout_b64") ?? "");
+  const stderr = decodeTail(fields.get("stderr_b64") ?? "");
+  const exitCode = Number(fields.get("exit_code") ?? "");
+  return {
+    state: state === "running" || state === "finished" || state === "lost" ? state : "missing",
+    exitCode: state === "finished" && Number.isInteger(exitCode) ? exitCode : null,
+    stdout: stdout.text,
+    stderr: stderr.text,
+    stdoutTruncated: stdout.truncated,
+    stderrTruncated: stderr.truncated,
+  };
 }
 
-function statusError(message: string, processId: string, last?: { body: any; observedAt: number }): CloudComputerResult {
-  if (!last) return text(message, true);
-  const stdout = tail(last.body.stdout, STDOUT_TAIL_CHARS), stderr = tail(last.body.stderr, STDERR_TAIL_CHARS);
+function describeStatus(processId: string, status: RemoteStatus): CloudComputerResult {
+  const stdout = tail(status.stdout, STDOUT_TAIL_CHARS), stderr = tail(status.stderr, STDERR_TAIL_CHARS);
   return text(JSON.stringify({
-    error: message,
-    lastObserved: {
-      processId, status: "running", observedAt: new Date(last.observedAt).toISOString(), stdout: stdout.text, stderr: stderr.text,
-      ...(stdout.cut || stderr.cut || last.body.stdoutTruncated === true || last.body.stderrTruncated === true ? { outputCut: CUT } : {}),
-      note: "This status and output were last observed at this time and may have changed.",
-    },
-  }), true);
+    processId,
+    status: status.state,
+    exitCode: status.state === "finished" ? status.exitCode : null,
+    stdout: stdout.text,
+    stderr: stderr.text,
+    ...(stdout.cut || stderr.cut || status.stdoutTruncated || status.stderrTruncated ? { outputCut: CUT } : {}),
+    ...(status.state === "lost" ? { note: LOST } : {}),
+  }));
 }
 
 export async function backgroundStatus(
   cfg: AppConfig,
-  boxId: string,
+  computer: string,
   args: { process_id: string; wait_seconds?: number },
   signal: AbortSignal,
   clock: StatusClock = statusClock,
 ): Promise<CloudComputerResult> {
-  const processId = processIdFrom(boxId, args.process_id);
+  const processId = processIdFrom(computer, args.process_id);
   if (processId === null) return text(OTHER_COMPUTER, true);
   const waitMs = Math.min(args.wait_seconds ?? 0, STATUS_WAIT_MAX_SECONDS) * 1_000;
   const until = clock.now() + waitMs;
-  const lastReadWindow = Math.min(MAX_LAST_READ_WINDOW_MS, waitMs / 2);
-  let last: { body: any; observedAt: number } | undefined;
-  let finalRead = false;
   for (;;) {
     signal.throwIfAborted();
-    assertBoatNotDeleting(boxId);
-    if (last && clock.now() >= until) return describeStatus(args.process_id, last.body, last.observedAt);
-    const deadline = waitMs && last ? clock.timeout(Math.max(1, until - clock.now())) : null;
-    const readSignal = deadline ? AbortSignal.any([signal, deadline]) : signal;
-    let response: Response, body: any;
-    try {
-      response = await boatFetch(cfg, `/sandboxes/${boxId}/commands/${processId}?tailBytes=${TAIL_BYTES}`, { signal: readSignal });
-      body = await response.json().catch(() => null);
-      readSignal.throwIfAborted();
-    } catch (error) {
-      signal.throwIfAborted();
-      if (deadline?.aborted) return last ? describeStatus(args.process_id, last.body, last.observedAt) : text(STATUS_LATE, true);
-      throw error;
+    const status = await readStatus(cfg, computer, processId, signal);
+    if (status.state === "missing") return text(UNKNOWN_PROCESS, true);
+    if (status.state !== "running") {
+      untrack(computer, processId);
+      return describeStatus(args.process_id, status);
     }
-    if (response.status === 404) return statusError(UNKNOWN_PROCESS, args.process_id, last);
-    if (!response.ok) return statusError(boatErrorMessage(response.status, "Reading the command's status", body, included(cfg)), args.process_id, last);
-    if (typeof body?.running !== "boolean") return statusError("The cloud computer gave an unreadable answer about this command. Call exec_status again.", args.process_id, last);
-    if (!body.running) untrack(boxId, processId);
-    const observedAt = clock.now();
-    last = { body, observedAt };
-    const remaining = until - observedAt;
-    if (!body.running || remaining <= 0 || finalRead) return describeStatus(args.process_id, body);
-    const inLastWindow = remaining <= lastReadWindow;
-    finalRead = inLastWindow;
-    await clock.sleep(inLastWindow ? Math.max(1, Math.floor(remaining / 2)) : Math.min(POLL_MS, remaining - lastReadWindow), signal);
-    signal.throwIfAborted();
-    if (clock.now() >= until) return describeStatus(args.process_id, body, observedAt);
+    if (clock.now() >= until) return describeStatus(args.process_id, status);
+    await clock.sleep(Math.min(POLL_MS, Math.max(1, until - clock.now())), signal);
   }
+}
+
+/** True while a still-young background command started here may keep the desktop busy. */
+export async function backgroundCommandRunning(cfg: AppConfig, computer: string): Promise<boolean> {
+  const mine = started.get(computer);
+  if (!mine) return false;
+  for (const [processId, startedAt] of mine) {
+    if (Date.now() - startedAt > BACKGROUND_KEEPS_AWAKE_MS) {
+      mine.delete(processId);
+      continue;
+    }
+    try {
+      const status = await readStatus(cfg, computer, processId, AbortSignal.timeout(10_000));
+      if (status.state === "running") return true;
+      untrack(computer, processId);
+    } catch {
+      return true;
+    }
+  }
+  if (mine.size === 0) started.delete(computer);
+  return false;
 }
 
 export function commandLateText(name: unknown, args: unknown): string | undefined {

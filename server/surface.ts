@@ -92,16 +92,16 @@ export function isHandedWork(node: { parentId?: string; mode: string } | undefin
 }
 
 export function handoffUsesOwnCloud(input: { plan: Pick<SurfacePlan, "computer">; handoffWork: boolean; ownCloudState: string | null | undefined }): boolean {
-  return input.handoffWork && input.plan.computer === undefined && Boolean(input.ownCloudState);
+  return input.handoffWork && input.plan.computer === undefined && input.ownCloudState === "running";
 }
 
-/** Best effort: an unreachable Boat service counts as no cloud computer after `ms`, so a handoff still starts promptly.
+/** Best effort: an unreachable VPS counts as no cloud computer after `ms`, so a handoff still starts promptly.
  * `unavailable` marks a failed or slow lookup, which is not a confirmed "no cloud computer". */
-export function ownCloudStateWithin(status: Promise<{ box?: { state?: string | null } | null }>, ms = 3_000): Promise<{ state: string | null | undefined; unavailable: boolean }> {
+export function ownCloudStateWithin(status: Promise<{ configured?: boolean; daemonUp?: boolean; container?: "running" | "stopped" | "missing"; managed?: boolean; imageMatches?: boolean; problem?: string | null }>, ms = 3_000): Promise<{ configured?: boolean; daemonUp?: boolean; managed?: boolean; imageMatches?: boolean; state: string | null | undefined; unavailable: boolean; problem?: string | null }> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const unavailable = { state: undefined, unavailable: true };
   return Promise.race([
-    status.then((result) => ({ state: result.box?.state, unavailable: false }), () => unavailable),
+    status.then((result) => ({ configured: result.configured, daemonUp: result.daemonUp, managed: result.managed, imageMatches: result.imageMatches, state: result.container === "missing" ? null : result.container, unavailable: false, problem: result.problem }), () => unavailable),
     new Promise<typeof unavailable>((resolve) => { timer = setTimeout(() => resolve(unavailable), ms); }),
   ]).finally(() => clearTimeout(timer));
 }

@@ -115,3 +115,66 @@ test("a wake re-provisions a cloud whose container never came up", async () => {
   assert.equal(created[1].name, `dexcloud-${id}`);
   assert.equal(created[1].image, "lunabot-cloud-home:local");
 });
+
+
+test("a managed cloud desktop is allocated before the home starts and its tenant key is only in the boot contract", async () => {
+  const store = openStore(":memory:");
+  const docker = fakeDocker();
+  const allocations = [];
+  const desktopPool = {
+    allocate: async (input) => { allocations.push(input); return { host: "desktop.example.test", port: 2222, user: "dxd7" }; },
+    release: async () => {},
+  };
+  const key = { privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nfixture\n-----END OPENSSH PRIVATE KEY-----\n", publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixture tenant" };
+  const cfg = config();
+  cfg.desktop = { host: "desktop.example.test", sshPort: 2222, alias: "dexcloud-desktop", hostPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHost" };
+  const provisioner = createProvisioner({ config: cfg, store, docker, desktopPool, generateDesktopKey: async () => key, log: () => {} });
+  const id = insertCloud(store, "c-0123456789ab");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => '{"app":"lunabot"}' });
+  try {
+    await provisioner.start(store.cloud(id));
+    const row = await settles(store, id);
+    assert.equal(row.status, "ready");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.deepEqual(allocations, [{ cloudId: id, publicKey: key.publicKey }]);
+  const created = docker.calls.find(([name]) => name === "createCloudContainer")[1];
+  const env = new Map(created.env.map((entry) => entry.split(/=(.*)/s)));
+  assert.equal(env.get("LUNABOT_CLOUD_DESKTOP_SSH_ALIAS"), "dexcloud-desktop");
+  assert.equal(env.get("LUNABOT_CLOUD_DESKTOP_SSH_HOST"), "desktop.example.test");
+  assert.equal(env.get("LUNABOT_CLOUD_DESKTOP_SSH_PORT"), "2222");
+  assert.equal(env.get("LUNABOT_CLOUD_DESKTOP_SSH_USER"), "dxd7");
+  assert.equal(env.get("LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY"), key.privateKey);
+  assert.equal(env.get("LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS"), "[desktop.example.test]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHost");
+});
+
+test("a desktop allocation failure stops provisioning before a home container is created", async () => {
+  const store = openStore(":memory:");
+  const docker = fakeDocker();
+  const desktopPool = { allocate: async () => { throw new Error("desktop host full"); }, release: async () => {} };
+  const cfg = config();
+  cfg.desktop = { host: "desktop.example.test", sshPort: 22, alias: "dexcloud-desktop", hostPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHost" };
+  const provisioner = createProvisioner({ config: cfg, store, docker, desktopPool, generateDesktopKey: async () => ({ privateKey: "k", publicKey: "ssh-ed25519 AAAA tenant" }), log: () => {} });
+  const id = insertCloud(store, "c-0123456789ab");
+  await provisioner.start(store.cloud(id));
+  const row = await settles(store, id);
+  assert.equal(row.status, "offline");
+  assert.equal(row.power_state, "asleep");
+  assert.ok(!docker.calls.some(([name]) => name === "createCloudContainer"), "no container is created without its desktop slot");
+  assert.ok(!docker.calls.some(([name]) => name === "createVolume" || name === "removeContainer"), "no destructive home step runs before its desktop slot");
+});
+
+test("removing a cloud releases its managed desktop slot after the home volume is gone", async () => {
+  const store = openStore(":memory:");
+  const docker = fakeDocker();
+  const releases = [];
+  const desktopPool = { allocate: async () => { throw new Error("not used"); }, release: async ({ cloudId }) => releases.push(cloudId) };
+  const cfg = config();
+  cfg.desktop = { host: "desktop.example.test", sshPort: 22, alias: "dexcloud-desktop", hostPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHost" };
+  const provisioner = createProvisioner({ config: cfg, store, docker, desktopPool, generateDesktopKey: async () => ({ privateKey: "k", publicKey: "ssh-ed25519 AAAA tenant" }), log: () => {} });
+  const id = insertCloud(store, "c-0123456789ab");
+  await provisioner.remove(store.cloud(id));
+  assert.deepEqual(releases, [id]);
+});

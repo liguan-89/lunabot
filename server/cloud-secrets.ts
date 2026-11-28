@@ -3,7 +3,7 @@ import { closeSync, readFileSync } from "node:fs";
 
 /** Never in a child's environment (/proc/<pid>/environ stays readable by the same user): the launcher hands them to the
  * server over an inherited pipe named by CLOUD_SECRETS_FD_ENV. */
-export const CLOUD_HOME_SECRET_KEYS = ["LUNABOT_CLOUD_BOOTSTRAP_SECRET", "LUNABOT_CLOUD_BOAT_TOKEN", "LUNABOT_CLOUD_VOICE_TOKEN", "LUNABOT_CLOUD_DECIDER_TOKEN", "LUNABOT_CLOUD_AI_TOKEN", "LUNABOT_CLOUD_CONNECTED_APPS_GRANT", "LUNABOT_CLOUD_X_TOKEN"] as const;
+export const CLOUD_HOME_SECRET_KEYS = ["LUNABOT_CLOUD_BOOTSTRAP_SECRET", "LUNABOT_CLOUD_VOICE_TOKEN", "LUNABOT_CLOUD_DECIDER_TOKEN", "LUNABOT_CLOUD_AI_TOKEN", "LUNABOT_CLOUD_CONNECTED_APPS_GRANT", "LUNABOT_CLOUD_X_TOKEN"] as const;
 export const CLOUD_SECRETS_FD_ENV = "LUNABOT_CLOUD_SECRETS_FD";
 
 export function cloudHomeSecrets(env: NodeJS.ProcessEnv): Record<string, string> {

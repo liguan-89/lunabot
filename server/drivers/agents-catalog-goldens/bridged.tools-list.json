@@ -251,7 +251,6 @@
             "type": "string",
             "enum": [
               "xaiApiKey",
-              "boxToken",
               "opencodeGoApiKey",
               "ttsKey",
               "geminiTtsKey",

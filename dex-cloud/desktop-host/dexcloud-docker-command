@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+
+refuse() {
+  echo "dexcloud-desktop: command is not allowed" >&2
+  exit 1
+}
+
+cmd=${SSH_ORIGINAL_COMMAND-}
+uid=$(id -u)
+socket="/run/user/${uid}/docker.sock"
+docker=(/usr/bin/docker --host "unix://${socket}")
+
+if [[ $cmd == "true" ]]; then
+  exit 0
+fi
+
+if [[ $cmd == "docker system dial-stdio" ]]; then
+  exec "${docker[@]}" system dial-stdio
+fi
+
+prefix='docker exec -i '
+middle=" /opt/venv/bin/python -I -c \"import base64;exec(base64.b64decode('"
+suffix="'))\""
+if [[ $cmd == "$prefix"* && $cmd == *"$suffix" ]]; then
+  rest=${cmd#"$prefix"}
+  container=${rest%% *}
+  remainder=${rest#"$container"}
+  if [[ $remainder == "$middle"*"$suffix" ]]; then
+    payload=${remainder#"$middle"}
+    payload=${payload%"$suffix"}
+    if [[ $container =~ ^lunabot-vps-[a-z0-9]{1,12}-[a-f0-9]{12}$ && $payload =~ ^[A-Za-z0-9+/=]+$ ]]; then
+      exec "${docker[@]}" exec -i "$container" /opt/venv/bin/python -I -c "import base64;exec(base64.b64decode('${payload}'))"
+    fi
+  fi
+fi
+
+refuse

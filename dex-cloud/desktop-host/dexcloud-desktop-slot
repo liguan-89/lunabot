@@ -1,0 +1,107 @@
+#!/bin/bash
+set -euo pipefail
+
+state_dir=/var/lib/dexcloud-desktop
+slots_dir=$state_dir/slots
+users_file=/etc/dexcloud-desktop/users
+key_dir=/etc/ssh/dexcloud-authorized_keys
+
+fail() {
+  echo "dexcloud-desktop-slot: $*" >&2
+  exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "must run as root"
+[[ -d $slots_dir && -f $users_file && -d $key_dir ]] || fail "desktop host is not installed"
+[[ $# -ge 2 ]] || fail "usage: dexcloud-desktop-slot allocate|release c-<id> [ssh-ed25519 key]"
+action=$1
+cloud=$2
+key=${3-}
+[[ $action == "allocate" || $action == "release" ]] || fail "unknown action"
+[[ $cloud =~ ^c-[0-9a-f]{12}$ ]] || fail "invalid cloud id"
+if [[ $action == "allocate" ]]; then
+  [[ $key =~ ^ssh-ed25519\ [A-Za-z0-9+/=]+$ ]] || fail "invalid tenant public key"
+else
+  [[ $# -eq 2 ]] || fail "release takes only a cloud id"
+fi
+
+mapfile -t users < <(grep -E '^dxd[0-9]{1,4}$' "$users_file" || true)
+((${#users[@]} > 0)) || fail "no tenant users are configured"
+
+exec 9>"$state_dir/lock"
+flock -x 9
+
+slot_owner() {
+  local file owner
+  for file in "$slots_dir"/*; do
+    [[ -e $file ]] || continue
+    if [[ $(<"$file") == "$cloud" ]]; then
+      owner=$(basename "$file")
+      printf '%s\n' "$owner"
+      return 0
+    fi
+  done
+  return 1
+}
+
+write_key() {
+  local user=$1 text=$2 tmp
+  [[ $user =~ ^dxd[0-9]{1,4}$ ]] || fail "invalid tenant user"
+  tmp=$(mktemp "$key_dir/.${user}.XXXXXX")
+  printf '%s\n' "$text" > "$tmp"
+  chmod 644 "$tmp"
+  chown root:root "$tmp"
+  mv "$tmp" "$key_dir/$user"
+}
+
+tenant_systemctl() {
+  local user=$1 home uid
+  shift
+  home=$(getent passwd "$user" | cut -d: -f6)
+  uid=$(id -u "$user")
+  runuser -u "$user" -- env \
+    HOME="$home" \
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    XDG_RUNTIME_DIR="/run/user/$uid" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+    /usr/bin/systemctl --user "$@"
+}
+
+cleanup_tenant() {
+  local user=$1 home docker_root
+  home=$(getent passwd "$user" | cut -d: -f6)
+  [[ $user =~ ^dxd[0-9]{1,4}$ && $home == "/home/$user" ]] || fail "unexpected tenant home"
+  docker_root=$home/.local/share/docker
+  tenant_systemctl "$user" stop docker.service >/dev/null 2>&1 || true
+  if [[ -e $docker_root || -L $docker_root ]]; then
+    rm -rf -- "$docker_root"
+  fi
+  install -d -m 700 -o "$user" -g "$user" "$docker_root"
+  tenant_systemctl "$user" start docker.service >/dev/null 2>&1 || echo "warning: could not restart the tenant rootless Docker service" >&2
+}
+
+if [[ $action == "release" ]]; then
+  if user=$(slot_owner); then
+    write_key "$user" ""
+    cleanup_tenant "$user"
+    rm -f "$slots_dir/$user"
+  fi
+  printf '{}\n'
+  exit 0
+fi
+
+user=$(slot_owner || true)
+if [[ -z $user ]]; then
+  for candidate in "${users[@]}"; do
+    if [[ ! -e $slots_dir/$candidate ]]; then
+      user=$candidate
+      break
+    fi
+  done
+fi
+[[ -n $user ]] || fail "no free desktop tenant slots"
+
+write_key "$user" "command=\"/usr/local/sbin/dexcloud-docker-command\",restrict $key"
+printf '%s\n' "$cloud" > "$slots_dir/$user.tmp"
+mv "$slots_dir/$user.tmp" "$slots_dir/$user"
+printf '{"user":"%s"}\n' "$user"

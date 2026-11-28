@@ -2,13 +2,6 @@
   "$comment": "Known flaky tests that get two retries in CI only (process.env.CI), never locally. Each entry names its file, its full test name (describe blocks and test joined with ' > '), an owner and the evidence. A retried test is listed in its vitest job's summary. Fix the test, then delete its entry. docs/ci.md, 'Flaky tests'.",
   "tests": [
     {
-      "file": "server/boat-included.test.ts",
-      "test": "waking a sleeping computer > forgets a server error once a later resume is accepted",
-      "owner": "milind-soni",
-      "reason": "Failed 7 runs (3 main runs) since Sep 24: Ubuntu 5, Windows 2. #2444 targeted it; delete this entry once no retry is reported for a week.",
-      "since": "2026-10-08"
-    },
-    {
       "file": "server/lending-memory.test.ts",
       "test": "a bot's memory and a lent Mac (server/lending-memory.ts) > fingerprints the instruction files an engine reads in each working folder and the folders above it",
       "owner": "milind-soni",
@@ -161,13 +154,6 @@
       "owner": "liguan-89",
       "reason": "Failed once on the release-lane macOS S4 (Nov 22): agent_browser_click answered 'No element matches #script' — the click reached the fresh page before its DOM was ready; macOS Chrome spawn under full-matrix load. Green everywhere else.",
       "since": "2026-11-22"
-    },
-    {
-      "file": "server/boat-auto-sleep.test.ts",
-      "test": "a cloud computer goes to sleep after its idle window > a stop the relay refuses is logged and retried after a longer wait each time",
-      "owner": "liguan-89",
-      "reason": "Failed twice on loaded ubuntu shards (Nov 24: main #89 run shard 6, PR #91 shard 6): the 1s/2s backoff stops did arrive (~1s/~2s gaps in the relay log) but the third did not land inside the 10s host-scaled waitFor window under shard load. Green locally.",
-      "since": "2026-11-25"
     },
     {
       "file": "server/browser/viewers/viewers.e2e.test.ts",

@@ -121,19 +121,12 @@ approval denial with no side effect, malformed images and a screenshot larger
 than the ordinary text frame limit. They do not use real desktop access or paid
 inference, and do not establish vision/tool support for every provider model.
 
-### Boat cloud computer
+### VPS cloud computer
 
-`pnpm exec vitest run server/cloud-computer-tools.test.ts server/harness-mcp-proxy.test.ts server/openai-boat.e2e.test.ts server/hosted-desktop.e2e.test.ts`
-tests an owned loopback Boat/API fixture. The pi recipe covers direct chats,
-group member turns and cloud routines retaining the selected model (asserted
-over pi's RPC, `piModelsSet`), the Boat's native-resolution screenshot command,
-pi's permission card, and human control blocking the computer call. The tool
-tests cover each advertised action, invalid arguments (checked against the
-advertised schema before anything reaches the Boat), expired turn capabilities
-and in-flight cancellation without replay. The hosted-desktop fixture runs the
-same tools for a Claude bot and proves Boat's own runner is never asked.
+`pnpm exec vitest run server/cloud-computer-tools.test.ts server/harness-mcp-proxy.test.ts server/vps-routing.test.ts server/host/cloud-computer-power.test.ts`
+tests the VPS transport and harness boundary. The tool tests cover each advertised action, invalid arguments before anything reaches Docker-over-SSH, expired turn capabilities and in-flight cancellation without replay. The routing fixture proves direct and delegated turns claim the bot's VPS only when the computer is used, screenshots share one capture, a slow preview does not end the turn, and an unavailable VPS is described truthfully to the model. The power tests cover idle stop, reuse and lifecycle serialization.
 
-`pnpm exec vitest run server/cloud-computer-lazy.e2e.test.ts server/cloud-computer-slow-start.e2e.test.ts server/computer-selection.test.ts server/room-turn-end.test.ts server/boat-wait-ready.test.ts src/components/ComputerPanel.lazy.test.ts`
+`pnpm exec vitest run server/vps-routing.test.ts server/computer-selection.test.ts server/room-turn-end.test.ts src/components/ComputerPanel.lazy.test.ts`
 proves a cloud computer starts only when the bot uses it. Against a loopback
 relay that counts every request, a plain chat ("hi") on Works on: Cloud
 computer, in a bot's chat or a room, makes no relay call; choosing Cloud
@@ -198,15 +191,15 @@ directory), next to the tool names every request offered.
 
 Cloud routine readiness uses the executing bot’s selected runner (including a
 thread’s model override at dispatch), rather than any available cloud engine.
-The probe checks the bot-owned or inherited team Boat without provisioning or
-waking it. Dispatch repeats the check so a removed key or unavailable Boat fails
+The probe checks the bot-owned or inherited team cloud desktop without provisioning or
+waking it. Dispatch repeats the check so a removed key or unavailable VPS fails
 the run before model execution. Explicit Cloud still permits creating/waking
-the bot’s own Boat; a missing assigned team computer requires explicit repair.
+the bot’s own VPS desktop; a missing assigned team computer requires explicit repair.
 
-Run `pnpm exec vitest run server/routine-requests.test.ts server/openai-boat.e2e.test.ts`
+Run `pnpm exec vitest run server/routine-requests.test.ts server/vps-routing.test.ts`
 for target selection and the isolated direct/group/scheduled bridge fixture,
-including credentials removed after scheduling and a Boat outage at dispatch.
-The fixture also holds the Boat readiness response: the execution stays busy,
+including credentials removed after scheduling and a VPS outage at dispatch.
+The fixture also holds the VPS readiness response: the execution stays busy,
 `wait` cannot report it settled, and Stop prevents dispatch when the response
 arrives. Readiness is part of generation-owned setup, not an untracked wait
 before turn admission.

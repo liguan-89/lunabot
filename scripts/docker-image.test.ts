@@ -65,7 +65,7 @@ describe("container images", () => {
     for (const target of ["server", "cloud-home"]) {
       const steps = chain(target);
       const heavy = steps.flatMap((step, i) => (npmInstall(step) ? [i] : []));
-      const app = steps.flatMap((step, i) => (step.op === "COPY" && !/--from=(?:edge|tunnel) /.test(step.args) ? [i] : []));
+      const app = steps.flatMap((step, i) => (step.op === "COPY" && !/--from=(?:edge|tunnel|docker-cli) /.test(step.args) ? [i] : []));
       // agent-browser + Chrome, then (Cloud home only) pnpm in the tools layer, then the engines, then the app files
       // (and the Cloud home's Caddyfile)
       expect(heavy, target).toHaveLength(target === "cloud-home" ? 3 : 2);

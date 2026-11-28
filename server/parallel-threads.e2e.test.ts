@@ -3,8 +3,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -13,6 +11,7 @@ import { cloudPairingSignature, cloudRequestSignature } from "./cloud-home.ts";
 import { CONTROL_BUSY } from "./control-client.ts";
 import { BROWSER_HANDED_OVER, browserBusyText } from "./host/browser-seats.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { writeFakeVpsDocker } from "./testing/fake-vps-docker.ts";
 import { piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
@@ -290,43 +289,19 @@ describe.skipIf(process.platform === "win32").each(["desktop", "home"] as const)
   }, 90_000);
 });
 
-// One relay stands in for the Admin's Boat proxy; a picture stands in for the desktop.
-const FRAME = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 describe.each(["desktop", "team"] as const)("two threads of a bot on the team's shared computer on a %s server", (role) => {
   let f: Fixture;
-  const servers: Server[] = [];
-  afterEach(async () => {
-    await f?.stop();
-    for (const server of servers.splice(0)) { server.closeAllConnections(); server.close(); }
-  });
+  afterEach(async () => { await f?.stop(); });
 
-  it("both run from the start, and only the one that reaches for the screen second waits, saying so", async () => {
-    const boxes: Array<{ id: string; state: string; name?: string }> = [];
-    const relay = createServer((req, res) => {
-      const path = new URL(req.url ?? "/", "http://relay.test").pathname.replace(/^\/relay\/api\/box\/v1/, "");
-      let raw = "";
-      req.on("data", (chunk) => { raw += chunk; });
-      req.on("end", () => {
-        const answer = (status: number, payload: unknown) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(payload)); };
-        if (path === "/boxes" && req.method === "GET") return answer(200, { ok: true, boxes, pageInfo: { nextCursor: null } });
-        if (path === "/boxes" && req.method === "POST") { const box = { id: "bx_23456789", state: "ready" }; boxes.push(box); return answer(201, { ok: true, box }); }
-        const [, id = "", verb = ""] = /^\/boxes\/([^/]+)(?:\/(.+))?$/.exec(path) ?? [];
-        const box = boxes.find((candidate) => candidate.id === id);
-        if (!box) return answer(404, { ok: false, code: "not_found", message: "Not found" });
-        if (!verb && req.method === "PATCH") { box.name = JSON.parse(raw).name; return answer(200, { ok: true, box }); }
-        if (!verb && req.method === "GET") return answer(200, { ok: true, box });
-        if (verb === "desktop") return answer(200, { desktopUrl: `https://desktop.invalid/${box.id}` });
-        if (verb === "commands") return answer(200, { exitCode: 0, stdout: "captured", stderr: "" });
-        if (verb === "artifacts") { res.writeHead(200, { "content-type": "image/jpeg", "content-length": String(FRAME.length) }); return res.end(FRAME); }
-        return answer(404, { ok: false, code: "not_found", message: "Not found" });
-      });
-    });
-    servers.push(relay);
-    await new Promise<void>((resolve) => relay.listen(0, "127.0.0.1", resolve));
-    const relayBase = `http://127.0.0.1:${(relay.address() as AddressInfo).port}`;
+  it.skipIf(process.platform === "win32")("both run from the start, and only the one that reaches for the screen second waits, saying so", async () => {
     f = new Fixture(role);
-    f.extraEnv = { LUNABOT_BOAT_API: `${relayBase}/own-key-must-not-be-used`, LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_fixture", LUNABOT_COMPUTER_CALL_WAIT_MS: "500" };
+    const fakeBin = join(f.home, "fakebin");
+    mkdirSync(fakeBin, { recursive: true });
+    writeFakeVpsDocker(fakeBin);
+    writeFileSync(join(fakeBin, "docker.log"), "");
+    f.extraEnv = { LUNABOT_EXTRA_PATH: fakeBin, FAKE_DOCKER_DIR: fakeBin, FAKE_DOCKER_LOG: join(fakeBin, "docker.log"), LUNABOT_COMPUTER_CALL_WAIT_MS: "500" };
     await f.start();
+    expect((await f.api("PATCH", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
     const requestId = randomUUID();
     const made = await f.api("POST", "/api/team-computers", { requestId, name: "Ops desktop", acknowledgeCost: true });
     expect(made.status, JSON.stringify(made.body)).toBe(201);

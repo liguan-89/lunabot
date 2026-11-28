@@ -64,8 +64,8 @@ Grok/Copilot 等驱动已删除。
   `server/testing/pi-dump.ts` 负责读回 launch、prompt、模型与会话。
 - 本阶段迁移的配方包括：parallel-threads、thread-aware-bots、group-goal-run ×2、
   long-running-chief、headless-cli、reply-behaviour、direct-coordination、
-  room-context、key-rejected、openai-boat、digest-control、digest、agents-bridge、
-  automatic-recovery、bot-visibility、computer-engine-removal、decider-rooms、
+  room-context、key-rejected、digest-control、digest、agents-bridge、
+  automatic-recovery、bot-visibility、decider-rooms、
   full-access-workflows、incidents、limit-reset、notification-routing、openai-tools、
   room-sessions、team-move、thread-model-follow、trust-controls、voice-notes。
 - 删除的四套纯已删引擎配方：cline-native、cline-ui、portable-hermes、hooks（Claude

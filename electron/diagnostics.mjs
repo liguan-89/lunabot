@@ -20,7 +20,6 @@ export const CREDENTIAL_ENV_NAMES = [
   "OPENAI_COMPAT_URL",
   "LUNABOT_OPENAI_API_KEY",
   "LUNABOT_OPENROUTER_API_KEY",
-  "BOX_TOKEN",
   "OPENCODE_API_KEY",
   "LUNABOT_TTS_KEY",
   "LUNABOT_FISH_AUDIO_API_KEY",
@@ -37,7 +36,6 @@ export const CREDENTIAL_ENV_NAMES = [
   "LUNABOT_POSTIZ_API_KEY",
   "COMPOSIO_API_KEY",
   "LUNABOT_COMPOSIO_BROKER_TOKEN",
-  "LUNABOT_CLOUD_BOAT_TOKEN",
   "LUNABOT_CLOUD_VOICE_TOKEN",
   "LUNABOT_CLOUD_DECIDER_TOKEN",
   "LUNABOT_CLOUD_AI_TOKEN",
@@ -46,7 +44,6 @@ export const CREDENTIAL_ENV_NAMES = [
   // Private even though they are not traditional API credentials.
   "LUNABOT_BROWSER_CONNECTION",
   "LUNABOT_USER_DATA",
-  "LUNABOT_BOAT_API",
 ];
 
 // Kept in parity with server/redact.ts: unmistakable token formats are masked wherever they appear, keyed or not.

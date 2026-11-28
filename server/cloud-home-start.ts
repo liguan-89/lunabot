@@ -3,7 +3,7 @@
 // loopback trust. Secrets never ride a child's environment (/proc/<pid>/environ stays readable by the same user): the
 // server reads them from an inherited pipe. Root runs and trusts only the image's code, never the volume's.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { chmodSync, chownSync, closeSync, existsSync, lstatSync, openSync, readFileSync, realpathSync, statSync, type Stats } from "node:fs";
+import { chmodSync, chownSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync, statSync, type Stats } from "node:fs";
 import { isIP } from "node:net";
 import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -11,6 +11,7 @@ import {
   CLOUD_HOME_SECRET_KEYS, CLOUD_SECRETS_FD_ENV, cloudHomeConfiguration, cloudHomeHost, cloudHomeSecrets, prepareCloudHomeVolume,
   withoutCloudSecrets, withoutIgnoredCloudKeys, type CloudHomeConfig,
 } from "./cloud-home.ts";
+import { writeFileAtomicIfChanged } from "./atomic.ts";
 import { procHidepid } from "./bot-box/hidepid.ts";
 import { boxMemory, heapSizeArgs } from "./box-memory.ts";
 import { clearRecordsFromOtherMachines } from "./data-dir-lease.ts";
@@ -37,7 +38,8 @@ const SERVER_ENV_NAMES = new Set([
   "PATH", "SHELL", "HOSTNAME", "LANG", "LANGUAGE", "TZ", "TERM", "TMPDIR", "NO_COLOR", "NODE_ENV", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
   "AGENT_BROWSER_EXECUTABLE_PATH", "LUNABOT_STATIC_DIR", "LUNABOT_DATA_DIR", "LUNABOT_DUCKDB_DIR",
   "LUNABOT_CLOUD_ROLE", "LUNABOT_CLOUD_MACHINE_ID", "LUNABOT_CLOUD_ADMIN_URL", "LUNABOT_CLOUD_IMAGE", "LUNABOT_PUBLIC_URL", "LUNABOT_WEBHOOK_PUBLIC_URL",
-  "LUNABOT_CLOUD_TEAM_ID", "LUNABOT_CLOUD_TEAM_NAME", "LUNABOT_CLOUD_BOAT_URL", "LUNABOT_CLOUD_VOICE_URL", "LUNABOT_CLOUD_DECIDER_URL", "LUNABOT_CLOUD_AI_URL", "LUNABOT_CLOUD_X_URL", "LUNABOT_TTS_DEFAULT_VOICE",
+  "LUNABOT_CLOUD_TEAM_ID", "LUNABOT_CLOUD_TEAM_NAME", "LUNABOT_CLOUD_VOICE_URL", "LUNABOT_CLOUD_DECIDER_URL", "LUNABOT_CLOUD_AI_URL", "LUNABOT_CLOUD_X_URL", "LUNABOT_TTS_DEFAULT_VOICE",
+  "LUNABOT_CLOUD_DESKTOP_SSH_ALIAS", "LUNABOT_CLOUD_DESKTOP_SSH_HOST", "LUNABOT_CLOUD_DESKTOP_SSH_PORT", "LUNABOT_CLOUD_DESKTOP_SSH_USER",
   "LUNABOT_COMPOSIO_BROKER_URL", "LUNABOT_COMPOSIO_BROKER",
   // The Admin names each hosted Cloud (provisioner.js sends LUNABOT_SERVER_NAME): without it the server's environment
   // label fell back to the container hostname, so a Cloud showed a hash instead of the name its owner chose.
@@ -192,6 +194,105 @@ export function cloudHomeDataDir(env: NodeJS.ProcessEnv, home: string): string {
   return resolveDataDir(env, { home, join: posix.join });
 }
 
+const MANAGED_DESKTOP_KEY = "lunabot-managed-desktop-key";
+const MANAGED_DESKTOP_KNOWN_HOSTS = "lunabot-managed-desktop-known-hosts";
+const MANAGED_DESKTOP_BEGIN = "# Luna Bot managed desktop SSH begin";
+const MANAGED_DESKTOP_END = "# Luna Bot managed desktop SSH end";
+// Bot boxes replace /tmp with their own tmpfs, so this private key is never visible inside a bot turn.
+const MANAGED_DESKTOP_RUNTIME_DIR = "/tmp/lunabot-managed-desktop-ssh";
+const SSH_ALIAS = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const SSH_USER = /^[A-Za-z_][A-Za-z0-9_-]{0,31}$/;
+const SSH_HOST = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,252}$/;
+const disallowedControl = (value: string) => [...value].some((char) => {
+  const code = char.charCodeAt(0);
+  return (code < 32 && char !== "\n") || code === 127;
+});
+
+function invalidDesktopSsh(why: string): never {
+  throw new Error(`Cloud home managed desktop SSH is invalid: ${why}.`);
+}
+
+export interface ManagedDesktopSshSpec {
+  alias: string;
+  host: string;
+  port: number;
+  user: string;
+  privateKey: string;
+  knownHosts: string;
+}
+
+/** The Admin's managed desktop host contract. Any one field means the whole contract must be present and well-formed. */
+export function managedDesktopSsh(env: NodeJS.ProcessEnv): ManagedDesktopSshSpec | null {
+  const alias = env.LUNABOT_CLOUD_DESKTOP_SSH_ALIAS?.trim() ?? "";
+  const host = env.LUNABOT_CLOUD_DESKTOP_SSH_HOST?.trim() ?? "";
+  const user = env.LUNABOT_CLOUD_DESKTOP_SSH_USER?.trim() ?? "";
+  const privateKey = env.LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY ?? "";
+  const knownHosts = env.LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS ?? "";
+  const portRaw = env.LUNABOT_CLOUD_DESKTOP_SSH_PORT?.trim() ?? "";
+  if (!alias && !host && !user && !privateKey && !knownHosts && !portRaw) return null;
+  if (!SSH_ALIAS.test(alias)) invalidDesktopSsh("LUNABOT_CLOUD_DESKTOP_SSH_ALIAS must be a simple SSH config alias");
+  if (!SSH_HOST.test(host) || /\s/.test(host)) invalidDesktopSsh("LUNABOT_CLOUD_DESKTOP_SSH_HOST must be one host name or address");
+  if (!SSH_USER.test(user)) invalidDesktopSsh("LUNABOT_CLOUD_DESKTOP_SSH_USER must be a Linux user name");
+  const port = portRaw ? Number(portRaw) : 22;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) invalidDesktopSsh("LUNABOT_CLOUD_DESKTOP_SSH_PORT must be a TCP port");
+  if (privateKey.length < 100 || privateKey.length > 16_384 || !privateKey.includes("PRIVATE KEY")) invalidDesktopSsh("LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY must be an OpenSSH private key");
+  if (knownHosts.length < 10 || knownHosts.length > 65_536 || disallowedControl(knownHosts)) invalidDesktopSsh("LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS must be an OpenSSH known_hosts file");
+  return { alias, host, port, user, privateKey, knownHosts };
+}
+
+function withoutManagedDesktopBlock(config: string): string {
+  const begin = config.indexOf(MANAGED_DESKTOP_BEGIN);
+  if (begin < 0) return config;
+  const end = config.indexOf(MANAGED_DESKTOP_END, begin);
+  if (end < 0) return config.slice(0, begin).trimEnd() + "\n";
+  const after = end + MANAGED_DESKTOP_END.length;
+  return `${config.slice(0, begin).trimEnd()}\n${config.slice(after).replace(/^\n+/, "")}`;
+}
+
+export function managedDesktopBlock(spec: ManagedDesktopSshSpec, runtimeDir = MANAGED_DESKTOP_RUNTIME_DIR): string {
+  return [
+    MANAGED_DESKTOP_BEGIN,
+    `Host ${spec.alias}`,
+    `  HostName ${spec.host}`,
+    `  Port ${spec.port}`,
+    `  User ${spec.user}`,
+    `  IdentityFile ${join(runtimeDir, MANAGED_DESKTOP_KEY)}`,
+    `  UserKnownHostsFile ${join(runtimeDir, MANAGED_DESKTOP_KNOWN_HOSTS)}`,
+    "  IdentitiesOnly yes",
+    "  StrictHostKeyChecking yes",
+    MANAGED_DESKTOP_END,
+    "",
+  ].join("\n");
+}
+
+/** Writes only the managed block and its two key files; any other ~/.ssh/config content stays as it was. */
+export function prepareManagedDesktopSsh(home: string, env: NodeJS.ProcessEnv, runtimeDir = MANAGED_DESKTOP_RUNTIME_DIR): boolean {
+  const spec = managedDesktopSsh(env);
+  const sshDir = join(home, ".ssh");
+  mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+  chmodSync(sshDir, 0o700);
+  const configPath = join(sshDir, "config");
+  mkdirSync(runtimeDir, { recursive: true, mode: 0o700 });
+  chmodSync(runtimeDir, 0o700);
+  const keyPath = join(runtimeDir, MANAGED_DESKTOP_KEY);
+  const hostsPath = join(runtimeDir, MANAGED_DESKTOP_KNOWN_HOSTS);
+  const existing = existsSync(configPath) ? readFileSync(configPath, "utf8") : "";
+  const base = withoutManagedDesktopBlock(existing);
+  const config = spec ? `${base.trimEnd()}${base.trim() ? "\n\n" : ""}${managedDesktopBlock(spec, runtimeDir)}` : base;
+  const changed = [writeFileAtomicIfChanged(configPath, config, { mode: 0o600 })];
+  if (spec) {
+    changed.push(writeFileAtomicIfChanged(keyPath, spec.privateKey.endsWith("\n") ? spec.privateKey : `${spec.privateKey}\n`, { mode: 0o600 }));
+    changed.push(writeFileAtomicIfChanged(hostsPath, spec.knownHosts.endsWith("\n") ? spec.knownHosts : `${spec.knownHosts}\n`, { mode: 0o600 }));
+  } else {
+    for (const path of [keyPath, hostsPath]) if (existsSync(path)) { rmSync(path, { force: true }); changed.push(true); }
+  }
+  for (const name of [MANAGED_DESKTOP_KEY, MANAGED_DESKTOP_KNOWN_HOSTS]) {
+    const legacy = join(sshDir, name);
+    if (existsSync(legacy)) { rmSync(legacy, { force: true }); changed.push(true); }
+  }
+  return changed.some(Boolean);
+}
+
 /** flock(1)'s exit status when another process holds the lock (its --conflict-exit-code). */
 const VOLUME_HELD = 75;
 const heldVolumes = new Set<string>();
@@ -335,7 +436,7 @@ function dropCapabilities(env: NodeJS.ProcessEnv): string {
 /** Where an own server's connector mounts the home's secrets, read-only, instead of putting them in its environment. */
 export const CLOUD_SECRETS_FILE = "/run/lunabot/secrets.json";
 /** What the file may hold: the server's secrets, and the tunnel's token, which only cloudflared gets. */
-export const CLOUD_SECRETS_FILE_KEYS = [...CLOUD_HOME_SECRET_KEYS, "LUNABOT_CLOUD_TUNNEL_TOKEN"] as const;
+export const CLOUD_SECRETS_FILE_KEYS = [...CLOUD_HOME_SECRET_KEYS, "LUNABOT_CLOUD_TUNNEL_TOKEN", "LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY", "LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS"] as const;
 
 /** The secrets in CLOUD_SECRETS_FILE, when it is there: root's, readable by root alone, off the volume; known names only. */
 export function readCloudSecretsFile(home: string, file = CLOUD_SECRETS_FILE, fs: {
@@ -402,7 +503,7 @@ export function startCloudHome(processEnv: NodeJS.ProcessEnv = process.env) {
   // Logged here once: the server child never sees what they are about.
   for (const warning of config.warnings) console.warn(`cloud home: ${warning}`);
   const { server, edge, edgeFiles, tunnelToken, secrets, dropped } = cloudHomeChildEnvironments(config, env, home);
-  const prepare = () => prepareCloudHomeData(home, cloudHomeDataDir(env, home), config.machineId);
+  const prepare = () => ({ ...prepareCloudHomeData(home, cloudHomeDataDir(env, home), config.machineId), desktopSsh: prepareManagedDesktopSsh(home, env) });
   let prepared: ReturnType<typeof prepare>;
   let ids: { uid: number; gid: number } | null = null;
   if (root) {

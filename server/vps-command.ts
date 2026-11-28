@@ -12,12 +12,15 @@ export const COMMAND_TIMEOUT_KILL_GRACE_MS = COMMAND_TIMEOUT_TERM_GRACE_MS + 1_0
 export interface VpsCommandOptions {
   input?: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
+  /** Docker's own nonzero exit is a command result, not a transport failure. */
+  allowFailure?: boolean;
 }
 
 export type VpsCommandRunner = (
   args: string[],
   options?: VpsCommandOptions,
-) => Promise<{ stdout: string; stderr: string }>;
+) => Promise<{ stdout: string; stderr: string; exitCode?: number }>;
 
 const STREAM_CAP_CHARS = 16 * 1024 * 1024;
 
@@ -54,7 +57,7 @@ function tailCollector() {
   };
 }
 
-export async function defaultRunner(args: string[], options: VpsCommandOptions = {}): Promise<{ stdout: string; stderr: string }> {
+export async function defaultRunner(args: string[], options: VpsCommandOptions = {}): Promise<{ stdout: string; stderr: string; exitCode?: number }> {
   const ssh = prepareVpsSsh(DATA_DIR, augmentedPath());
   const deadline = Date.now() + (options.timeoutMs ?? 120_000);
   const destination = args[0] === "-H" && args[1]?.startsWith("ssh://") ? args[1].slice(6) : null;
@@ -82,6 +85,7 @@ export async function defaultRunner(args: string[], options: VpsCommandOptions =
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abort);
       finish();
     };
     const fail = (error: Error) => {
@@ -99,6 +103,9 @@ export async function defaultRunner(args: string[], options: VpsCommandOptions =
     };
     timeout = setTimeout(() => fail(new VpsHostUnreachableError("Docker-over-SSH command timed out")), Math.max(1, deadline - Date.now()));
     timeout.unref?.();
+    const abort = () => fail(Object.assign(new Error("Docker-over-SSH command aborted"), { name: "AbortError" }));
+    if (options.signal?.aborted) abort();
+    options.signal?.addEventListener("abort", abort, { once: true });
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
@@ -117,7 +124,9 @@ export async function defaultRunner(args: string[], options: VpsCommandOptions =
     child.on("close", (code, signal) => {
       if (failure) return;
       settle(() => {
-        if (code === 0) return resolve({ stdout: stdout.text(), stderr: stderr.text() });
+        if (code === 0 || (options.allowFailure && code !== null && !SSH_TRANSPORT_FAILURE.test(stderr.text()))) {
+          return resolve({ stdout: stdout.text(), stderr: stderr.text(), exitCode: code ?? undefined });
+        }
         const captured = stderr.text().trim();
         const message = captured.slice(-1000) || `Docker-over-SSH exited ${code ?? signal ?? "without a status"}`;
         reject(SSH_TRANSPORT_FAILURE.test(captured) ? new VpsHostUnreachableError(message) : new Error(message));

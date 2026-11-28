@@ -53,7 +53,7 @@ export interface MeetingDeps {
   /** The computer for a meeting being started: woken or created for it. Null with a plain reason when it has none. */
   computerFor(record: MeetingRecord): Promise<{ boxId: string } | { error: string }>;
   /** The computer of a meeting already started, by its Boat. */
-  computer(boxId: string): MeetingComputer;
+  computer(boxId: string, owner: string): MeetingComputer;
   /** Keeps the computer's idle window open while the meeting runs. */
   touch(owner: string): void;
   card: {
@@ -253,7 +253,7 @@ export function createMeetings(deps: MeetingDeps) {
     let lastContact = now();
     while (!closed && record.phase !== "ended") {
       if (!record.boxId) return;
-      const computer = deps.computer(record.boxId);
+      const computer = deps.computer(record.boxId, record.owner);
       deps.touch(record.owner);
       try {
         const { events, alive } = await deps.engine.events(computer, record.id, record.seq, deps.waitSeconds ?? 20);
@@ -298,7 +298,7 @@ export function createMeetings(deps: MeetingDeps) {
       if ("error" in computer) return end(record, "join_failed", computer.error);
       record.boxId = computer.boxId;
       save();
-      await deps.engine.join(deps.computer(computer.boxId), {
+      await deps.engine.join(deps.computer(computer.boxId, record.owner), {
         id: record.id, url: record.url, platform: record.platform, name: meetingDisplayName(record.botName), consent: consentLine(record.botName, person),
         speech: grant, maxMs: MEETING_MAX_MS, lobbyMs: MEETING_LOBBY_MS, aloneMs: MEETING_ALONE_MS,
       });
@@ -352,7 +352,7 @@ export function createMeetings(deps: MeetingDeps) {
         const timer = setTimeout(() => { sends.delete(`${id}:${sendId}`); resolve({ ok: false, error: "The meeting chat did not confirm the message in time; it may still appear." }); }, SEND_WAIT_MS);
         sends.set(`${id}:${sendId}`, (outcome) => { clearTimeout(timer); sends.delete(`${id}:${sendId}`); resolve(outcome); });
       });
-      await deps.engine.chatSend(deps.computer(record.boxId), id, { id: sendId, text });
+      await deps.engine.chatSend(deps.computer(record.boxId, record.owner), id, { id: sendId, text });
       return result;
     },
 
@@ -363,7 +363,7 @@ export function createMeetings(deps: MeetingDeps) {
         end(record, "left");
         return record;
       }
-      await deps.engine.leave(deps.computer(record.boxId), id);
+      await deps.engine.leave(deps.computer(record.boxId, record.owner), id);
       return record;
     },
 

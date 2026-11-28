@@ -47,7 +47,7 @@ function engineFacts(instance: InstanceInfo | undefined, model: string | undefin
 }
 
 export function placeFacts(input: {
-  bot: Pick<Bot, "name" | "modelSelection" | "toolScope" | "cloudBackend">;
+  bot: Pick<Bot, "name" | "modelSelection" | "toolScope">;
   place: PlaceFacts["place"];
   seat: PlaceSeat;
   config: (FeatureFlagConfig & Pick<ConfigStatus, "box">) | null | undefined;
@@ -64,7 +64,7 @@ export function placeFacts(input: {
     bot: bot.name,
     plan: seat.plan,
     boat: config?.box?.configured ? (config.box.included ? "included" : "own-key") : "none",
-    backend: bot.cloudBackend === "vps" ? "vps" : "box",
+    backend: "vps",
     engine: engineFacts(instance, bot.modelSelection.model),
     toolsAllowComputer: canUseMcpServer(bot.toolScope, "computer"),
     browserOn: builtInBrowserEnabled(config) && browserAvailable(config),
@@ -128,7 +128,7 @@ export function openPlaceAction(
     case "change-routine": openBotSettings(dispatch, "routines", { botId: target.botId }); return true;
     case "sign-in": appSettings("engines"); return true;
     case "manage-computers": appSettings("computer"); return true;
-    case "add-boat-key": dispatch(openKeySettings("box")); return true;
+    case "add-boat-key": dispatch(openKeySettings("vps")); return true;
     case "open-vm-settings":
       window.sessionStorage?.setItem("lunabot.settings.section", "computer");
       appSettings("computer");

@@ -59,7 +59,6 @@ export interface ModelSelection {
 }
 
 /** Which cloud computer backs computer: "cloud"; absent means Boat. */
-export type CloudBackend = "box" | "vps";
 
 /** A place a bot can act. `cloud` covers both cloud backends. */
 export type Surface = "cloud" | "vm" | "local" | "browser";
@@ -326,8 +325,6 @@ export interface WireBot extends DefaultBotFields, BotAccessFields {
   modelSelection: ModelSelection;
   /** where the bot works ("Works on"). Unset = auto. */
   computer?: Surface | "off";
-  /** Which cloud computer backs computer: "cloud"; absent means Boat. */
-  cloudBackend?: CloudBackend;
   /** Auto mode may prepare/start this bot's managed VPS container. */
   autoStartVps?: boolean;
   /** This bot's own SSH config alias for its managed VPS computer; absent

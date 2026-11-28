@@ -298,7 +298,7 @@ export function TeamMapPage() {
     return buildTeamMapSections(bots, names).sort((a, b) => order(a.key) - order(b.key));
   }, [bots, state.sections, state.groups]);
   const edges = useMemo(() => buildTeamMapEdges(bots, snapshot), [bots, snapshot]);
-  const anyComputer = bots.some((bot) => bot.computer === "cloud" && bot.cloudBackend !== "vps") || computers.some((computer) => computer.section !== null);
+  const anyComputer = bots.some((bot) => bot.computer === "cloud") || computers.some((computer) => computer.section !== null);
   const { show: showComputers, loaded: computersChoiceLoaded, choose: setShowComputers } = useShowComputers(anyComputer);
   const mapComputers = useMapComputers(!remoteClient && computersChoiceLoaded && showComputers);
   const [taggedBotIds, setTaggedBotIds] = useState<string[]>([]);

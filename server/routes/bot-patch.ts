@@ -13,7 +13,7 @@ import { accessFromVisibility } from "../../shared/bot-access.ts";
 import { parseVisibility } from "../bot-visibility.ts";
 import type { BrowserLive } from "../browser-live.ts";
 import type { BrowserRuntime } from "../browser-runtime.ts";
-import { cloudBackendChangeError, vpsBotAliasChangeError, vpsLeftBehindNotice, VPS_BOT_ALIAS_CHANGE_ERROR, VPS_BOT_ALIAS_LIFECYCLE_ERROR, VPS_BOT_ALIAS_RESOURCES_ERROR } from "../cloud-backend.ts";
+import { vpsBotAliasChangeError, vpsLeftBehindNotice, VPS_BOT_ALIAS_CHANGE_ERROR, VPS_BOT_ALIAS_LIFECYCLE_ERROR, VPS_BOT_ALIAS_RESOURCES_ERROR } from "../cloud-backend.ts";
 import * as composio from "../composio.ts";
 import { isValidSshAlias, type AppConfig } from "../config.ts";
 import type { ModelSelection } from "../contracts.ts";
@@ -204,7 +204,7 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
           else section = trimmed;
         }
       }
-      for (const key of ["unread", "cloudBackend", "color", "mascotExpression", "mascotBody", "pinned", "hidden", "sidebarHidden", "welcomed"] as const) {
+      for (const key of ["unread", "color", "mascotExpression", "mascotBody", "pinned", "hidden", "sidebarHidden", "welcomed"] as const) {
         if (body[key] !== undefined) patch[key] = body[key];
       }
       // null clears the default-bot mark, demoting the bot to a regular (deletable) one. Luna Bot's Show switch goes
@@ -390,9 +390,6 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
           patch.browserProfile = requestedProfile;
         } else return json(res, 400, { error: "browserProfile must name an existing browser profile" });
       }
-      if (body.cloudBackend !== undefined && !["box", "vps"].includes(String(body.cloudBackend))) {
-        return json(res, 400, { error: "cloudBackend must be box or vps" });
-      }
       if (body.autoStartVps !== undefined) {
         if (typeof body.autoStartVps !== "boolean") return json(res, 400, { error: "autoStartVps must be true or false" });
         patch.autoStartVps = body.autoStartVps;
@@ -410,10 +407,6 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       }
       if (body.chiefOfStaff !== undefined && typeof body.chiefOfStaff !== "boolean") {
         return json(res, 400, { error: "chiefOfStaff must be true or false" });
-      }
-      if (body.cloudBackend !== undefined) {
-        const backendError = cloudBackendChangeError(Boolean(existingBot?.busy), activeVpsThreads.has(m[1]));
-        if (backendError) return json(res, 409, { error: backendError });
       }
       // Moving a bot to another server is refused while its own computer still lives on the old one.
       // Resolved hosts, not raw text: pinning a bot to the server it already uses moves nothing.

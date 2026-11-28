@@ -216,7 +216,7 @@ export function RemoteDesktopPanel({ bot }: { bot: Bot }) {
         <div>
           <div className="text-[14px] font-medium text-ink">{t("remoteDesktop.title", { name: bot.name })}</div>
           <div className="mt-0.5 text-[11px] text-ink-secondary">
-            {t(bot.cloudBackend === "vps" ? "botAccess.cloud.selfHostedVps" : "remoteDesktop.cloudDesktop")}
+            {t("botAccess.cloud.selfHostedVps")}
           </div>
         </div>
         <div className="flex items-center gap-1">

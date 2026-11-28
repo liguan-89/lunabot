@@ -292,8 +292,8 @@ export class Store {
           botsMigrated = true;
         }
       }
-      if (b.cloudBackend !== undefined && b.cloudBackend !== "box" && b.cloudBackend !== "vps") {
-        delete b.cloudBackend;
+      if ((b as { cloudBackend?: unknown }).cloudBackend !== undefined) {
+        delete (b as { cloudBackend?: unknown }).cloudBackend;
         botsMigrated = true;
       }
       if (b.autoStartVps !== undefined && b.autoStartVps !== true && b.autoStartVps !== false) {

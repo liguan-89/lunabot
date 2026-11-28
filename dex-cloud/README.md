@@ -100,31 +100,36 @@ The two `/v1` paths belong to the phone relay. Everything else is Luna Bot Cloud
 
 | Variable | Meaning |
 | --- | --- |
-| `DEXCLOUD_ORIGIN` | must be a bare `https://` origin; the client pins it |
-| `DEXCLOUD_HOST` / `DEXCLOUD_PORT` | container listen address (`0.0.0.0:8791`) |
-| `DEXCLOUD_DB` | SQLite file (`/data/dex-cloud.db`) |
-| `DEXCLOUD_RELAY_TOKEN_SEED` | base64url 32-byte Ed25519 seed; also peppers OTP hashes |
-| `DEXCLOUD_RELAY_TOKEN_KID` | key id the relay expects (`k1`) |
-| `DEXCLOUD_RELAY_NODES` | comma list; default `cloud.dexai.vip`, which serves the relay routes itself. A `relayN.dexai.vip` name needs its own Caddy site block first, or the TLS handshake fails |
-| `DEXCLOUD_EMAIL_FROM` | From header |
-| `DEXCLOUD_SMTP_URL` | `smtp://user:pass@host:port` or `smtps://...` |
-| `DEXCLOUD_RESEND_API_KEY` | Resend HTTP API instead of SMTP |
-| `DEXCLOUD_DEV_CODES` | `1` prints codes to the log; development only |
-| `DEXCLOUD_SIGNUP_OPEN` | `0` refuses new addresses |
-| `DEXCLOUD_PLAN_MODE` | `pro` (default) grants a long-lived self-hosted licence; `free` does not |
-| `DEXCLOUD_LATEST_VERSION` | version written into `/update.json` |
-| `DEXCLOUD_APK_PATH` / `DEXCLOUD_UPDATE_PATH` | Android package and update manifest on the volume |
-| `DEXCLOUD_DESKTOP_DIR` | desktop installers and `latest*.yml` feeds, served at `/desktop/<file>` |
-| `DEXCLOUD_DOCKER_SOCKET` | Docker Engine socket, default `/var/run/docker.sock` |
-| `DEXCLOUD_CLOUD_IMAGE` | image for each Cloud, default `lunabot-cloud-home:local` |
-| `DEXCLOUD_CLOUD_NETWORK` | shared Docker network, default `dexcloud` |
-| `DEXCLOUD_CLOUD_HOST_SUFFIX` | per-Cloud hostname suffix, default `cloud.dexai.vip` |
-| `DEXCLOUD_CLOUD_MEMORY_MB` | memory limit per Cloud, default 1536 |
-| `DEXCLOUD_CLOUD_DISK_GB` / `_MAX_DISK_GB` | reported disk size and its cap |
-| `DEXCLOUD_CLOUD_MAX_PER_ACCOUNT` | how many Clouds one account may own, default 1 |
-| `DEXCLOUD_ROUTER_PORT` | Host router port behind Caddy, default 8792 |
+| `LUNABOT_CLOUD_ORIGIN` | must be a bare `https://` origin; the client pins it |
+| `LUNABOT_CLOUD_HOST` / `LUNABOT_CLOUD_PORT` | container listen address (`0.0.0.0:8791`) |
+| `LUNABOT_CLOUD_DB` | SQLite file (`/data/dex-cloud.db`) |
+| `LUNABOT_CLOUD_RELAY_TOKEN_SEED` | base64url 32-byte Ed25519 seed; also peppers OTP hashes |
+| `LUNABOT_CLOUD_RELAY_TOKEN_KID` | key id the relay expects (`k1`) |
+| `LUNABOT_CLOUD_RELAY_NODES` | comma list; default `cloud.dexai.vip`, which serves the relay routes itself. A `relayN.dexai.vip` name needs its own Caddy site block first, or the TLS handshake fails |
+| `LUNABOT_CLOUD_EMAIL_FROM` | From header |
+| `LUNABOT_CLOUD_SMTP_URL` | `smtp://user:pass@host:port` or `smtps://...` |
+| `LUNABOT_CLOUD_RESEND_API_KEY` | Resend HTTP API instead of SMTP |
+| `LUNABOT_CLOUD_DEV_CODES` | `1` prints codes to the log; development only |
+| `LUNABOT_CLOUD_SIGNUP_OPEN` | `0` refuses new addresses |
+| `LUNABOT_CLOUD_PLAN_MODE` | `pro` (default) grants a long-lived self-hosted licence; `free` does not |
+| `LUNABOT_CLOUD_LATEST_VERSION` | version written into `/update.json` |
+| `LUNABOT_CLOUD_APK_PATH` / `LUNABOT_CLOUD_UPDATE_PATH` | Android package and update manifest on the volume |
+| `LUNABOT_CLOUD_DESKTOP_DIR` | desktop installers and `latest*.yml` feeds, served at `/desktop/<file>` |
+| `LUNABOT_CLOUD_DOCKER_SOCKET` | Docker Engine socket, default `/var/run/docker.sock` |
+| `LUNABOT_CLOUD_CLOUD_IMAGE` | image for each Cloud, default `lunabot-cloud-home:local` |
+| `LUNABOT_CLOUD_CLOUD_NETWORK` | shared Docker network, default `dexcloud` |
+| `LUNABOT_CLOUD_CLOUD_HOST_SUFFIX` | per-Cloud hostname suffix, default `cloud.dexai.vip` |
+| `LUNABOT_CLOUD_CLOUD_MEMORY_MB` | memory limit per Cloud, default 1536 |
+| `LUNABOT_CLOUD_CLOUD_DISK_GB` / `_MAX_DISK_GB` | reported disk size and its cap |
+| `LUNABOT_CLOUD_CLOUD_MAX_PER_ACCOUNT` | how many Clouds one account may own, default 1 |
+| `LUNABOT_CLOUD_ROUTER_PORT` | Host router port behind Caddy, default 8792 |
+| `LUNABOT_CLOUD_DESKTOP_HOST` / `_SSH_PORT` | optional managed desktop host and SSH port |
+| `LUNABOT_CLOUD_DESKTOP_PROVISION_USER` | restricted user on the desktop host, default `dexcloud-desktop` |
+| `LUNABOT_CLOUD_DESKTOP_PROVISION_KEY` | provisioning private key, preferably `file:/data/desktop-provision-key` |
+| `LUNABOT_CLOUD_DESKTOP_HOST_PUBLIC_KEY` | desktop host ed25519 public key, key type and body only (no host or comment) |
+| `LUNABOT_CLOUD_DESKTOP_ALIAS` | SSH alias written inside Cloud homes, default `dexcloud-desktop` |
 
-Production needs SMTP or Resend. `DEXCLOUD_DEV_CODES=1` is a bootstrap mode:
+Production needs SMTP or Resend. `LUNABOT_CLOUD_DEV_CODES=1` is a bootstrap mode:
 anyone who can read the container log can sign in.
 
 ## Hosted Cloud desktops
@@ -184,6 +189,60 @@ A new Cloud is visible as `setting_up` with `setup.step` and `progress`, then
 `ready` with `https://c-<id>.cloud.dexai.vip`. Pairing codes are minted by the
 Cloud itself and signed by the Admin with the per-Cloud bootstrap secret.
 
+## Managed desktop host
+
+A managed desktop host is optional. It is a **dedicated** Ubuntu 22.04/24.04
+amd64 or arm64 VPS; do not run the Cloud Admin, Cloud homes, or other tenants on it.
+`desktop-host/install.sh` creates a fixed set of `dxd<N>` tenant users, each
+with its own rootless Docker daemon under the official per-user systemd service.
+The surrounding `user@<uid>` systemd unit carries the tenant CPU, memory and
+task caps. The rootful Docker service is disabled even though the `docker-ce`
+package is installed for the `dockerd` binary.
+
+Cloud homes never receive host root or the host Docker socket. They receive a
+per-Cloud ed25519 key for one tenant user. Authorized keys live in a root-owned
+central directory outside tenant homes, so Docker access cannot replace them.
+That key is forced through `dexcloud-docker-command`, which accepts only the
+Docker-over-SSH stdio bridge and the noVNC in-container viewer bridge. A separate
+provisioning key is forced through `dexcloud-desktop-provision-command`; sudo can
+run only the slot helper.
+
+Install it once:
+
+```sh
+# On a trusted operator machine, not in the repository:
+ssh-keygen -q -t ed25519 -N '' -f dexcloud-desktop-provision
+scp dexcloud-desktop-provision.pub root@desktop-host:/tmp/
+
+# On the desktop host:
+cd /opt/dex-cloud/desktop-host
+./install.sh /tmp/dexcloud-desktop-provision.pub
+rm -f /tmp/dexcloud-desktop-provision.pub
+```
+
+Useful install-time overrides are `DEXCLOUD_DESKTOP_SLOTS` (default 4),
+`DEXCLOUD_DESKTOP_TENANT_MEMORY` (default `4G`) and
+`DEXCLOUD_DESKTOP_TENANT_CPU_QUOTA` (default `200%`). Keep the private key on
+the Cloud Admin host inside the existing data volume:
+
+```sh
+scp dexcloud-desktop-provision root@cloud-admin:/opt/dex-cloud/data/desktop-provision-key
+ssh root@cloud-admin chown 1000:1000 /opt/dex-cloud/data/desktop-provision-key
+ssh root@cloud-admin chmod 600 /opt/dex-cloud/data/desktop-provision-key
+rm -f dexcloud-desktop-provision dexcloud-desktop-provision.pub
+```
+
+Set `LUNABOT_CLOUD_DESKTOP_HOST`, `_PROVISION_KEY=file:/data/desktop-provision-key`
+and `_HOST_PUBLIC_KEY`. The host public key must be verified out of band on first
+use; after that, `ssh-keyscan -t ed25519 <host>` plus `ssh-keygen -lf` can be
+compared with the trusted fingerprint. Store only `<key-type> <key-body>` in the
+environment, without the host name or comment.
+
+When a Cloud is provisioned the Admin generates a separate tenant key, asks the
+helper for a free slot, injects only that tenant's SSH connection into the Cloud
+home, and releases the slot when the Cloud is deleted. The helper removes the
+tenant key and wipes the tenant rootless Docker data root before reuse.
+
 ## Relay keys
 
 Generate once:
@@ -192,12 +251,12 @@ Generate once:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Put it in `DEXCLOUD_RELAY_TOKEN_SEED`. The relay only needs the public key:
+Put it in `LUNABOT_CLOUD_RELAY_TOKEN_SEED`. The relay only needs the public key:
 
 ```sh
 docker compose -f /opt/dex-cloud/compose.yaml exec -T cloud node -e "
 const c=require('crypto');
-const seed=Buffer.from(process.env.DEXCLOUD_RELAY_TOKEN_SEED,'base64url');
+const seed=Buffer.from(process.env.LUNABOT_CLOUD_RELAY_TOKEN_SEED,'base64url');
 const key=c.createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),seed]),format:'der',type:'pkcs8'});
 console.log(JSON.stringify({k1:c.createPublicKey(key).export({format:'jwk'}).x}));"
 ```

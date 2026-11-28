@@ -43,7 +43,6 @@ vi.mock("./LiveDesktop", () => ({
 }));
 vi.mock("./AndroidDevicePanel", () => ({ AndroidDevicePanel: () => null, useAndroidUsbDevices: () => ({ devices: [] }) }));
 vi.mock("./BrowserPanel", () => ({ BrowserPanel: () => null }));
-vi.mock("./CloudBackendPicker", () => ({ CloudBackendPicker: () => null }));
 vi.mock("./bot-settings/RoutinesSection", () => ({ RoutinesSection: () => null }));
 vi.mock("@/state/store", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/state/store")>(),
@@ -366,7 +365,7 @@ describe("taking control of a Local VM", () => {
 
 describe("taking control of other computers", () => {
   it("a VPS is driven in place too, and handing back closes its viewer tunnel", async () => {
-    await open(makeBot({ computer: "cloud", cloudBackend: "vps" }));
+    await open(makeBot({ computer: "cloud" }));
     await press("Take control");
     await shownLive();
     expect(liveDesktop()!.dataset.target).toBe("vps/scout");
@@ -375,11 +374,4 @@ describe("taking control of other computers", () => {
     expect(fixture.beacons.some((beacon) => beacon.url.startsWith("/api/bots/scout/computer/viewer-close"))).toBe(true);
   });
 
-  it("a cloud computer's provider-hosted desktop still opens in the app's own viewer window", async () => {
-    await open(makeBot({ computer: "cloud" }));
-    await press("Take control");
-    expect(liveDesktop()).toBeNull();
-    expect(fixture.posts).toContain("/api/bots/scout/computer/join");
-    expect(window.ogb!.desktopViewer!.open).toHaveBeenCalledWith("https://desktop.invalid/scout", "Scout's live desktop", "scout");
-  });
 });

@@ -1113,13 +1113,13 @@ describe("Store", () => {
     expect(reloaded.projectBotForTask(bot.id, sibling.threadId)?.approvalMode).toBe("full");
   });
 
-  it("normalizes persisted cloud backends without changing valid or absent values", () => {
+  it("drops the retired cloud backend field from persisted bots", () => {
     const store = new Store(selection);
     const boat = store.createBot();
     const vps = store.createBot();
     const invalid = store.createBot();
     const absent = store.createBot();
-    const raw: BotRecord[] = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
+    const raw: Array<BotRecord & { cloudBackend?: string }> = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
     raw.find((bot) => bot.id === boat.id)!.cloudBackend = "box";
     raw.find((bot) => bot.id === vps.id)!.cloudBackend = "vps";
     (raw.find((bot) => bot.id === invalid.id) as unknown as { cloudBackend: string }).cloudBackend = "daytona";
@@ -1127,16 +1127,10 @@ describe("Store", () => {
     writeFileSync(join(DATA_DIR, "bots.json"), JSON.stringify(raw));
 
     const reloaded = new Store(selection);
-    expect(reloaded.bot(boat.id)?.cloudBackend).toBe("box");
-    expect(reloaded.bot(vps.id)?.cloudBackend).toBe("vps");
-    expect(reloaded.bot(invalid.id)?.cloudBackend).toBeUndefined();
-    expect(reloaded.bot(absent.id)?.cloudBackend).toBeUndefined();
+    for (const bot of [boat, vps, invalid, absent]) expect((reloaded.bot(bot.id) as (BotRecord & { cloudBackend?: string }) | undefined)?.cloudBackend).toBeUndefined();
 
-    const saved: BotRecord[] = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
-    expect(saved.find((bot) => bot.id === boat.id)?.cloudBackend).toBe("box");
-    expect(saved.find((bot) => bot.id === vps.id)?.cloudBackend).toBe("vps");
-    expect(saved.find((bot) => bot.id === invalid.id)).not.toHaveProperty("cloudBackend");
-    expect(saved.find((bot) => bot.id === absent.id)).not.toHaveProperty("cloudBackend");
+    const saved: Array<BotRecord & { cloudBackend?: string }> = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
+    for (const bot of [boat, vps, invalid, absent]) expect(saved.find((entry) => entry.id === bot.id)).not.toHaveProperty("cloudBackend");
   });
 
   it("migrates legacy browser profile references without collapsing case-distinct accounts", () => {

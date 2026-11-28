@@ -5,7 +5,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
-import { createServer, type Server } from "node:net";
 
 const { spawnMock } = vi.hoisted(() => ({ spawnMock: vi.fn() }));
 vi.mock("node:child_process", async () => ({
@@ -51,7 +50,8 @@ import {
   vpsContainerRunArgs,
   vpsDockerArgs,
   vpsLifecycleBusy,
-  vpsSshTunnelArgs,
+  vpsSshViewerArgs,
+  vpsViewerRemoteCommand,
   vpsStartsForTurn,
   vpsUnavailableHint,
   inspectVpsForAuto,
@@ -303,16 +303,20 @@ describe("VPS computer", () => {
     expect(() => vpsContainerMcpArgs("production-vps", "not a container")).toThrow(/connection/);
   });
 
-  it("keeps the live desktop behind a validated loopback SSH forward", () => {
-    const args = vpsSshTunnelArgs("production-vps", 45678, "172.17.0.5");
-    expect(args).toContain("127.0.0.1:45678:172.17.0.5:6901");
-    expect(args.at(-1)).toBe("production-vps");
-    expect(args).toContain("ExitOnForwardFailure=yes");
+  it("keeps the live desktop behind a validated in-container SSH bridge", () => {
+    const container = vpsContainerName(BOT_ID);
+    const remote = vpsViewerRemoteCommand(container);
+    expect(remote).toContain(`docker exec -i ${container} /opt/venv/bin/python -I -c`);
+    expect(remote).not.toContain("6901/tcp");
+    const args = vpsSshViewerArgs("production-vps", container);
+    expect(args.at(-2)).toBe("production-vps");
+    expect(args.at(-1)).toBe(remote);
+    expect(args).toContain("BatchMode=yes");
     expect(args).toContain("ControlPath=none");
-    expect(vpsSshTunnelArgs("production-vps", 45678, "172.17.0.5", "/data/ssh/config").slice(0, 3)).toEqual(["-F", "/data/ssh/config", "-N"]);
-    expect(vpsSshTunnelArgs("production-vps", 45678, "172.17.0.5", null)[0]).toBe("-N");
-    expect(() => vpsSshTunnelArgs("production-vps", 80, "172.17.0.5")).toThrow(/port/);
-    expect(() => vpsSshTunnelArgs("production-vps", 45678, "203.0.113.8")).toThrow(/private/);
+    expect(args).not.toContain("-L");
+    expect(args).not.toContain("-N");
+    expect(vpsSshViewerArgs("production-vps", container, "/data/ssh/config").slice(0, 2)).toEqual(["-F", "/data/ssh/config"]);
+    expect(() => vpsSshViewerArgs("production-vps", "not a container")).toThrow(/container/);
   });
 
   it("reports a ready container only when image, labels, isolation, mounts, network, and Cua pass", async () => {
@@ -1202,18 +1206,38 @@ describe("VPS computer", () => {
 // A real loopback listener stands in for SSH; no host or remote daemon is used.
 describe("remote desktop tunnel ownership", () => {
   function tunnelFixture() {
-    const children: ReturnType<typeof fakeTunnel>[] = [];
-    function fakeTunnel(args: string[]) {
-      const port = Number(args[args.indexOf("-L") + 1].split(":")[1]);
-      const server: Server = createServer(socket => socket.end()).listen(port, "127.0.0.1");
+    const children: ReturnType<typeof fakeViewerSsh>[] = [];
+    function fakeViewerSsh() {
+      const stdout = new PassThrough();
+      let answered = false;
+      const stdin = new Writable({
+        write(chunk, _encoding, callback) {
+          if (!answered && chunk.toString().includes("GET /vnc.html")) {
+            answered = true;
+            stdout.write("HTTP/1.0 200 OK\r\nContent-Length: 2\r\n\r\nok");
+          }
+          callback();
+        },
+      });
       const child = Object.assign(new EventEmitter(), {
-        exitCode: null as number | null, killed: false, stderr: new PassThrough(),
-        kill: vi.fn(() => { child.killed = true; server.close(); child.emit("close", 0); return true; }),
+        stdin,
+        stdout,
+        stderr: new PassThrough(),
+        exitCode: null as number | null,
+        killed: false,
+        kill: vi.fn(() => {
+          if (child.killed) return false;
+          child.killed = true;
+          child.exitCode = 0;
+          stdout.end();
+          child.emit("close", 0);
+          return true;
+        }),
       });
       return child;
     }
-    spawnMock.mockImplementation((_binary, args: string[]) => {
-      const child = fakeTunnel(args);
+    spawnMock.mockImplementation((_binary, _args: string[]) => {
+      const child = fakeViewerSsh();
       children.push(child);
       return child;
     });
@@ -1303,7 +1327,7 @@ describe("remote desktop tunnel ownership", () => {
     const { child } = await openFixture();
     try {
       const connection = vpsDesktopConnection(BOT_ID)!;
-      expect(connection.password).toBeTruthy();
+      expect(connection.password).toBeNull();
       const first = connection.retain();
       const second = connection.retain();
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

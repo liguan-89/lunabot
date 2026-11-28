@@ -14,6 +14,11 @@ const bool = (value, fallback = false) =>
 const list = (value) =>
   trim(value).split(",").map((item) => item.trim()).filter(Boolean);
 
+const secretValue = (value, readFile = (path) => readFileSync(path, "utf8")) => {
+  const text = trim(value);
+  return text.startsWith("file:") ? readFile(text.slice(5)) : text;
+};
+
 const origin = (value, fallback) => {
   const text = trim(value) || fallback;
   const url = new URL(text);
@@ -86,7 +91,29 @@ export function loadConfig(env = process.env) {
     cloudMaxPerAccount: int(env.LUNABOT_CLOUD_CLOUD_MAX_PER_ACCOUNT, 1, { min: 0, max: 20 }),
     cloudProvisionTimeoutMs: int(env.LUNABOT_CLOUD_CLOUD_PROVISION_TIMEOUT_MS, 180_000, { min: 30_000, max: 600_000 }),
     routerPort: int(env.LUNABOT_CLOUD_ROUTER_PORT, 8792, { min: 1, max: 65535 }),
+    desktop: {
+      host: trim(env.LUNABOT_CLOUD_DESKTOP_HOST),
+      sshPort: int(env.LUNABOT_CLOUD_DESKTOP_SSH_PORT, 22, { min: 1, max: 65535 }),
+      provisionUser: trim(env.LUNABOT_CLOUD_DESKTOP_PROVISION_USER) || "dexcloud-desktop",
+      provisionKey: secretValue(env.LUNABOT_CLOUD_DESKTOP_PROVISION_KEY),
+      hostPublicKey: trim(env.LUNABOT_CLOUD_DESKTOP_HOST_PUBLIC_KEY),
+      alias: trim(env.LUNABOT_CLOUD_DESKTOP_ALIAS) || "dexcloud-desktop",
+    },
   };
+}
+
+export function desktopPoolConfigured(config) {
+  const desktop = config.desktop ?? {};
+  const values = [desktop.host, desktop.provisionKey, desktop.hostPublicKey];
+  if (values.every((value) => !value)) return false;
+  if (values.some((value) => !value)) {
+    throw new Error("managed cloud desktops need LUNABOT_CLOUD_DESKTOP_HOST, LUNABOT_CLOUD_DESKTOP_PROVISION_KEY and LUNABOT_CLOUD_DESKTOP_HOST_PUBLIC_KEY together");
+  }
+  if (!/^ssh-(?:ed25519|rsa) [A-Za-z0-9+/=]+$/.test(desktop.hostPublicKey)) {
+    throw new Error("LUNABOT_CLOUD_DESKTOP_HOST_PUBLIC_KEY must be one OpenSSH public key without a host or comment");
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(desktop.alias)) throw new Error("LUNABOT_CLOUD_DESKTOP_ALIAS must be a simple SSH alias");
+  return true;
 }
 
 export function loadRelaySeed(config, readFile = (path) => readFileSync(path, "utf8")) {

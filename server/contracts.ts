@@ -9,7 +9,7 @@ import type {
 import type { LocalModelFacts } from "../shared/local-model.ts";
 import type { ProviderIcon } from "../shared/provider-icon.ts";
 
-export type { CloudBackend, EffortLevel, ModelSelection } from "../shared/wire.ts";
+export type { EffortLevel, ModelSelection } from "../shared/wire.ts";
 export type {
   DriverKind, InstanceId, ModelVariantOption, ModelVariantState, RuntimeEvent,
   RuntimeEventBase, RuntimeEventListener, ThreadId, TurnId,
