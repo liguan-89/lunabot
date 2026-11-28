@@ -11,6 +11,10 @@ uid=$(id -u)
 socket="/run/user/${uid}/docker.sock"
 docker=(/usr/bin/docker --host "unix://${socket}")
 
+if [[ $cmd == "true" ]]; then
+  exit 0
+fi
+
 if [[ $cmd == "docker system dial-stdio" ]]; then
   exec "${docker[@]}" system dial-stdio
 fi
