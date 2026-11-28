@@ -100,31 +100,31 @@ The two `/v1` paths belong to the phone relay. Everything else is Luna Bot Cloud
 
 | Variable | Meaning |
 | --- | --- |
-| `DEXCLOUD_ORIGIN` | must be a bare `https://` origin; the client pins it |
-| `DEXCLOUD_HOST` / `DEXCLOUD_PORT` | container listen address (`0.0.0.0:8791`) |
-| `DEXCLOUD_DB` | SQLite file (`/data/dex-cloud.db`) |
-| `DEXCLOUD_RELAY_TOKEN_SEED` | base64url 32-byte Ed25519 seed; also peppers OTP hashes |
-| `DEXCLOUD_RELAY_TOKEN_KID` | key id the relay expects (`k1`) |
-| `DEXCLOUD_RELAY_NODES` | comma list; default `cloud.dexai.vip`, which serves the relay routes itself. A `relayN.dexai.vip` name needs its own Caddy site block first, or the TLS handshake fails |
-| `DEXCLOUD_EMAIL_FROM` | From header |
-| `DEXCLOUD_SMTP_URL` | `smtp://user:pass@host:port` or `smtps://...` |
-| `DEXCLOUD_RESEND_API_KEY` | Resend HTTP API instead of SMTP |
-| `DEXCLOUD_DEV_CODES` | `1` prints codes to the log; development only |
-| `DEXCLOUD_SIGNUP_OPEN` | `0` refuses new addresses |
-| `DEXCLOUD_PLAN_MODE` | `pro` (default) grants a long-lived self-hosted licence; `free` does not |
-| `DEXCLOUD_LATEST_VERSION` | version written into `/update.json` |
-| `DEXCLOUD_APK_PATH` / `DEXCLOUD_UPDATE_PATH` | Android package and update manifest on the volume |
-| `DEXCLOUD_DESKTOP_DIR` | desktop installers and `latest*.yml` feeds, served at `/desktop/<file>` |
-| `DEXCLOUD_DOCKER_SOCKET` | Docker Engine socket, default `/var/run/docker.sock` |
-| `DEXCLOUD_CLOUD_IMAGE` | image for each Cloud, default `lunabot-cloud-home:local` |
-| `DEXCLOUD_CLOUD_NETWORK` | shared Docker network, default `dexcloud` |
-| `DEXCLOUD_CLOUD_HOST_SUFFIX` | per-Cloud hostname suffix, default `cloud.dexai.vip` |
-| `DEXCLOUD_CLOUD_MEMORY_MB` | memory limit per Cloud, default 1536 |
-| `DEXCLOUD_CLOUD_DISK_GB` / `_MAX_DISK_GB` | reported disk size and its cap |
-| `DEXCLOUD_CLOUD_MAX_PER_ACCOUNT` | how many Clouds one account may own, default 1 |
-| `DEXCLOUD_ROUTER_PORT` | Host router port behind Caddy, default 8792 |
+| `LUNABOT_CLOUD_ORIGIN` | must be a bare `https://` origin; the client pins it |
+| `LUNABOT_CLOUD_HOST` / `LUNABOT_CLOUD_PORT` | container listen address (`0.0.0.0:8791`) |
+| `LUNABOT_CLOUD_DB` | SQLite file (`/data/dex-cloud.db`) |
+| `LUNABOT_CLOUD_RELAY_TOKEN_SEED` | base64url 32-byte Ed25519 seed; also peppers OTP hashes |
+| `LUNABOT_CLOUD_RELAY_TOKEN_KID` | key id the relay expects (`k1`) |
+| `LUNABOT_CLOUD_RELAY_NODES` | comma list; default `cloud.dexai.vip`, which serves the relay routes itself. A `relayN.dexai.vip` name needs its own Caddy site block first, or the TLS handshake fails |
+| `LUNABOT_CLOUD_EMAIL_FROM` | From header |
+| `LUNABOT_CLOUD_SMTP_URL` | `smtp://user:pass@host:port` or `smtps://...` |
+| `LUNABOT_CLOUD_RESEND_API_KEY` | Resend HTTP API instead of SMTP |
+| `LUNABOT_CLOUD_DEV_CODES` | `1` prints codes to the log; development only |
+| `LUNABOT_CLOUD_SIGNUP_OPEN` | `0` refuses new addresses |
+| `LUNABOT_CLOUD_PLAN_MODE` | `pro` (default) grants a long-lived self-hosted licence; `free` does not |
+| `LUNABOT_CLOUD_LATEST_VERSION` | version written into `/update.json` |
+| `LUNABOT_CLOUD_APK_PATH` / `LUNABOT_CLOUD_UPDATE_PATH` | Android package and update manifest on the volume |
+| `LUNABOT_CLOUD_DESKTOP_DIR` | desktop installers and `latest*.yml` feeds, served at `/desktop/<file>` |
+| `LUNABOT_CLOUD_DOCKER_SOCKET` | Docker Engine socket, default `/var/run/docker.sock` |
+| `LUNABOT_CLOUD_CLOUD_IMAGE` | image for each Cloud, default `lunabot-cloud-home:local` |
+| `LUNABOT_CLOUD_CLOUD_NETWORK` | shared Docker network, default `dexcloud` |
+| `LUNABOT_CLOUD_CLOUD_HOST_SUFFIX` | per-Cloud hostname suffix, default `cloud.dexai.vip` |
+| `LUNABOT_CLOUD_CLOUD_MEMORY_MB` | memory limit per Cloud, default 1536 |
+| `LUNABOT_CLOUD_CLOUD_DISK_GB` / `_MAX_DISK_GB` | reported disk size and its cap |
+| `LUNABOT_CLOUD_CLOUD_MAX_PER_ACCOUNT` | how many Clouds one account may own, default 1 |
+| `LUNABOT_CLOUD_ROUTER_PORT` | Host router port behind Caddy, default 8792 |
 
-Production needs SMTP or Resend. `DEXCLOUD_DEV_CODES=1` is a bootstrap mode:
+Production needs SMTP or Resend. `LUNABOT_CLOUD_DEV_CODES=1` is a bootstrap mode:
 anyone who can read the container log can sign in.
 
 ## Hosted Cloud desktops
@@ -192,12 +192,12 @@ Generate once:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Put it in `DEXCLOUD_RELAY_TOKEN_SEED`. The relay only needs the public key:
+Put it in `LUNABOT_CLOUD_RELAY_TOKEN_SEED`. The relay only needs the public key:
 
 ```sh
 docker compose -f /opt/dex-cloud/compose.yaml exec -T cloud node -e "
 const c=require('crypto');
-const seed=Buffer.from(process.env.DEXCLOUD_RELAY_TOKEN_SEED,'base64url');
+const seed=Buffer.from(process.env.LUNABOT_CLOUD_RELAY_TOKEN_SEED,'base64url');
 const key=c.createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),seed]),format:'der',type:'pkcs8'});
 console.log(JSON.stringify({k1:c.createPublicKey(key).export({format:'jwk'}).x}));"
 ```
