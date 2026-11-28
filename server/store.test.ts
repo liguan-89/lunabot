@@ -1119,7 +1119,7 @@ describe("Store", () => {
     const vps = store.createBot();
     const invalid = store.createBot();
     const absent = store.createBot();
-    const raw: BotRecord[] = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
+    const raw: Array<BotRecord & { cloudBackend?: string }> = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
     raw.find((bot) => bot.id === boat.id)!.cloudBackend = "box";
     raw.find((bot) => bot.id === vps.id)!.cloudBackend = "vps";
     (raw.find((bot) => bot.id === invalid.id) as unknown as { cloudBackend: string }).cloudBackend = "daytona";
@@ -1127,9 +1127,9 @@ describe("Store", () => {
     writeFileSync(join(DATA_DIR, "bots.json"), JSON.stringify(raw));
 
     const reloaded = new Store(selection);
-    for (const bot of [boat, vps, invalid, absent]) expect(reloaded.bot(bot.id)?.cloudBackend).toBeUndefined();
+    for (const bot of [boat, vps, invalid, absent]) expect((reloaded.bot(bot.id) as (BotRecord & { cloudBackend?: string }) | undefined)?.cloudBackend).toBeUndefined();
 
-    const saved: BotRecord[] = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
+    const saved: Array<BotRecord & { cloudBackend?: string }> = JSON.parse(readFileSync(join(DATA_DIR, "bots.json"), "utf8"));
     for (const bot of [boat, vps, invalid, absent]) expect(saved.find((entry) => entry.id === bot.id)).not.toHaveProperty("cloudBackend");
   });
 

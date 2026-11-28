@@ -545,10 +545,11 @@ export async function vpsComputerStatus(
   cfg: AppConfig,
   botId: string,
   runner: VpsCommandRunner = defaultRunner,
+  fresh = false,
 ): Promise<VpsComputerStatus> {
   cfg = snapshotVpsConfig(cfg);
   const key = vpsLockKey(cfg, botId);
-  const cacheable = runner === defaultRunner && key !== null;
+  const cacheable = runner === defaultRunner && key !== null && !fresh;
   if (cacheable) {
     const capture = pendingScreenshots.get(key);
     if (capture) await capture.catch(() => {});

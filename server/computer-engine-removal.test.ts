@@ -47,11 +47,11 @@ describe("moving saved bots off the engine", () => {
   /** This server has a Boat account, the bot's cloud backend is Boat, and no
    * team computer serves its section: on Auto, the removed engine ran on the
    * bot's own cloud computer. */
-  const boat = { driverKind: "claudeAgent", canWorkOnCloud: true, keepCloud: (bot: BotRecord) => bot.cloudBackend !== "vps" };
+  const boat = { driverKind: "claudeAgent", canWorkOnCloud: true, keepCloud: (bot: BotRecord) => (bot as BotRecord & { cloudBackend?: string }).cloudBackend !== "vps" };
   const noBoat = { driverKind: "claudeAgent", canWorkOnCloud: true, keepCloud: () => false };
   /** The same server, but the engine a new bot gets has no computer tools:
    * an OpenAI-compatible endpoint without computer use, like Mistral. */
-  const chatOnly = { driverKind: "mistral", canWorkOnCloud: false, keepCloud: (bot: BotRecord) => bot.cloudBackend !== "vps" };
+  const chatOnly = { driverKind: "mistral", canWorkOnCloud: false, keepCloud: (bot: BotRecord) => (bot as BotRecord & { cloudBackend?: string }).cloudBackend !== "vps" };
 
   it("moves the bot's model, each conversation's model and its backups once, and keeps Works on", () => {
     const store = new Store(newBotDefault);
@@ -85,7 +85,7 @@ describe("moving saved bots off the engine", () => {
     const store = new Store(newBotDefault);
     const auto = store.createBot({ modelSelection: { instanceId: "computer", model: "claude-fable-5" } }, { seedMessages: false });
     const vps = store.createBot({ modelSelection: { instanceId: "computer", model: "claude-fable-5" } }, { seedMessages: false });
-    store.patchBot(vps.id, { cloudBackend: "vps" });
+    store.patchBot(vps.id, { cloudBackend: "vps" } as Partial<BotRecord>);
     const local = store.createBot({ modelSelection: { instanceId: "computer", model: "claude-fable-5" } }, { seedMessages: false });
     store.patchBot(local.id, { computer: "local" });
 

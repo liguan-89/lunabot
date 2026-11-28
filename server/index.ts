@@ -6090,7 +6090,7 @@ async function selectableComputers(bot: BotRecord) {
       else if (toolsLeaveOut && surface !== "browser") reason = toolsLeaveOut;
       else if (surface === "cloud") {
         if (canWorkOnCloud(cloudEngine(instance))) {
-          const status = await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id);
+          const status = await vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id, undefined, true);
           ready = status.ready === true;
           canStart = Boolean(status.daemonUp && status.managed && status.container === "stopped" &&
             status.image && status.imageMatches && status.network === "private" && status.mounts === "none" && status.security === "hardened");
@@ -8111,6 +8111,16 @@ async function beginTurn(
         delete integrations.localComputer;
         releaseTurnComputer(resourceOwner);
       };
+      // Auto may reuse a VPS desktop that is already running even when it may not wake or create one.
+      // The status read is bounded, so a slow or unreachable host falls back to the ordinary Auto choices.
+      const autoOwnCloud = wants === undefined && !teamComputer && !computerSkipped && cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))
+        ? ownCloud ?? await ownCloudStateWithin(vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id))
+        : undefined;
+      const autoCloudBlocked = wants === undefined && autoOwnCloud !== undefined && autoOwnCloud.state !== "running" &&
+        !vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource });
+      const autoCloudNote = autoCloudBlocked
+        ? ` This bot's VPS computer is unavailable this turn (${autoOwnCloud.problem ?? "the VPS computer could not be reached"}). ${vps.vpsUnavailableHint({ automationSource: opts?.automationSource, autoStartVps: bot.autoStartVps, reachable: !autoOwnCloud.unavailable })}`
+        : "";
       const wantedKind = teamComputer || wants === "cloud" ? "vps" : wants === "local" ? "thisComputer" : wants === "vm" ? "localVm" : undefined;
       const placeRefusal = wantedKind && computerPlaceRefusal(wantedKind);
       if (placeRefusal) skipComputer(Object.assign(new Error(placeRefusal.message), { status: 409, code: placeRefusal.code }));
@@ -8331,6 +8341,12 @@ async function beginTurn(
             onRejected: surfaceLazyClaimRejection("the cloud computer"),
             existingOnly: handoffOwnCloud,
           });
+          // An explicit cloud place is already consent to create or wake it. Claim before the prompt is written,
+          // so the model is never told it controls a desktop this turn could not start.
+          startAutoVmClaim(autoVmClaims, threadId, resourceOwner.generation);
+          const claim = autoVmClaims.get(threadId);
+          if (claim?.owner.generation === resourceOwner.generation && claim.begin) await claim.begin;
+          if (claim?.owner.generation === resourceOwner.generation && claim.failed) throw new Error(claim.cause ?? claim.failure ?? "the cloud computer could not be created or reached");
           computerKind = "box";
         }
         if (wants === "cloud" && !cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))) {
@@ -8351,7 +8367,7 @@ async function beginTurn(
         !computerPlaceRefusal("vps") &&
         !computerToolsRefusal(toolScope, "works-on", bot.name) &&
         cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) &&
-        vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource })
+        (autoOwnCloud?.state === "running" || vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource }))
       ) {
         integrations.localComputer = mountBotCloud(bot, resourceOwner, {
           source: placeSource,
@@ -8512,7 +8528,7 @@ async function beginTurn(
         { id: "shell", label: "Long-running commands", text: worksInWorkspace ? longCommandsPrompt(computerPromptKind) : "" },
         { id: "computer", label: "Computer", text: computerPrompt(computerPromptKind) },
         { id: "team-computer", label: "Team computer", text: teamComputerPrompt(teamComputer) },
-        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note + vmUpdateNote + (computerSkipped && plan.computer !== "off" ? computerSkippedNote(redactSecretsInText(computerSkipped)) : "") + (computerSelectionTurns.get(threadId)?.handoff && !integrations.browser ? HANDOFF_BROWSER_NOTE : ""), canSelect: computerSelectionTurns.has(threadId) && !computerSelectionTurns.get(threadId)?.handoff, cloudHome: Boolean(CLOUD_HOME), botOpened: plan.botOpened, ownComputer: CLOUD_HOME && integrations.agents && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
+        { id: "plan", label: "Surface", text: surfacePrompt({ computer: mountedComputer, browser: Boolean(integrations.browser) }, { pinned: plan.pinned, note: plan.note + vmUpdateNote + autoCloudNote + (computerSkipped && plan.computer !== "off" ? computerSkippedNote(redactSecretsInText(computerSkipped)) : "") + (computerSelectionTurns.get(threadId)?.handoff && !integrations.browser ? HANDOFF_BROWSER_NOTE : ""), canSelect: computerSelectionTurns.has(threadId) && !computerSelectionTurns.get(threadId)?.handoff, cloudHome: Boolean(CLOUD_HOME), botOpened: plan.botOpened, ownComputer: CLOUD_HOME && integrations.agents && lendingEnabled() ? sharedComputers.known(CLOUD_HOME_LENDER) : undefined }) },
         { id: "cloud-home", label: "My Cloud", text: CLOUD_HOME ? cloudHomePrompt(Boolean(integrations.agents) && lendingEnabled(), syncedFolders(DATA_DIR), sharedComputers.known(CLOUD_HOME_LENDER), CLOUD_PERSONAL) + firstHourHooks.prompt(bot.id, threadId) : "" },
         { id: "composio", label: "Connected apps", text: integrations.composio ? composioSystemPrompt(liveBot?.connectorTools ?? bot.connectorTools) + describeConnectorScopes((liveBot ?? bot).connectorScopes) : "" },
         { id: "mcp", label: "MCP servers", text: customMcpPrompt(Object.keys(integrations.custom ?? {}), mcpServersHost.off(bot)) }, { id: "to-connect", label: "Connections to make", text: cloudConnections.prompt(liveBot ?? bot, lentMcp.lines(liveBot ?? bot, { botId: bot.id, threadId, generation: dispatchClaimId })) + teamConnections.prompt(threadId, dispatchClaimId, integrations) },

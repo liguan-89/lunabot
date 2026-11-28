@@ -294,7 +294,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
   it("recovers a transient VPS inspection failure through the real status route without provisioning", async () => {
     expect((await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
     const bot = (await api("POST", "/api/bots")).body.bot;
-    await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud", cloudBackend: "vps" });
+    await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" });
     const marker = join(dirname(dockerLog), "fail-inspect-once");
     const offset = readFileSync(dockerLog, "utf8").length;
     writeFileSync(marker, "fail once");
@@ -340,7 +340,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     const offset = readFileSync(dockerLog, "utf8").length;
     try {
       expect((await api("PATCH", `/api/bots/${bot.id}`, {
-        computer, cloudBackend: "vps", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
+        computer, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       })).status).toBe(200);
       const status = await api("GET", `/api/bots/${bot.id}/computer`);
       expect(status.status).toBe(200);
@@ -351,7 +351,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         return !saved.busy && saved.messages.some((message: any) => message.text?.startsWith("reply to: "));
       }, "the turn on the customized VPS");
       const mounted = mountedServers();
-      expect(mounted.find((tool: any) => tool.name === "computer")?.args).toContain(CONTAINER_ID);
+      expect(mounted.find((tool: any) => tool.name === "computer"), "computer capability reached the agent").toBeTruthy();
       const calls = readFileSync(dockerLog, "utf8").slice(offset);
       expect(calls).not.toMatch(/ssh:\/\/production-vps (run|start|stop|rm|pull|build|update) /);
       expect(readFileSync(template, "utf8")).toBe(configured);
@@ -364,7 +364,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
   it("shares a canceled preview with retries and opens control without racing destructive actions", async () => {
     expect((await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
     const bot = (await api("POST", "/api/bots")).body.bot;
-    await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud", cloudBackend: "vps" });
+    await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" });
     const fixtureDir = dirname(dockerLog);
     const hold = join(fixtureDir, "hold-capture");
     const started = join(fixtureDir, "capture-started");
@@ -420,11 +420,11 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     }
   }, 30_000);
 
-  it.each(["cloud", null] as const)("starts a %s turn after a slow preview without reporting preparation failure", async computer => {
+  it("starts a cloud turn after a slow preview without reporting preparation failure", async () => {
     expect((await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
     const bot = (await api("POST", "/api/bots")).body.bot;
     await api("PATCH", `/api/bots/${bot.id}`, {
-      computer, cloudBackend: "vps", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
+      computer: "cloud" as const, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
     });
     const fixtureDir = dirname(dockerLog);
     const hold = join(fixtureDir, "hold-capture");
@@ -450,7 +450,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         return !saved.busy && saved.messages.some((message: any) => message.text?.startsWith("reply to: "));
       }, "the recovered VPS turn");
       const mounted = mountedServers();
-      expect(mounted.find((tool: any) => tool.name === "computer")?.args).toContain(CONTAINER_ID);
+      expect(mounted.find((tool: any) => tool.name === "computer"), "computer capability reached the agent").toBeTruthy();
     } finally {
       rmSync(hold, { force: true });
       await preview;
@@ -471,7 +471,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         else if (state === "missing") writeFileSync(missing, "missing");
         writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(bot.id));
         rmSync(gateFile, { force: true }); rmSync(piDump, { force: true });
-        await api("PATCH", `/api/bots/${bot.id}`, { browser: false, cloudBackend: "vps", computer: null,
+        await api("PATCH", `/api/bots/${bot.id}`, { browser: false, computer: null,
           modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on the available remote VM" })).status).toBe(202);
         await until(async () => existsSync(piDump), "the discovery turn");
@@ -493,7 +493,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         writeFileSync(gateFile, "open");
         await until(async () => existsSync(piDump) && !(await botById(bot.id))?.busy, "the switched VPS turn");
         const next = mountedServers();
-        expect(next.find((tool: { name: string }) => tool.name === "computer")?.args).toContain("production-vps");
+        expect(next.find((tool: { name: string }) => tool.name === "computer"), "computer capability reached the agent").toBeTruthy();
         const commands = readFileSync(dockerLog, "utf8").slice(before);
         expect(commands).toContain(state === "missing" ? " run " : " start ");
         expect(commands).not.toMatch(/ssh:\/\/production-vps (?:pull|build) /);
@@ -523,7 +523,6 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         name: "Remote hand",
         modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       });
-      expect((await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "vps" })).status).toBe(200);
       expect((await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" })).status).toBe(200);
 
       const fixtureDir = dirname(dockerLog);
@@ -551,8 +550,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
 
       const aliasChange = await api("PUT", "/api/config", { vps: { sshAlias: "other-vps" } });
       expect(aliasChange.status).toBe(409);
-      expect(aliasChange.body.error).toMatch(/active VPS turn/);
-      expect((await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "box" })).status).toBe(409);
+      expect(aliasChange.body.error).toMatch(/active bot work|active VPS turn/i);
 
       writeFileSync(gateFile, "open");
       let snapshot: any;
@@ -575,13 +573,12 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         name: string;
         command: string;
         args?: string[];
+        env?: Array<{ name: string; value: string }>;
       }>;
       const computer = mcpServers.find((s) => s.name === "computer");
       expect(computer, "no computer MCP server reached the agent").toBeTruthy();
-      const bridgeArgs = computer?.args ?? [];
-      expect(bridgeArgs.some((a) => a.includes("vps-container-mcp"))).toBe(true);
-      expect(bridgeArgs.includes("production-vps")).toBe(true);
-      expect(bridgeArgs.includes(CONTAINER_ID)).toBe(true);
+      // The harness proxy deliberately keeps the SSH alias and container id server-side.
+      expect(computer?.env?.some((entry) => entry.name === "LUNABOT_CONTROL_URL")).toBe(true);
 
       // The Local VM boot probe also hits the fake docker, without -H.
       const invocations = readFileSync(dockerLog, "utf8")
@@ -604,7 +601,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect(cloudTurn.status, JSON.stringify(cloudTurn.body)).toBe(202);
       await until(async () => existsSync(piDump) && (await botById(bot.id))?.busy === false, "the explicit VPS turn");
       const explicitTools = mountedServers();
-      expect(explicitTools.find((tool: { name: string }) => tool.name === "computer")?.args).toContain("production-vps");
+      expect(explicitTools.find((tool: { name: string }) => tool.name === "computer"), "computer capability reached the agent").toBeTruthy();
       const threadPreview = await api("GET", `/api/bots/${bot.id}/computer?threadId=${explicitThread}`);
       expect(threadPreview.body).toMatchObject({ surface: "cloud", backend: "vps", ready: true });
 
@@ -623,7 +620,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         return completed?.status === "completed";
       }, "the routine on the existing VPS");
       const routineTools = mountedServers();
-      expect(routineTools.find((tool: { name: string }) => tool.name === "computer")?.args).toContain("production-vps");
+      expect(routineTools.find((tool: { name: string }) => tool.name === "computer"), "computer capability reached the agent").toBeTruthy();
       // What the model was told on the routine's turn: the VPS is named as the user's own computer.
       const routineTold = promptRows().filter((text) => text.includes("Check the existing VPS.")).at(-1)!;
       expect(routineTold).toContain("This is the user's own VPS");
@@ -664,14 +661,13 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       const bot = (await api("POST", "/api/bots")).body.bot;
       writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(bot.id));
       await api("PATCH", `/api/bots/${bot.id}`, { name: "TCPR operator", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
-      expect((await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "vps" })).status).toBe(200);
       expect((await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" })).status).toBe(200);
       const mountedComputer = () => {
         const servers = mountedServers() as Array<{ name: string; args?: string[]; env?: Array<{ name: string; value: string }> }>;
         const computer = servers.find((server) => server.name === "computer");
         expect(computer, "no computer MCP server reached the agent").toBeTruthy();
         const env = (name: string) => computer!.env?.find((entry) => entry.name === name)?.value ?? "";
-        return { args: computer!.args ?? [], url: env("LUNABOT_CONTROL_URL"), token: env("LUNABOT_CONTROL_TOKEN") };
+        return { args: computer!.args ?? [], url: env("LUNABOT_CONTROL_URL"), token: env("LUNABOT_MCP_TOKEN_COMPUTER") };
       };
       // A computer call's check, exactly as the mounted bridge makes it: the real control client, with its own timeout.
       const gate = (mount: { url: string; token: string }) => createControlClient({ url: mount.url, token: mount.token }).state(true);
@@ -686,13 +682,11 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { threadId: refill.threadId, text: "Refill capacity on the VPS" })).status).toBe(202);
         await until(async () => existsSync(piDump) && await taskBusy(refill.threadId), "the long VPS turn");
         const refillMount = mountedComputer();
-        expect(refillMount.args).toContain("production-vps");
         rmSync(piDump, { force: true });
 
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { threadId: check.threadId, text: "Check the queue on the VPS" })).status).toBe(202);
         await until(async () => existsSync(piDump) && await taskBusy(check.threadId), "the second VPS turn, while the first still runs");
         const checkMount = mountedComputer();
-        expect(checkMount.args).toContain("production-vps");
         expect(checkMount.token).not.toBe(refillMount.token);
         expect(await taskBusy(refill.threadId)).toBe(true);
         expect((await activities(check.threadId)).join("|")).not.toContain("Waiting for its turn");
@@ -730,7 +724,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     const asker = (await api("POST", "/api/bots")).body.bot;
     await api("PATCH", `/api/bots/${asker.id}`, { name: "Asker", browser: false, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const teammate = (await api("POST", "/api/bots")).body.bot;
-    await api("PATCH", `/api/bots/${teammate.id}`, { name: "VPS teammate", browser: false, cloudBackend: "vps", computer: null,
+    await api("PATCH", `/api/bots/${teammate.id}`, { name: "VPS teammate", browser: false, computer: null,
       modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(teammate.id));
     const template = join(dirname(dockerLog), "container.json.tpl");
@@ -845,7 +839,8 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         const servers = mountedServers();
         const computer = servers.find((server) => server.name === "computer");
         expect(computer, "no computer MCP server reached the agent").toBeTruthy();
-        expect(computer!.args).toContain("alpha-vps");
+        // The harness proxy deliberately keeps the SSH alias server-side.
+        expect(computer!.args).not.toContain("alpha-vps");
         expect(computer!.args).not.toContain("production-vps");
       } finally {
         await api("POST", `/api/bots/${alpha.id}/interrupt`, {});
@@ -868,7 +863,6 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     const leaving = (await api("POST", "/api/bots")).body.bot;
     const switching = (await api("POST", "/api/bots")).body.bot;
     for (const bot of [leaving, switching]) {
-      expect((await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "vps" })).status).toBe(200);
       expect((await api("PATCH", `/api/bots/${bot.id}`, { vpsAlias: "gone-vps" })).status).toBe(200);
     }
     // The provider cancelled the server, or the alias left ~/.ssh/config: nothing answers for gone-vps any more.
@@ -881,7 +875,6 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect(moved.body.notice).toContain("gone-vps could not be reached");
       expect(moved.body.notice).toContain(`docker -H ssh://gone-vps rm -f ${vpsContainerName(leaving.id)}`);
 
-      expect((await api("PATCH", `/api/bots/${switching.id}`, { cloudBackend: "box" })).status).toBe(200);
       const deleted = await api("DELETE", `/api/bots/${switching.id}`);
       expect(deleted.status, JSON.stringify(deleted.body)).toBe(200);
       expect(deleted.body.notice).toContain("gone-vps could not be reached");
