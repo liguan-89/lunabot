@@ -21,7 +21,8 @@ fail() {
 # shellcheck disable=SC1091
 . /etc/os-release
 [[ ${ID-} == "ubuntu" && ( ${VERSION_ID-} == "22.04" || ${VERSION_ID-} == "24.04" ) ]] || fail "Ubuntu 22.04 or 24.04 is required"
-[[ $(dpkg --print-architecture) == "amd64" ]] || fail "an x86_64 VPS is required"
+arch="$(dpkg --print-architecture)"
+[[ $arch == "amd64" || $arch == "arm64" ]] || fail "an amd64 or arm64 VPS is required"
 [[ -f /sys/fs/cgroup/cgroup.controllers ]] || fail "cgroup v2 is required for tenant resource limits"
 
 export DEBIAN_FRONTEND=noninteractive
@@ -33,7 +34,7 @@ if [[ ! -f /etc/apt/keyrings/docker.asc ]]; then
   chmod a+r /etc/apt/keyrings/docker.asc
 fi
 cat > /etc/apt/sources.list.d/docker.list <<REPO
-deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable
+deb [arch=${arch} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable
 REPO
 apt-get update
 apt-get install -y \
@@ -42,6 +43,7 @@ apt-get install -y \
   docker-ce-cli \
   docker-ce-rootless-extras \
   fuse-overlayfs \
+  iproute2 \
   openssh-server \
   slirp4netns \
   sudo \
@@ -80,7 +82,9 @@ create_user() {
   ensure_subids "$user"
   home=$(getent passwd "$user" | cut -d: -f6)
   chmod 700 "$home"
-  printf '%s\n' "$user" >> /etc/dexcloud-desktop/users
+  if ! grep -qx "$user" /etc/dexcloud-desktop/users; then
+    printf '%s\n' "$user" >> /etc/dexcloud-desktop/users
+  fi
 
   uid=$(id -u "$user")
   dropin="/etc/systemd/system/user@${uid}.service.d"
@@ -102,6 +106,12 @@ LIMITS
     sleep 0.1
   done
   [[ -S /run/user/$uid/bus ]] || fail "user systemd did not start for $user"
+  runuser -u "$user" -- env \
+    HOME="$home" \
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    XDG_RUNTIME_DIR="/run/user/$uid" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+    /usr/bin/systemctl --user reset-failed docker.service >/dev/null 2>&1 || true
   runuser -u "$user" -- env \
     HOME="$home" \
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
@@ -145,6 +155,7 @@ Match User ${provision_user},dxd*
     DisableForwarding yes
     PermitTTY no
 SSHD
+install -d -m 0755 /run/sshd
 if ! /usr/sbin/sshd -t; then
   rm -f /etc/ssh/sshd_config.d/99-dexcloud-desktop.conf
   fail "the generated sshd configuration is invalid"
