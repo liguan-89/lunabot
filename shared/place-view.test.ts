@@ -98,7 +98,7 @@ describe("U1: one line and at most one action for every state", () => {
     expect(placeViewOf("auto", {}, { role: "admin", server: "mac" }).line)
       .toBe("Uses the built-in browser, a private desktop on this computer, or this computer's screen, whichever the task needs.");
     expect(placeViewOf("cc-provider", { bot: "Scout", words: "Start the $20/month Boat plan." }, admin))
-      .toMatchObject({ short: "Couldn't start", line: "Your Boat account couldn't start Scout's cloud desktop: Start the $20/month Boat plan." });
+      .toMatchObject({ short: "Couldn't start", line: "Your machine couldn't start Scout's cloud desktop: Start the $20/month Boat plan." });
   });
 });
 

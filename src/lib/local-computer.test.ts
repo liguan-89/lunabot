@@ -306,6 +306,6 @@ describe("what the person reads about using this computer", () => {
       key.startsWith("approval.yourComputer.") || key.startsWith("computer.problem.local") || key.startsWith("place.view.") || key.startsWith("place.action."));
     expect(shown.length).toBeGreaterThan(40);
     for (const [key, text] of shown) expect(text, key).not.toMatch(/DevTools|profile[- ]access|grant\b|bind to|\bCUA\b|Cua Driver|Boat key/i);
-    expect((en as Record<string, string>)["place.view.ccNeedsKey.line"]).toContain("Linux VPS");
+    expect((en as Record<string, string>)["place.view.ccNeedsKey.line"]).toContain("Linux machine");
   });
 });

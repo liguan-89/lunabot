@@ -35,7 +35,7 @@ vi.mock("@/state/store", async (importOriginal) => ({
       return { png: "POLLED", format: "png" };
     }
     if (path.startsWith("/api/bots/bot/computer/control")) return { held: false, helpReason: null };
-    if (path.startsWith("/api/bots/bot/computer?")) return { configured: true, box: { state: "ready" } };
+    if (path.startsWith("/api/bots/bot/computer?")) return { configured: true, ready: true, container: "running", imageMatches: true, managed: true };
     return {};
   },
 }));
