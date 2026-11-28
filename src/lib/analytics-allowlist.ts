@@ -20,7 +20,7 @@ export const KEY_PROVIDER = [
 export type KeyProvider = (typeof KEY_PROVIDER)[number];
 
 const CREDENTIAL_PROVIDER = new Map<string, KeyProvider>(Object.entries({
-  boxToken: "boat", xaiApiKey: "xai", opencodeGoApiKey: "opencode_go", ttsKey: "elevenlabs", fishAudioKey: "fish_audio", geminiTtsKey: "gemini_tts",
+xaiApiKey: "xai", opencodeGoApiKey: "opencode_go", ttsKey: "elevenlabs", fishAudioKey: "fish_audio", geminiTtsKey: "gemini_tts",
   openaiImageApiKey: "openai_image", onePasswordToken: "onepassword", composioApiKey: "composio", openaiApiKey: "openai",
   anthropicApiKey: "anthropic", openrouterApiKey: "openrouter", mistralApiKey: "mistral", cerebrasApiKey: "cerebras", groqApiKey: "groq",
   greenferenceApiKey: "greenference", tk1688ApiKey: "tk1688", metaApiKey: "meta", deepseekApiKey: "deepseek",

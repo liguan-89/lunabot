@@ -367,7 +367,7 @@ export function CloudComputersCard({
         {configured === true
           ? t("vm.cloud.includesOrphans")
           : configured === false
-            ? <>{t("vm.cloud.needsKey")} <KeysLink id="box" /></>
+            ? <>{t("vm.cloud.needsKey")} <KeysLink id="vps" /></>
             : t("vm.cloud.refreshHint")}
       </div>
 

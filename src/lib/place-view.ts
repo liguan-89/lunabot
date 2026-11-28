@@ -128,7 +128,7 @@ export function openPlaceAction(
     case "change-routine": openBotSettings(dispatch, "routines", { botId: target.botId }); return true;
     case "sign-in": appSettings("engines"); return true;
     case "manage-computers": appSettings("computer"); return true;
-    case "add-boat-key": dispatch(openKeySettings("box")); return true;
+    case "add-boat-key": dispatch(openKeySettings("vps")); return true;
     case "open-vm-settings":
       window.sessionStorage?.setItem("lunabot.settings.section", "computer");
       appSettings("computer");
