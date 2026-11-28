@@ -25,9 +25,6 @@ export function vpsAliasLeftBehindNotice(done: "Saved" | "Removed", alias: strin
     `A name that only starts with lunabot-vps- does not prove it is this installation's: if you have nothing more, leave it.`;
 }
 
-export function cloudBackendChangeError(botBusy: boolean, activeVpsThread: boolean): string | null {
-  return botBusy || activeVpsThread ? CLOUD_BACKEND_CHANGE_ERROR : null;
-}
 
 export function vpsBotAliasChangeError(botBusy: boolean, activeVpsThread: boolean): string | null {
   return botBusy || activeVpsThread ? VPS_BOT_ALIAS_CHANGE_ERROR : null;

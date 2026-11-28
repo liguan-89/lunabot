@@ -2979,7 +2979,7 @@ function previewSystemPrompt(bot: BotRecord) {
   const previewComputer = teamComputer ? "cloud" : bot.computer;
   const computerPromptKind = resolveComputerPromptKind({
     kind: previewComputer === "vm" ? "vm" : previewComputer === "cloud"
-      ? bot.cloudBackend === "vps" ? "vps" : "box" : previewComputer === "local" ? "local" : null,
+      ? "vps" : previewComputer === "local" ? "local" : null,
     vmPrivate: localVmMode(cfg) === "per-bot",
   });
   const peers = reachablePeers(store.bots, bot);
@@ -3058,7 +3058,6 @@ async function botOverview(bot: BotRecord, shown: { routine(routine: Routine): b
       description: bot.description,
       soul: bot.soul,
       computer: bot.computer,
-      cloudBackend: bot.cloudBackend,
       cwd: bot.cwd,
       autoApprove: bot.autoApprove,
       approvalMode: approvalModeForTurn(bot),
@@ -4679,7 +4678,7 @@ const desktopViewer = createDesktopViewer({
   target: (id) => {
     if (id.startsWith("vps/")) {
       const botId = id.slice(4);
-      if (store.bot(botId)?.cloudBackend !== "vps") return;
+      if (!store.bot(botId)) return;
       return { key: id, resolve: async () => {
         const connection = vps.vpsDesktopConnection(botId);
         if (!connection) throw Object.assign(new Error("VPS viewer is not open"), { status: 409 });
@@ -5752,7 +5751,7 @@ const meetingsHost = createMeetingsHost({ cfg, dataDir: DATA_DIR, store, startTu
   claim: owner => { const team = teamComputers.list().find(entry => teamComputerOwner(entry.id) === owner); return team ? claimTeamComputerLifecycle(team) : claimBotComputerLifecycle(owner); },
 });
 
-function inheritedTeamComputer(bot: Pick<BotRecord, "section" | "computer" | "cloudBackend">): TeamComputerRecord | undefined {
+function inheritedTeamComputer(bot: Pick<BotRecord, "section" | "computer">): TeamComputerRecord | undefined {
   return teamComputers.forBot(bot);
 }
 
