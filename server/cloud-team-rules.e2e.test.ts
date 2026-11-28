@@ -239,7 +239,7 @@ it("a connected app the rules don't allow: its tools and its sign-in are refused
 it("a blocked cloud desktop is refused for a chat turn and a routine; a lent computer is refused too; both lift", async () => {
   const setComputer = await team.as(owner, "PATCH", `/api/bots/${botId}`, { computer: "cloud" });
   expect(setComputer.status, JSON.stringify(setComputer.body)).toBe(200);
-  await rules({ allowedComputers: ["vps"] });
+  await rules({ allowedComputers: ["memberComputer"] });
   const { sent, messages } = await dumped(owner, "blocked computer", (text) => /Acme does not allow bots to use cloud computers/.test(text));
   expect(`${JSON.stringify(sent.body)} ${messages}`).toMatch(/Acme does not allow bots to use cloud computers\. Ask a team admin\./);
   const routine = await routineRun("Blocked computer");

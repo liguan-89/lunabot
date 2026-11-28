@@ -191,7 +191,7 @@ it("a computer it has not claimed yet is refused from the moment the rule lands:
   const refusal = "Acme does not allow bots to use cloud computers. Ask a team admin.";
   expect((await team.as(owner, "PATCH", `/api/bots/${botId}`, { computer: "cloud" })).status).toBe(200);
   try {
-    const { launched, words } = await ruleLandsMidTurn({ allowedComputers: ["vps"] }, [WAIT, { name: "screenshot", server: "computer", input: {} }], "uses a computer", { ended: refusal });
+    const { launched, words } = await ruleLandsMidTurn({ allowedComputers: ["memberComputer"] }, [WAIT, { name: "screenshot", server: "computer", input: {} }], "uses a computer", { ended: refusal });
     expect(Object.keys(launched.mcpConfig?.mcpServers ?? {})).toContain("computer");
     expect(words).not.toMatch(/didn't start/);
     expect(words).not.toContain(FINISHED);
