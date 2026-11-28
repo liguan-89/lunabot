@@ -8116,11 +8116,14 @@ async function beginTurn(
       const autoOwnCloud = wants === undefined && !teamComputer && !computerSkipped && cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot))
         ? ownCloud ?? await ownCloudStateWithin(vps.vpsComputerStatus(vpsConfigForBot(cfg, bot), bot.id))
         : undefined;
-      const autoCloudBlocked = wants === undefined && autoOwnCloud !== undefined && autoOwnCloud.state !== "running" &&
-        !vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource });
-      const autoCloudNote = autoCloudBlocked
-        ? ` This bot's VPS computer is unavailable this turn (${autoOwnCloud.problem ?? "the VPS computer could not be reached"}). ${vps.vpsUnavailableHint({ automationSource: opts?.automationSource, autoStartVps: bot.autoStartVps, reachable: !autoOwnCloud.unavailable })}`
-        : "";
+      const autoVpsOutdated = wants === undefined && vpsDesktopOutdated(autoOwnCloud);
+      const autoCloudBlocked = wants === undefined && autoOwnCloud !== undefined && (autoVpsOutdated || (autoOwnCloud.state !== "running" &&
+        !vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource })));
+      const autoCloudNote = autoVpsOutdated
+        ? ` ${VPS_OUTDATED_HINT}`
+        : autoCloudBlocked
+          ? ` This bot's VPS computer is unavailable this turn (${autoOwnCloud.problem ?? "the VPS computer could not be reached"}). ${vps.vpsUnavailableHint({ automationSource: opts?.automationSource, autoStartVps: bot.autoStartVps, reachable: !autoOwnCloud.unavailable })}`
+          : "";
       const wantedKind = teamComputer || wants === "cloud" ? "vps" : wants === "local" ? "thisComputer" : wants === "vm" ? "localVm" : undefined;
       const placeRefusal = wantedKind && computerPlaceRefusal(wantedKind);
       if (placeRefusal) skipComputer(Object.assign(new Error(placeRefusal.message), { status: 409, code: placeRefusal.code }));
@@ -8369,7 +8372,7 @@ async function beginTurn(
         !computerPlaceRefusal("vps") &&
         !computerToolsRefusal(toolScope, "works-on", bot.name) &&
         cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) &&
-        (autoOwnCloud?.state === "running" || vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource }))
+        (!autoVpsOutdated && (autoOwnCloud?.state === "running" || vps.vpsStartsForTurn({ wants, autoStartVps: bot.autoStartVps, automationSource: opts?.automationSource })))
       ) {
         integrations.localComputer = mountBotCloud(bot, resourceOwner, {
           source: placeSource,
@@ -8382,7 +8385,7 @@ async function beginTurn(
       // Electron owns cua-driver and its TCC attribution; the harness only reads its running connection descriptor.
       if (wants === undefined && !integrations.localComputer && !computerPlaceRefusal("localVm") && await attachLocalVm(false)) computerKind = "vm";
       // An unattended run with a VPS configured never lands on the host's own desktop, nor does a bot whose own desktop awaits an update.
-      const hostBarred = (cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) && Boolean(opts?.automationSource)) || Boolean(vmUpdateNote);
+      const hostBarred = (cloudDesktop.cloudConfigured(vpsConfigForBot(cfg, bot)) && Boolean(opts?.automationSource)) || Boolean(vmUpdateNote) || autoVpsOutdated;
       if (
         !integrations.localComputer &&
         wants === undefined &&
