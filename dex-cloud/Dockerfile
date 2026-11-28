@@ -4,7 +4,8 @@ WORKDIR /app
 COPY package.json ./
 COPY src ./src
 
-RUN apk add --no-cache openssh-client
+RUN apk add --no-cache openssh-client openssh-keygen \
+  && ssh-keygen -? 2>&1 | grep -q usage
 
 ENV NODE_ENV=production
 EXPOSE 8791
