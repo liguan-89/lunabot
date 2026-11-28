@@ -1,16 +1,18 @@
 // What a turn already running keeps when the team's rules change under it, and what it loses at once. A stand-in Admin
 // holds the document; the synthetic pi CLI waits inside its turn while the rule lands, then calls what it was launched
 // with. Disposable homes, fake connected-apps service and MCP server; nothing leaves this machine.
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { TEAM_POLICY_ADMIN_PATH, teamPolicyFingerprint } from "./cloud-team-policy.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
+import { writeFakeVpsDocker } from "./testing/fake-vps-docker.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { piTurnHolding, piTurns } from "./testing/pi-dump.ts";
 
@@ -24,8 +26,9 @@ const ORDERS = { name: "lookup_order", server: "orders", input: {} };
 // pi names a mounted MCP tool "<server>_<tool>" (server/testing/fake-pi-cli.ts), so the scripted call names that.
 const GMAIL = { name: "composio_composio_multi_execute_tool", server: "composio", input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } };
 
-let adminServer: Server, relay: Server, gateway: FakeHttpMcp, broker: BrokerFake, fx: CloudSendFixture, team: CloudTeamFixture;
+let adminServer: Server, gateway: FakeHttpMcp, broker: BrokerFake, fx: CloudSendFixture, team: CloudTeamFixture;
 let owner = "", botId = "", teamUser = "";
+let fakeBin = "";
 let answer: unknown = { policy: null }, version = 0;
 const reports: { loaded: { fingerprint: string } | null }[] = [];
 
@@ -103,17 +106,19 @@ beforeAll(async () => {
     });
   });
   await new Promise<void>((resolve) => adminServer.listen(0, "127.0.0.1", resolve));
-  relay = createServer((_req, res) => { res.writeHead(404, { "content-type": "application/json" }); res.end("{}"); });
-  await new Promise<void>((resolve) => relay.listen(0, "127.0.0.1", resolve));
   gateway = await startFakeHttpMcp({ tools: [{ name: "lookup_order", inputSchema: { type: "object", properties: {} } }], callResult: () => ({ content: [{ type: "text", text: "order 7 shipped" }] }) });
   broker = await startBrokerFake();
+  fakeBin = mkdtempSync(join(tmpdir(), "omb-team-vps-"));
+  writeFakeVpsDocker(fakeBin);
+  writeFileSync(join(fakeBin, "docker.log"), "");
   fx = await launchCloudSendFixture({ onePasswordToken: "ops_fake-running-turn", broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: {
     LUNABOT_BOT_BOX: "0", FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}`,
-    LUNABOT_CLOUD_BOAT_URL: `http://127.0.0.1:${(relay.address() as AddressInfo).port}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_running",
+    LUNABOT_EXTRA_PATH: fakeBin, FAKE_DOCKER_DIR: fakeBin, FAKE_DOCKER_LOG: join(fakeBin, "docker.log"),
   } } });
   team = fx.team!;
   writeFileSync(join(team.home, "reply.txt"), FINISHED);
   owner = (await team.pair({ email: "owner@acme.test", role: "owner" })).token!;
+  expect((await team.as(owner, "PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
   botId = (await team.as(owner, "POST", "/api/bots", { name: "Scout" })).body.bot.id;
   expect((await team.as(owner, "POST", "/api/bots", { name: "Helper" })).status).toBe(201);
   teamUser = broker.userFor(broker.installationIds().filter((id) => id !== fx.desktopInstallation?.id && broker.actingUser(id) === broker.userFor(id)).at(-1)!);
@@ -123,11 +128,11 @@ beforeAll(async () => {
 }, hostTimeout(120_000));
 
 afterAll(async () => {
+  rmSync(fakeBin, { recursive: true, force: true });
   await fx?.close();
   await gateway?.close();
   await broker?.close();
   await new Promise((resolve) => adminServer?.close(resolve));
-  await new Promise((resolve) => relay?.close(resolve));
 });
 
 it("keeps its engine and the MCP servers it began with, and finishes, though the engine and the server are now blocked", async () => {
@@ -187,7 +192,7 @@ it("a connected-app tool is refused from the moment the rule lands, mid-turn, an
   expect(words).toMatch(/Acme does not allow bots to use Gmail\. Ask a team admin\./);
 }, hostTimeout(120_000));
 
-it("a computer it has not claimed yet is refused from the moment the rule lands: the turn stops there, in the rule's words", async () => {
+it.skipIf(process.platform === "win32")("a computer it has not claimed yet is refused from the moment the rule lands: the turn stops there, in the rule's words", async () => {
   const refusal = "Acme does not allow bots to use cloud computers. Ask a team admin.";
   expect((await team.as(owner, "PATCH", `/api/bots/${botId}`, { computer: "cloud" })).status).toBe(200);
   try {

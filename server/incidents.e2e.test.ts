@@ -240,8 +240,8 @@ it("reviews the work it handed on from a report without the Chief's computer, ev
     await turnEnded(chief.id, incidents);
 
     await control(["send", "--bot", chief.id, "--task", incidents, "--text", "Any update on the invoices?"]);
-    await expect.poll(async () => (await messages(incidents)).some((m) => m.kind === "activity" && /Connect your machine/.test(m.tool?.name ?? "")), { timeout: 20_000 }).toBe(true);
-    const refusals = (await messages(incidents)).filter((m) => m.kind === "activity" && /Connect your machine/.test(m.tool?.name ?? "")).length;
+    await expect.poll(async () => (await messages(incidents)).some((m) => m.kind === "activity" && /cloud desktops on a Linux machine you control/.test(m.tool?.name ?? "")), { timeout: 20_000 }).toBe(true);
+    const refusals = (await messages(incidents)).filter((m) => m.kind === "activity" && /cloud desktops on a Linux machine you control/.test(m.tool?.name ?? "")).length;
 
     writeFileSync(file(caraThread, "gate"), "finish");
     await expect.poll(async () => (await messages(incidents)).some((m) =>
@@ -252,7 +252,7 @@ it("reviews the work it handed on from a report without the Chief's computer, ev
     expect(review.systemPrompt).toContain("This turn answers a Team incidents report and your computer could not be prepared for it");
     expect((await control(["wait", "--bot", chief.id, "--task", incidents, "--timeout", "30"])).status).toBe("settled");
     const lines = await messages(incidents);
-    expect(lines.filter((m) => m.kind === "activity" && /Connect your machine/.test(m.tool?.name ?? "")).length).toBe(refusals);
+    expect(lines.filter((m) => m.kind === "activity" && /cloud desktops on a Linux machine you control/.test(m.tool?.name ?? "")).length).toBe(refusals);
     expect(lines.some((m) => /could not reach/.test(m.tool?.name ?? ""))).toBe(false);
     const reviewReply = lines.findLast((m) => m.role === "bot" && m.kind === "text" && m.turnTerminal);
     expect(lines.indexOf(reviewReply)).toBeGreaterThan(lines.findIndex((m) => m.tool?.name === "Resumed with Cara results, reviewing"));

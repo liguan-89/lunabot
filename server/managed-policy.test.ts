@@ -168,4 +168,10 @@ describe("claim-time computer refusal in bindTurnComputer", () => {
     await expect(bind(managed)({}, "computer:host")).resolves.toBe("claimed");
     await expect(bind(managed)({}, "computer:vm:shared")).resolves.toBe("claimed");
   });
+
+  it("treats a Cloud home desktop claim as the managed cloud-desktop kind, not a member's own VPS", async () => {
+    const { managed } = overlay(policy({ computers: { thisComputer: true, localVm: true, box: false, vps: true } }));
+    await expect(bind(managed, true)({}, "computer:vps:alias:bot")).rejects.toThrow("cloud computers");
+    await expect(bind(managed)({}, "computer:vps:alias:bot")).resolves.toBe("claimed");
+  });
 });

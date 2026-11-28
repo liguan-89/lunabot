@@ -1501,7 +1501,7 @@ onKeyRejectionChange(() => { registry.forgetSnapshots(); broadcast({ kind: "conf
 function computerPlaceRefusal(kind: ComputerKind): { message: string; code: "cloud_home" | "managed_policy" } | undefined {
   const cloudHome = CLOUD_HOME ? cloudHomePlaceRefusal(kind === "thisComputer" ? "local" : kind === "localVm" ? "vm" : "cloud") : undefined;
   if (cloudHome) return { message: cloudHome, code: "cloud_home" };
-  const managed = managedPolicy.computerRefusal(kind);
+  const managed = managedPolicy.computerRefusal(kind === "vps" && CLOUD_HOME ? "box" : kind);
   return managed ? { message: managed, code: "managed_policy" } : undefined;
 }
 function policyModelRefusal(instance: { instanceId: string; driverKind: string }): string | undefined {
@@ -1867,7 +1867,7 @@ async function asPlaceFailure(
   }, Boolean(CLOUD_HOME));
 }
 function cloudNotConfigured(bot: { name: string }, source: PlaceSource): PlaceUnavailableError {
-  return placeUnavailable("cloud", { state: "cc-unavailable", params: { bot: bot.name }, source }, Boolean(CLOUD_HOME));
+  return placeUnavailable("cloud", { state: "cc-needs-key", params: { bot: bot.name }, source }, Boolean(CLOUD_HOME));
 }
 const directTurnDispatchClaims = new Map<string, DirectTurnDispatchClaim>();
 const directTurnGenerationByThread = new Map<string, string>();

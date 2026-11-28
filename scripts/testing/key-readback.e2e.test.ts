@@ -1,5 +1,5 @@
 // Every credential on the keys page, saved through a real server the way its row saves it, read back from GET
-// /api/config and shown masked. The services that check a key before it is kept (Boat, Composio, ElevenLabs, Fish Audio
+// /api/config and shown masked. The services that check a key before it is kept (Composio, ElevenLabs, Fish Audio,
 // the decision models and Postiz) answer from one loopback stand-in, so nothing leaves this machine.
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -121,7 +121,7 @@ it("saves every kind of credential, reads it back and shows it masked to its las
   // The one agent's models come from pi plus the custom provider, so the per-provider rows are gone with their engines.
   expect(saveds.map((entry) => entry.id)).toEqual([
     "openaiCompat",
-    "liveKey", "elevenlabs", "geminiTts", "fishAudio", "box", "composio", "treg", "postiz", "jev", "openrouterHelper", "workersAi", "imageOpenai", "imageCustom",
+    "liveKey", "elevenlabs", "geminiTts", "fishAudio", "composio", "treg", "postiz", "jev", "openrouterHelper", "workersAi", "imageOpenai", "imageCustom",
   ]);
   for (const storage of ["", "?secretStorage=external"]) {
     for (const entry of saveds) {
@@ -149,7 +149,7 @@ it("saves every kind of credential, reads it back and shows it masked to its las
     }
   }
   expect(stubCalls).toEqual(expect.arrayContaining([
-    "GET /sandboxes", "POST /composio/tool_router/session", "GET /eleven/voices", "GET /fish/model", "POST /jev/v1/systemone", "POST /alpha/decisions", "POST /postiz/mcp",
+    "POST /composio/tool_router/session", "GET /eleven/voices", "GET /fish/model", "POST /jev/v1/systemone", "POST /alpha/decisions", "POST /postiz/mcp",
   ]));
 }, hostTimeout(180_000));
 
