@@ -192,7 +192,7 @@ Cloud itself and signed by the Admin with the per-Cloud bootstrap secret.
 ## Managed desktop host
 
 A managed desktop host is optional. It is a **dedicated** Ubuntu 22.04/24.04
-x86_64 VPS; do not run the Cloud Admin, Cloud homes, or other tenants on it.
+amd64 or arm64 VPS; do not run the Cloud Admin, Cloud homes, or other tenants on it.
 `desktop-host/install.sh` creates a fixed set of `dxd<N>` tenant users, each
 with its own rootless Docker daemon under the official per-user systemd service.
 The surrounding `user@<uid>` systemd unit carries the tenant CPU, memory and
