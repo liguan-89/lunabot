@@ -340,6 +340,7 @@ it("a new home on a kept volume clears the data-directory lease the previous mac
 
 it("writes the managed desktop SSH host as a marked block, preserves the rest of the config, and removes it cleanly", () => {
   const home = directory();
+  const runtime = directory();
   const managed = {
     LUNABOT_CLOUD_DESKTOP_SSH_ALIAS: "dexcloud-desktop",
     LUNABOT_CLOUD_DESKTOP_SSH_HOST: "desktop.example.test",
@@ -350,23 +351,24 @@ it("writes the managed desktop SSH host as a marked block, preserves the rest of
   };
   mkdirSync(join(home, ".ssh"), { recursive: true });
   writeFileSync(join(home, ".ssh", "config"), "Host mine\n  HostName mine.example.test\n");
-  expect(prepareManagedDesktopSsh(home, managed)).toBe(true);
-  expect(prepareManagedDesktopSsh(home, managed)).toBe(false);
+  expect(prepareManagedDesktopSsh(home, managed, runtime)).toBe(true);
+  expect(prepareManagedDesktopSsh(home, managed, runtime)).toBe(false);
   const config = readFileSync(join(home, ".ssh", "config"), "utf8");
   expect(config).toContain("Host mine\n  HostName mine.example.test\n");
   expect(config).toContain("Host dexcloud-desktop\n  HostName desktop.example.test\n  Port 2222\n  User dxd0\n");
   expect(config).toContain("StrictHostKeyChecking yes");
-  expect(readFileSync(join(home, ".ssh", "lunabot-managed-desktop-key"), "utf8")).toBe(managed.LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY);
-  expect(readFileSync(join(home, ".ssh", "lunabot-managed-desktop-known-hosts"), "utf8")).toBe(managed.LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS);
+  expect(config).toContain(`IdentityFile ${join(runtime, "lunabot-managed-desktop-key")}`);
+  expect(readFileSync(join(runtime, "lunabot-managed-desktop-key"), "utf8")).toBe(managed.LUNABOT_CLOUD_DESKTOP_SSH_PRIVATE_KEY);
+  expect(readFileSync(join(runtime, "lunabot-managed-desktop-known-hosts"), "utf8")).toBe(managed.LUNABOT_CLOUD_DESKTOP_SSH_KNOWN_HOSTS);
   if (process.platform !== "win32") {
     expect(statSync(join(home, ".ssh", "config")).mode & 0o777).toBe(0o600);
-    expect(statSync(join(home, ".ssh", "lunabot-managed-desktop-key")).mode & 0o777).toBe(0o600);
+    expect(statSync(join(runtime, "lunabot-managed-desktop-key")).mode & 0o777).toBe(0o600);
   }
 
-  expect(prepareManagedDesktopSsh(home, {})).toBe(true);
+  expect(prepareManagedDesktopSsh(home, {}, runtime)).toBe(true);
   expect(readFileSync(join(home, ".ssh", "config"), "utf8")).toBe("Host mine\n  HostName mine.example.test\n");
-  expect(existsSync(join(home, ".ssh", "lunabot-managed-desktop-key"))).toBe(false);
-  expect(existsSync(join(home, ".ssh", "lunabot-managed-desktop-known-hosts"))).toBe(false);
+  expect(existsSync(join(runtime, "lunabot-managed-desktop-key"))).toBe(false);
+  expect(existsSync(join(runtime, "lunabot-managed-desktop-known-hosts"))).toBe(false);
   expect(() => prepareManagedDesktopSsh(home, { LUNABOT_CLOUD_DESKTOP_SSH_ALIAS: "dexcloud-desktop" })).toThrow(/managed desktop SSH is invalid/);
 });
 
