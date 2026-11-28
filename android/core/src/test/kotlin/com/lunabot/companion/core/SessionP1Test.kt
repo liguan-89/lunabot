@@ -81,6 +81,26 @@ class SessionP1Test {
     }
 
     @Test
+    fun plainTextRetriesReuseOneSendIdOnlyUntilTheReceiptIsConfirmed() = runTest {
+        val host = bot("b1", "task-a", "task-a")
+        val chat = Chat.BotChat(host)
+        val session = session { Fleet(listOf(host), emptyList()) }
+        server.enqueue(json("""{"error":"offline"}""", code = 500))
+        server.enqueue(json("""{"ok":true,"threadId":"task-a","message":{"id":"m1","role":"user","kind":"text","at":2,"text":"same"}}"""))
+        server.enqueue(json("""{"ok":true,"threadId":"task-a","message":{"id":"m2","role":"user","kind":"text","at":3,"text":"same"}}"""))
+
+        assertEquals(false, session.send("same", chat))
+        assertTrue(session.send("same", chat))
+        assertTrue(session.send("same", chat))
+
+        val requests = List(3) { server.takeRequest() }
+        val firstId = body(requests[0])["sendId"]
+        assertTrue(firstId!!.length in 16..80)
+        assertEquals(firstId, body(requests[1])["sendId"])
+        assertTrue(body(requests[2])["sendId"] != firstId)
+    }
+
+    @Test
     fun editRestoresOnlyConfirmedCancellationsNeverAlreadyDrainedSends() = runTest {
         val session = session()
         val chat = Chat.BotChat(bot("b1", "task-a", "task-a"))

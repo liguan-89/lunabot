@@ -1493,11 +1493,16 @@ class Session(
 
     suspend fun send(text: String, to: Chat): Boolean {
         return perform {
-            val receipt = when (to) {
-                is Chat.BotChat -> it.sendToBot(to.bot.id, text, to.threadId)
-                is Chat.RoomChat -> it.sendToRoom(to.room.id, text, to.threadId)
+            val destination = when (to) {
+                is Chat.BotChat -> MessageDestination.Bot(to.bot.id, to.bot.threadId)
+                is Chat.RoomChat -> MessageDestination.Room(to.room.id, to.room.threadId)
             }
+            val key = TextDraftKey(destination, text)
+            if (textSendIds.size >= 20 && key !in textSendIds) textSendIds.clear()
+            val sendId = textSendIds.getOrPut(key) { UUID.randomUUID().toString() }
+            val receipt = it.send(text, destination, sendId)
             record(receipt, text, to.threadId)
+            textSendIds.remove(key)
         }
     }
 
@@ -1715,8 +1720,15 @@ class Session(
     /**
      * An ambiguous network failure may happen after the server accepted a
      * message. Reusing the id for the exact same retained draft makes Retry
-     * idempotent instead of sending the attachment twice.
+     * idempotent instead of sending it twice.
      */
+    private data class TextDraftKey(
+        val destination: MessageDestination,
+        val text: String,
+    )
+
+    private val textSendIds = LinkedHashMap<TextDraftKey, String>()
+
     private data class AttachmentDraftKey(
         val destination: MessageDestination,
         val text: String,
