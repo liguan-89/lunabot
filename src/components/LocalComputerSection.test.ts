@@ -295,9 +295,9 @@ describe("cloud computer inventory UI", () => {
 
   it("keeps disconnected, unavailable, and empty states distinct", () => {
     const disconnected = renderCard({ configured: false });
-    expect(disconnected).toContain("No VPS is connected.");
+    expect(disconnected).toContain("No cloud desktop machine is connected.");
     expect(disconnected).not.toContain("No cloud desktops found");
-    expect(disconnected.match(/No VPS is connected\./g)).toHaveLength(1);
+    expect(disconnected.match(/No cloud desktop machine is connected\./g)).toHaveLength(1);
     expect(disconnected).toContain("Connect it in Settings → API keys");
     expect(disconnected).not.toContain("aria-busy");
 
@@ -307,7 +307,7 @@ describe("cloud computer inventory UI", () => {
 
     const endpointFailure = renderCard({ configured: null, unavailableReason: "Computer inventory could not load" });
     expect(endpointFailure).toContain("Computer inventory could not load");
-    expect(endpointFailure).not.toContain("No VPS is connected.");
+    expect(endpointFailure).not.toContain("No cloud desktop machine is connected.");
 
     const empty = renderCard();
     expect(empty).toContain("No cloud desktops found");
